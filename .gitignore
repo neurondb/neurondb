@@ -1,55 +1,354 @@
-# Prerequisites
-*.d
+# ============================================================================
+# NeuronDB Ecosystem - Comprehensive .gitignore
+# Covers: NeuronAgent, NeuronDB, NeuronMCP
+# ============================================================================
 
-# Object files
+# ============================================================================
+# GENERAL / OS
+# ============================================================================
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ============================================================================
+# IDE & EDITORS
+# ============================================================================
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# IntelliJ IDEA / JetBrains
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Vim
+*.swp
+*.swo
+*~
+.*.sw?
+
+# Emacs
+*~
+\#*\#
+.\#*
+*.elc
+auto-save-list
+tramp
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# ============================================================================
+# LOGS & TEMPORARY FILES
+# ============================================================================
+
+# Log files
+*.log
+*.log.*
+pg.log
+pg.log.log
+build_output.log
+build_warnings.log
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+*.backup.*
+*.old
+*.orig
+*.save
+*.swp
+*.swo
+
+# ============================================================================
+# SECRETS & SENSITIVE CONFIGURATION
+# ============================================================================
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+*.env
+
+# Configuration files with secrets
+config.yaml
+mcp-config.json
+!mcp-config.example.json
+!mcp-config.json.example
+
+# API keys and secrets
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+secrets/
+.secrets/
+
+# ============================================================================
+# NEURONAGENT (Go Application)
+# ============================================================================
+
+# Go binaries
+NeuronAgent/agent-server
+NeuronAgent/cmd/*/agent-server
+NeuronAgent/cmd/*/generate-key
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go test binaries
+*.test
+*.test.exe
+
+# Go coverage files
+*.out
+coverage.txt
+coverage.html
+coverage.xml
+
+# Go workspace file
+go.work
+go.work.sum
+
+# Go vendor directory
+vendor/
+NeuronAgent/vendor/
+
+# Go build cache
+.cache/
+go-cache/
+
+# ============================================================================
+# NEURONDB (PostgreSQL Extension - C/CUDA)
+# ============================================================================
+
+# Compiled object files
 *.o
-*.ko
-*.obj
-*.elf
+NeuronDB/src/**/*.o
+NeuronDB/**/*.o
 
-# Linker output
-*.ilk
-*.map
-*.exp
-
-# Precompiled Headers
-*.gch
-*.pch
-
-# Libraries
-*.lib
+# Compiled libraries
+*.so
+*.dylib
+*.dll
 *.a
 *.la
 *.lo
+NeuronDB/*.so
+NeuronDB/*.dylib
+NeuronDB/neurondb.so
+NeuronDB/neurondb.dylib
 
-# Shared objects (inc. Windows DLLs)
-*.dll
+# GPU Metal compiled files
+*.air
+*.metallib
+*.metal-ar
+NeuronDB/src/gpu/metal/*.air
+NeuronDB/src/gpu/metal/*.metallib
+
+# GPU CUDA compiled files
+*.cubin
+*.ptx
+*.fatbin
+
+# Build artifacts
+Makefile.local
+NeuronDB/Makefile.local
+build/
+dist/
+*.build/
+
+# Generated headers
+*.h.generated
+include/*_config.h
+NeuronDB/include/neurondb_config.h
+
+# Build scripts output
+NeuronDB/build_output.log
+NeuronDB/build_warnings.log
+NeuronDB/gpu_model_bridge.o
+
+# PostgreSQL extension files (compiled)
+NeuronDB/*.control.bak
+NeuronDB/*.sql.bak
+
+# Python cache (for scripts)
+__pycache__/
+*.py[cod]
+*$py.class
 *.so
-*.so.*
-*.dylib
+.Python
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+NeuronDB/python/**/__pycache__/
+NeuronDB/scripts/**/__pycache__/
+NeuronDB/tools/**/__pycache__/
+NeuronDB/dataset/**/__pycache__/
 
-# Executables
-*.exe
-*.out
-*.app
-*.i*86
-*.x86_64
-*.hex
+# Python virtual environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv
+NeuronDB/tests/venv/
+NeuronDB/**/venv/
+NeuronDB/**/env/
 
-# Debug files
-*.dSYM/
-*.su
-*.idb
-*.pdb
+# Python build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
 
-# Kernel Module Compile Results
-*.mod*
-*.cmd
-.tmp_versions/
-modules.order
-Module.symvers
-Mkfile.old
-dkms.conf
+# ============================================================================
+# NEURONMCP (Go + TypeScript)
+# ============================================================================
 
-# debug information files
-*.dwo
+# Node.js / TypeScript
+NeuronMCP/node_modules/
+NeuronMCP/**/node_modules/
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# TypeScript build output
+NeuronMCP/dist/
+NeuronMCP/build/
+NeuronMCP/**/dist/
+*.tsbuildinfo
+
+# Compiled binaries
+NeuronMCP/neurondb-mcp
+NeuronMCP/bin/neurondb-mcp
+NeuronMCP/cmd/*/neurondb-mcp
+
+# Go artifacts (also applies to NeuronMCP)
+NeuronMCP/**/*.test
+NeuronMCP/**/*.out
+NeuronMCP/vendor/
+
+# Backup files
+NeuronMCP/*.backup*
+NeuronMCP/fix_*.js
+
+# ============================================================================
+# DOCKER
+# ============================================================================
+
+# Docker build context artifacts
+*.dockerignore.bak
+docker-compose.override.yml
+
+# ============================================================================
+# TESTING & CI/CD
+# ============================================================================
+
+# Test outputs
+*.test.out
+*.test.err
+NeuronDB/tests/error/
+NeuronDB/tests/output/
+!NeuronDB/tests/error/.gitignore
+
+# Coverage reports
+coverage/
+*.coverprofile
+*.coverage
+.coverage
+htmlcov/
+
+# ============================================================================
+# DATABASE & MIGRATIONS
+# ============================================================================
+
+# Database dumps
+*.sql.dump
+*.dump
+*.db
+*.sqlite
+*.sqlite3
+
+# Migration temporary files
+*_migration_*.sql
+*.migration.sql.tmp
+
+# ============================================================================
+# DOCUMENTATION BUILD
+# ============================================================================
+
+# Generated documentation
+docs/_build/
+docs/.doctrees/
+site/
+*.html
+
+# ============================================================================
+# MISC
+# ============================================================================
+
+# Package manager lock files (keep package.json but ignore lock files if needed)
+# Uncomment if you want to ignore lock files:
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# Temporary directories
+tmp/
+temp/
+.tmp/
+.temp/
+
+# Archives (unless explicitly needed)
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+
+# Large data files
+*.csv
+*.tsv
+*.parquet
+*.arrow
+!NeuronDB/dataset/*.csv  # Keep dataset CSVs if needed
+
+# Model files (uncomment if needed)
+# *.pt
+# *.pth
+# *.onnx
+# *.pb
+# *.h5
+# *.ckpt
+
+# ============================================================================
+# END OF .gitignore
+# ============================================================================
+
+
