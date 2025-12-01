@@ -26,7 +26,7 @@ FROM documents;
 
 For detailed documentation on Metal setup and Apple Silicon optimization, visit:
 
-**[Metal Support Documentation](https://pgelephant.com/neurondb/gpu/)**
+**[Metal Support Documentation](https://neurondb.ai/docs/gpu/)**
 
 ## Related Topics
 

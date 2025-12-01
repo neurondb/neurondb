@@ -11,7 +11,7 @@
  * Ensures multi-tenant isolation by filtering results based on
  * PostgreSQL RLS policies.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *	  src/scan/scan_rls.c

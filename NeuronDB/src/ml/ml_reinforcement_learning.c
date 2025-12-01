@@ -6,7 +6,7 @@
  * This module implements Q-learning, DQN, PPO, and multi-armed bandits
  * for reinforcement learning tasks.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_reinforcement_learning.c

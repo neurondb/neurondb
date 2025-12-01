@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pgElephant/NeuronAgent/internal/auth"
-	"github.com/pgElephant/NeuronAgent/internal/metrics"
+	"github.com/neurondb/NeuronAgent/internal/auth"
+	"github.com/neurondb/NeuronAgent/internal/metrics"
 )
 
 type contextKey string

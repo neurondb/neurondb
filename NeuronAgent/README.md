@@ -322,8 +322,8 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 ## Support
 
 - **Documentation**: [Component Documentation](../README.md)
-- **GitHub Issues**: [Report Issues](https://github.com/pgElephant/NeurondB/issues)
-- **Email**: admin@pgelephant.com
+- **GitHub Issues**: [Report Issues](https://github.com/neurondb/NeurondB/issues)
+- **Email**: support@neurondb.ai
 
 ## License
 

@@ -6,7 +6,7 @@
  * Implements GPU-accelerated split finding for both classification
  * (Gini impurity) and regression (variance reduction).
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/gpu/cuda/gpu_dt_kernels.cu

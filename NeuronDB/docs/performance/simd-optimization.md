@@ -33,7 +33,7 @@ SIMD provides significant speedup:
 
 For detailed documentation on SIMD optimization, compiler flags, and performance tuning, visit:
 
-**[SIMD Optimization Documentation](https://pgelephant.com/neurondb/performance/optimization/)**
+**[SIMD Optimization Documentation](https://neurondb.ai/docs/performance/optimization/)**
 
 ## Related Topics
 

@@ -27,7 +27,7 @@
  *   PG_END_TRY();
  *   ndb_spi_session_end(&session);
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *	  include/neurondb_spi.h

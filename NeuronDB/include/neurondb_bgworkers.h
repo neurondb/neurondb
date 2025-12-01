@@ -8,7 +8,7 @@
  *   - neuranmon: Auto-tuner and monitoring
  *   - neurandefrag: Index maintenance
  *
- * Copyright (c) 2024-2025, pgElephant, Inc. <admin@pgelephant.com>
+ * Copyright (c) 2024-2025, neurondb, Inc. <admin@neurondb.com>
  *
  * IDENTIFICATION
  *	  include/neurondb_bgworkers.h

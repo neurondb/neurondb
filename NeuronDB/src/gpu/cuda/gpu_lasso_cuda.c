@@ -1,9 +1,9 @@
 /*-------------------------------------------------------------------------
  *
  * gpu_lasso_cuda.c
- *    pgElephant NeurondB module
+ *    neurondb NeurondB module
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/gpu/cuda/gpu_lasso_cuda.c

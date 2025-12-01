@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/pgElephant/NeuronAgent/internal/db"
+	"github.com/neurondb/NeuronAgent/internal/db"
 )
 
 type Cache struct {

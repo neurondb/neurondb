@@ -11,7 +11,7 @@
  * utils/jsonb.h for JSONB operations. All functions follow 100%
  * PostgreSQL C coding standards with proper error handling.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/util/neurondb_json.c

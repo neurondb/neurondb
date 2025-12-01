@@ -40,7 +40,7 @@ LIMIT 10;
 
 For detailed documentation on multi-vector strategies, embedding selection, weight optimization, and performance tuning, visit:
 
-**[Multi-Vector Documentation](https://pgelephant.com/neurondb/hybrid/multi-vector/)**
+**[Multi-Vector Documentation](https://neurondb.ai/docs/hybrid/multi-vector/)**
 
 ## Related Topics
 

@@ -6,7 +6,7 @@
  * Implements vectorp (packed SIMD), vecmap (sparse), rtext (retrievable
  * text), and vgraph (compact graph) data types with I/O functions.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *	  src/types_core.c

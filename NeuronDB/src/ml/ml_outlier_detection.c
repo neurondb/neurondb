@@ -6,7 +6,7 @@
  * This module implements Z-score, robust Z-score, and IQR methods for
  * detecting outliers in embedding data.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_outlier_detection.c

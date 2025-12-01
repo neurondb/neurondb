@@ -6,7 +6,7 @@
  * This module implements automated hyperparameter tuning using grid search,
  * random search, and Bayesian optimization.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_hyperparameter_tuning.c

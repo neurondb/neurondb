@@ -1,8 +1,8 @@
 package server
 
 import (
-	"github.com/pgElephant/NeuronMCP/internal/config"
-	"github.com/pgElephant/NeuronMCP/internal/tools"
+	"github.com/neurondb/NeuronMCP/internal/config"
+	"github.com/neurondb/NeuronMCP/internal/tools"
 )
 
 // filterToolsByFeatures filters tools based on feature flags

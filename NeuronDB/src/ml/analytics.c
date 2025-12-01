@@ -6,7 +6,7 @@
  * This module implements comprehensive vector analytics including clustering,
  * dimensionality reduction, outlier detection, and quality metrics.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/analytics.c

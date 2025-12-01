@@ -6,7 +6,7 @@
  * This module provides resource-scoped context management for ML operations
  * with deterministic cleanup.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/gpu/common/ml_gpu_context.c

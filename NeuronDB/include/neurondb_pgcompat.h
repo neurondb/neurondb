@@ -8,7 +8,7 @@
  * IDENTIFICATION
  *	  include/neurondb_pgcompat.h
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *-------------------------------------------------------------------------
  */
 

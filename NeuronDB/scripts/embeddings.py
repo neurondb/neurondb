@@ -3,7 +3,7 @@
 embeddings.py
     Embedding generation and vector index management
 
-Copyright (c) 2024-2025, pgElephant, Inc.
+Copyright (c) 2024-2025, neurondb, Inc.
 """
 
 import psycopg2

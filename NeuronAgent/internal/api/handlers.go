@@ -8,9 +8,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"github.com/pgElephant/NeuronAgent/internal/agent"
-	"github.com/pgElephant/NeuronAgent/internal/db"
-	"github.com/pgElephant/NeuronAgent/internal/metrics"
+	"github.com/neurondb/NeuronAgent/internal/agent"
+	"github.com/neurondb/NeuronAgent/internal/db"
+	"github.com/neurondb/NeuronAgent/internal/metrics"
 )
 
 type Handlers struct {

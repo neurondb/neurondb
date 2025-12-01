@@ -6,7 +6,7 @@
  * Integrates Flash Attention 2 for memory-efficient cross-encoder reranking.
  * Supports long context windows (8K+ tokens) with reduced memory footprint.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_reranking_flash.c

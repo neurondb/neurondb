@@ -6,7 +6,7 @@
  * This module implements backend initialization, device management, memory
  * routines, vector and batch operations, quantization, and clustering.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/gpu/metal/gpu_backend_metal.c

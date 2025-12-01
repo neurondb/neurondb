@@ -7,7 +7,7 @@
  * All SQL queries used in linear regression training, evaluation, and
  * prediction are defined here for maintainability.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/util/neurondb_sql.c

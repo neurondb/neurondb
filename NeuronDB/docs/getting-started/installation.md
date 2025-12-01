@@ -63,7 +63,7 @@ sudo apt-get install -y \
 
 ```bash
 # Clone the repository
-git clone https://github.com/pgElephant/NeurondB.git
+git clone https://github.com/neurondb/NeurondB.git
 cd NeurondB
 
 # Build the extension
@@ -103,7 +103,7 @@ brew services start postgresql@17
 
 ```bash
 # Clone repository
-git clone https://github.com/pgElephant/NeurondB.git
+git clone https://github.com/neurondb/NeurondB.git
 cd NeurondB
 
 # Build extension (Homebrew PostgreSQL path)
@@ -173,7 +173,7 @@ sudo systemctl start postgresql-17
 
 ```bash
 # Clone repository
-git clone https://github.com/pgElephant/NeurondB.git
+git clone https://github.com/neurondb/NeurondB.git
 cd NeurondB
 
 # Build extension
@@ -358,5 +358,5 @@ sudo make uninstall PG_CONFIG=/path/to/pg_config
 
 For detailed installation instructions, platform-specific guides, and troubleshooting, visit:
 
-**[Installation Documentation](https://pgelephant.com/neurondb/installation/)**
+**[Installation Documentation](https://neurondb.ai/docs/installation/)**
 

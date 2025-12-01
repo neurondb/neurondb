@@ -2,7 +2,7 @@
 
 ## Project Location
 
-Build at: `/Users/ibrarahmed/pgelephant/pge/NeuronDB/bin/NeuronAgent`
+Build at: `/Users/ndbuser/neurondb/pge/NeuronDB/bin/NeuronAgent`
 
 ## Project Structure
 
@@ -556,8 +556,8 @@ import (
     "encoding/json"
     "fmt"
     "github.com/google/uuid"
-    "github.com/pgElephant/NeuronAgent/internal/db"
-    "github.com/pgElephant/NeuronAgent/pkg/neurondb"
+    "github.com/neurondb/NeuronAgent/internal/db"
+    "github.com/neurondb/NeuronAgent/pkg/neurondb"
 )
 
 type Runtime struct {
@@ -814,7 +814,7 @@ package agent
 import (
     "context"
     "github.com/google/uuid"
-    "github.com/pgElephant/NeuronAgent/internal/db"
+    "github.com/neurondb/NeuronAgent/internal/db"
 )
 
 type MemoryManager struct {

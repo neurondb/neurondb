@@ -8,7 +8,7 @@
  * Chebyshev, and Minkowski distances. All functions use Kahan
  * summation for numerical stability where appropriate.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *	  src/vector/vector_distance.c

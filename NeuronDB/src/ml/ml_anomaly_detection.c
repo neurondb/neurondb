@@ -6,7 +6,7 @@
  * This module implements Isolation Forest, LOF, and One-Class SVM for
  * detecting anomalies in data.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_anomaly_detection.c

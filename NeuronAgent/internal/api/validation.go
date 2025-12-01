@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/pgElephant/NeuronAgent/internal/utils"
+	"github.com/neurondb/NeuronAgent/internal/utils"
 )
 
 // ValidateCreateAgentRequest validates CreateAgentRequest

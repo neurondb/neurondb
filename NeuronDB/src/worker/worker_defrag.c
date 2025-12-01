@@ -7,7 +7,7 @@
  * Handles periodic HNSW index compaction, edge cleanup, level rebalancing,
  * tombstone pruning, and maintenance window scheduling for optimal performance.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/worker/worker_defrag.c

@@ -6,7 +6,7 @@
  * This module implements automated model selection, hyperparameter tuning,
  * and ensemble methods.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_automl.c

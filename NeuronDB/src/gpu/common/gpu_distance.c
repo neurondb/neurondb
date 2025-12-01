@@ -6,7 +6,7 @@
  * This module implements L2, cosine, and inner product distance metrics
  * for high-performance vector operations.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/gpu/common/gpu_distance.c

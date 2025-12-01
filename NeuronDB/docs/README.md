@@ -118,16 +118,16 @@ NeuronDB is a PostgreSQL extension that brings native vector types, approximate 
 
 For detailed documentation, configuration, comprehensive API references, best practices, and performance tuning guides, visit:
 
-**[www.pgelephant.com/neurondb](https://pgelephant.com/neurondb)**
+**[www.neurondb.ai](https://neurondb.ai/docs)**
 
 ---
 
 ## Support & Community
 
-- **GitHub Issues**: [Report bugs or request features](https://github.com/pgElephant/NeurondB/issues)
-- **Email**: [admin@pgelephant.com](mailto:admin@pgelephant.com)
-- **Website**: [pgelephant.com](https://pgelephant.com)
+- **GitHub Issues**: [Report bugs or request features](https://github.com/neurondb/NeurondB/issues)
+- **Email**: [support@neurondb.ai](mailto:support@neurondb.ai)
+- **Website**: [neurondb.ai](https://neurondb.ai/docs)
 
 ---
 
-**Built by [pgElephant, Inc.](https://pgelephant.com)**
+**Built by [neurondb, Inc.](https://neurondb.ai)**

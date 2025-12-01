@@ -3,7 +3,7 @@
  * neurondb_cuda_knn.h
  *    CUDA-specific data structures and API for K-Nearest Neighbors
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    include/neurondb_cuda_knn.h

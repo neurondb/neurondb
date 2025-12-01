@@ -4,7 +4,7 @@
 -- Implements sparse_vector type for SPLADE/ColBERTv2/BM25 retrieval
 -- with inverted index support and hybrid dense+sparse search.
 --
--- Copyright (c) 2024-2025, pgElephant, Inc.
+-- Copyright (c) 2024-2025, neurondb, Inc.
 -- ============================================================================
 
 -- ============================================================================

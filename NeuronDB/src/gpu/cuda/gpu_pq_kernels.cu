@@ -8,7 +8,7 @@
  *
  * Performance: ~20-100x speedup vs CPU for large batches
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/gpu/gpu_pq_kernels.cu

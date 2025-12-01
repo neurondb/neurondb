@@ -49,7 +49,7 @@ SELECT facet_counts(
 
 For detailed documentation on faceted search, facet hierarchies, filtering strategies, and performance optimization, visit:
 
-**[Faceted Search Documentation](https://pgelephant.com/neurondb/hybrid/faceted/)**
+**[Faceted Search Documentation](https://neurondb.ai/docs/hybrid/faceted/)**
 
 ## Related Topics
 

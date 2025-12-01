@@ -6,7 +6,7 @@
  * Defines structures for HTTP/LLM integration with circuit breaker,
  * retry budget, cost caps, caching tiers, and execution tracing.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc. <admin@pgelephant.com>
+ * Copyright (c) 2024-2025, neurondb, Inc. <admin@neurondb.com>
  *
  * IDENTIFICATION
  *	  include/neurondb_model.h

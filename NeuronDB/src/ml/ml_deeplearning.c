@@ -6,7 +6,7 @@
  * This module provides interfaces for PyTorch, TensorFlow, and ONNX model
  * integration with support for model import, inference, and fine-tuning.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_deeplearning.c

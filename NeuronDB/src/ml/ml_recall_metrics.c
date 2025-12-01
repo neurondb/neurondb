@@ -6,7 +6,7 @@
  * This module implements retrieval evaluation metrics including Recall@K,
  * Precision@K, F1@K, MRR, and NDCG for assessing search quality.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_recall_metrics.c

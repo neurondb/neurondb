@@ -6,7 +6,7 @@
  * Implements Random Forest as an ensemble of decision trees using
  * bootstrap aggregating (bagging) and random feature selection.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_random_forest_shared.c

@@ -2,7 +2,7 @@
 -- NeurondB Extension SQL Definitions
 -- Advanced AI Database Extension for PostgreSQL
 -- 
--- Copyright (c) 2024-2025, pgElephant, Inc. <admin@pgelephant.com>
+-- Copyright (c) 2024-2025, neurondb, Inc. <admin@neurondb.com>
 -- 
 -- Version Compatibility:
 -- - PostgreSQL 16: Full support with PL/pgSQL fallbacks for macOS dylib loader issues

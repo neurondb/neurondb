@@ -47,7 +47,7 @@ Prometheus metrics are available for external monitoring.
 
 For detailed documentation on monitoring, metrics interpretation, and alerting, visit:
 
-**[Monitoring Documentation](https://pgelephant.com/neurondb/performance/monitoring/)**
+**[Monitoring Documentation](https://neurondb.ai/docs/performance/monitoring/)**
 
 ## Related Topics
 

@@ -6,7 +6,7 @@
  * This module provides CatBoost gradient boosting for classification and
  * regression with support for categorical features.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_catboost.c

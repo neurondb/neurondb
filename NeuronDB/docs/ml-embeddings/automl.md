@@ -49,7 +49,7 @@ SELECT automl_train(
 
 For detailed documentation on AutoML, hyperparameter search strategies, model selection criteria, and optimization techniques, visit:
 
-**[AutoML Documentation](https://pgelephant.com/neurondb/ml/automl/)**
+**[AutoML Documentation](https://neurondb.ai/docs/ml/automl/)**
 
 ## Related Topics
 

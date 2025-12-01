@@ -11,7 +11,7 @@
  *   - ARM64: NEON baseline, dotprod extension if available
  *   - Scalar fallback for other architectures
  *
- * Copyright (c) 2024-2025, pgElephant, Inc. <admin@pgelephant.com>
+ * Copyright (c) 2024-2025, neurondb, Inc. <admin@neurondb.com>
  *
  * IDENTIFICATION
  *    include/neurondb_simd.h

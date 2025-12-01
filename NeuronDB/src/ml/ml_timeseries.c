@@ -6,7 +6,7 @@
  * This module implements ARIMA, exponential smoothing, and trend analysis
  * for univariate and multivariate time series.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_timeseries.c

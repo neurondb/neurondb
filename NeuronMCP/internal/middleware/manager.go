@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/pgElephant/NeuronMCP/internal/logging"
+	"github.com/neurondb/NeuronMCP/internal/logging"
 )
 
 // Manager manages middleware registration and execution

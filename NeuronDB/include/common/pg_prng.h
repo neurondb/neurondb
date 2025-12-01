@@ -7,7 +7,7 @@
  * may not be available or exported. Uses arc4random on platforms that
  * support it, falls back to rand() otherwise.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  *-------------------------------------------------------------------------
  */

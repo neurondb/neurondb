@@ -48,7 +48,7 @@ SELECT * FROM pg_stat_neurondb_gpu;
 
 For detailed documentation on CUDA setup, GPU optimization, and performance tuning, visit:
 
-**[CUDA Support Documentation](https://pgelephant.com/neurondb/gpu/)**
+**[CUDA Support Documentation](https://neurondb.ai/docs/gpu/)**
 
 ## Related Topics
 

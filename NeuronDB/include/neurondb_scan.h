@@ -3,7 +3,7 @@
  * neurondb_scan.h
  *		Function prototypes for scan, quota, RLS, and cache modules
  *
- * Copyright (c) 2024-2025, pgElephant, Inc. <admin@pgelephant.com>
+ * Copyright (c) 2024-2025, neurondb, Inc. <admin@neurondb.com>
  *
  * IDENTIFICATION
  *	  include/neurondb_scan.h

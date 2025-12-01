@@ -38,7 +38,7 @@ NeuronDB also supports:
 
 For detailed documentation on classification algorithms, evaluation metrics, hyperparameter tuning, and multi-class classification, visit:
 
-**[Classification Documentation](https://pgelephant.com/neurondb/ml/classification/)**
+**[Classification Documentation](https://neurondb.ai/docs/ml/classification/)**
 
 ## Related Topics
 

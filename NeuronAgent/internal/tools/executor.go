@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pgElephant/NeuronAgent/internal/db"
-	"github.com/pgElephant/NeuronAgent/internal/metrics"
+	"github.com/neurondb/NeuronAgent/internal/db"
+	"github.com/neurondb/NeuronAgent/internal/metrics"
 )
 
 // Executor handles tool execution with timeout and error handling

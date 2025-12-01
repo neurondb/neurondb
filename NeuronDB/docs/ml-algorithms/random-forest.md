@@ -48,7 +48,7 @@ FROM test_table;
 
 For detailed documentation on Random Forest parameters, hyperparameter tuning, feature importance, and GPU optimization, visit:
 
-**[Random Forest Documentation](https://pgelephant.com/neurondb/ml/random-forest/)**
+**[Random Forest Documentation](https://neurondb.ai/docs/ml/random-forest/)**
 
 ## Related Topics
 

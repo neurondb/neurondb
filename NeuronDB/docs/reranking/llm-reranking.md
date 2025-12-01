@@ -23,7 +23,7 @@ SELECT idx, score FROM rerank_llm(
 
 For detailed documentation on LLM reranking, model configuration, cost optimization, and prompt engineering, visit:
 
-**[LLM Reranking Documentation](https://pgelephant.com/neurondb/reranking/llm/)**
+**[LLM Reranking Documentation](https://neurondb.ai/docs/reranking/llm/)**
 
 ## Related Topics
 

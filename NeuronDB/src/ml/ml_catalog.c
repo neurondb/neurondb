@@ -6,7 +6,7 @@
  * This module provides utilities for model registration, retrieval, and
  * versioning in the neurondb.ml_models catalog.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_catalog.c

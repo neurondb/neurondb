@@ -2,7 +2,7 @@
  * gpu_nb_kernels.cu
  *    CUDA kernels for Naive Bayes training and inference.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/gpu/cuda/gpu_nb_kernels.cu

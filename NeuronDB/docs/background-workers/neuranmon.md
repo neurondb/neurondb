@@ -28,7 +28,7 @@ SELECT * FROM neurondb.tuning_recommendations;
 
 For detailed documentation on query auto-tuning, performance optimization, and monitoring, visit:
 
-**[neuranmon Documentation](https://pgelephant.com/neurondb/workers/neuranmon/)**
+**[neuranmon Documentation](https://neurondb.ai/docs/background-workers/neuranmon/)**
 
 ## Related Topics
 

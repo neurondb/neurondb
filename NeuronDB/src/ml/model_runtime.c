@@ -6,7 +6,7 @@
  * This module provides HTTP-based model inference with retry logic, caching,
  * and distributed tracing for PostgreSQL integration.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/model_runtime.c

@@ -6,7 +6,7 @@
  * This module bridges the generic backend interface with runtime primitives
  * and launch wrappers for distances, clustering, and quantization.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/gpu/cuda/gpu_backend_cuda.c

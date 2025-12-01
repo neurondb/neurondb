@@ -49,5 +49,5 @@ client.close()
 
 ## Documentation
 
-See [NeuronDB Documentation](https://pgelephant.com/neurondb) for detailed API reference.
+See [NeuronDB Documentation](https://neurondb.ai/docs) for detailed API reference.
 

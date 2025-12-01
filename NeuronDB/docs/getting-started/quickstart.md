@@ -62,4 +62,4 @@ LIMIT 5;
 
 For detailed documentation, examples, and comprehensive guides, visit:
 
-**[Detailed Documentation](https://pgelephant.com/neurondb)**
+**[Detailed Documentation](https://neurondb.ai/docs)**

@@ -46,7 +46,7 @@ SELECT train_hierarchical_clustering('data_table', 'features', 3) AS model_id;
 
 For detailed documentation on clustering algorithms, choosing parameters, evaluating clusters, and visualization, visit:
 
-**[Clustering Documentation](https://pgelephant.com/neurondb/analytics/clustering/)**
+**[Clustering Documentation](https://neurondb.ai/docs/analytics/clustering/)**
 
 ## Related Topics
 

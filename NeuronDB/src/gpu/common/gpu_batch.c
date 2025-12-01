@@ -6,7 +6,7 @@
  * This module computes distance matrices between query vectors and database
  * vectors efficiently using batch operations.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/gpu/common/gpu_batch.c

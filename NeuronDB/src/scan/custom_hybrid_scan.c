@@ -11,7 +11,7 @@
  *
  * This avoids multiple sequential scans and provides optimal hybrid search.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *	  src/scan/custom_hybrid_scan.c

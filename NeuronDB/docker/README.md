@@ -519,6 +519,6 @@ POSTGRES_HOST_AUTH_METHOD=md5  # or scram-sha-256 for better security
 
 For issues, questions, or contributions:
 
-- **GitHub Issues**: [https://github.com/pgElephant/NeurondB/issues](https://github.com/pgElephant/NeurondB/issues)
-- **Documentation**: [https://pgelephant.com/neurondb](https://pgelephant.com/neurondb)
-- **Email**: admin@pgelephant.com
+- **GitHub Issues**: [https://github.com/neurondb/NeurondB/issues](https://github.com/neurondb/NeurondB/issues)
+- **Documentation**: [https://neurondb.ai/docs](https://neurondb.ai/docs)
+- **Email**: support@neurondb.ai

@@ -550,8 +550,8 @@ curl http://localhost:8080/metrics
 
 - **Documentation**: [NeuronAgent README](../README.md)
 - **API Docs**: [API Documentation](../docs/API.md)
-- **GitHub Issues**: [Report Issues](https://github.com/pgElephant/NeurondB/issues)
-- **Email**: admin@pgelephant.com
+- **GitHub Issues**: [Report Issues](https://github.com/neurondb/NeurondB/issues)
+- **Email**: support@neurondb.ai
 
 ## License
 

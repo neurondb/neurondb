@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/pgElephant/NeuronAgent/internal/db"
+	"github.com/neurondb/NeuronAgent/internal/db"
 )
 
 type CodeTool struct {

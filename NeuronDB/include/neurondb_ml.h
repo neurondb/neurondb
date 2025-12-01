@@ -3,7 +3,7 @@
  * neurondb_ml.h
  *    ML utilities and function declarations
  *
- * Copyright (c) 2024-2025, pgElephant, Inc. <admin@pgelephant.com>
+ * Copyright (c) 2024-2025, neurondb, Inc. <admin@neurondb.com>
  *
  * IDENTIFICATION
  *    include/neurondb_ml.h

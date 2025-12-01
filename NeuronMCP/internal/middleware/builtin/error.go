@@ -3,8 +3,8 @@ package builtin
 import (
 	"context"
 
-	"github.com/pgElephant/NeuronMCP/internal/logging"
-	"github.com/pgElephant/NeuronMCP/internal/middleware"
+	"github.com/neurondb/NeuronMCP/internal/logging"
+	"github.com/neurondb/NeuronMCP/internal/middleware"
 )
 
 // ErrorHandlingMiddleware handles errors

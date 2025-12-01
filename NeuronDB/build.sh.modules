@@ -4,7 +4,7 @@
 #     Modular helper functions for build.sh
 #     Provides clean, reusable functions for GPU detection and configuration
 #
-# Copyright (c) 2024-2025, pgElephant, Inc.
+# Copyright (c) 2024-2025, neurondb, Inc.
 #-------------------------------------------------------------------------
 
 ###############################################################################

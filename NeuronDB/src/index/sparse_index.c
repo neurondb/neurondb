@@ -6,7 +6,7 @@
  * Implements inverted index access method for learned sparse vectors.
  * Uses token-based posting lists for efficient sparse retrieval.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/index/sparse_index.c

@@ -3,7 +3,7 @@
  * ml_lasso_regression_internal.h
  *    Internal structures for Lasso Regression
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    include/ml_lasso_regression_internal.h

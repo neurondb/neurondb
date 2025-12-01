@@ -6,7 +6,7 @@
  * This module implements mini-batch K-means for efficient clustering of
  * large-scale datasets using small random batches per iteration.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_minibatch_kmeans.c

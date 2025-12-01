@@ -6,7 +6,7 @@
  * This module implements feedforward neural networks with backpropagation,
  * supporting multiple hidden layers and various activation functions.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_neural_network.c

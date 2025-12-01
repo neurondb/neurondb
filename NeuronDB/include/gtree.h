@@ -3,7 +3,7 @@
  * gtree.h
  *    Simple growable tree container used by ML components.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  *-------------------------------------------------------------------------
  */

@@ -1,4 +1,4 @@
-module github.com/pgElephant/NeuronAgent
+module github.com/neurondb/NeuronAgent
 
 go 1.23.0
 

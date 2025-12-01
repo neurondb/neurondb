@@ -7,7 +7,7 @@
  * SUM, and centroid calculations. Uses transition and final functions
  * following PostgreSQL aggregate function conventions.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *	  src/types/aggregates.c

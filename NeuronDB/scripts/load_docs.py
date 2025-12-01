@@ -26,7 +26,7 @@ Options:
 Example:
     python3 load_docs.py -d /path/to/docs -D mydb -U myuser
 
-Copyright (c) 2024-2025, pgElephant, Inc.
+Copyright (c) 2024-2025, neurondb, Inc.
 """
 
 import sys

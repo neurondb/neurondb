@@ -3,7 +3,7 @@
  * gpu_dt_rocm.c
  *    ROCm backend bridge for Decision Tree training and prediction.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/gpu/rocm/gpu_dt_rocm.c

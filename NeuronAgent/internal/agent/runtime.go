@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
-	"github.com/pgElephant/NeuronAgent/internal/db"
-	"github.com/pgElephant/NeuronAgent/pkg/neurondb"
+	"github.com/neurondb/NeuronAgent/internal/db"
+	"github.com/neurondb/NeuronAgent/pkg/neurondb"
 )
 
 type Runtime struct {

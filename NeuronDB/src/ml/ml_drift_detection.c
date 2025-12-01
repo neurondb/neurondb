@@ -6,7 +6,7 @@
  * This module detects embedding drift by comparing distributions over time
  * using centroid shift, covariance change, and KL divergence methods.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_drift_detection.c

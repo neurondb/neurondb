@@ -4,7 +4,7 @@
 -- Implements memory-efficient attention mechanism for cross-encoder reranking.
 -- Supports long context windows (8K+ tokens) with reduced memory footprint.
 --
--- Copyright (c) 2024-2025, pgElephant, Inc.
+-- Copyright (c) 2024-2025, neurondb, Inc.
 -- ============================================================================
 
 -- ============================================================================

@@ -51,7 +51,7 @@ All submissions require review. We use GitHub pull requests for this purpose.
 - Be respectful and constructive
 - Follow PostgreSQL community guidelines
 - Help others when possible
-- Contact: admin@pgelephant.com for questions
+- Contact: support@neurondb.ai for questions
 
 ## License
 

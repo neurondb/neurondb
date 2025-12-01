@@ -1,4 +1,4 @@
-module github.com/pgElephant/NeuronMCP
+module github.com/neurondb/NeuronMCP
 
 go 1.23.0
 

@@ -36,7 +36,7 @@ SELECT * FROM neurondb.embedding_cache_stats;
 
 For detailed documentation on embedding models, providers, caching strategies, and multimodal embeddings, visit:
 
-**[Embedding Generation Documentation](https://pgelephant.com/neurondb/ml/embeddings/)**
+**[Embedding Generation Documentation](https://neurondb.ai/docs/ml/embeddings/)**
 
 ## Related Topics
 

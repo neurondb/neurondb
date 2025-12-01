@@ -5,7 +5,7 @@
  * Uses pre-compiled .metallib files to avoid XPC runtime compilation.
  * Provides TRUE GPU parallel processing on Apple Silicon (5-10x speedup).
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  */
 
 /* Prevent symbol conflicts */

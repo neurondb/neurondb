@@ -6,7 +6,7 @@
  * Caches HNSW graph entry points in shared memory to avoid
  * repeated metadata page reads. Uses LRU eviction.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *	  src/index/index_cache.c

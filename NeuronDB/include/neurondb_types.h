@@ -7,7 +7,7 @@
  * vecmap (sparse high-dimensional), rtext (retrievable text with tokens),
  * and vgraph (compact graph storage).
  *
- * Copyright (c) 2024-2025, pgElephant, Inc. <admin@pgelephant.com>
+ * Copyright (c) 2024-2025, neurondb, Inc. <admin@neurondb.com>
  *
  * IDENTIFICATION
  *	  include/neurondb_types.h

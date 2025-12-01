@@ -713,8 +713,8 @@ docker network inspect neurondb-ecosystem
 - **NeuronDB Docker**: [NeuronDB Docker README](README.md)
 - **NeuronAgent Docker**: [NeuronAgent Docker README](../../NeuronAgent/docker/README.md)
 - **NeuronMCP Docker**: [NeuronMCP Docker README](../../NeuronMCP/docker/README.md)
-- **GitHub Issues**: [Report Issues](https://github.com/pgElephant/NeurondB/issues)
-- **Email**: admin@pgelephant.com
+- **GitHub Issues**: [Report Issues](https://github.com/neurondb/NeurondB/issues)
+- **Email**: support@neurondb.ai
 
 ## License
 

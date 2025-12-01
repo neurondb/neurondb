@@ -53,4 +53,4 @@ neurondb.neuranq_queue_depth = 10000
 
 For detailed documentation on all configuration options, settings, and optimization, visit:
 
-**[Configuration Documentation](https://pgelephant.com/neurondb/configuration/)**
+**[Configuration Documentation](https://neurondb.ai/docs/configuration/)**

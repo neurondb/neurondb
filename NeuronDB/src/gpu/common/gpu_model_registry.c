@@ -7,7 +7,7 @@
  * The registry is consulted by unified ML entry points for training and
  * prediction routing.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/gpu/common/gpu_model_registry.c

@@ -5,7 +5,7 @@
  * IDENTIFICATION
  *	  src/gpu/gpu_cuda_kernels.cu
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * ------------------------------------------------------------------------
  * This file provides detailed, robust CUDA kernel implementations for

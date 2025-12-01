@@ -31,7 +31,7 @@ FROM documents;
 
 For detailed documentation on GPU auto-detection, fallback behavior, and manual configuration, visit:
 
-**[GPU Auto-Detection Documentation](https://pgelephant.com/neurondb/gpu/)**
+**[GPU Auto-Detection Documentation](https://neurondb.ai/docs/gpu/)**
 
 ## Related Topics
 

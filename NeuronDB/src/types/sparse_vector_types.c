@@ -7,7 +7,7 @@
  * models like SPLADE and ColBERTv2. Stores sparse representations with
  * token IDs and learned weights.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/types/sparse_vector_types.c

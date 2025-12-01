@@ -3,7 +3,7 @@ package builtin
 import (
 	"context"
 
-	"github.com/pgElephant/NeuronMCP/internal/middleware"
+	"github.com/neurondb/NeuronMCP/internal/middleware"
 )
 
 // ValidationMiddleware validates requests

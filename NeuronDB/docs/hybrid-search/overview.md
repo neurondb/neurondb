@@ -21,7 +21,7 @@ SELECT * FROM hybrid_search(
 
 For detailed documentation on hybrid search strategies, weight tuning, filtering, and performance optimization, visit:
 
-**[Hybrid Search Documentation](https://pgelephant.com/neurondb/hybrid/overview/)**
+**[Hybrid Search Documentation](https://neurondb.ai/docs/hybrid/overview/)**
 
 ## Related Topics
 

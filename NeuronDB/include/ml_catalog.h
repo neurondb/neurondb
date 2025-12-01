@@ -3,7 +3,7 @@
  * ml_catalog.h
  *    Utilities for registering and fetching models in neurondb.ml_models.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  *-------------------------------------------------------------------------
  */

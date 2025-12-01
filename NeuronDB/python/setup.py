@@ -10,12 +10,12 @@ with open("README.md", "r", encoding="utf-8") as fh:
 setup(
 	name="neurondb",
 	version="1.0.0",
-	author="pgElephant, Inc.",
-	author_email="admin@pgelephant.com",
+	author="neurondb, Inc.",
+	author_email="admin@neurondb.com",
 	description="Python SDK for NeuronDB PostgreSQL extension",
 	long_description=long_description,
 	long_description_content_type="text/markdown",
-	url="https://github.com/pgElephant/NeurondB",
+	url="https://github.com/neurondb/NeurondB",
 	packages=find_packages(),
 	classifiers=[
 		"Development Status :: 4 - Beta",

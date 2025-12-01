@@ -636,7 +636,7 @@ This document outlines new technologies and capabilities that could be added to 
 ---
 
 **Last Updated:** 2025-01-27  
-**Maintained by:** pgElephant, Inc.
+**Maintained by:** neurondb, Inc.
 
 
 

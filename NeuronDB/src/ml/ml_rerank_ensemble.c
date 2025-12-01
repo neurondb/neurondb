@@ -6,7 +6,7 @@
  * This module combines multiple ranking models using weighted sum, rank-based
  * fusion, and Borda count methods for improved search relevance.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_rerank_ensemble.c

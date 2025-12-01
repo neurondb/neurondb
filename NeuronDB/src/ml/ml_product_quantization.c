@@ -6,7 +6,7 @@
  * This module implements product quantization for efficient vector compression
  * and approximate nearest neighbor search.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_product_quantization.c

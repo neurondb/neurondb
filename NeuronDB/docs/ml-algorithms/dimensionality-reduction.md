@@ -45,7 +45,7 @@ SELECT pca_whiten(
 
 For detailed documentation on PCA, whitening, choosing dimensions, and inverse transformation, visit:
 
-**[Dimensionality Reduction Documentation](https://pgelephant.com/neurondb/analytics/dimensionality/)**
+**[Dimensionality Reduction Documentation](https://neurondb.ai/docs/analytics/dimensionality/)**
 
 ## Related Topics
 

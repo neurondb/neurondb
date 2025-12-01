@@ -73,7 +73,7 @@ SELECT davies_bouldin_index(
 
 For detailed documentation on all quality metrics, choosing appropriate metrics, benchmarking, and interpretation, visit:
 
-**[Quality Metrics Documentation](https://pgelephant.com/neurondb/analytics/quality/)**
+**[Quality Metrics Documentation](https://neurondb.ai/docs/analytics/quality/)**
 
 ## Related Topics
 

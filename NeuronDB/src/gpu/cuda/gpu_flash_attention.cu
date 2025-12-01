@@ -9,7 +9,7 @@
  * Based on Flash Attention 2 paper:
  * "Flash Attention 2: Faster Attention with Better Parallelism and Work Partitioning"
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/gpu/cuda/gpu_flash_attention.cu

@@ -9,7 +9,7 @@ Modules:
     - db_operations.py: Database schema and operations
     - embeddings.py: Embedding generation and vector indexes
 
-Copyright (c) 2024-2025, pgElephant, Inc.
+Copyright (c) 2024-2025, neurondb, Inc.
 """
 
 __version__ = '1.0.0'

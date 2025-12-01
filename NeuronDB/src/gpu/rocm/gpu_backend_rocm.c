@@ -6,7 +6,7 @@
  * This module provides a complete backend implementation of the backend
  * interface with all operations fully implemented.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/gpu/rocm/gpu_backend_rocm.c

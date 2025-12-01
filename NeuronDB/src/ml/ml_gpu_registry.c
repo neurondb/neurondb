@@ -6,7 +6,7 @@
  * This module registers GPU-capable ML model implementations for
  * accelerated training and inference.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_gpu_registry.c

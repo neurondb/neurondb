@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/pgElephant/NeuronMCP/internal/database"
-	"github.com/pgElephant/NeuronMCP/internal/logging"
+	"github.com/neurondb/NeuronMCP/internal/database"
+	"github.com/neurondb/NeuronMCP/internal/logging"
 )
 
 // ToolDefinition represents a tool's definition for MCP

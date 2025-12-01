@@ -56,7 +56,7 @@ SELECT detect_trend(
 
 For detailed documentation on time series analysis, forecasting models, seasonality detection, and anomaly detection in time series, visit:
 
-**[Time Series Documentation](https://pgelephant.com/neurondb/ml/timeseries/)**
+**[Time Series Documentation](https://neurondb.ai/docs/ml/timeseries/)**
 
 ## Related Topics
 

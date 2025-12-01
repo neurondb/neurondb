@@ -6,7 +6,7 @@
  * This module implements GCN, GAT, and GraphSAGE for graph-structured data
  * learning with model serialization and catalog storage.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_graph_neural_networks.c

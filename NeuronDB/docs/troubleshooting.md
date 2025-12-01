@@ -6,7 +6,7 @@ Solutions to common NeuronDB issues, error messages, and configuration problems.
 
 For detailed troubleshooting guides, solutions, and support resources, visit:
 
-**[Troubleshooting Documentation](https://pgelephant.com/neurondb/troubleshooting/)**
+**[Troubleshooting Documentation](https://neurondb.ai/docs/troubleshooting/)**
 
 ## GPU Acceleration Issues
 

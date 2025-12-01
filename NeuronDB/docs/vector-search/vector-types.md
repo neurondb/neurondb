@@ -61,7 +61,7 @@ SELECT rtext_in('retrieval optimized text');
 
 For detailed documentation on all vector types, when to use each, storage optimization, and performance characteristics, visit:
 
-**[Vector Types Documentation](https://pgelephant.com/neurondb/features/vector-types/)**
+**[Vector Types Documentation](https://neurondb.ai/docs/features/vector-types/)**
 
 ## Related Topics
 

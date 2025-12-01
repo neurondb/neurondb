@@ -54,7 +54,7 @@ PQ and OPQ can achieve 2x-32x compression:
 
 For detailed documentation on quantization techniques, choosing parameters, accuracy trade-offs, and hybrid quantization, visit:
 
-**[Quantization Documentation](https://pgelephant.com/neurondb/features/quantization/)**
+**[Quantization Documentation](https://neurondb.ai/docs/features/quantization/)**
 
 ## Related Topics
 

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/pgElephant/NeuronAgent/internal/db"
+	"github.com/neurondb/NeuronAgent/internal/db"
 )
 
 // Registry manages tool registration and execution

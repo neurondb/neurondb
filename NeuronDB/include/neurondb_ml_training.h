@@ -2,7 +2,7 @@
  * neurondb_ml_training.h
  *    Header file for ML Training and Inference API
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  */
 
 #ifndef NEURONDB_ML_TRAINING_H

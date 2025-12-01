@@ -6,7 +6,7 @@
  * This module implements Lloyd's algorithm with K-means++ initialization
  * for centroid-based clustering.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_kmeans.c

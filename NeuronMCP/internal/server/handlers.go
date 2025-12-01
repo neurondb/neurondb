@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/pgElephant/NeuronMCP/internal/middleware"
-	"github.com/pgElephant/NeuronMCP/internal/tools"
-	"github.com/pgElephant/NeuronMCP/pkg/mcp"
+	"github.com/neurondb/NeuronMCP/internal/middleware"
+	"github.com/neurondb/NeuronMCP/internal/tools"
+	"github.com/neurondb/NeuronMCP/pkg/mcp"
 )
 
 // setupToolHandlers sets up tool-related MCP handlers

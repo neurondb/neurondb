@@ -5,7 +5,7 @@
  * Uses Metal Performance Shaders framework (precompiled by Apple).
  * NO runtime shader compilation - avoids XPC issues in PostgreSQL.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  */
 
 /* Protocol conflict resolution for librale vs Objective-C */

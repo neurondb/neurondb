@@ -31,7 +31,7 @@
  * Model session caching is handled in a least-recently-used (LRU) fashion to avoid 
  * excessive memory pressure and ensure quick re-use of hot models.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  * SPDX-License-Identifier: PostgreSQL
  */
 

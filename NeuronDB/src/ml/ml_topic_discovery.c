@@ -6,7 +6,7 @@
  * This module discovers latent topics in document embeddings by clustering
  * with K-means and computing term importance per cluster.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_topic_discovery.c

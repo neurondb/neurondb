@@ -369,8 +369,8 @@ env | grep -E "^NEURONDB_"
 ## Support
 
 - **Documentation**: [Component Documentation](../README.md)
-- **GitHub Issues**: [Report Issues](https://github.com/pgElephant/NeurondB/issues)
-- **Email**: admin@pgelephant.com
+- **GitHub Issues**: [Report Issues](https://github.com/neurondb/NeurondB/issues)
+- **Email**: support@neurondb.ai
 
 ## License
 

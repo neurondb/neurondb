@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/pgElephant/NeuronMCP/pkg/mcp"
+	"github.com/neurondb/NeuronMCP/pkg/mcp"
 )
 
 // setupResourceHandlers sets up resource-related MCP handlers

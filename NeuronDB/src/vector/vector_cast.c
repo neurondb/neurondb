@@ -6,7 +6,7 @@
  * Implements comprehensive type casting between vectors, arrays, and
  * quantized formats (FP16, INT8, sparse).
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *	  src/vector/vector_cast.c

@@ -8,7 +8,7 @@
  * and binary quantization (32x compression). Includes optimized
  * Hamming distance for binary vectors.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *	  src/types/quantization.c

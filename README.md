@@ -2,7 +2,7 @@
 
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16%2C17%2C18-blue.svg)](https://www.postgresql.org/)
 [![License](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
-[![Documentation](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://pgelephant.com/neurondb)
+[![Documentation](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://neurondb.ai/docs)
 
 PostgreSQL extension with vector search, machine learning algorithms, and agent runtime capabilities. Three components operate independently while sharing the same database instance.
 
@@ -837,9 +837,9 @@ See component-specific deployment documentation:
 
 | Resource | Purpose |
 |----------|---------|
-| [GitHub Issues](https://github.com/pgElephant/NeurondB/issues) | Report bugs and request features |
-| [Documentation](https://pgelephant.com/neurondb) | Complete documentation site |
-| Email Support | admin@pgelephant.com |
+| [GitHub Issues](https://github.com/neurondb/NeurondB/issues) | Report bugs and request features |
+| [Documentation](https://neurondb.ai/docs) | Complete documentation site |
+| Email Support | support@neurondb.ai |
 
 ### Reporting Issues
 

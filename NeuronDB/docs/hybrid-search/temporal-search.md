@@ -41,7 +41,7 @@ LIMIT 10;
 
 For detailed documentation on temporal search, decay functions, time windowing, and freshness scoring, visit:
 
-**[Temporal Search Documentation](https://pgelephant.com/neurondb/hybrid/temporal/)**
+**[Temporal Search Documentation](https://neurondb.ai/docs/hybrid/temporal/)**
 
 ## Related Topics
 

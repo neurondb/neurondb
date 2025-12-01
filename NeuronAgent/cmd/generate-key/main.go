@@ -7,9 +7,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/pgElephant/NeuronAgent/internal/auth"
-	"github.com/pgElephant/NeuronAgent/internal/db"
-	"github.com/pgElephant/NeuronAgent/internal/config"
+	"github.com/neurondb/NeuronAgent/internal/auth"
+	"github.com/neurondb/NeuronAgent/internal/db"
+	"github.com/neurondb/NeuronAgent/internal/config"
 )
 
 func main() {

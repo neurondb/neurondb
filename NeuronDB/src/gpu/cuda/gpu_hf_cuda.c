@@ -6,7 +6,7 @@
  * This module provides bridge functions for Hugging Face model operations
  * and LLM inference.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/gpu/cuda/gpu_hf_cuda.c

@@ -4,7 +4,7 @@
 -- Implements CLIP and ImageBind model integration for generating embeddings
 -- from multiple modalities with cross-modal retrieval support.
 --
--- Copyright (c) 2024-2025, pgElephant, Inc.
+-- Copyright (c) 2024-2025, neurondb, Inc.
 -- ============================================================================
 
 CREATE FUNCTION clip_embed(input text, modality text DEFAULT 'text')

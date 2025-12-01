@@ -3,7 +3,7 @@
  * vector_ops.h
  *	  Vector operations (math, normalization, conversion)
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  * SPDX-License-Identifier: PostgreSQL
  *
  *-------------------------------------------------------------------------

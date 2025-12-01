@@ -3,7 +3,7 @@
  * gpu_gmm_cuda.c
  *    CUDA backend bridge for Gaussian Mixture Model training and prediction.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/gpu/cuda/gpu_gmm_cuda.c

@@ -6,7 +6,7 @@
  * This module implements the Davies-Bouldin index to measure cluster quality,
  * with lower values indicating better separated clusters.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_davies_bouldin.c

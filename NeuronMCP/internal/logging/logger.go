@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/pgElephant/NeuronMCP/internal/config"
+	"github.com/neurondb/NeuronMCP/internal/config"
 	"github.com/rs/zerolog"
 )
 

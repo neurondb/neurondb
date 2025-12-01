@@ -6,7 +6,7 @@
  * Provides external definitions for inline functions from neurondb_simd.h
  * that may not be inlined in all cases, ensuring they can be linked.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/util/neurondb_simd_impl.c

@@ -6,7 +6,7 @@
  * Implements efficient sparse vector search using inverted indexes.
  * Supports learned sparse retrieval models and traditional BM25.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/search/sparse_search.c

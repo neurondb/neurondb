@@ -6,7 +6,7 @@
  * Detailed, production-grade implementation: crash-proof, fully validated,
  * robust resource handling, using PostgreSQL C coding standards.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *	  src/multi_tenant.c

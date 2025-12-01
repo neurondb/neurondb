@@ -42,7 +42,7 @@ FROM rerank_cross_encoder_batch(
 
 For detailed documentation on cross-encoder models, model selection, fine-tuning, and performance optimization, visit:
 
-**[Cross-Encoder Documentation](https://pgelephant.com/neurondb/reranking/cross-encoder/)**
+**[Cross-Encoder Documentation](https://neurondb.ai/docs/reranking/cross-encoder/)**
 
 ## Related Topics
 

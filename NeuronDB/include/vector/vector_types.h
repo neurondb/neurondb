@@ -3,7 +3,7 @@
  * vector_types.h
  *	  Vector type definitions and core type system
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  * SPDX-License-Identifier: PostgreSQL
  *
  *-------------------------------------------------------------------------

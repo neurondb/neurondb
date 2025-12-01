@@ -10,7 +10,7 @@
  * - Centroid quality metrics for IVF
  * - Dead tuple detection
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *	  src/index/index_validator.c

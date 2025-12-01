@@ -3,7 +3,7 @@
 chunking.py
     Text chunking utilities for splitting documents into overlapping segments
 
-Copyright (c) 2024-2025, pgElephant, Inc.
+Copyright (c) 2024-2025, neurondb, Inc.
 """
 
 from typing import List, Tuple

@@ -3,7 +3,7 @@ package tools
 import (
 	"context"
 
-	"github.com/pgElephant/NeuronAgent/internal/db"
+	"github.com/neurondb/NeuronAgent/internal/db"
 )
 
 // ToolHandler is the interface that all tool handlers must implement

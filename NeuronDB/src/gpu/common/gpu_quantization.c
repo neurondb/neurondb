@@ -6,7 +6,7 @@
  * This module provides quantization helper functions used by entry points
  * for vector compression and quantization operations.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/gpu/common/gpu_quantization.c

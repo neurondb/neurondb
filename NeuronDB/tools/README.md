@@ -404,9 +404,9 @@ fi
 
 ## Support
 
-- Documentation: https://pgelephant.com/neurondb
-- Issues: https://github.com/pgelephant/neurondb/issues
-- NeuronDB Tools: Part of the pgElephant suite
+- Documentation: https://neurondb.ai/docs
+- Issues: https://github.com/neurondb/neurondb/issues
+- NeuronDB Tools: Part of the neurondb suite
 
 ## License
 
@@ -414,4 +414,4 @@ MIT License - See LICENSE file
 
 ---
 
-**Built by pgElephant** - Making PostgreSQL AI better
+**Built by neurondb** - Making PostgreSQL AI better

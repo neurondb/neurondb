@@ -7,7 +7,7 @@
  * bootstrap aggregating and random feature selection. Models are serialized
  * and stored in the catalog for prediction.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_random_forest.c

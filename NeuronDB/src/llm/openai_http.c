@@ -7,7 +7,7 @@
  * related LLM operations. Provides stub implementations that are
  * compilable and can be extended with full JSON parsing.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/llm/openai_http.c

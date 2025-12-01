@@ -10,7 +10,7 @@
 
 If you discover a security vulnerability in NeuronDB, please report it by emailing:
 
-**admin@pgelephant.com**
+**support@neurondb.ai**
 
 ### What to Include
 

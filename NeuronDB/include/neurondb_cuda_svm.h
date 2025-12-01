@@ -3,7 +3,7 @@
  * neurondb_cuda_svm.h
  *    CUDA-specific data structures and API for Support Vector Machine
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    include/neurondb_cuda_svm.h

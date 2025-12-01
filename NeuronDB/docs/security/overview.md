@@ -42,7 +42,7 @@ FROM documents;
 
 For detailed documentation on security features, encryption, privacy protection, and access control, visit:
 
-**[Security Documentation](https://pgelephant.com/neurondb/security/overview/)**
+**[Security Documentation](https://neurondb.ai/docs/security/overview/)**
 
 ## Related Topics
 

@@ -8,7 +8,7 @@
  *  (float32 → float16, int8, and binary), and KMeans clustering steps,
  *  adhering strictly to PostgreSQL code style and robustness conventions.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/gpu/rocm/gpu_kernels.cu

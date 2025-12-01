@@ -7,7 +7,7 @@
  * including tokenization, embedding lookup, transformer operations,
  * text generation, and reranking.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/gpu/cuda/gpu_hf_kernels.cu

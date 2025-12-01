@@ -14,7 +14,7 @@
  * set-returning function API, type safety, and zero cost for unused stats.
  * Thread/concurrency safety is not handled here (assumes single backend stats).
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *	  src/pg_stat_neurondb.c

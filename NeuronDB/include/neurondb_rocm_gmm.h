@@ -3,7 +3,7 @@
  * neurondb_rocm_gmm.h
  *    ROCm-specific data structures and API for Gaussian Mixture Model
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    include/neurondb_rocm_gmm.h

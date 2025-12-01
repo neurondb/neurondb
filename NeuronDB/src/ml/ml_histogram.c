@@ -6,7 +6,7 @@
  * This module analyzes distance and similarity distributions in embedding
  * spaces to provide insights into data quality and cluster structure.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_histogram.c

@@ -3,7 +3,7 @@
  * neurondb_spi_safe.h
  *    Safe SPI execution wrappers for NeuronDB crash prevention
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    include/neurondb_spi_safe.h

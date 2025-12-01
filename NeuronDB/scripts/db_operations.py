@@ -3,7 +3,7 @@
 db_operations.py
     Database schema and operations for document storage
 
-Copyright (c) 2024-2025, pgElephant, Inc.
+Copyright (c) 2024-2025, neurondb, Inc.
 """
 
 import json

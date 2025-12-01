@@ -6,7 +6,7 @@
  * Provides image format detection, validation, preprocessing, and
  * metadata extraction for vision-capable LLM models.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/llm/llm_image_utils.c

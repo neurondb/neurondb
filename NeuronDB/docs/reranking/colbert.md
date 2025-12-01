@@ -18,7 +18,7 @@ SELECT idx, score FROM rerank_colbert(
 
 For detailed documentation on ColBERT models, late interaction, and efficiency optimization, visit:
 
-**[ColBERT Documentation](https://pgelephant.com/neurondb/reranking/colbert/)**
+**[ColBERT Documentation](https://neurondb.ai/docs/reranking/colbert/)**
 
 ## Related Topics
 

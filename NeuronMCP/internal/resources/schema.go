@@ -3,7 +3,7 @@ package resources
 import (
 	"context"
 
-	"github.com/pgElephant/NeuronMCP/internal/database"
+	"github.com/neurondb/NeuronMCP/internal/database"
 )
 
 // SchemaResource provides database schema information

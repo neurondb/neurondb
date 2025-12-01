@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/pgElephant/NeuronMCP/internal/database"
+	"github.com/neurondb/NeuronMCP/internal/database"
 )
 
 // Resource is the interface that all resources must implement

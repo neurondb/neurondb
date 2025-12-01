@@ -7,7 +7,7 @@
  * index) for improved retrieval quality. Uses Reciprocal Rank Fusion (RRF)
  * or learned fusion weights.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/search/hybrid_dense_sparse.c

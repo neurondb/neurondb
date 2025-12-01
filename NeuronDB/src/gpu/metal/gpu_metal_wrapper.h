@@ -5,7 +5,7 @@
  * Provides C-compatible interface to Metal GPU acceleration.
  * NO include of PostgreSQL headers to avoid conflicts.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  */
 
 #ifndef GPU_METAL_WRAPPER_H

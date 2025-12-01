@@ -28,7 +28,7 @@ SELECT * FROM neurondb.index_maintenance_status;
 
 For detailed documentation on index maintenance, defragmentation strategies, and performance optimization, visit:
 
-**[neurandefrag Documentation](https://pgelephant.com/neurondb/workers/neurandefrag/)**
+**[neurandefrag Documentation](https://neurondb.ai/docs/background-workers/neurandefrag/)**
 
 ## Related Topics
 

@@ -60,7 +60,7 @@ SELECT hnsw_rebuild_index('doc_idx');
 
 For detailed documentation on indexing strategies, parameter tuning, automatic maintenance, and performance optimization, visit:
 
-**[Indexing Documentation](https://pgelephant.com/neurondb/features/indexing/)**
+**[Indexing Documentation](https://neurondb.ai/docs/features/indexing/)**
 
 ## Related Topics
 

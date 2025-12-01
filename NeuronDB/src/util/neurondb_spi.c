@@ -9,7 +9,7 @@
  * - Error handling
  * - StringInfoData management in correct contexts
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/util/neurondb_spi.c

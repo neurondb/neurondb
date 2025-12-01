@@ -3,7 +3,7 @@
  * gpu_svm_kernels.cu
  *    CUDA kernels for Support Vector Machine operations
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/gpu/cuda/gpu_svm_kernels.cu

@@ -11,7 +11,7 @@
  *
  * Catalog tables use 'nb_' prefix (like PostgreSQL uses 'pg_')
  *
- * Copyright (c) 2024-2025, pgElephant, Inc. <admin@pgelephant.com>
+ * Copyright (c) 2024-2025, neurondb, Inc. <admin@neurondb.com>
  *
  * IDENTIFICATION
  *    include/neurondb_constants.h

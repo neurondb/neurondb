@@ -7,7 +7,7 @@
  * AVX2 (256-bit) and AVX-512 (512-bit) SIMD instructions for 5-20x
  * performance improvement over scalar implementations.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *	  src/vector/vector_distance_simd.c

@@ -23,7 +23,7 @@ SELECT idx, score FROM rerank_ensemble(
 
 For detailed documentation on ensemble strategies, weight optimization, and combining rerankers, visit:
 
-**[Ensemble Reranking Documentation](https://pgelephant.com/neurondb/reranking/ensemble/)**
+**[Ensemble Reranking Documentation](https://neurondb.ai/docs/reranking/ensemble/)**
 
 ## Related Topics
 

@@ -32,7 +32,7 @@ LIMIT 10;
 
 For detailed documentation on recommendation algorithms, evaluation metrics, cold start problems, and hybrid recommendation systems, visit:
 
-**[Recommendation Systems Documentation](https://pgelephant.com/neurondb/ml/recommender/)**
+**[Recommendation Systems Documentation](https://neurondb.ai/docs/ml/recommender/)**
 
 ## Related Topics
 

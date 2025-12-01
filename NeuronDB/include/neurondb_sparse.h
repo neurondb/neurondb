@@ -3,7 +3,7 @@
  * neurondb_sparse.h
  *    Sparse vector type definitions and function declarations
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    include/neurondb_sparse.h

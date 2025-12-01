@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/pgElephant/NeuronMCP/internal/config"
-	"github.com/pgElephant/NeuronMCP/internal/database"
-	"github.com/pgElephant/NeuronMCP/internal/logging"
-	"github.com/pgElephant/NeuronMCP/internal/middleware"
-	"github.com/pgElephant/NeuronMCP/internal/resources"
-	"github.com/pgElephant/NeuronMCP/internal/tools"
-	"github.com/pgElephant/NeuronMCP/pkg/mcp"
+	"github.com/neurondb/NeuronMCP/internal/config"
+	"github.com/neurondb/NeuronMCP/internal/database"
+	"github.com/neurondb/NeuronMCP/internal/logging"
+	"github.com/neurondb/NeuronMCP/internal/middleware"
+	"github.com/neurondb/NeuronMCP/internal/resources"
+	"github.com/neurondb/NeuronMCP/internal/tools"
+	"github.com/neurondb/NeuronMCP/pkg/mcp"
 )
 
 // Server is the main MCP server

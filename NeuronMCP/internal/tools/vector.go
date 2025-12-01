@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/pgElephant/NeuronMCP/internal/database"
-	"github.com/pgElephant/NeuronMCP/internal/logging"
+	"github.com/neurondb/NeuronMCP/internal/database"
+	"github.com/neurondb/NeuronMCP/internal/logging"
 )
 
 // VectorSearchTool performs vector similarity search

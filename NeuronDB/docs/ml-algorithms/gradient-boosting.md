@@ -61,7 +61,7 @@ FROM test_table;
 
 For detailed documentation on gradient boosting algorithms, hyperparameter tuning, feature importance, and model comparison, visit:
 
-**[Gradient Boosting Documentation](https://pgelephant.com/neurondb/ml/gradient-boosting/)**
+**[Gradient Boosting Documentation](https://neurondb.ai/docs/ml/gradient-boosting/)**
 
 ## Related Topics
 

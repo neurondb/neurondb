@@ -60,7 +60,7 @@ SELECT drop_model('model_name');
 
 For detailed documentation on model management, versioning strategies, monitoring, and catalog integration, visit:
 
-**[Model Management Documentation](https://pgelephant.com/neurondb/ml/model-management/)**
+**[Model Management Documentation](https://neurondb.ai/docs/ml/model-management/)**
 
 ## Related Topics
 

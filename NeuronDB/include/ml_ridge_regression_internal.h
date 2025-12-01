@@ -3,7 +3,7 @@
  * ml_ridge_regression_internal.h
  *    Internal structures for Ridge Regression
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    include/ml_ridge_regression_internal.h

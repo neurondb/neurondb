@@ -3,7 +3,7 @@ package auth
 import (
 	"fmt"
 
-	"github.com/pgElephant/NeuronAgent/internal/db"
+	"github.com/neurondb/NeuronAgent/internal/db"
 )
 
 const (

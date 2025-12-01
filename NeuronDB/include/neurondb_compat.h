@@ -7,7 +7,7 @@
  * PostgreSQL versions 16, 17, and 18, including format specifiers
  * for int64/uint64 types.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc. <admin@pgelephant.com>
+ * Copyright (c) 2024-2025, neurondb, Inc. <admin@neurondb.com>
  *
  * IDENTIFICATION
  *	  include/neurondb_compat.h

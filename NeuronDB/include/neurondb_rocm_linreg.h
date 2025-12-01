@@ -3,7 +3,7 @@
  * neurondb_rocm_linreg.h
  *    ROCm-specific data structures and API for Linear Regression
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    include/neurondb_rocm_linreg.h

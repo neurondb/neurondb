@@ -7,7 +7,7 @@
  * live SLOs, rotates caches, records recall@k metrics, and exports
  * Prometheus metrics.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *	  src/bgworker_tuner.c

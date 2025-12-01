@@ -3,7 +3,7 @@
  * ml_decision_tree_internal.h
  *    Internal structures for Decision Tree
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    include/ml_decision_tree_internal.h

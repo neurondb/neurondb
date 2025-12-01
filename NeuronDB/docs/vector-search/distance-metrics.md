@@ -49,7 +49,7 @@ NeuronDB also supports:
 
 For detailed documentation on all distance metrics, when to use each, GPU acceleration, and performance characteristics, visit:
 
-**[Distance Metrics Documentation](https://pgelephant.com/neurondb/features/distance-metrics/)**
+**[Distance Metrics Documentation](https://neurondb.ai/docs/features/distance-metrics/)**
 
 ## Related Topics
 

@@ -10,7 +10,7 @@
  *
  * Each operator class supports both HNSW and IVF access methods.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *	  src/index/opclass.c

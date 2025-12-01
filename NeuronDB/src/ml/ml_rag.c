@@ -6,7 +6,7 @@
  * This module implements text chunking, embedding, ranking, and data
  * transformation for RAG support.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_rag.c

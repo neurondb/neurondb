@@ -38,7 +38,7 @@ SELECT tokenize_text('Hello world', 'whitespace') AS tokens;
 
 For detailed documentation on document processing, chunking strategies, tokenization, and NLP features, visit:
 
-**[Document Processing Documentation](https://pgelephant.com/neurondb/nlp/)**
+**[Document Processing Documentation](https://neurondb.ai/docs/ml/text-ml/)**
 
 ## Related Topics
 

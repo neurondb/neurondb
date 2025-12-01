@@ -51,7 +51,7 @@ SELECT create_feature_version(
 
 For detailed documentation on feature stores, feature versioning, feature serving, and governance, visit:
 
-**[Feature Store Documentation](https://pgelephant.com/neurondb/ml/feature-store/)**
+**[Feature Store Documentation](https://neurondb.ai/docs/ml/feature-store/)**
 
 ## Related Topics
 

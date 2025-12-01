@@ -7,7 +7,7 @@
  * functions with DirectFunctionCall wrappers for PostgreSQL's jsonb
  * functions. Consolidates all JSON handling logic in one place.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc. <admin@pgelephant.com>
+ * Copyright (c) 2024-2025, neurondb, Inc. <admin@neurondb.com>
  *
  * IDENTIFICATION
  *    include/neurondb_json.h

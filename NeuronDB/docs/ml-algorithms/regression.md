@@ -62,7 +62,7 @@ FROM test_table;
 
 For detailed documentation on regression algorithms, regularization, feature selection, and evaluation metrics, visit:
 
-**[Regression Documentation](https://pgelephant.com/neurondb/ml/regression/)**
+**[Regression Documentation](https://neurondb.ai/docs/ml/regression/)**
 
 ## Related Topics
 

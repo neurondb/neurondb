@@ -3,7 +3,7 @@
  * vector_wal.h
  *	  Write-Ahead Logging support for vector operations
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  * SPDX-License-Identifier: PostgreSQL
  *
  *-------------------------------------------------------------------------

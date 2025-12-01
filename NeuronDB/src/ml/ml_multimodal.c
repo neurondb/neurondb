@@ -6,7 +6,7 @@
  * This module implements CLIP and ImageBind integration for generating
  * embeddings from multiple modalities with cross-modal retrieval support.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_multimodal.c

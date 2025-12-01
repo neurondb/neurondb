@@ -52,7 +52,7 @@ SELECT model_info('model_name');
 
 For detailed documentation on model inference, ONNX runtime, batch processing, and performance optimization, visit:
 
-**[Model Inference Documentation](https://pgelephant.com/neurondb/ml/inference/)**
+**[Model Inference Documentation](https://neurondb.ai/docs/ml/inference/)**
 
 ## Related Topics
 

@@ -7,7 +7,7 @@
  * Note: Safe pointer freeing functionality has been moved to neurondb_macros.h
  * (use NDB_FREE() instead of ndb_safe_pfree()).
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/util/neurondb_safe_memory.c

@@ -5,7 +5,7 @@
  *
  * This module implements accelerated vector operations for backend support.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/gpu/rocm/gpu_rocm.c

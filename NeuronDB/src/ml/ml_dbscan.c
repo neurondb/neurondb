@@ -6,7 +6,7 @@
  * This module implements DBSCAN for density-based spatial clustering of
  * closely packed points.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_dbscan.c

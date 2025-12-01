@@ -53,7 +53,7 @@ SELECT isolation_forest_outlier(
 
 For detailed documentation on outlier detection methods, choosing thresholds, visualization, and handling outliers, visit:
 
-**[Outlier Detection Documentation](https://pgelephant.com/neurondb/analytics/outliers/)**
+**[Outlier Detection Documentation](https://neurondb.ai/docs/analytics/outliers/)**
 
 ## Related Topics
 

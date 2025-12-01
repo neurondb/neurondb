@@ -6,7 +6,7 @@
  * Defines structures for vector encryption, differential privacy,
  * RLS integration, and result signing for audit trails.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc. <admin@pgelephant.com>
+ * Copyright (c) 2024-2025, neurondb, Inc. <admin@neurondb.com>
  *
  * IDENTIFICATION
  *	  include/neurondb_security.h

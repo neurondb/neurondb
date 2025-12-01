@@ -2,7 +2,7 @@
 # Makefile.gpu.metal
 #     Metal GPU backend build configuration (macOS/Apple Silicon)
 #
-# Copyright (c) 2024-2025, pgElephant, Inc.
+# Copyright (c) 2024-2025, neurondb, Inc.
 #-------------------------------------------------------------------------
 
 # Note: Makefile.gpu.common is included by Makefile.core, not here

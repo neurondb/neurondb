@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/pgElephant/NeuronMCP/internal/database"
+	"github.com/neurondb/NeuronMCP/internal/database"
 )
 
 // QueryExecutor executes database queries for tools

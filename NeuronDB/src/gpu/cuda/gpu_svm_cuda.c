@@ -3,7 +3,7 @@
  * gpu_svm_cuda.c
  *    CUDA backend bridge for Support Vector Machine training and prediction.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/gpu/cuda/gpu_svm_cuda.c

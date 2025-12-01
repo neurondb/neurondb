@@ -39,7 +39,7 @@ SELECT rag_query_with_context(
 
 For detailed documentation on RAG pipelines, prompt engineering, context management, and evaluation, visit:
 
-**[RAG Documentation](https://pgelephant.com/neurondb/rag/)**
+**[RAG Documentation](https://neurondb.ai/docs/rag/)**
 
 ## Related Topics
 

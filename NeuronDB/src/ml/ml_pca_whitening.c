@@ -6,7 +6,7 @@
  * This module implements PCA whitening to transform data to have identity
  * covariance matrix, removing correlations and normalizing variance.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_pca_whitening.c

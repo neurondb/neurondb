@@ -27,7 +27,7 @@ FROM documents;
 
 For detailed documentation on ROCm setup and AMD GPU configuration, visit:
 
-**[ROCm Support Documentation](https://pgelephant.com/neurondb/gpu/)**
+**[ROCm Support Documentation](https://neurondb.ai/docs/gpu/)**
 
 ## Related Topics
 

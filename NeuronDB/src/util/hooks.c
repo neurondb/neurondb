@@ -8,7 +8,7 @@
  * planner extension API, logical replication plugin, FDW for vectors,
  * and SQL-based unit test framework.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *	  src/developer_hooks.c

@@ -6,7 +6,7 @@
  * This module implements SHAP, LIME, and feature importance methods for
  * explaining model predictions.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_explainable_ai.c

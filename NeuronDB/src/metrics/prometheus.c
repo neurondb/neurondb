@@ -9,7 +9,7 @@
  * It exposes detailed database metrics via an HTTP endpoint, which can
  * be scraped by Prometheus to provide real-time cluster observability.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *        src/metrics/prometheus.c

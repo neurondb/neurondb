@@ -6,7 +6,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/pgElephant/NeuronMCP/internal/server"
+	"github.com/neurondb/NeuronMCP/internal/server"
 )
 
 func main() {

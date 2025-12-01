@@ -6,7 +6,7 @@
  * This module implements GMM using expectation-maximization for probabilistic
  * cluster assignments and density estimation.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_gmm.c

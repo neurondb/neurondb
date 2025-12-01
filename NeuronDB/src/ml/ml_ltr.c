@@ -6,7 +6,7 @@
  * This module implements pointwise linear models for reranking search
  * results based on multiple features.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_ltr.c

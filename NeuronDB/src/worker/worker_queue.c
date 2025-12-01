@@ -7,7 +7,7 @@
  * rate limits and quotas, and processes embedding generation, rerank
  * batches, cache refresh, and external HTTP calls.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *      src/worker/worker_queue.c

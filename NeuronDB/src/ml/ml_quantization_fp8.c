@@ -6,7 +6,7 @@
  * This module implements INT4 and FP8 quantization formats for efficient
  * vector storage and computation.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_quantization_fp8.c

@@ -6,7 +6,7 @@
  * This module combines lexical matching and semantic matching for improved
  * search results using weighted fusion methods.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_hybrid_search.c

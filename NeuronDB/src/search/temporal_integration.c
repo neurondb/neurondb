@@ -9,7 +9,7 @@
  * - Time window filtering
  * - Temporal reranking
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *	  src/search/temporal_integration.c

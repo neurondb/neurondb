@@ -14,7 +14,7 @@
  *    - Tokenization: whitespace split, with facility for future WordPiece extension
  *    - Attention mask generation
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  * SPDX-License-Identifier: PostgreSQL
  *
  *-------------------------------------------------------------------------

@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/pgElephant/NeuronAgent/internal/db"
-	"github.com/pgElephant/NeuronAgent/internal/metrics"
-	"github.com/pgElephant/NeuronAgent/pkg/neurondb"
+	"github.com/neurondb/NeuronAgent/internal/db"
+	"github.com/neurondb/NeuronAgent/internal/metrics"
+	"github.com/neurondb/NeuronAgent/pkg/neurondb"
 )
 
 type MemoryManager struct {

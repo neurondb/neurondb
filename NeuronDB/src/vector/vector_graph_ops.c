@@ -9,7 +9,7 @@
  * - PageRank algorithm
  * - Community detection (Louvain algorithm)
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *	  src/vector/vector_graph_ops.c

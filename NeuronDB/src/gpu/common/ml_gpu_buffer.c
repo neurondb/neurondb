@@ -6,7 +6,7 @@
  * This module provides buffer management for ML operations with consistent
  * bookkeeping and resource management.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/gpu/common/ml_gpu_buffer.c

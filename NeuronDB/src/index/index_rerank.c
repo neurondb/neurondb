@@ -7,7 +7,7 @@
  * lists for hot queries, enabling zero round trips to heap for
  * reranking operations.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *	  src/index/index_rerank.c

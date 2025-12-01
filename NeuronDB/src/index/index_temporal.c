@@ -7,7 +7,7 @@
  * scores, enabling time-gated kNN queries where recent vectors
  * are automatically boosted.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *	  src/index/index_temporal.c

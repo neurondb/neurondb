@@ -3,7 +3,7 @@
  * ml_gpu_linear_regression.h
  *    GPU support for Linear Regression
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    include/ml_gpu_linear_regression.h

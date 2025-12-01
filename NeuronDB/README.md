@@ -2,7 +2,7 @@
 
 Vector search, machine learning, and hybrid search directly in PostgreSQL.
 
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://github.com/pgElephant/NeurondB)
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://github.com/neurondb/NeurondB)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16%2C17%2C18-blue.svg)](https://www.postgresql.org/)
 [![License](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
 
@@ -83,7 +83,7 @@ NeuronDB extends PostgreSQL with vector search, ML model inference, hybrid retri
 - **[Configuration](docs/configuration.md)** - Essential configuration options
 - **[Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions
 
-For detailed documentation, API references, best practices, and guides, visit [www.pgelephant.com](https://pgelephant.com/neurondb)
+For detailed documentation, API references, best practices, and guides, visit [www.neurondb.ai](https://neurondb.ai/docs)
 
 ## Architecture
 
@@ -122,10 +122,10 @@ NeuronDB supports PostgreSQL 16, 17, and 18. The extension validates the Postgre
 
 ## Support & Community
 
-- **Issues**: [GitHub Issues](https://github.com/pgElephant/NeurondB/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/pgElephant/NeurondB/discussions)
-- **Email**: admin@pgelephant.com
-- **Security**: Report vulnerabilities to admin@pgelephant.com
+- **Issues**: [GitHub Issues](https://github.com/neurondb/NeurondB/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/neurondb/NeurondB/discussions)
+- **Email**: support@neurondb.ai
+- **Security**: Report vulnerabilities to support@neurondb.ai
 
 ## Contributing
 
@@ -142,17 +142,17 @@ See [LICENSE](LICENSE) for details.
 
 ## Authors
 
-**pgElephant, Inc.**  
-Email: admin@pgelephant.com  
-Website: https://pgelephant.com
+**neurondb, Inc.**  
+Email: support@neurondb.ai  
+Website: https://neurondb.ai/docs
 
 ---
 
 <div align="center">
 
 **[Documentation](docs/README.md)** • 
-**[Full Documentation](https://pgelephant.com/neurondb)** • 
-**[GitHub](https://github.com/pgElephant/NeurondB)** • 
-**[Support](mailto:admin@pgelephant.com)**
+**[Full Documentation](https://neurondb.ai/docs)** • 
+**[GitHub](https://github.com/neurondb/NeurondB)** • 
+**[Support](mailto:support@neurondb.ai)**
 
 </div>

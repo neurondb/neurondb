@@ -10,16 +10,16 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/pgElephant/NeuronAgent/internal/agent"
-	"github.com/pgElephant/NeuronAgent/internal/api"
-	"github.com/pgElephant/NeuronAgent/internal/auth"
-	"github.com/pgElephant/NeuronAgent/internal/config"
-	"github.com/pgElephant/NeuronAgent/internal/db"
-	"github.com/pgElephant/NeuronAgent/internal/jobs"
-	"github.com/pgElephant/NeuronAgent/internal/metrics"
-	"github.com/pgElephant/NeuronAgent/internal/session"
-	"github.com/pgElephant/NeuronAgent/internal/tools"
-	"github.com/pgElephant/NeuronAgent/pkg/neurondb"
+	"github.com/neurondb/NeuronAgent/internal/agent"
+	"github.com/neurondb/NeuronAgent/internal/api"
+	"github.com/neurondb/NeuronAgent/internal/auth"
+	"github.com/neurondb/NeuronAgent/internal/config"
+	"github.com/neurondb/NeuronAgent/internal/db"
+	"github.com/neurondb/NeuronAgent/internal/jobs"
+	"github.com/neurondb/NeuronAgent/internal/metrics"
+	"github.com/neurondb/NeuronAgent/internal/session"
+	"github.com/neurondb/NeuronAgent/internal/tools"
+	"github.com/neurondb/NeuronAgent/pkg/neurondb"
 )
 
 func main() {

@@ -25,7 +25,7 @@
 # Example:
 #    ./load_documentation.sh -d /path/to/docs -D mydb -U myuser
 #
-# Copyright (c) 2024-2025, pgElephant, Inc.
+# Copyright (c) 2024-2025, neurondb, Inc.
 # ============================================================================
 
 set -euo pipefail

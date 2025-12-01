@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/pgElephant/NeuronMCP/internal/logging"
-	"github.com/pgElephant/NeuronMCP/internal/middleware"
+	"github.com/neurondb/NeuronMCP/internal/logging"
+	"github.com/neurondb/NeuronMCP/internal/middleware"
 )
 
 // LoggingMiddleware logs requests and responses

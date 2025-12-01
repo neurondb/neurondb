@@ -5,7 +5,7 @@
  * These kernels are compiled at build time to avoid XPC runtime compilation.
  * Provides TRUE GPU parallel processing on Apple Silicon.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  */
 
 #include <metal_stdlib>

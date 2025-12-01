@@ -6,7 +6,7 @@
  * This module implements ONNX Runtime inference and embedding generation
  * for high-throughput batch inference operations.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/gpu/common/gpu_inference.c

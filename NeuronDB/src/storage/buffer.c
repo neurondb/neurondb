@@ -7,7 +7,7 @@
  * HNSW rebuild with checkpoints and parallel vector executor with
  * worker pools for multi-index kNN queries.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *	  src/system_features.c

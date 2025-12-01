@@ -2,7 +2,7 @@
  * gpu_knn_kernels.cu
  *    CUDA kernels for K-Nearest Neighbors prediction.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/gpu/cuda/gpu_knn_kernels.cu

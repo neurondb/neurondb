@@ -5,7 +5,7 @@
  * This header defines the NeuronDBConfig structure that holds all
  * configuration values and provides access to them throughout the system.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc. <admin@pgelephant.com>
+ * Copyright (c) 2024-2025, neurondb, Inc. <admin@neurondb.com>
  *-------------------------------------------------------------------------*/
 
 #ifndef NEURONDB_GUC_H

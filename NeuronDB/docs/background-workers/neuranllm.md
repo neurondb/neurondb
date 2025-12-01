@@ -30,7 +30,7 @@ SELECT * FROM neurondb.llm_jobs WHERE status = 'pending';
 
 For detailed documentation on LLM job processing, crash recovery, and error handling, visit:
 
-**[neuranllm Documentation](https://pgelephant.com/neurondb/workers/neuranllm/)**
+**[neuranllm Documentation](https://neurondb.ai/docs/background-workers/neuranllm/)**
 
 ## Related Topics
 

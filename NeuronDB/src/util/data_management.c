@@ -7,7 +7,7 @@
  * including MVCC-aware time-travel queries, cold-tier compression,
  * vector-aware VACUUM, and index rebalancing.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *	  src/data_management.c

@@ -3,7 +3,7 @@
  * gpu_lr_kernels.cu
  *    HIP kernels for Logistic Regression training and inference on AMD GPUs
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/gpu/rocm/gpu_lr_kernels.cu

@@ -4,7 +4,7 @@ doc_processor.py
     Document processing utilities for extracting and cleaning text
     from various file formats
 
-Copyright (c) 2024-2025, pgElephant, Inc.
+Copyright (c) 2024-2025, neurondb, Inc.
 """
 
 import re

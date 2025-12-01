@@ -43,7 +43,7 @@ FROM generate_series(0, 9) AS topic_id;
 
 For detailed documentation on topic modeling, choosing number of topics, topic interpretation, and visualization, visit:
 
-**[Topic Discovery Documentation](https://pgelephant.com/neurondb/analytics/topics/)**
+**[Topic Discovery Documentation](https://neurondb.ai/docs/analytics/topics/)**
 
 ## Related Topics
 

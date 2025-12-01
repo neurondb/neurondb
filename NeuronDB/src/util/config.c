@@ -9,7 +9,7 @@
  * Settings cover index/search/memory/replication. All are surfaced as
  * system catalog views for inspection.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  */
 
 #include "postgres.h"

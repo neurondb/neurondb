@@ -1,7 +1,7 @@
 package agent
 
 import (
-	"github.com/pgElephant/NeuronAgent/internal/db"
+	"github.com/neurondb/NeuronAgent/internal/db"
 )
 
 // Profile represents a predefined agent profile

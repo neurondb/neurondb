@@ -10,7 +10,7 @@
  * - vector query load balancing across replicas,
  * - and asynchronous, durable index synchronization via WAL and logical replication.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/distributed.c

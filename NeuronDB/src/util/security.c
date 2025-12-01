@@ -8,7 +8,7 @@
  * encryption (Kyber), confidential compute mode (SGX/SEV), fine-grained
  * access masks, and secure federated queries.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *	  src/security_extensions.c

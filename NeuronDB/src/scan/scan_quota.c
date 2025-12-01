@@ -12,7 +12,7 @@
  * Quotas are checked during insert/update operations and enforced
  * before writing to the index.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *	  src/scan/scan_quota.c

@@ -3,7 +3,7 @@
  * neurondb_gpu.h
  *      GPU acceleration - core structures, API, and integration for NeurondB.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc. <admin@pgelephant.com>
+ * Copyright (c) 2024-2025, neurondb, Inc. <admin@neurondb.com>
  * IDENTIFICATION
  *      include/neurondb_gpu.h
  *

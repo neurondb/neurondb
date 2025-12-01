@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
-	"github.com/pgElephant/NeuronAgent/internal/agent"
+	"github.com/neurondb/NeuronAgent/internal/agent"
 )
 
 // StreamResponse streams agent responses chunk by chunk

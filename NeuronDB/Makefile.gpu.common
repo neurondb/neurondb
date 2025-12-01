@@ -3,7 +3,7 @@
 #     Common GPU build configuration and rules
 #     Used by all GPU backends (CUDA, Metal, ROCm)
 #
-# Copyright (c) 2024-2025, pgElephant, Inc.
+# Copyright (c) 2024-2025, neurondb, Inc.
 #-------------------------------------------------------------------------
 
 # GPU backend detection (set by build.sh or manually)

@@ -3,7 +3,7 @@
  * ml_random_forest_shared.h
  *    Shared Random Forest utilities for CPU and GPU implementations
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    include/ml_random_forest_shared.h

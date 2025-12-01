@@ -10,7 +10,7 @@
  *  Importantly, this file is written according to PostgreSQL C style,
  *  maximizing clarity, predictability, and maintainability.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/gpu_kernels.cu

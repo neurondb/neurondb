@@ -12,7 +12,7 @@
  * Based on the paper:
  * "Product Quantization for Nearest Neighbor Search" by Jégou et al. (2011)
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *	  src/index/ivf_am.c

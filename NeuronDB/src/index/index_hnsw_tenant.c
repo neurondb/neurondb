@@ -6,7 +6,7 @@
  * Implements HNSW-T index with hard quotas per tenant, per-tenant
  * ef_search parameters, and level caps to prevent resource abuse.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *      src/index/index_hnsw_tenant.c

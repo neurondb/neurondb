@@ -5,7 +5,7 @@
  *
  * This module provides shared utility functions used across ML algorithms.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_utils.c

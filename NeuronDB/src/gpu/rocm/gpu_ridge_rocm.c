@@ -3,7 +3,7 @@
  * gpu_ridge_rocm.c
  *    ROCm backend bridge for Ridge Regression training and prediction.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/gpu/rocm/gpu_ridge_rocm.c

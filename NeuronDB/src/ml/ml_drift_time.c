@@ -6,7 +6,7 @@
  * This module monitors embedding drift over time by computing centroids
  * at different time windows and tracking centroid movement.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_drift_time.c

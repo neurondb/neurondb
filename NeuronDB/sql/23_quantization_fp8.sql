@@ -4,7 +4,7 @@
 -- Implements INT4 (4-bit) and FP8 (8-bit floating point) quantization
 -- with GPU acceleration support. FP8 formats: E4M3 and E5M2.
 --
--- Copyright (c) 2024-2025, pgElephant, Inc.
+-- Copyright (c) 2024-2025, neurondb, Inc.
 -- ============================================================================
 
 -- ============================================================================

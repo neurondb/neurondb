@@ -6,7 +6,7 @@
  * This module provides a simplified interface for training, prediction,
  * deployment, and model loading through SQL functions.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_unified_api.c

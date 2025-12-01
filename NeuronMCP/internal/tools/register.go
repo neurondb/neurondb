@@ -1,8 +1,8 @@
 package tools
 
 import (
-	"github.com/pgElephant/NeuronMCP/internal/database"
-	"github.com/pgElephant/NeuronMCP/internal/logging"
+	"github.com/neurondb/NeuronMCP/internal/database"
+	"github.com/neurondb/NeuronMCP/internal/logging"
 )
 
 // RegisterAllTools registers all available tools with the registry

@@ -48,7 +48,7 @@ SELECT temporal_drift_monitor(
 
 For detailed documentation on drift detection methods, setting thresholds, alerting, and model retraining strategies, visit:
 
-**[Drift Detection Documentation](https://pgelephant.com/neurondb/analytics/drift/)**
+**[Drift Detection Documentation](https://neurondb.ai/docs/analytics/drift/)**
 
 ## Related Topics
 

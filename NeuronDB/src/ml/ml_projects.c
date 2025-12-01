@@ -6,7 +6,7 @@
  * This module provides organized model lifecycle management with versioning,
  * experiment tracking, and model deployment capabilities.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_projects.c

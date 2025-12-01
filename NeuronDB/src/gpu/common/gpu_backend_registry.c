@@ -6,7 +6,7 @@
  * This module manages the registry of available backends and provides
  * automatic selection based on system capabilities.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/gpu/common/gpu_backend_registry.c

@@ -6,7 +6,7 @@
  * This module provides PostgreSQL SQL-callable wrappers for accelerated
  * vector operations with error checking and resource management.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/gpu/common/gpu_sql.c

@@ -3,7 +3,7 @@
  * gpu_rf_cuda.c
  *	  CUDA backend bridge for Random Forest training and prediction.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/gpu/cuda/gpu_rf_cuda.c

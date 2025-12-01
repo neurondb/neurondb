@@ -5,7 +5,7 @@
  * This module consolidates all GUC variable definitions and provides
  * a unified NeuronDBConfig structure for accessing configuration values.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *-------------------------------------------------------------------------*/
 
 #include "postgres.h"

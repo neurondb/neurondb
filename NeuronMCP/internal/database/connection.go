@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/pgElephant/NeuronMCP/internal/config"
+	"github.com/neurondb/NeuronMCP/internal/config"
 )
 
 // Database manages PostgreSQL connections

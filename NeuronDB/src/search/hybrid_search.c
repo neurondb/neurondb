@@ -7,7 +7,7 @@
  * similarity with full-text search (FTS), metadata filtering, keyword
  * matching, temporal awareness, and faceted search.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/search/hybrid_search.c

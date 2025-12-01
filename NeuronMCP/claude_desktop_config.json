@@ -3,15 +3,15 @@
     "neurondb": {
       "command": "node",
       "args": [
-        "/Users/ibrarahmed/pgelephant/pge/Neurondb/bin/mcp/dist/index.js"
+        "/Users/ndbuser/neurondb/pge/Neurondb/bin/mcp/dist/index.js"
       ],
       "env": {
         "NODE_ENV": "production",
-        "NEURONDB_CONNECTION_STRING": "postgresql://ibrarahmed@localhost:5438/postgres",
+        "NEURONDB_CONNECTION_STRING": "postgresql://ndbuser@localhost:5438/postgres",
         "NEURONDB_HOST": "localhost",
         "NEURONDB_PORT": "5438",
         "NEURONDB_DATABASE": "postgres",
-        "NEURONDB_USER": "ibrarahmed",
+        "NEURONDB_USER": "ndbuser",
         "PATH": "/usr/local/pgsql.18/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
       }
     }

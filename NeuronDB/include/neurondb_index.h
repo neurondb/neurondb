@@ -7,7 +7,7 @@
  * hybrid ANN+FTS, temporal vector index, consistent query HNSW,
  * and rerank-ready index.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc. <admin@pgelephant.com>
+ * Copyright (c) 2024-2025, neurondb, Inc. <admin@neurondb.com>
  *
  * IDENTIFICATION
  *	  include/neurondb_index.h

@@ -1,10 +1,10 @@
 package server
 
 import (
-	"github.com/pgElephant/NeuronMCP/internal/config"
-	"github.com/pgElephant/NeuronMCP/internal/logging"
-	"github.com/pgElephant/NeuronMCP/internal/middleware"
-	"github.com/pgElephant/NeuronMCP/internal/middleware/builtin"
+	"github.com/neurondb/NeuronMCP/internal/config"
+	"github.com/neurondb/NeuronMCP/internal/logging"
+	"github.com/neurondb/NeuronMCP/internal/middleware"
+	"github.com/neurondb/NeuronMCP/internal/middleware/builtin"
 )
 
 // setupBuiltInMiddleware registers all built-in middleware

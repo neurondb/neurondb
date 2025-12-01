@@ -6,7 +6,7 @@
  * This module implements Gaussian Naive Bayes for classification with
  * continuous features, with model serialization and catalog storage.
  *
- * Copyright (c) 2024-2025, pgElephant, Inc.
+ * Copyright (c) 2024-2025, neurondb, Inc.
  *
  * IDENTIFICATION
  *    src/ml/ml_naive_bayes.c
