@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/neurondb/NeuronAgent/internal/utils"
 )
 
 // Agent queries
@@ -180,187 +181,297 @@ const (
 )
 
 type Queries struct {
-	db *sqlx.DB
+	db       *sqlx.DB
+	connInfo func() string // Function to get connection info string
 }
 
 func NewQueries(db *sqlx.DB) *Queries {
-	return &Queries{db: db}
+	return &Queries{
+		db: db,
+		connInfo: func() string {
+			return "unknown database connection"
+		},
+	}
+}
+
+// SetConnInfoFunc sets a function to retrieve connection info for error messages
+func (q *Queries) SetConnInfoFunc(fn func() string) {
+	q.connInfo = fn
+}
+
+// getConnInfoString returns connection info string
+func (q *Queries) getConnInfoString() string {
+	if q.connInfo != nil {
+		return q.connInfo()
+	}
+	return "unknown database connection"
+}
+
+// formatQueryError formats a detailed query error message
+func (q *Queries) formatQueryError(operation string, query string, paramCount int, table string, err error) error {
+	queryContext := utils.FormatQueryContext(query, paramCount, operation, table)
+	connInfo := q.getConnInfoString()
+	return fmt.Errorf("query execution failed on %s: %s, error=%w", connInfo, queryContext, err)
 }
 
 // Agent methods
 func (q *Queries) CreateAgent(ctx context.Context, agent *Agent) error {
-	return q.db.GetContext(ctx, agent, createAgentQuery,
-		agent.Name, agent.Description, agent.SystemPrompt, agent.ModelName,
-		agent.MemoryTable, agent.EnabledTools, agent.Config)
+	params := []interface{}{agent.Name, agent.Description, agent.SystemPrompt, agent.ModelName,
+		agent.MemoryTable, agent.EnabledTools, agent.Config}
+	err := q.db.GetContext(ctx, agent, createAgentQuery, params...)
+	if err != nil {
+		return q.formatQueryError("INSERT", createAgentQuery, len(params), "neurondb_agent.agents", err)
+	}
+	return nil
 }
 
 func (q *Queries) GetAgentByID(ctx context.Context, id uuid.UUID) (*Agent, error) {
 	var agent Agent
 	err := q.db.GetContext(ctx, &agent, getAgentByIDQuery, id)
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("agent not found: %w", err)
+		return nil, fmt.Errorf("agent not found on %s: query='%s', agent_id='%s', table='neurondb_agent.agents', error=%w",
+			q.getConnInfoString(), getAgentByIDQuery, id.String(), err)
 	}
-	return &agent, err
+	if err != nil {
+		return nil, q.formatQueryError("SELECT", getAgentByIDQuery, 1, "neurondb_agent.agents", err)
+	}
+	return &agent, nil
 }
 
 func (q *Queries) ListAgents(ctx context.Context) ([]Agent, error) {
 	var agents []Agent
 	err := q.db.SelectContext(ctx, &agents, listAgentsQuery)
-	return agents, err
+	if err != nil {
+		return nil, q.formatQueryError("SELECT", listAgentsQuery, 0, "neurondb_agent.agents", err)
+	}
+	return agents, nil
 }
 
 func (q *Queries) UpdateAgent(ctx context.Context, agent *Agent) error {
-	return q.db.GetContext(ctx, agent, updateAgentQuery,
-		agent.ID, agent.Name, agent.Description, agent.SystemPrompt, agent.ModelName,
-		agent.MemoryTable, agent.EnabledTools, agent.Config)
+	params := []interface{}{agent.ID, agent.Name, agent.Description, agent.SystemPrompt, agent.ModelName,
+		agent.MemoryTable, agent.EnabledTools, agent.Config}
+	err := q.db.GetContext(ctx, agent, updateAgentQuery, params...)
+	if err != nil {
+		return q.formatQueryError("UPDATE", updateAgentQuery, len(params), "neurondb_agent.agents", err)
+	}
+	return nil
 }
 
 func (q *Queries) DeleteAgent(ctx context.Context, id uuid.UUID) error {
 	result, err := q.db.ExecContext(ctx, deleteAgentQuery, id)
 	if err != nil {
-		return err
+		return q.formatQueryError("DELETE", deleteAgentQuery, 1, "neurondb_agent.agents", err)
 	}
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get rows affected for DELETE on %s: query='%s', agent_id='%s', table='neurondb_agent.agents', error=%w",
+			q.getConnInfoString(), deleteAgentQuery, id.String(), err)
 	}
 	if rowsAffected == 0 {
-		return fmt.Errorf("agent not found")
+		return fmt.Errorf("agent not found on %s: query='%s', agent_id='%s', table='neurondb_agent.agents', rows_affected=0",
+			q.getConnInfoString(), deleteAgentQuery, id.String())
 	}
 	return nil
 }
 
 // Session methods
 func (q *Queries) CreateSession(ctx context.Context, session *Session) error {
-	return q.db.GetContext(ctx, session, createSessionQuery,
-		session.AgentID, session.ExternalUserID, session.Metadata)
+	params := []interface{}{session.AgentID, session.ExternalUserID, session.Metadata}
+	err := q.db.GetContext(ctx, session, createSessionQuery, params...)
+	if err != nil {
+		return q.formatQueryError("INSERT", createSessionQuery, len(params), "neurondb_agent.sessions", err)
+	}
+	return nil
 }
 
 func (q *Queries) GetSession(ctx context.Context, id uuid.UUID) (*Session, error) {
 	var session Session
 	err := q.db.GetContext(ctx, &session, getSessionQuery, id)
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("session not found: %w", err)
+		return nil, fmt.Errorf("session not found on %s: query='%s', session_id='%s', table='neurondb_agent.sessions', error=%w",
+			q.getConnInfoString(), getSessionQuery, id.String(), err)
 	}
-	return &session, err
+	if err != nil {
+		return nil, q.formatQueryError("SELECT", getSessionQuery, 1, "neurondb_agent.sessions", err)
+	}
+	return &session, nil
 }
 
 func (q *Queries) ListSessions(ctx context.Context, agentID uuid.UUID, limit, offset int) ([]Session, error) {
 	var sessions []Session
-	err := q.db.SelectContext(ctx, &sessions, listSessionsQuery, agentID, limit, offset)
-	return sessions, err
+	params := []interface{}{agentID, limit, offset}
+	err := q.db.SelectContext(ctx, &sessions, listSessionsQuery, params...)
+	if err != nil {
+		return nil, q.formatQueryError("SELECT", listSessionsQuery, len(params), "neurondb_agent.sessions", err)
+	}
+	return sessions, nil
 }
 
 func (q *Queries) DeleteSession(ctx context.Context, id uuid.UUID) error {
 	result, err := q.db.ExecContext(ctx, deleteSessionQuery, id)
 	if err != nil {
-		return err
+		return q.formatQueryError("DELETE", deleteSessionQuery, 1, "neurondb_agent.sessions", err)
 	}
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get rows affected for DELETE on %s: query='%s', session_id='%s', table='neurondb_agent.sessions', error=%w",
+			q.getConnInfoString(), deleteSessionQuery, id.String(), err)
 	}
 	if rowsAffected == 0 {
-		return fmt.Errorf("session not found")
+		return fmt.Errorf("session not found on %s: query='%s', session_id='%s', table='neurondb_agent.sessions', rows_affected=0",
+			q.getConnInfoString(), deleteSessionQuery, id.String())
 	}
 	return nil
 }
 
 // Message methods
 func (q *Queries) CreateMessage(ctx context.Context, message *Message) (*Message, error) {
-	err := q.db.GetContext(ctx, message, createMessageQuery,
-		message.SessionID, message.Role, message.Content, message.ToolName,
-		message.ToolCallID, message.TokenCount, message.Metadata)
-	return message, err
+	params := []interface{}{message.SessionID, message.Role, message.Content, message.ToolName,
+		message.ToolCallID, message.TokenCount, message.Metadata}
+	err := q.db.GetContext(ctx, message, createMessageQuery, params...)
+	if err != nil {
+		return nil, q.formatQueryError("INSERT", createMessageQuery, len(params), "neurondb_agent.messages", err)
+	}
+	return message, nil
 }
 
 func (q *Queries) GetMessages(ctx context.Context, sessionID uuid.UUID, limit, offset int) ([]Message, error) {
 	var messages []Message
-	err := q.db.SelectContext(ctx, &messages, getMessagesQuery, sessionID, limit, offset)
-	return messages, err
+	params := []interface{}{sessionID, limit, offset}
+	err := q.db.SelectContext(ctx, &messages, getMessagesQuery, params...)
+	if err != nil {
+		return nil, q.formatQueryError("SELECT", getMessagesQuery, len(params), "neurondb_agent.messages", err)
+	}
+	return messages, nil
 }
 
 func (q *Queries) GetRecentMessages(ctx context.Context, sessionID uuid.UUID, limit int) ([]Message, error) {
 	var messages []Message
-	err := q.db.SelectContext(ctx, &messages, getRecentMessagesQuery, sessionID, limit)
-	return messages, err
+	params := []interface{}{sessionID, limit}
+	err := q.db.SelectContext(ctx, &messages, getRecentMessagesQuery, params...)
+	if err != nil {
+		return nil, q.formatQueryError("SELECT", getRecentMessagesQuery, len(params), "neurondb_agent.messages", err)
+	}
+	return messages, nil
 }
 
 // Memory chunk methods
 func (q *Queries) CreateMemoryChunk(ctx context.Context, chunk *MemoryChunk) (*MemoryChunk, error) {
 	// Convert embedding to string format for neurondb_vector
 	embeddingStr := formatVector(chunk.Embedding)
-	err := q.db.GetContext(ctx, chunk, createMemoryChunkQuery,
-		chunk.AgentID, chunk.SessionID, chunk.MessageID, chunk.Content,
-		embeddingStr, chunk.ImportanceScore, chunk.Metadata)
-	return chunk, err
+	params := []interface{}{chunk.AgentID, chunk.SessionID, chunk.MessageID, chunk.Content,
+		embeddingStr, chunk.ImportanceScore, chunk.Metadata}
+	err := q.db.GetContext(ctx, chunk, createMemoryChunkQuery, params...)
+	if err != nil {
+		embeddingDim := len(chunk.Embedding)
+		return nil, fmt.Errorf("memory chunk creation failed on %s: query='%s', params_count=%d, agent_id='%s', session_id='%s', content_length=%d, embedding_dimension=%d, importance_score=%.2f, table='neurondb_agent.memory_chunks', error=%w",
+			q.getConnInfoString(), createMemoryChunkQuery, len(params), chunk.AgentID.String(),
+			utils.SanitizeValue(chunk.SessionID), len(chunk.Content), embeddingDim, chunk.ImportanceScore, err)
+	}
+	return chunk, nil
 }
 
 func (q *Queries) SearchMemory(ctx context.Context, agentID uuid.UUID, queryEmbedding []float32, topK int) ([]MemoryChunkWithSimilarity, error) {
 	embeddingStr := formatVector(queryEmbedding)
 	var chunks []MemoryChunkWithSimilarity
-	err := q.db.SelectContext(ctx, &chunks, searchMemoryQuery, embeddingStr, agentID, topK)
-	return chunks, err
+	params := []interface{}{embeddingStr, agentID, topK}
+	err := q.db.SelectContext(ctx, &chunks, searchMemoryQuery, params...)
+	if err != nil {
+		embeddingDim := len(queryEmbedding)
+		return nil, fmt.Errorf("memory search failed on %s: query='%s', params_count=%d, agent_id='%s', query_embedding_dimension=%d, top_k=%d, table='neurondb_agent.memory_chunks', error=%w",
+			q.getConnInfoString(), searchMemoryQuery, len(params), agentID.String(), embeddingDim, topK, err)
+	}
+	return chunks, nil
 }
 
 // Tool methods
 func (q *Queries) CreateTool(ctx context.Context, tool *Tool) error {
-	return q.db.GetContext(ctx, tool, createToolQuery,
-		tool.Name, tool.Description, tool.ArgSchema, tool.HandlerType,
-		tool.HandlerConfig, tool.Enabled)
+	params := []interface{}{tool.Name, tool.Description, tool.ArgSchema, tool.HandlerType,
+		tool.HandlerConfig, tool.Enabled}
+	err := q.db.GetContext(ctx, tool, createToolQuery, params...)
+	if err != nil {
+		return fmt.Errorf("tool creation failed on %s: query='%s', params_count=%d, tool_name='%s', handler_type='%s', enabled=%v, table='neurondb_agent.tools', error=%w",
+			q.getConnInfoString(), createToolQuery, len(params), tool.Name, tool.HandlerType, tool.Enabled, err)
+	}
+	return nil
 }
 
 func (q *Queries) GetTool(ctx context.Context, name string) (*Tool, error) {
 	var tool Tool
 	err := q.db.GetContext(ctx, &tool, getToolQuery, name)
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("tool not found: %w", err)
+		return nil, fmt.Errorf("tool not found on %s: query='%s', tool_name='%s', table='neurondb_agent.tools', error=%w",
+			q.getConnInfoString(), getToolQuery, name, err)
 	}
-	return &tool, err
+	if err != nil {
+		return nil, q.formatQueryError("SELECT", getToolQuery, 1, "neurondb_agent.tools", err)
+	}
+	return &tool, nil
 }
 
 func (q *Queries) ListTools(ctx context.Context) ([]Tool, error) {
 	var tools []Tool
 	err := q.db.SelectContext(ctx, &tools, listToolsQuery)
-	return tools, err
+	if err != nil {
+		return nil, q.formatQueryError("SELECT", listToolsQuery, 0, "neurondb_agent.tools", err)
+	}
+	return tools, nil
 }
 
 func (q *Queries) UpdateTool(ctx context.Context, tool *Tool) error {
-	return q.db.GetContext(ctx, tool, updateToolQuery,
-		tool.Name, tool.Description, tool.ArgSchema, tool.HandlerType,
-		tool.HandlerConfig, tool.Enabled)
+	params := []interface{}{tool.Name, tool.Description, tool.ArgSchema, tool.HandlerType,
+		tool.HandlerConfig, tool.Enabled}
+	err := q.db.GetContext(ctx, tool, updateToolQuery, params...)
+	if err != nil {
+		return fmt.Errorf("tool update failed on %s: query='%s', params_count=%d, tool_name='%s', handler_type='%s', enabled=%v, table='neurondb_agent.tools', error=%w",
+			q.getConnInfoString(), updateToolQuery, len(params), tool.Name, tool.HandlerType, tool.Enabled, err)
+	}
+	return nil
 }
 
 func (q *Queries) DeleteTool(ctx context.Context, name string) error {
 	result, err := q.db.ExecContext(ctx, deleteToolQuery, name)
 	if err != nil {
-		return err
+		return q.formatQueryError("DELETE", deleteToolQuery, 1, "neurondb_agent.tools", err)
 	}
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get rows affected for DELETE on %s: query='%s', tool_name='%s', table='neurondb_agent.tools', error=%w",
+			q.getConnInfoString(), deleteToolQuery, name, err)
 	}
 	if rowsAffected == 0 {
-		return fmt.Errorf("tool not found")
+		return fmt.Errorf("tool not found on %s: query='%s', tool_name='%s', table='neurondb_agent.tools', rows_affected=0",
+			q.getConnInfoString(), deleteToolQuery, name)
 	}
 	return nil
 }
 
 // Job methods
 func (q *Queries) CreateJob(ctx context.Context, job *Job) (*Job, error) {
-	err := q.db.GetContext(ctx, job, createJobQuery,
-		job.AgentID, job.SessionID, job.Type, job.Status, job.Priority,
-		job.Payload, job.MaxRetries)
-	return job, err
+	params := []interface{}{job.AgentID, job.SessionID, job.Type, job.Status, job.Priority,
+		job.Payload, job.MaxRetries}
+	err := q.db.GetContext(ctx, job, createJobQuery, params...)
+	if err != nil {
+		agentIDStr := utils.SanitizeValue(job.AgentID)
+		sessionIDStr := utils.SanitizeValue(job.SessionID)
+		return nil, fmt.Errorf("job creation failed on %s: query='%s', params_count=%d, job_type='%s', status='%s', priority=%d, agent_id=%s, session_id=%s, max_retries=%d, table='neurondb_agent.jobs', error=%w",
+			q.getConnInfoString(), createJobQuery, len(params), job.Type, job.Status, job.Priority,
+			agentIDStr, sessionIDStr, job.MaxRetries, err)
+	}
+	return job, nil
 }
 
 func (q *Queries) GetJob(ctx context.Context, id int64) (*Job, error) {
 	var job Job
 	err := q.db.GetContext(ctx, &job, getJobQuery, id)
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("job not found: %w", err)
+		return nil, fmt.Errorf("job not found on %s: query='%s', job_id=%d, table='neurondb_agent.jobs', error=%w",
+			q.getConnInfoString(), getJobQuery, id, err)
 	}
-	return &job, err
+	if err != nil {
+		return nil, q.formatQueryError("SELECT", getJobQuery, 1, "neurondb_agent.jobs", err)
+	}
+	return &job, nil
 }
 
 func (q *Queries) ClaimJob(ctx context.Context) (*Job, error) {
@@ -369,7 +480,10 @@ func (q *Queries) ClaimJob(ctx context.Context) (*Job, error) {
 	if err == sql.ErrNoRows {
 		return nil, nil // No jobs available
 	}
-	return &job, err
+	if err != nil {
+		return nil, q.formatQueryError("UPDATE", claimJobQuery, 0, "neurondb_agent.jobs", err)
+	}
+	return &job, nil
 }
 
 func (q *Queries) UpdateJob(ctx context.Context, id int64, status string, result map[string]interface{}, errorMsg *string, retryCount int, completedAt *sql.NullTime) error {
@@ -379,63 +493,95 @@ func (q *Queries) UpdateJob(ctx context.Context, id int64, status string, result
 	} else {
 		completedAtVal = nil
 	}
-	_, err := q.db.ExecContext(ctx, updateJobQuery, id, status, result, errorMsg, retryCount, completedAtVal)
-	return err
+	params := []interface{}{id, status, result, errorMsg, retryCount, completedAtVal}
+	_, err := q.db.ExecContext(ctx, updateJobQuery, params...)
+	if err != nil {
+		errorMsgStr := utils.SanitizeValue(errorMsg)
+		return fmt.Errorf("job update failed on %s: query='%s', params_count=%d, job_id=%d, status='%s', retry_count=%d, error_message=%s, table='neurondb_agent.jobs', error=%w",
+			q.getConnInfoString(), updateJobQuery, len(params), id, status, retryCount, errorMsgStr, err)
+	}
+	return nil
 }
 
 func (q *Queries) ListJobs(ctx context.Context, agentID *uuid.UUID, sessionID *uuid.UUID, limit, offset int) ([]Job, error) {
 	var jobs []Job
-	err := q.db.SelectContext(ctx, &jobs, listJobsQuery, agentID, sessionID, limit, offset)
-	return jobs, err
+	params := []interface{}{agentID, sessionID, limit, offset}
+	err := q.db.SelectContext(ctx, &jobs, listJobsQuery, params...)
+	if err != nil {
+		return nil, q.formatQueryError("SELECT", listJobsQuery, len(params), "neurondb_agent.jobs", err)
+	}
+	return jobs, nil
 }
 
 // API Key methods
 func (q *Queries) CreateAPIKey(ctx context.Context, apiKey *APIKey) error {
-	return q.db.GetContext(ctx, apiKey, createAPIKeyQuery,
-		apiKey.KeyHash, apiKey.KeyPrefix, apiKey.OrganizationID, apiKey.UserID,
-		apiKey.RateLimitPerMin, apiKey.Roles, apiKey.Metadata, apiKey.ExpiresAt)
+	params := []interface{}{apiKey.KeyHash, apiKey.KeyPrefix, apiKey.OrganizationID, apiKey.UserID,
+		apiKey.RateLimitPerMin, apiKey.Roles, apiKey.Metadata, apiKey.ExpiresAt}
+	err := q.db.GetContext(ctx, apiKey, createAPIKeyQuery, params...)
+	if err != nil {
+		return fmt.Errorf("API key creation failed on %s: query='%s', params_count=%d, key_prefix='%s', organization_id=%s, user_id=%s, rate_limit_per_min=%d, table='neurondb_agent.api_keys', error=%w",
+			q.getConnInfoString(), createAPIKeyQuery, len(params), apiKey.KeyPrefix,
+			utils.SanitizeValue(apiKey.OrganizationID), utils.SanitizeValue(apiKey.UserID), apiKey.RateLimitPerMin, err)
+	}
+	return nil
 }
 
 func (q *Queries) GetAPIKeyByPrefix(ctx context.Context, prefix string) (*APIKey, error) {
 	var apiKey APIKey
 	err := q.db.GetContext(ctx, &apiKey, getAPIKeyByPrefixQuery, prefix)
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("API key not found: %w", err)
+		return nil, fmt.Errorf("API key not found on %s: query='%s', key_prefix='%s', table='neurondb_agent.api_keys', error=%w",
+			q.getConnInfoString(), getAPIKeyByPrefixQuery, prefix, err)
 	}
-	return &apiKey, err
+	if err != nil {
+		return nil, q.formatQueryError("SELECT", getAPIKeyByPrefixQuery, 1, "neurondb_agent.api_keys", err)
+	}
+	return &apiKey, nil
 }
 
 func (q *Queries) GetAPIKeyByID(ctx context.Context, id uuid.UUID) (*APIKey, error) {
 	var apiKey APIKey
 	err := q.db.GetContext(ctx, &apiKey, getAPIKeyByIDQuery, id)
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("API key not found: %w", err)
+		return nil, fmt.Errorf("API key not found on %s: query='%s', key_id='%s', table='neurondb_agent.api_keys', error=%w",
+			q.getConnInfoString(), getAPIKeyByIDQuery, id.String(), err)
 	}
-	return &apiKey, err
+	if err != nil {
+		return nil, q.formatQueryError("SELECT", getAPIKeyByIDQuery, 1, "neurondb_agent.api_keys", err)
+	}
+	return &apiKey, nil
 }
 
 func (q *Queries) ListAPIKeys(ctx context.Context, organizationID *string) ([]APIKey, error) {
 	var keys []APIKey
 	err := q.db.SelectContext(ctx, &keys, listAPIKeysQuery, organizationID)
-	return keys, err
+	if err != nil {
+		return nil, q.formatQueryError("SELECT", listAPIKeysQuery, 1, "neurondb_agent.api_keys", err)
+	}
+	return keys, nil
 }
 
 func (q *Queries) UpdateAPIKeyLastUsed(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.ExecContext(ctx, updateAPIKeyLastUsedQuery, id)
-	return err
+	if err != nil {
+		return q.formatQueryError("UPDATE", updateAPIKeyLastUsedQuery, 1, "neurondb_agent.api_keys", err)
+	}
+	return nil
 }
 
 func (q *Queries) DeleteAPIKey(ctx context.Context, id uuid.UUID) error {
 	result, err := q.db.ExecContext(ctx, deleteAPIKeyQuery, id)
 	if err != nil {
-		return err
+		return q.formatQueryError("DELETE", deleteAPIKeyQuery, 1, "neurondb_agent.api_keys", err)
 	}
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get rows affected for DELETE on %s: query='%s', key_id='%s', table='neurondb_agent.api_keys', error=%w",
+			q.getConnInfoString(), deleteAPIKeyQuery, id.String(), err)
 	}
 	if rowsAffected == 0 {
-		return fmt.Errorf("API key not found")
+		return fmt.Errorf("API key not found on %s: query='%s', key_id='%s', table='neurondb_agent.api_keys', rows_affected=0",
+			q.getConnInfoString(), deleteAPIKeyQuery, id.String())
 	}
 	return nil
 }

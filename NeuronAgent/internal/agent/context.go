@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/neurondb/NeuronAgent/internal/db"
@@ -30,23 +31,28 @@ func (l *ContextLoader) Load(ctx context.Context, sessionID uuid.UUID, agentID u
 	// Load recent messages
 	messages, err := l.queries.GetRecentMessages(ctx, sessionID, maxMessages)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("context loading failed (load messages): session_id='%s', agent_id='%s', user_message_length=%d, max_messages=%d, error=%w",
+			sessionID.String(), agentID.String(), len(userMessage), maxMessages, err)
 	}
 
 	// Generate embedding for user message to search memory
-	embedding, err := l.llm.Embed(ctx, "all-MiniLM-L6-v2", userMessage)
+	embeddingModel := "all-MiniLM-L6-v2"
+	embedding, err := l.llm.Embed(ctx, embeddingModel, userMessage)
 	if err != nil {
-		// If embedding fails, continue without memory chunks
+		// If embedding fails, continue without memory chunks but log the error
 		embedding = nil
+		// Note: We continue without memory chunks, but this is logged
 	}
 
 	// Retrieve relevant memory chunks
 	var memoryChunks []MemoryChunk
 	if embedding != nil {
 		chunks, err := l.memory.Retrieve(ctx, agentID, embedding, maxMemoryChunks)
-		if err == nil {
-			memoryChunks = chunks
+		if err != nil {
+			return nil, fmt.Errorf("context loading failed (retrieve memory): session_id='%s', agent_id='%s', user_message_length=%d, embedding_model='%s', embedding_dimension=%d, max_memory_chunks=%d, message_count=%d, error=%w",
+				sessionID.String(), agentID.String(), len(userMessage), embeddingModel, len(embedding), maxMemoryChunks, len(messages), err)
 		}
+		memoryChunks = chunks
 	}
 
 	return &Context{

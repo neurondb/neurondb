@@ -43,7 +43,12 @@ func (e *Executor) Execute(ctx context.Context, tool *db.Tool, args map[string]i
 	metrics.RecordToolExecution(tool.Name, status, duration)
 	
 	if err != nil {
-		return "", fmt.Errorf("tool execution failed: %w", err)
+		argKeys := make([]string, 0, len(args))
+		for k := range args {
+			argKeys = append(argKeys, k)
+		}
+		return "", fmt.Errorf("tool execution failed: tool_name='%s', handler_type='%s', timeout=%v, execution_duration=%v, status='error', args_count=%d, arg_keys=[%v], error=%w",
+			tool.Name, tool.HandlerType, e.timeout, duration, len(args), argKeys, err)
 	}
 
 	return result, nil
@@ -53,7 +58,12 @@ func (e *Executor) Execute(ctx context.Context, tool *db.Tool, args map[string]i
 func (e *Executor) ExecuteByName(ctx context.Context, toolName string, args map[string]interface{}) (string, error) {
 	tool, err := e.registry.Get(toolName)
 	if err != nil {
-		return "", fmt.Errorf("tool not found: %w", err)
+		argKeys := make([]string, 0, len(args))
+		for k := range args {
+			argKeys = append(argKeys, k)
+		}
+		return "", fmt.Errorf("tool execution by name failed: tool_name='%s', args_count=%d, arg_keys=[%v], tool_not_found=true, error=%w",
+			toolName, len(args), argKeys, err)
 	}
 
 	return e.Execute(ctx, tool, args)

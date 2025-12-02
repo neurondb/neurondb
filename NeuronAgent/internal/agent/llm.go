@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	"github.com/neurondb/NeuronAgent/internal/db"
@@ -48,7 +49,21 @@ func (c *LLMClient) Generate(ctx context.Context, modelName string, prompt strin
 	metrics.RecordLLMCall(modelName, status, result.TokensUsed, 0) // Completion tokens not available
 	
 	if err != nil {
-		return nil, err
+		promptTokens := EstimateTokens(prompt)
+		temperature := "default"
+		if llmConfig.Temperature != nil {
+			temperature = fmt.Sprintf("%.2f", *llmConfig.Temperature)
+		}
+		maxTokens := "default"
+		if llmConfig.MaxTokens != nil {
+			maxTokens = fmt.Sprintf("%d", *llmConfig.MaxTokens)
+		}
+		topP := "default"
+		if llmConfig.TopP != nil {
+			topP = fmt.Sprintf("%.2f", *llmConfig.TopP)
+		}
+		return nil, fmt.Errorf("LLM generation failed: model_name='%s', prompt_length=%d, prompt_tokens=%d, temperature=%s, max_tokens=%s, top_p=%s, streaming=false, error=%w",
+			modelName, len(prompt), promptTokens, temperature, maxTokens, topP, err)
 	}
 
 	// Estimate completion tokens if not provided
@@ -87,13 +102,35 @@ func (c *LLMClient) GenerateStream(ctx context.Context, modelName string, prompt
 		llmConfig.TopP = &topP
 	}
 
-	return c.llmClient.GenerateStream(ctx, prompt, llmConfig, writer)
+	err := c.llmClient.GenerateStream(ctx, prompt, llmConfig, writer)
+	if err != nil {
+		promptTokens := EstimateTokens(prompt)
+		temperature := "default"
+		if llmConfig.Temperature != nil {
+			temperature = fmt.Sprintf("%.2f", *llmConfig.Temperature)
+		}
+		maxTokens := "default"
+		if llmConfig.MaxTokens != nil {
+			maxTokens = fmt.Sprintf("%d", *llmConfig.MaxTokens)
+		}
+		topP := "default"
+		if llmConfig.TopP != nil {
+			topP = fmt.Sprintf("%.2f", *llmConfig.TopP)
+		}
+		return fmt.Errorf("LLM streaming generation failed: model_name='%s', prompt_length=%d, prompt_tokens=%d, temperature=%s, max_tokens=%s, top_p=%s, streaming=true, error=%w",
+			modelName, len(prompt), promptTokens, temperature, maxTokens, topP, err)
+	}
+	return nil
 }
 
 func (c *LLMClient) Embed(ctx context.Context, model string, text string) ([]float32, error) {
 	embedding, err := c.embedClient.Embed(ctx, text, model)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("embedding generation failed: model_name='%s', text_length=%d, error=%w",
+			model, len(text), err)
+	}
+	if embedding == nil {
+		return nil, fmt.Errorf("embedding generation returned nil: model_name='%s', text_length=%d", model, len(text))
 	}
 	return embedding, nil
 }

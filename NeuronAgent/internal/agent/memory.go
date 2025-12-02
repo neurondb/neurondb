@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/google/uuid"
@@ -40,7 +41,8 @@ func (m *MemoryManager) Retrieve(ctx context.Context, agentID uuid.UUID, queryEm
 
 	chunks, err := m.queries.SearchMemory(ctx, agentID, queryEmbedding, topK)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("memory retrieval failed: agent_id='%s', query_embedding_dimension=%d, top_k=%d, error=%w",
+			agentID.String(), len(queryEmbedding), topK, err)
 	}
 
 	result := make([]MemoryChunk, len(chunks))
@@ -67,9 +69,12 @@ func (m *MemoryManager) StoreChunks(ctx context.Context, agentID, sessionID uuid
 	}
 
 	// Compute embedding
-	embedding, err := m.embed.Embed(ctx, content, "all-MiniLM-L6-v2")
+	embeddingModel := "all-MiniLM-L6-v2"
+	embedding, err := m.embed.Embed(ctx, content, embeddingModel)
 	if err != nil {
-		return // Log error but don't fail
+		// Log error but don't fail (async operation)
+		// Error is already detailed in embedding client
+		return
 	}
 
 	// Store chunk
@@ -81,7 +86,8 @@ func (m *MemoryManager) StoreChunks(ctx context.Context, agentID, sessionID uuid
 		ImportanceScore: importance,
 	})
 	if err != nil {
-		// Log error
+		// Log error but don't fail (async operation)
+		// Error is already detailed in queries.CreateMemoryChunk
 		return
 	}
 

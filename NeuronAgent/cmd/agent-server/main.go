@@ -66,6 +66,7 @@ func main() {
 
 	// Initialize components
 	queries := db.NewQueries(database.DB)
+	queries.SetConnInfoFunc(database.GetConnInfoString)
 	embedClient := neurondb.NewEmbeddingClient(database.DB)
 	toolRegistry := tools.NewRegistry(queries, database)
 	runtime := agent.NewRuntime(database, queries, toolRegistry, embedClient)

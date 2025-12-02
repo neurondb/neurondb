@@ -45,7 +45,11 @@ func (r *Registry) RegisterHandler(handlerType string, handler ToolHandler) {
 // Get retrieves a tool from the database
 // Implements agent.ToolRegistry interface
 func (r *Registry) Get(name string) (*db.Tool, error) {
-	return r.queries.GetTool(context.Background(), name)
+	tool, err := r.queries.GetTool(context.Background(), name)
+	if err != nil {
+		return nil, fmt.Errorf("tool retrieval failed: tool_name='%s', error=%w", name, err)
+	}
+	return tool, nil
 }
 
 // Execute executes a tool with the given arguments
@@ -57,12 +61,22 @@ func (r *Registry) Execute(ctx context.Context, tool *db.Tool, args map[string]i
 // ExecuteTool executes a tool with the given arguments (internal method)
 func (r *Registry) ExecuteTool(ctx context.Context, tool *db.Tool, args map[string]interface{}) (string, error) {
 	if !tool.Enabled {
-		return "", fmt.Errorf("tool %s is disabled", tool.Name)
+		argKeys := make([]string, 0, len(args))
+		for k := range args {
+			argKeys = append(argKeys, k)
+		}
+		return "", fmt.Errorf("tool execution failed: tool_name='%s', handler_type='%s', enabled=false, args_count=%d, arg_keys=[%v]",
+			tool.Name, tool.HandlerType, len(args), argKeys)
 	}
 
 	// Validate arguments
 	if err := ValidateArgs(args, tool.ArgSchema); err != nil {
-		return "", fmt.Errorf("validation failed: %w", err)
+		argKeys := make([]string, 0, len(args))
+		for k := range args {
+			argKeys = append(argKeys, k)
+		}
+		return "", fmt.Errorf("tool validation failed: tool_name='%s', handler_type='%s', args_count=%d, arg_keys=[%v], validation_error='%v'",
+			tool.Name, tool.HandlerType, len(args), argKeys, err)
 	}
 
 	// Get handler
@@ -71,11 +85,29 @@ func (r *Registry) ExecuteTool(ctx context.Context, tool *db.Tool, args map[stri
 	r.mu.RUnlock()
 
 	if !exists {
-		return "", fmt.Errorf("no handler registered for type: %s", tool.HandlerType)
+		argKeys := make([]string, 0, len(args))
+		for k := range args {
+			argKeys = append(argKeys, k)
+		}
+		availableHandlers := make([]string, 0, len(r.handlers))
+		for k := range r.handlers {
+			availableHandlers = append(availableHandlers, k)
+		}
+		return "", fmt.Errorf("tool execution failed: tool_name='%s', handler_type='%s', handler_not_found=true, args_count=%d, arg_keys=[%v], available_handlers=[%v]",
+			tool.Name, tool.HandlerType, len(args), argKeys, availableHandlers)
 	}
 
 	// Execute tool
-	return handler.Execute(ctx, tool, args)
+	result, err := handler.Execute(ctx, tool, args)
+	if err != nil {
+		argKeys := make([]string, 0, len(args))
+		for k := range args {
+			argKeys = append(argKeys, k)
+		}
+		return "", fmt.Errorf("tool execution failed: tool_name='%s', handler_type='%s', args_count=%d, arg_keys=[%v], error=%w",
+			tool.Name, tool.HandlerType, len(args), argKeys, err)
+	}
+	return result, nil
 }
 
 // ListTools returns all enabled tools

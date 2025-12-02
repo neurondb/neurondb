@@ -36,7 +36,8 @@ func (c *LLMClient) Generate(ctx context.Context, prompt string, config LLMConfi
 
 	paramsJSON, err := json.Marshal(params)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal params: %w", err)
+		return nil, fmt.Errorf("LLM generation failed: model_name='%s', prompt_length=%d, parameter_marshaling_error=true, error=%w",
+			config.Model, len(prompt), err)
 	}
 
 	// Try neurondb_llm_generate first, fallback to neurondb_llm_complete
@@ -49,7 +50,21 @@ func (c *LLMClient) Generate(ctx context.Context, prompt string, config LLMConfi
 		query = `SELECT neurondb_llm_complete($1, $2, $3::jsonb) AS output`
 		err = c.db.GetContext(ctx, &output, query, config.Model, prompt, paramsJSON)
 		if err != nil {
-			return nil, fmt.Errorf("failed to generate LLM output: %w", err)
+			promptTokens := len(strings.Split(prompt, " "))
+			temperature := "default"
+			if config.Temperature != nil {
+				temperature = fmt.Sprintf("%.2f", *config.Temperature)
+			}
+			maxTokens := "default"
+			if config.MaxTokens != nil {
+				maxTokens = fmt.Sprintf("%d", *config.MaxTokens)
+			}
+			topP := "default"
+			if config.TopP != nil {
+				topP = fmt.Sprintf("%.2f", *config.TopP)
+			}
+			return nil, fmt.Errorf("LLM generation failed via NeuronDB: model_name='%s', prompt_length=%d, prompt_tokens_approx=%d, temperature=%s, max_tokens=%s, top_p=%s, function='neurondb_llm_generate' (fallback: 'neurondb_llm_complete'), error=%w",
+				config.Model, len(prompt), promptTokens, temperature, maxTokens, topP, err)
 		}
 	}
 
@@ -89,7 +104,9 @@ func (c *LLMClient) GenerateStream(ctx context.Context, prompt string, config LL
 		// Fallback: generate full response and write in chunks
 		result, err := c.Generate(ctx, prompt, config)
 		if err != nil {
-			return err
+			promptTokens := len(strings.Split(prompt, " "))
+			return fmt.Errorf("LLM streaming generation failed via NeuronDB: model_name='%s', prompt_length=%d, prompt_tokens_approx=%d, function='neurondb_llm_generate_stream', fallback_generation_failed=true, error=%w",
+				config.Model, len(prompt), promptTokens, err)
 		}
 		
 		// Write in chunks to simulate streaming
@@ -115,10 +132,11 @@ func (c *LLMClient) GenerateStream(ctx context.Context, prompt string, config LL
 	defer rows.Close()
 
 	// Stream chunks from database
-	for rows.Next() {
+		for rows.Next() {
 		var chunk string
 		if err := rows.Scan(&chunk); err != nil {
-			return fmt.Errorf("failed to scan chunk: %w", err)
+			return fmt.Errorf("LLM streaming chunk scan failed via NeuronDB: model_name='%s', prompt_length=%d, function='neurondb_llm_generate_stream', error=%w",
+				config.Model, len(prompt), err)
 		}
 		
 		if _, err := writer.Write([]byte(chunk)); err != nil {

@@ -29,11 +29,17 @@ func NewHTTPTool() *HTTPTool {
 func (t *HTTPTool) Execute(ctx context.Context, tool *db.Tool, args map[string]interface{}) (string, error) {
 	url, ok := args["url"].(string)
 	if !ok {
-		return "", fmt.Errorf("url parameter is required and must be a string")
+		argKeys := make([]string, 0, len(args))
+		for k := range args {
+			argKeys = append(argKeys, k)
+		}
+		return "", fmt.Errorf("HTTP tool execution failed: tool_name='%s', handler_type='http', args_count=%d, arg_keys=[%v], validation_error='url parameter is required and must be a string'",
+			tool.Name, len(args), argKeys)
 	}
 
 	// Check allowlist if configured
-	if len(t.allowed) > 0 && !t.allowed[url] {
+	allowlistSize := len(t.allowed)
+	if allowlistSize > 0 && !t.allowed[url] {
 		// Check if any allowed prefix matches
 		allowed := false
 		for allowedURL := range t.allowed {
@@ -43,7 +49,8 @@ func (t *HTTPTool) Execute(ctx context.Context, tool *db.Tool, args map[string]i
 			}
 		}
 		if !allowed {
-			return "", fmt.Errorf("URL not in allowlist: %s", url)
+			return "", fmt.Errorf("HTTP tool execution failed: tool_name='%s', handler_type='http', url='%s', allowlist_size=%d, allowlist_check='failed', validation_error='URL not in allowlist'",
+				tool.Name, url, allowlistSize)
 		}
 	}
 
@@ -51,11 +58,22 @@ func (t *HTTPTool) Execute(ctx context.Context, tool *db.Tool, args map[string]i
 	if m, ok := args["method"].(string); ok {
 		method = strings.ToUpper(m)
 	}
+	
+	headerCount := 0
+	if headers, ok := args["headers"].(map[string]interface{}); ok {
+		headerCount = len(headers)
+	}
+	
+	bodySize := 0
+	if body, ok := args["body"].(string); ok {
+		bodySize = len(body)
+	}
 
 	// Create request
 	req, err := http.NewRequestWithContext(ctx, method, url, nil)
 	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
+		return "", fmt.Errorf("HTTP tool request creation failed: tool_name='%s', handler_type='http', method='%s', url='%s', headers_count=%d, body_size=%d, timeout=%v, error=%w",
+			tool.Name, method, url, headerCount, bodySize, t.client.Timeout, err)
 	}
 
 	// Add headers
@@ -76,15 +94,18 @@ func (t *HTTPTool) Execute(ctx context.Context, tool *db.Tool, args map[string]i
 	// Execute request
 	resp, err := t.client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("request failed: %w", err)
+		return "", fmt.Errorf("HTTP tool request execution failed: tool_name='%s', handler_type='http', method='%s', url='%s', headers_count=%d, body_size=%d, timeout=%v, error=%w",
+			tool.Name, method, url, headerCount, bodySize, t.client.Timeout, err)
 	}
 	defer resp.Body.Close()
 
 	// Limit response size (1MB)
-	limitedReader := io.LimitReader(resp.Body, 1024*1024)
+	maxResponseSize := 1024 * 1024
+	limitedReader := io.LimitReader(resp.Body, int64(maxResponseSize))
 	body, err := io.ReadAll(limitedReader)
 	if err != nil {
-		return "", fmt.Errorf("failed to read response: %w", err)
+		return "", fmt.Errorf("HTTP tool response reading failed: tool_name='%s', handler_type='http', method='%s', url='%s', response_status=%d, max_response_size=%d, error=%w",
+			tool.Name, method, url, resp.StatusCode, maxResponseSize, err)
 	}
 
 	// Format response
@@ -96,7 +117,8 @@ func (t *HTTPTool) Execute(ctx context.Context, tool *db.Tool, args map[string]i
 
 	jsonResult, err := json.Marshal(result)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal response: %w", err)
+		return "", fmt.Errorf("HTTP tool response marshaling failed: tool_name='%s', handler_type='http', method='%s', url='%s', response_status=%d, response_body_size=%d, error=%w",
+			tool.Name, method, url, resp.StatusCode, len(body), err)
 	}
 
 	return string(jsonResult), nil

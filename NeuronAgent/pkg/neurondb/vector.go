@@ -1,6 +1,7 @@
 package neurondb
 
 import (
+	"fmt"
 	"math"
 )
 
@@ -19,6 +20,25 @@ func Distance(a, b Vector, metric string) float64 {
 		return InnerProduct(a, b)
 	default:
 		return L2Distance(a, b) // Default to L2
+	}
+}
+
+// DistanceWithError calculates the distance between two vectors and returns detailed error
+func DistanceWithError(a, b Vector, metric string) (float64, error) {
+	if len(a) != len(b) {
+		return math.Inf(1), fmt.Errorf("vector distance calculation failed: vector_a_dimension=%d, vector_b_dimension=%d, metric='%s', error='dimension mismatch'",
+			len(a), len(b), metric)
+	}
+
+	switch metric {
+	case "cosine":
+		return CosineDistance(a, b), nil
+	case "l2", "euclidean":
+		return L2Distance(a, b), nil
+	case "inner_product", "dot":
+		return InnerProduct(a, b), nil
+	default:
+		return L2Distance(a, b), nil // Default to L2
 	}
 }
 
@@ -78,5 +98,28 @@ func Normalize(v Vector) Vector {
 		normalized[i] = float32(float64(val) / norm)
 	}
 	return normalized
+}
+
+// NormalizeWithError normalizes a vector to unit length and returns detailed error
+func NormalizeWithError(v Vector) (Vector, error) {
+	if len(v) == 0 {
+		return nil, fmt.Errorf("vector normalization failed: vector_dimension=0, error='empty vector'")
+	}
+	
+	norm := 0.0
+	for _, val := range v {
+		norm += float64(val * val)
+	}
+	norm = math.Sqrt(norm)
+
+	if norm == 0 {
+		return v, nil // Return original if zero vector
+	}
+
+	normalized := make(Vector, len(v))
+	for i, val := range v {
+		normalized[i] = float32(float64(val) / norm)
+	}
+	return normalized, nil
 }
 

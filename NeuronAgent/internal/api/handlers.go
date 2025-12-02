@@ -1,8 +1,10 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -28,10 +30,19 @@ func NewHandlers(queries *db.Queries, runtime *agent.Runtime) *Handlers {
 // Agents
 
 func (h *Handlers) CreateAgent(w http.ResponseWriter, r *http.Request) {
+	requestID := GetRequestID(r.Context())
+	endpoint := r.URL.Path
+	method := r.Method
+	
 	var req CreateAgentRequest
+	bodyBytes, _ := io.ReadAll(r.Body)
+	bodySize := len(bodyBytes)
+	r.Body = io.NopCloser(io.Reader(bytes.NewReader(bodyBytes)))
+	
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		requestID := GetRequestID(r.Context())
-		respondError(w, WrapError(ErrBadRequest, requestID))
+		respondError(w, NewErrorWithContext(http.StatusBadRequest, "agent creation failed: request body parsing error", err, requestID, endpoint, method, "agent", "", map[string]interface{}{
+			"body_size": bodySize,
+		}))
 		return
 	}
 
@@ -51,8 +62,12 @@ func (h *Handlers) CreateAgent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.queries.CreateAgent(r.Context(), agent); err != nil {
-		requestID := GetRequestID(r.Context())
-		respondError(w, WrapError(NewError(http.StatusInternalServerError, "failed to create agent", err), requestID))
+		respondError(w, NewErrorWithContext(http.StatusInternalServerError, "agent creation failed", err, requestID, endpoint, method, "agent", "", map[string]interface{}{
+			"agent_name":      req.Name,
+			"model_name":      req.ModelName,
+			"enabled_tools":   req.EnabledTools,
+			"system_prompt_length": len(req.SystemPrompt),
+		}))
 		return
 	}
 

@@ -25,13 +25,19 @@ func (c *EmbeddingClient) Embed(ctx context.Context, text string, model string) 
 	
 	err := c.db.GetContext(ctx, &embeddingStr, query, text, model)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate embedding: %w", err)
+		return nil, fmt.Errorf("embedding generation failed via NeuronDB: model_name='%s', text_length=%d, function='neurondb_embed', error=%w",
+			model, len(text), err)
 	}
 
 	// Parse vector string format [1.0, 2.0, 3.0] to []float32
 	embedding, err := parseVector(embeddingStr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse embedding: %w", err)
+		embeddingStrPreview := embeddingStr
+		if len(embeddingStrPreview) > 200 {
+			embeddingStrPreview = embeddingStrPreview[:200] + "..."
+		}
+		return nil, fmt.Errorf("embedding parsing failed: model_name='%s', text_length=%d, embedding_string_length=%d, embedding_string_preview='%s', function='neurondb_embed', error=%w",
+			model, len(text), len(embeddingStr), embeddingStrPreview, err)
 	}
 
 	return embedding, nil
@@ -52,7 +58,12 @@ func (c *EmbeddingClient) EmbedBatch(ctx context.Context, texts []string, model 
 	// Parse array of vectors
 	embeddings, err := parseVectorArray(embeddingsStr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse embeddings: %w", err)
+		embeddingsStrPreview := embeddingsStr
+		if len(embeddingsStrPreview) > 200 {
+			embeddingsStrPreview = embeddingsStrPreview[:200] + "..."
+		}
+		return nil, fmt.Errorf("batch embedding parsing failed via NeuronDB: model_name='%s', text_count=%d, embeddings_string_length=%d, embeddings_string_preview='%s', function='neurondb_embed_batch', error=%w",
+			model, len(texts), len(embeddingsStr), embeddingsStrPreview, err)
 	}
 
 	return embeddings, nil
@@ -64,7 +75,8 @@ func (c *EmbeddingClient) embedBatchFallback(ctx context.Context, texts []string
 	for i, text := range texts {
 		emb, err := c.Embed(ctx, text, model)
 		if err != nil {
-			return nil, fmt.Errorf("failed to embed text %d: %w", i, err)
+			return nil, fmt.Errorf("batch embedding fallback failed: model_name='%s', text_index=%d, text_count=%d, text_length=%d, function='neurondb_embed' (fallback), error=%w",
+				model, i, len(texts), len(text), err)
 		}
 		embeddings[i] = emb
 	}
