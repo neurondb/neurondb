@@ -27,7 +27,7 @@ BEGIN
 	SELECT setting_value INTO gpu_mode FROM test_settings WHERE setting_key = 'gpu_mode';
 	SELECT current_setting('neurondb.gpu_enabled', true) INTO current_gpu_enabled;
 	IF gpu_mode = 'gpu' THEN
-		SELECT neurondb_gpu_enable();
+		PERFORM neurondb_gpu_enable();
 	END IF;
 END $$;
 
@@ -187,25 +187,18 @@ BEGIN
 	RAISE NOTICE 'Evaluating model_id: % on test_test_view with % valid samples', mid, test_count;
 	
 	BEGIN
-		BEGIN
-			metrics_result := neurondb.evaluate(mid, 'test_test_view', 'features', 'label');
-			
-			IF metrics_result IS NULL THEN
-				RAISE WARNING 'Evaluation returned NULL for model_id: %', mid;
-				INSERT INTO gpu_metrics_temp VALUES ('{"error": "Evaluation returned NULL"}'::jsonb);
-			ELSE
-				RAISE NOTICE 'Evaluation successful for model_id: %', mid;
-				INSERT INTO gpu_metrics_temp VALUES (metrics_result);
-			END IF;
-		EXCEPTION WHEN OTHERS THEN
-			eval_error := SQLERRM;
-			RAISE WARNING 'Evaluation exception for model_id %: %', mid, eval_error;
-			eval_error := REPLACE(REPLACE(REPLACE(eval_error, '"', '\"'), E'\n', ' '), E'\r', ' ');
-			INSERT INTO gpu_metrics_temp VALUES (jsonb_build_object('error', eval_error, 'model_id', mid));
-		END;
+		metrics_result := neurondb.evaluate(mid, 'test_test_view', 'features', 'label');
+		
+		IF metrics_result IS NULL THEN
+			RAISE WARNING 'Evaluation returned NULL for model_id: %', mid;
+			INSERT INTO gpu_metrics_temp VALUES ('{"error": "Evaluation returned NULL"}'::jsonb);
+		ELSE
+			RAISE NOTICE 'Evaluation successful for model_id: %', mid;
+			INSERT INTO gpu_metrics_temp VALUES (metrics_result);
+		END IF;
 	EXCEPTION WHEN OTHERS THEN
 		eval_error := SQLERRM;
-		RAISE WARNING 'Outer evaluation exception for model_id %: %', mid, eval_error;
+		RAISE WARNING 'Evaluation exception for model_id %: %', mid, eval_error;
 		eval_error := REPLACE(REPLACE(REPLACE(eval_error, '"', '\"'), E'\n', ' '), E'\r', ' ');
 		INSERT INTO gpu_metrics_temp VALUES (jsonb_build_object('error', eval_error, 'model_id', mid));
 	END;
@@ -454,15 +447,22 @@ END $$;
 DO $$
 DECLARE
 	gpu_mode TEXT;
+	rec RECORD;
 BEGIN
 	SELECT setting_value INTO gpu_mode FROM test_settings WHERE setting_key = 'gpu_mode';
 	
 	IF gpu_mode = 'gpu' THEN
 		BEGIN
 			RAISE NOTICE 'GPU Information:';
-			PERFORM device_id, device_name, total_memory_mb, free_memory_mb, 
+			-- Display GPU info by looping through results
+			FOR rec IN SELECT device_id, device_name, total_memory_mb, free_memory_mb, 
 					compute_capability_major, compute_capability_minor, is_available
-			FROM neurondb_gpu_info();
+			FROM neurondb_gpu_info()
+			LOOP
+				RAISE NOTICE '  Device %: % (Memory: %/% MB, Compute: %.%, Available: %)',
+					rec.device_id, rec.device_name, rec.free_memory_mb, rec.total_memory_mb,
+					rec.compute_capability_major, rec.compute_capability_minor, rec.is_available;
+			END LOOP;
 		EXCEPTION WHEN OTHERS THEN
 			RAISE NOTICE 'GPU information not available';
 		END;

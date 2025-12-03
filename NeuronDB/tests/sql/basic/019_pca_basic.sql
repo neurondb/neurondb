@@ -61,18 +61,80 @@ END $$;
 
 /* Step 3: Test PCA transformation */
 
--- Test PCA transformation
+-- Test PCA transformation with proper validation
 DO $$
 DECLARE
 	result vector[];
+	original_count integer;
+	original_dims integer;
+	transformed_dims integer;
+	result_count integer;
+	pca_result real[][];
+	vec_array real[];
+	i integer;
 BEGIN
-	BEGIN
-		SELECT neurondb.transform_pca('pca_data', ARRAY['features'], 2) INTO result;
-		IF result IS NULL OR array_length(result, 1) IS NULL THEN
-			RAISE EXCEPTION 'PCA transform returned NULL or empty';
+	-- Get original data info
+	SELECT COUNT(*) INTO original_count FROM pca_data;
+	SELECT vector_dims(features) INTO original_dims FROM pca_data LIMIT 1;
+	
+	-- Verify we have data
+	IF original_count IS NULL OR original_count = 0 THEN
+		RAISE EXCEPTION 'No data in pca_data table';
+	END IF;
+	
+	IF original_dims IS NULL OR original_dims = 0 THEN
+		RAISE EXCEPTION 'Invalid feature dimensions: %', original_dims;
+	END IF;
+	
+	-- Perform PCA transformation using reduce_pca
+	-- reduce_pca returns real[][] (array of arrays), convert to vector[]
+	SELECT reduce_pca('pca_data', 'features', 2) INTO pca_result;
+	
+	-- Convert real[][] to vector[]
+	IF pca_result IS NULL OR array_length(pca_result, 1) IS NULL THEN
+		RAISE EXCEPTION 'reduce_pca returned NULL or empty';
+	END IF;
+	
+	result_count := array_length(pca_result, 1);
+	result := ARRAY[]::vector[];
+	
+	FOR i IN 1..result_count LOOP
+		vec_array := pca_result[i];
+		result := array_append(result, array_to_vector_float8(vec_array)::vector);
+	END LOOP;
+	
+	-- Validate result
+	IF result IS NULL THEN
+		RAISE EXCEPTION 'PCA transform returned NULL';
+	END IF;
+	
+	result_count := array_length(result, 1);
+	IF result_count IS NULL OR result_count = 0 THEN
+		RAISE EXCEPTION 'PCA transform returned empty array';
+	END IF;
+	
+	-- Verify result count matches input count
+	IF result_count != original_count THEN
+		RAISE EXCEPTION 'PCA result count (%) does not match input count (%)', result_count, original_count;
+	END IF;
+	
+	-- Verify transformed dimensions
+	SELECT vector_dims(result[1]) INTO transformed_dims;
+	IF transformed_dims IS NULL OR transformed_dims != 2 THEN
+		RAISE EXCEPTION 'PCA transformed dimensions (%) should be 2', transformed_dims;
+	END IF;
+	
+	-- Verify n_components is less than or equal to original dimensions
+	IF 2 > original_dims THEN
+		RAISE EXCEPTION 'n_components (2) cannot be greater than original dimensions (%)', original_dims;
+	END IF;
+	
+	-- Verify all vectors in result have correct dimensions
+	FOR i IN 1..LEAST(result_count, 10) LOOP
+		IF vector_dims(result[i]) != 2 THEN
+			RAISE EXCEPTION 'Result vector at index % has wrong dimensions: % (expected 2)', i, vector_dims(result[i]);
 		END IF;
-	EXCEPTION WHEN OTHERS THEN
-	END;
+	END LOOP;
 END $$;
 
 DROP TABLE IF EXISTS pca_data;
