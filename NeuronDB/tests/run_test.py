@@ -60,7 +60,7 @@ DEFAULT_ERROR_DIR = os.path.join(os.path.dirname(__file__), "error")
 DEFAULT_DB = "neurondb"
 DEFAULT_HOST = "localhost"
 DEFAULT_PORT = 5432
-DEFAULT_MODE = "cpu"
+DEFAULT_MODE = "cpu"  # Default: CPU (0=CPU, 1=GPU, 2=AUTO)
 DEFAULT_NUM_ROWS = 1000
 
 # Output formatting constants for perfect alignment
