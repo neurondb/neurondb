@@ -35,18 +35,33 @@ func NewServer() (*Server, error) {
 	logger := logging.NewLogger(cfgMgr.GetLoggingConfig())
 
 	db := database.NewDatabase()
+	// Log database config for debugging
+	dbCfg := cfgMgr.GetDatabaseConfig()
+	logger.Info("Database configuration", map[string]interface{}{
+		"host":     dbCfg.GetHost(),
+		"port":     dbCfg.GetPort(),
+		"database": dbCfg.GetDatabase(),
+		"user":     dbCfg.GetUser(),
+		"has_password": dbCfg.Password != nil && *dbCfg.Password != "",
+	})
+	
 	// Try to connect, but don't fail server startup if it fails
 	// The server can start and tools will fail gracefully with proper error messages
-	if err := db.Connect(cfgMgr.GetDatabaseConfig()); err != nil {
+	if err := db.Connect(dbCfg); err != nil {
 		logger.Warn("Failed to connect to database at startup", map[string]interface{}{
 			"error": err.Error(),
+			"host":     dbCfg.GetHost(),
+			"port":     dbCfg.GetPort(),
+			"database": dbCfg.GetDatabase(),
+			"user":     dbCfg.GetUser(),
 			"note":  "Server will start but tools may fail. Database connection will be retried on first use.",
 		})
 		// Continue anyway - tools will handle connection errors gracefully
 	} else {
 		logger.Info("Connected to database", map[string]interface{}{
-			"host":     cfgMgr.GetDatabaseConfig().GetHost(),
-			"database": cfgMgr.GetDatabaseConfig().GetDatabase(),
+			"host":     dbCfg.GetHost(),
+			"database": dbCfg.GetDatabase(),
+			"user":     dbCfg.GetUser(),
 		})
 	}
 
@@ -90,7 +105,14 @@ func (s *Server) setupHandlers() {
 // Start starts the server
 func (s *Server) Start(ctx context.Context) error {
 	s.logger.Info("Starting Neurondb MCP server", nil)
-	return s.mcpServer.Run(ctx)
+	// Run the MCP server - this will block until context is cancelled or EOF
+	err := s.mcpServer.Run(ctx)
+	if err != nil && err != context.Canceled {
+		s.logger.Warn("MCP server stopped", map[string]interface{}{
+			"error": err.Error(),
+		})
+	}
+	return err
 }
 
 // Stop stops the server

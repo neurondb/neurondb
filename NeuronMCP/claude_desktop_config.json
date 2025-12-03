@@ -1,18 +1,15 @@
 {
   "mcpServers": {
     "neurondb": {
-      "command": "node",
-      "args": [
-        "/Users/ndbuser/neurondb/pge/Neurondb/bin/mcp/dist/index.js"
-      ],
+      "command": "/Users/pgedge/pge/neurondb/NeuronMCP/bin/neurondb-mcp",
       "env": {
-        "NODE_ENV": "production",
-        "NEURONDB_CONNECTION_STRING": "postgresql://ndbuser@localhost:5438/postgres",
         "NEURONDB_HOST": "localhost",
-        "NEURONDB_PORT": "5438",
-        "NEURONDB_DATABASE": "postgres",
-        "NEURONDB_USER": "ndbuser",
-        "PATH": "/usr/local/pgsql.18/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+        "NEURONDB_PORT": "5432",
+        "NEURONDB_DATABASE": "neurondb",
+        "NEURONDB_USER": "nbduser",
+        "NEURONDB_LOG_LEVEL": "info",
+        "NEURONDB_LOG_FORMAT": "text",
+        "NEURONDB_LOG_OUTPUT": "stderr"
       }
     }
   }

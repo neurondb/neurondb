@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 )
 
 // HandlerFunc is a function that handles an MCP request
@@ -63,44 +64,82 @@ func (s *Server) Run(ctx context.Context) error {
 	// Register initialize handler
 	s.SetHandler("initialize", s.HandleInitialize)
 	
+	s.transport.WriteError(fmt.Errorf("DEBUG: Server Run() started, entering main loop"))
+	
 	var initializedSent bool
 
 	for {
+		s.transport.WriteError(fmt.Errorf("DEBUG: Loop iteration started"))
 		select {
 		case <-ctx.Done():
+			// Context cancelled - exit gracefully
 			return ctx.Err()
 		default:
+			// Read next message - this will block until a message arrives or EOF
+			s.transport.WriteError(fmt.Errorf("DEBUG: About to call ReadMessage()"))
 			req, err := s.transport.ReadMessage()
+			s.transport.WriteError(fmt.Errorf("DEBUG: ReadMessage() returned, err=%v", err))
 			if err != nil {
+				// Check for EOF - this means stdin closed (client disconnected)
 				if err == io.EOF {
+					// Client disconnected - exit gracefully
 					return nil
 				}
-				// Check if it's an EOF error string
-				if err.Error() == "EOF" {
+				// Check if error message contains EOF
+				errStr := err.Error()
+				if errStr == "EOF" || strings.Contains(errStr, "EOF") {
+					// Client disconnected - exit gracefully
 					return nil
 				}
-				s.transport.WriteError(err)
+				
+				// For any other error, log it but CONTINUE running
+				// The server MUST stay alive and wait for the next message
+				// Errors like "missing Content-Length header" can happen if there's
+				// partial input or the client is still connected but hasn't sent a complete message yet
+				// DO NOT exit on these errors - only exit on EOF
+				s.transport.WriteError(fmt.Errorf("ReadMessage error (server continuing, will retry): %w", err))
+				
+				// CRITICAL: Continue the loop - server MUST stay alive
+				// Only exit on EOF (client disconnect) or context cancellation
+				// This ensures the server doesn't exit prematurely
 				continue
 			}
 
 			// Handle initialize specially - send initialized notification
 			if req.Method == "initialize" && !initializedSent {
-				resp := s.handleRequest(ctx, req)
-				if resp.Error == nil {
-					// Send initialized notification
-					if err := s.transport.WriteNotification("notifications/initialized", nil); err != nil {
-						s.transport.WriteError(err)
-					}
-					initializedSent = true
-				}
+				s.transport.WriteError(fmt.Errorf("DEBUG: Received initialize request"))
 				
-				// Write response if it's a request (has ID)
+				resp := s.handleRequest(ctx, req)
+				
+				s.transport.WriteError(fmt.Errorf("DEBUG: Generated initialize response, hasError=%v", resp.Error != nil))
+				
+				// CRITICAL: ALWAYS send response for initialize request immediately
 				if !IsNotification(req) {
+					// Send the initialize response FIRST - must happen synchronously
+					s.transport.WriteError(fmt.Errorf("DEBUG: About to write initialize response"))
 					if err := s.transport.WriteMessage(resp); err != nil {
-						s.transport.WriteError(err)
-						continue
+						s.transport.WriteError(fmt.Errorf("CRITICAL: failed to write initialize response: %w", err))
+					} else {
+						s.transport.WriteError(fmt.Errorf("DEBUG: Initialize response written successfully"))
+					}
+					
+					// If response was successful, send initialized notification
+					if resp.Error == nil {
+						// Send initialized notification AFTER response
+						s.transport.WriteError(fmt.Errorf("DEBUG: About to write initialized notification"))
+						if err := s.transport.WriteNotification("notifications/initialized", nil); err != nil {
+							s.transport.WriteError(fmt.Errorf("failed to write initialized notification: %w", err))
+						} else {
+							s.transport.WriteError(fmt.Errorf("DEBUG: Initialized notification written successfully"))
+						}
+						initializedSent = true
+					} else {
+						// Even if there was an error, mark as initialized to prevent retry loops
+						initializedSent = true
 					}
 				}
+				s.transport.WriteError(fmt.Errorf("DEBUG: Finished processing initialize, continuing loop"))
+				// Continue loop to wait for next message - server stays alive
 			} else {
 				// Handle other requests
 				resp := s.handleRequest(ctx, req)

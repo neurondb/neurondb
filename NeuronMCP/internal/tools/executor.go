@@ -4,9 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/neurondb/NeuronMCP/internal/database"
+)
+
+const (
+	// Default query timeout for all database operations
+	DefaultQueryTimeout = 60 * time.Second
+	// Embedding query timeout (embeddings can take longer)
+	EmbeddingQueryTimeout = 120 * time.Second
+	// Vector search timeout
+	VectorSearchTimeout = 30 * time.Second
 )
 
 // QueryExecutor executes database queries for tools
@@ -83,8 +93,15 @@ func (e *QueryExecutor) ExecuteVectorSearch(ctx context.Context, table, vectorCo
 	qb := &database.QueryBuilder{}
 	query, params := qb.VectorSearch(table, vectorColumn, vec, distanceMetric, limit, cols, nil)
 
-	rows, err := e.db.Query(ctx, query, params...)
+	// Create timeout context for vector search
+	queryCtx, cancel := context.WithTimeout(ctx, VectorSearchTimeout)
+	defer cancel()
+
+	rows, err := e.db.Query(queryCtx, query, params...)
 	if err != nil {
+		if queryCtx.Err() != nil {
+			return nil, fmt.Errorf("vector search timeout after %v: table='%s', vector_column='%s', distance_metric='%s', limit=%d, error=%w", VectorSearchTimeout, table, vectorColumn, distanceMetric, limit, queryCtx.Err())
+		}
 		return nil, fmt.Errorf("vector search execution failed: table='%s', vector_column='%s', distance_metric='%s', limit=%d, vector_dimension=%d, additional_columns=%v, error=%w", table, vectorColumn, distanceMetric, limit, len(vec), cols, err)
 	}
 	defer rows.Close()
@@ -111,8 +128,15 @@ func (e *QueryExecutor) ExecuteQuery(ctx context.Context, query string, params [
 		return nil, fmt.Errorf("query string is empty: cannot execute empty query")
 	}
 	
-	rows, err := e.db.Query(ctx, query, params...)
+	// Create timeout context
+	queryCtx, cancel := context.WithTimeout(ctx, DefaultQueryTimeout)
+	defer cancel()
+	
+	rows, err := e.db.Query(queryCtx, query, params...)
 	if err != nil {
+		if queryCtx.Err() != nil {
+			return nil, fmt.Errorf("query timeout after %v: query='%s', parameter_count=%d, error=%w", DefaultQueryTimeout, query, len(params), queryCtx.Err())
+		}
 		return nil, fmt.Errorf("query execution failed: query='%s', parameter_count=%d, parameters=%v, error=%w", query, len(params), params, err)
 	}
 	defer rows.Close()
@@ -127,6 +151,11 @@ func (e *QueryExecutor) ExecuteQuery(ctx context.Context, query string, params [
 
 // ExecuteQueryOne executes a query and returns a single row
 func (e *QueryExecutor) ExecuteQueryOne(ctx context.Context, query string, params []interface{}) (map[string]interface{}, error) {
+	return e.ExecuteQueryOneWithTimeout(ctx, query, params, DefaultQueryTimeout)
+}
+
+// ExecuteQueryOneWithTimeout executes a query with a specific timeout
+func (e *QueryExecutor) ExecuteQueryOneWithTimeout(ctx context.Context, query string, params []interface{}, timeout time.Duration) (map[string]interface{}, error) {
 	if e.db == nil {
 		return nil, fmt.Errorf("query executor database instance is nil: cannot execute single-row query '%s' with %d parameters", query, len(params))
 	}
@@ -139,7 +168,11 @@ func (e *QueryExecutor) ExecuteQueryOne(ctx context.Context, query string, param
 		return nil, fmt.Errorf("query string is empty: cannot execute empty query for single row result")
 	}
 	
-	rows, err := e.db.Query(ctx, query, params...)
+	// Create timeout context
+	queryCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	
+	rows, err := e.db.Query(queryCtx, query, params...)
 	if err != nil {
 		return nil, fmt.Errorf("single-row query execution failed: query='%s', parameter_count=%d, parameters=%v, error=%w", query, len(params), params, err)
 	}
@@ -156,6 +189,11 @@ func (e *QueryExecutor) ExecuteQueryOne(ctx context.Context, query string, param
 
 	if rows.Next() {
 		return nil, fmt.Errorf("multiple rows returned from single-row query: query='%s', parameter_count=%d, parameters=%v (expected exactly one row, got at least two)", query, len(params), params)
+	}
+
+	// Check if context was cancelled (timeout)
+	if queryCtx.Err() != nil {
+		return nil, fmt.Errorf("query timeout after %v: query='%s', parameter_count=%d, error=%w", timeout, query, len(params), queryCtx.Err())
 	}
 
 	return result, nil

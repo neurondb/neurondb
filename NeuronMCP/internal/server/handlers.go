@@ -94,6 +94,12 @@ func (s *Server) executeTool(ctx context.Context, toolName string, arguments map
 		}, nil
 	}
 
+	// Log tool execution start
+	s.logger.Info("Executing tool", map[string]interface{}{
+		"tool_name": toolName,
+		"arguments_count": len(arguments),
+	})
+
 	result, err := tool.Execute(ctx, arguments)
 	if err != nil {
 		return &middleware.MCPResponse{

@@ -6,7 +6,7 @@ import (
 	"fmt"
 )
 
-const ProtocolVersion = "2024-11-05"
+const ProtocolVersion = "2025-06-18"
 
 // ParseRequest parses a JSON-RPC request
 func ParseRequest(data []byte) (*JSONRPCRequest, error) {

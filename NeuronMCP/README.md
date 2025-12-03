@@ -260,6 +260,41 @@ Run NeuronMCP interactively for testing:
 
 Send JSON-RPC messages via stdin, receive responses via stdout.
 
+### Using neurondb-mcp-client
+
+A simple MCP client that works exactly like Claude Desktop. It handles the full MCP protocol including initialize handshake.
+
+Build the client:
+
+```bash
+make build-client
+```
+
+Usage:
+
+```bash
+# Initialize and list tools
+./bin/neurondb-mcp-client ./bin/neurondb-mcp tools/list
+
+# Call a tool
+./bin/neurondb-mcp-client ./bin/neurondb-mcp tools/call '{"name":"vector_search","arguments":{}}'
+
+# List resources
+./bin/neurondb-mcp-client ./bin/neurondb-mcp resources/list
+```
+
+The client automatically:
+- Sends initialize request with proper headers (exactly like Claude Desktop)
+- Reads initialize response
+- Reads initialized notification
+- Then sends your requests and reads responses
+
+Test script:
+
+```bash
+./test_client.sh
+```
+
 For Docker:
 
 ```bash

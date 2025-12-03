@@ -360,6 +360,10 @@ func NewGenerateEmbeddingTool(db *database.Database, logger *logging.Logger) *Ge
 
 // Execute executes the embedding generation
 func (t *GenerateEmbeddingTool) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
+	t.logger.Info("GenerateEmbeddingTool.Execute called", map[string]interface{}{
+		"params": params,
+	})
+
 	valid, errors := t.ValidateParams(params, t.InputSchema())
 	if !valid {
 		return Error("Invalid parameters", "VALIDATION_ERROR", map[string]interface{}{"errors": errors}), nil
@@ -382,19 +386,46 @@ func (t *GenerateEmbeddingTool) Execute(ctx context.Context, params map[string]i
 		modelName = "default"
 	}
 
-	// Use NeuronDB's unified embedding function: neurondb.embed(model, input_text, task)
-	// or neurondb.generate_embedding(model, text) for backward compatibility
-	query := "SELECT neurondb.embed($1, $2, 'embedding') AS embedding"
-	queryParams := []interface{}{modelName, text}
-
-	result, err := t.executor.ExecuteQueryOne(ctx, query, queryParams)
+	// Try embed_text first (C function, most reliable), then fallback to neurondb.embed
+	var result interface{}
+	var err error
+	
+	// First try: embed_text(text, model) - direct C function
+	// Cast vector to text so pgx can scan it
+	query := "SELECT embed_text($1, $2)::text AS embedding"
+	queryParams := []interface{}{text, modelName}
+	
+	t.logger.Info("Generating embedding", map[string]interface{}{
+		"method": "embed_text",
+		"model":  modelName,
+		"text_length": textLen,
+		"query": query,
+	})
+	
+	// Use embedding timeout for embedding queries
+	result, err = t.executor.ExecuteQueryOneWithTimeout(ctx, query, queryParams, EmbeddingQueryTimeout)
 	if err != nil {
-		t.logger.Error("Embedding generation failed", err, params)
-		return Error(fmt.Sprintf("Embedding generation failed: text_length=%d, model='%s', error=%v", textLen, modelName, err), "EMBEDDING_ERROR", map[string]interface{}{
-			"text_length": textLen,
-			"model":       modelName,
-			"error":       err.Error(),
-		}), nil
+		// Fallback: neurondb.embed(model, input_text, task) - PL/pgSQL wrapper
+		t.logger.Warn("embed_text failed, trying neurondb.embed fallback", map[string]interface{}{
+			"error": err.Error(),
+			"model": modelName,
+		})
+		
+		// Cast vector to text so pgx can scan it
+		query = "SELECT neurondb.embed($1, $2, 'embedding')::text AS embedding"
+		queryParams = []interface{}{modelName, text}
+		
+		// Use embedding timeout for fallback query too
+		result, err = t.executor.ExecuteQueryOneWithTimeout(ctx, query, queryParams, EmbeddingQueryTimeout)
+		if err != nil {
+			t.logger.Error("Embedding generation failed with both methods", err, params)
+			return Error(fmt.Sprintf("Embedding generation failed: text_length=%d, model='%s', error=%v", textLen, modelName, err), "EMBEDDING_ERROR", map[string]interface{}{
+				"text_length": textLen,
+				"model":       modelName,
+				"error":       err.Error(),
+				"methods_tried": []string{"embed_text", "neurondb.embed"},
+			}), nil
+		}
 	}
 
 	return Success(result, map[string]interface{}{"model": modelName}), nil
@@ -469,11 +500,44 @@ func (t *BatchEmbeddingTool) Execute(ctx context.Context, params map[string]inte
 		modelName = "default"
 	}
 
-	// Use NeuronDB's batch embedding function: neurondb.embed_batch(model, texts[])
-	query := "SELECT neurondb.embed_batch($1, $2) AS embeddings"
-	queryParams := []interface{}{modelName, texts}
+	// Convert []interface{} to []string for PostgreSQL text[] array
+	textStrings := make([]string, 0, textsCount)
+	for i, text := range texts {
+		if textStr, ok := text.(string); ok {
+			if textStr == "" {
+				return Error(fmt.Sprintf("texts array element at index %d is empty string for batch_embedding tool", i), "VALIDATION_ERROR", map[string]interface{}{
+					"parameter":   "texts",
+					"texts_count": textsCount,
+					"empty_index": i,
+					"params":      params,
+				}), nil
+			}
+			textStrings = append(textStrings, textStr)
+		} else {
+			return Error(fmt.Sprintf("texts array element at index %d must be a string for batch_embedding tool: got %T", i, text), "VALIDATION_ERROR", map[string]interface{}{
+				"parameter":     "texts",
+				"texts_count":   textsCount,
+				"invalid_index": i,
+				"received_type": fmt.Sprintf("%T", text),
+				"params":        params,
+			}), nil
+		}
+	}
 
-	result, err := t.executor.ExecuteQueryOne(ctx, query, queryParams)
+	// Use NeuronDB's batch embedding function: neurondb.embed_batch(model, texts[])
+	// Cast vector[] to text[] array, then to JSON so pgx can scan it
+	query := "SELECT json_agg(embedding::text) AS embeddings FROM unnest(neurondb.embed_batch($1, $2::text[])) AS embedding"
+	queryParams := []interface{}{modelName, textStrings}
+
+	t.logger.Info("Generating batch embeddings", map[string]interface{}{
+		"method": "neurondb.embed_batch",
+		"model":  modelName,
+		"texts_count": textsCount,
+		"query": query,
+	})
+
+	// Use embedding timeout for batch embeddings (can take longer)
+	result, err := t.executor.ExecuteQueryOneWithTimeout(ctx, query, queryParams, EmbeddingQueryTimeout)
 	if err != nil {
 		t.logger.Error("Batch embedding failed", err, params)
 		return Error(fmt.Sprintf("Batch embedding generation failed: texts_count=%d, model='%s', error=%v", textsCount, modelName, err), "EMBEDDING_ERROR", map[string]interface{}{

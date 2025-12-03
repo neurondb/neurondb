@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/neurondb/NeuronMCP/internal/config"
 )
@@ -83,12 +84,37 @@ func (d *Database) ConnectWithRetry(cfg *config.DatabaseConfig, maxRetries int, 
 		return fmt.Errorf("failed to parse connection string for database '%s' on host '%s:%d' as user '%s': %w (connection string format may be invalid)", db, host, port, user, err)
 	}
 
+	// Register NeuronDB custom types (vector, vector[], etc.)
+	// These OIDs are from NeuronDB extension
+	// Note: We cast to text in queries for compatibility, but register types for future use
+	poolConfig.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
+		// Register vector type (OID 17648) as text for scanning
+		// This allows pgx to handle vector types by treating them as text
+		conn.TypeMap().RegisterType(&pgtype.Type{
+			Codec: &pgtype.TextCodec{},
+			Name:  "vector",
+			OID:   17648,
+		})
+		// Register vector[] type (OID 17656) as text array
+		conn.TypeMap().RegisterType(&pgtype.Type{
+			Codec: &pgtype.ArrayCodec{ElementType: &pgtype.Type{Name: "text", Codec: &pgtype.TextCodec{}}},
+			Name:  "_vector",
+			OID:   17656,
+		})
+		return nil
+	}
+
 	// Apply pool settings
 	if cfg.Pool != nil {
 		poolConfig.MinConns = int32(cfg.Pool.GetMin())
 		poolConfig.MaxConns = int32(cfg.Pool.GetMax())
 		poolConfig.MaxConnIdleTime = cfg.Pool.GetIdleTimeout()
 		poolConfig.MaxConnLifetime = time.Hour
+		poolConfig.HealthCheckPeriod = 1 * time.Minute
+	} else {
+		// Set defaults to prevent immediate connection attempts
+		poolConfig.MinConns = 0  // Don't create connections until needed
+		poolConfig.MaxConns = 10
 		poolConfig.HealthCheckPeriod = 1 * time.Minute
 	}
 
