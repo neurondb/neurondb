@@ -190,6 +190,8 @@
 #define NDB_ALGO_DECISION_TREE              "decision_tree"
 #define NDB_ALGO_NAIVE_BAYES                "naive_bayes"
 #define NDB_ALGO_XGBOOST                    "xgboost"
+#define NDB_ALGO_CATBOOST                   "catboost"
+#define NDB_ALGO_LIGHTGBM                    "lightgbm"
 #define NDB_ALGO_KMEANS                     "kmeans"
 #define NDB_ALGO_GMM                        "gmm"
 #define NDB_ALGO_MINIBATCH_KMEANS           "minibatch_kmeans"
@@ -197,6 +199,7 @@
 #define NDB_ALGO_DBSCAN                     "dbscan"
 #define NDB_ALGO_PCA                        "pca"
 #define NDB_ALGO_OPQ                        "opq"
+#define NDB_ALGO_TIMESERIES                 "timeseries"
 
 /* ----------
  * SQL Function Names

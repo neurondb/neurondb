@@ -69,6 +69,8 @@ typedef enum
 	ML_ALGO_DECISION_TREE,
 	ML_ALGO_NAIVE_BAYES,
 	ML_ALGO_XGBOOST,
+	ML_ALGO_CATBOOST,
+	ML_ALGO_LIGHTGBM,
 	ML_ALGO_KNN,
 	ML_ALGO_KNN_CLASSIFIER,
 	ML_ALGO_KNN_REGRESSOR,
@@ -84,7 +86,9 @@ typedef enum
 	ML_ALGO_DBSCAN,
 	/* Dimensionality reduction */
 	ML_ALGO_PCA,
-	ML_ALGO_OPQ
+	ML_ALGO_OPQ,
+	/* Time series */
+	ML_ALGO_TIMESERIES
 } MLAlgorithm;
 
 /* Forward declarations */
@@ -577,6 +581,10 @@ neurondb_algorithm_from_string(const char *algorithm)
 		return ML_ALGO_NAIVE_BAYES;
 	if (strcmp(algorithm, NDB_ALGO_XGBOOST) == 0)
 		return ML_ALGO_XGBOOST;
+	if (strcmp(algorithm, NDB_ALGO_CATBOOST) == 0)
+		return ML_ALGO_CATBOOST;
+	if (strcmp(algorithm, NDB_ALGO_LIGHTGBM) == 0)
+		return ML_ALGO_LIGHTGBM;
 	if (strcmp(algorithm, NDB_ALGO_KNN) == 0)
 		return ML_ALGO_KNN;
 	if (strcmp(algorithm, NDB_ALGO_KNN_CLASSIFIER) == 0)
@@ -603,6 +611,8 @@ neurondb_algorithm_from_string(const char *algorithm)
 		return ML_ALGO_PCA;
 	if (strcmp(algorithm, NDB_ALGO_OPQ) == 0)
 		return ML_ALGO_OPQ;
+	if (strcmp(algorithm, NDB_ALGO_TIMESERIES) == 0)
+		return ML_ALGO_TIMESERIES;
 
 	return ML_ALGO_UNKNOWN;
 }
@@ -906,30 +916,30 @@ neurondb_build_training_sql(MLAlgorithm algo, StringInfo sql, const char *table_
 		case ML_ALGO_KMEANS:
 			{
 				int			n_clusters = 3;
-				int			max_iters = 100;
+				int			max_iters_kmeans = 100;
 
 				neurondb_parse_hyperparams_int(hyperparams, "n_clusters", &n_clusters, 3);
-				neurondb_parse_hyperparams_int(hyperparams, "max_iters", &max_iters, 100);
+				neurondb_parse_hyperparams_int(hyperparams, "max_iters", &max_iters_kmeans, 100);
 				appendStringInfo(sql,
 								 "SELECT train_kmeans_model_id(%s, %s, %d, %d)",
 								 neurondb_quote_literal_cstr(table_name),
 								 neurondb_quote_literal_cstr(feature_list),
-								 n_clusters, max_iters);
+								 n_clusters, max_iters_kmeans);
 				return true;
 			}
 
 		case ML_ALGO_GMM:
 			{
 				int			n_components = 3;
-				int			max_iters = 100;
+				int			max_iters_gmm = 100;
 
 				neurondb_parse_hyperparams_int(hyperparams, "n_components", &n_components, 3);
-				neurondb_parse_hyperparams_int(hyperparams, "max_iters", &max_iters, 100);
+				neurondb_parse_hyperparams_int(hyperparams, "max_iters", &max_iters_gmm, 100);
 				appendStringInfo(sql,
 								 "SELECT train_gmm_model_id(%s, %s, %d, %d)",
 								 neurondb_quote_literal_cstr(table_name),
 								 neurondb_quote_literal_cstr(feature_list),
-								 n_components, max_iters);
+								 n_components, max_iters_gmm);
 				return true;
 			}
 
@@ -977,6 +987,42 @@ neurondb_build_training_sql(MLAlgorithm algo, StringInfo sql, const char *table_
 				return true;
 			}
 
+		case ML_ALGO_CATBOOST:
+			{
+				int			iterations = 1000;
+				int			depth = 6;
+				double		learning_rate_cb = 0.03;
+
+				neurondb_parse_hyperparams_int(hyperparams, "iterations", &iterations, 1000);
+				neurondb_parse_hyperparams_int(hyperparams, "depth", &depth, 6);
+				neurondb_parse_hyperparams_float8(hyperparams, "learning_rate", &learning_rate_cb, 0.03);
+				appendStringInfo(sql,
+								 "SELECT train_catboost_classifier(%s, %s, %s, %d, %.6f, %d)",
+								 neurondb_quote_literal_cstr(table_name),
+								 neurondb_quote_literal_cstr(feature_list),
+								 neurondb_quote_literal_or_null(target_column),
+								 iterations, learning_rate_cb, depth);
+				return true;
+			}
+
+		case ML_ALGO_LIGHTGBM:
+			{
+				int			n_estimators_lgb = 100;
+				int			num_leaves_lgb = 31;
+				double		learning_rate_lgb = 0.1;
+
+				neurondb_parse_hyperparams_int(hyperparams, "n_estimators", &n_estimators_lgb, 100);
+				neurondb_parse_hyperparams_int(hyperparams, "num_leaves", &num_leaves_lgb, 31);
+				neurondb_parse_hyperparams_float8(hyperparams, "learning_rate", &learning_rate_lgb, 0.1);
+				appendStringInfo(sql,
+								 "SELECT train_lightgbm_classifier(%s, %s, %s, %d, %d, %.6f)",
+								 neurondb_quote_literal_cstr(table_name),
+								 neurondb_quote_literal_cstr(feature_list),
+								 neurondb_quote_literal_or_null(target_column),
+								 n_estimators_lgb, num_leaves_lgb, learning_rate_lgb);
+				return true;
+			}
+
 		case ML_ALGO_NAIVE_BAYES:
 			appendStringInfo(sql,
 							 "SELECT train_naive_bayes_classifier_model_id(%s, %s, %s)",
@@ -984,6 +1030,49 @@ neurondb_build_training_sql(MLAlgorithm algo, StringInfo sql, const char *table_
 							 neurondb_quote_literal_cstr(feature_list),
 							 neurondb_quote_literal_or_null(target_column));
 			return true;
+
+		case ML_ALGO_TIMESERIES:
+			{
+				int			p = 1;
+				int			d = 1;
+				int			q = 1;
+
+				neurondb_parse_hyperparams_int(hyperparams, "p", &p, 1);
+				neurondb_parse_hyperparams_int(hyperparams, "d", &d, 1);
+				neurondb_parse_hyperparams_int(hyperparams, "q", &q, 1);
+				/* For timeseries, we use the first feature column as the time series data */
+				/* and target_column as the label (value) */
+				/* Use first feature name if available, otherwise use feature_list */
+				if (feature_name_count > 0 && feature_names != NULL && feature_names[0] != NULL && strlen(feature_names[0]) > 0)
+				{
+					feature_col = feature_names[0];
+				}
+				else if (feature_list != NULL && strlen(feature_list) > 0 && strcmp(feature_list, "*") != 0)
+				{
+					if (strchr(feature_list, ',') == NULL)
+					{
+						feature_col = feature_list;
+					}
+					else
+					{
+						feature_col = "features";
+					}
+				}
+				else
+				{
+					feature_col = "features";
+				}
+				/* For timeseries CPU training, we'll use a simple approach:
+				 * Extract the first dimension of the feature vector as the time series value
+				 * and use train_arima with the target column as the value column */
+				appendStringInfo(sql,
+								 "SELECT train_timeseries_cpu(%s, %s, %s, %d, %d, %d)",
+								 neurondb_quote_literal_cstr(table_name),
+								 neurondb_quote_literal_cstr(feature_col),
+								 neurondb_quote_literal_or_null(target_column),
+								 p, d, q);
+				return true;
+			}
 
 		case ML_ALGO_KNN:
 		case ML_ALGO_KNN_CLASSIFIER:
@@ -1099,7 +1188,9 @@ neurondb_prepare_feature_list(ArrayType *feature_columns_array, StringInfo featu
  * Returns "classification", "regression", "clustering", or
  * "dimensionality_reduction" based on algorithm type.
  */
-static const char * __attribute__((unused))
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
+static const char *
 neurondb_get_model_type(const char *algorithm)
 {
 	MLAlgorithm algo;
@@ -1117,6 +1208,8 @@ neurondb_get_model_type(const char *algorithm)
 		case ML_ALGO_DECISION_TREE:
 		case ML_ALGO_NAIVE_BAYES:
 		case ML_ALGO_XGBOOST:
+		case ML_ALGO_CATBOOST:
+		case ML_ALGO_LIGHTGBM:
 		case ML_ALGO_KNN:
 		case ML_ALGO_KNN_CLASSIFIER:
 			return "classification";
@@ -1142,6 +1235,7 @@ neurondb_get_model_type(const char *algorithm)
 			return "classification";
 	}
 }
+#pragma GCC diagnostic pop
 
 /* ----------
  * neurondb_train
@@ -1220,6 +1314,10 @@ neurondb_train(PG_FUNCTION_ARGS)
 		strcmp(algorithm, NDB_ALGO_NAIVE_BAYES) != 0 &&
 		strcmp(algorithm, NDB_ALGO_DECISION_TREE) != 0 &&
 		strcmp(algorithm, NDB_ALGO_GMM) != 0 &&
+		strcmp(algorithm, NDB_ALGO_XGBOOST) != 0 &&
+		strcmp(algorithm, NDB_ALGO_CATBOOST) != 0 &&
+		strcmp(algorithm, NDB_ALGO_LIGHTGBM) != 0 &&
+		strcmp(algorithm, NDB_ALGO_TIMESERIES) != 0 &&
 		strcmp(algorithm, "neural_network") != 0)
 	{
 		NDB_FREE(project_name);
@@ -1230,7 +1328,7 @@ neurondb_train(PG_FUNCTION_ARGS)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg(NDB_ERR_PREFIX_TRAIN " unsupported algorithm '%s'", algorithm),
-				 errdetail("Supported algorithms: linear_regression, logistic_regression, svm, random_forest, knn, kmeans, dbscan, naive_bayes, decision_tree, gmm, neural_network"),
+				 errdetail("Supported algorithms: linear_regression, logistic_regression, svm, random_forest, knn, kmeans, dbscan, naive_bayes, decision_tree, gmm, xgboost, catboost, lightgbm, timeseries, neural_network"),
 				 errhint("Choose one of the supported algorithms.")));
 	}
 
@@ -1323,6 +1421,9 @@ neurondb_train(PG_FUNCTION_ARGS)
 		if (nelems > 0)
 		{
 			Oid			elem_type = ARR_ELEMTYPE(feature_columns_array);
+			int16		elem_len;
+			bool		elem_byval;
+			char		elem_align;
 
 			/* Check that elements are TEXT */
 			if (elem_type != TEXTOID)
@@ -1340,10 +1441,13 @@ neurondb_train(PG_FUNCTION_ARGS)
 						 errmsg("neurondb: feature_columns array elements must be TEXT")));
 			}
 
+			/* Get element type properties for deconstruct_array */
+			get_typlenbyvalalign(elem_type, &elem_len, &elem_byval, &elem_align);
+
 			/* Deconstruct array in SPI context */
 			deconstruct_array(feature_columns_array,
 							  elem_type,
-							  0, false, 'i',
+							  elem_len, elem_byval, elem_align,
 							  &elem_values, &elem_nulls, &nelems);
 
 			if (elem_values != NULL && elem_nulls != NULL)
@@ -1464,6 +1568,9 @@ neurondb_train(PG_FUNCTION_ARGS)
 	class_count = 0;
 	data_loaded = false;
 
+	/* Log compute_mode for debugging */
+	elog(DEBUG1, "neurondb_train: compute_mode=%d (0=CPU, 1=GPU, 2=AUTO)", neurondb_compute_mode);
+
 	/* Check GPU availability first */
 	gpu_available = neurondb_gpu_is_available();
 	
@@ -1502,7 +1609,8 @@ neurondb_train(PG_FUNCTION_ARGS)
 
 	/* Try to load training data for GPU training */
 	/* Only attempt GPU if compute_mode allows it (GPU or AUTO mode) */
-	if (gpu_available && NDB_SHOULD_TRY_GPU())
+	/* CPU mode: never load data for GPU training */
+	if (!NDB_COMPUTE_MODE_IS_CPU() && gpu_available && NDB_SHOULD_TRY_GPU())
 	{
 		load_success = neurondb_load_training_data(spi_session, table_name, feature_list_str, target_column,
 														 &feature_matrix, &label_vector,
@@ -1515,10 +1623,21 @@ neurondb_train(PG_FUNCTION_ARGS)
 	}
 
 	/* Call GPU training with loaded data */
-	if (data_loaded && strcmp(algorithm, NDB_ALGO_LOGISTIC_REGRESSION) != 0)
+	/* Only attempt GPU training if compute_mode allows it (not CPU mode) */
+	/* Double-check CPU mode to be absolutely safe - NEVER attempt GPU in CPU mode */
+	if (data_loaded && !NDB_COMPUTE_MODE_IS_CPU() && NDB_SHOULD_TRY_GPU() && strcmp(algorithm, NDB_ALGO_LOGISTIC_REGRESSION) != 0)
 	{
-		/* Wrap GPU training call in PG_TRY to catch exceptions and prevent JSON parsing errors */
-		PG_TRY();
+		/* Additional safety check: never attempt GPU in CPU mode */
+		if (NDB_COMPUTE_MODE_IS_CPU())
+		{
+			elog(WARNING, "neurondb_train: CPU mode detected, skipping GPU training (defensive check)");
+			data_loaded = false;
+			gpu_train_result = false;
+		}
+		else
+		{
+			/* Wrap GPU training call in PG_TRY to catch exceptions and prevent JSON parsing errors */
+			PG_TRY();
 		{
 			gpu_train_result = ndb_gpu_try_train_model(algorithm, project_name, model_name, table_name, target_column,
 															feature_names, feature_name_count, hyperparams,
@@ -1528,12 +1647,101 @@ neurondb_train(PG_FUNCTION_ARGS)
 		PG_CATCH();
 		{
 			/* GPU training threw an exception - handle based on compute mode */
-			if (NDB_REQUIRE_GPU())
+			/* Log compute_mode for debugging */
+			elog(DEBUG1, "PG_CATCH: compute_mode=%d (0=CPU, 1=GPU, 2=AUTO), NDB_COMPUTE_MODE_IS_CPU()=%d, NDB_REQUIRE_GPU()=%d", 
+				 neurondb_compute_mode, NDB_COMPUTE_MODE_IS_CPU() ? 1 : 0, NDB_REQUIRE_GPU() ? 1 : 0);
+			
+			/* CPU mode: never error on GPU failures, just fall back to CPU */
+			if (NDB_COMPUTE_MODE_IS_CPU())
 			{
-				/* GPU mode: re-raise error, no fallback */
-				ErrorData  *edata = CopyErrorData();
-				char	   *error_msg = edata ? pstrdup(edata->message) : NULL;
+				/* CPU mode - fall back to CPU training */
+				MemoryContext safe_context = oldcontext;
+				if (safe_context == ErrorContext || safe_context == NULL)
+				{
+					safe_context = TopMemoryContext;
+				}
+				MemoryContextSwitchTo(safe_context);
+				
+				elog(WARNING,
+					 "%s: exception caught during GPU training attempt in CPU mode, falling back to CPU",
+					 algorithm ? algorithm : "unknown");
 				FlushErrorState();
+				gpu_train_result = false;
+				memset(&gpu_result, 0, sizeof(MLGpuTrainResult));
+				if (gpu_errmsg && *gpu_errmsg == NULL)
+					*gpu_errmsg = pstrdup("Exception during GPU training (CPU mode)");
+				
+				/* Free GPU-loaded data if it was loaded, but only if callcontext is still valid */
+				if (data_loaded && CurrentMemoryContext != ErrorContext &&
+					MemoryContextIsValid(callcontext))
+				{
+					MemoryContextSwitchTo(callcontext);
+					if (feature_matrix)
+					{
+						NDB_FREE(feature_matrix);
+						feature_matrix = NULL;
+					}
+					if (label_vector)
+					{
+						NDB_FREE(label_vector);
+						label_vector = NULL;
+					}
+					data_loaded = false;
+					MemoryContextSwitchTo(safe_context);
+				}
+				else if (data_loaded) /* If callcontext is invalid, just clear pointers */
+				{
+					feature_matrix = NULL;
+					label_vector = NULL;
+					data_loaded = false;
+				}
+			}
+			/* GPU mode: error if GPU training fails */
+			/* CPU mode: never error, should have been handled above */
+			else if (!NDB_COMPUTE_MODE_IS_CPU() && NDB_REQUIRE_GPU())
+			{
+				/* Defensive assertion: this should NEVER happen in CPU mode */
+				if (NDB_COMPUTE_MODE_IS_CPU())
+				{
+					elog(ERROR, "BUG: GPU error path reached in CPU mode! compute_mode=%d", neurondb_compute_mode);
+				}
+				
+				MemoryContext safe_context;
+				ErrorData    *edata;
+				char		 *error_msg;
+				char		 *algorithm_safe;
+
+				/* GPU mode: re-raise error, no fallback */
+				/* Switch out of ErrorContext before CopyErrorData() */
+				safe_context = oldcontext;
+				
+				/* Ensure we're not switching to ErrorContext */
+				if (safe_context == ErrorContext || safe_context == NULL)
+				{
+					safe_context = TopMemoryContext;
+				}
+				
+				MemoryContextSwitchTo(safe_context);
+				
+				edata = NULL;
+				error_msg = NULL;
+				
+				/* Save algorithm before freeing (it might be NULL) */
+				algorithm_safe = algorithm ? pstrdup(algorithm) : NULL;
+				
+				if (CurrentMemoryContext != ErrorContext)
+				{
+					edata = CopyErrorData();
+					if (edata && edata->message)
+						error_msg = pstrdup(edata->message);
+					FlushErrorState();
+				}
+				else
+				{
+					/* Fallback if we can't switch contexts */
+					FlushErrorState();
+					error_msg = NULL;
+				}
 				
 				NDB_FREE(feature_list_str);
 				if (feature_names)
@@ -1574,12 +1782,23 @@ neurondb_train(PG_FUNCTION_ARGS)
 				ereport(ERROR,
 						(errcode(ERRCODE_INTERNAL_ERROR),
 						 errmsg(NDB_ERR_PREFIX_TRAIN " GPU training failed - GPU mode requires GPU to be available"),
-						 errdetail("Algorithm: %s, Error: %s", algorithm, error_msg ? error_msg : "unknown"),
+						 errdetail("Algorithm: %s, Error: %s", algorithm_safe ? algorithm_safe : "unknown", error_msg ? error_msg : "unknown"),
 						 errhint("Set compute_mode='auto' for automatic CPU fallback.")));
+				
+				if (algorithm_safe)
+					NDB_FREE(algorithm_safe);
 			}
 			else
 			{
 				/* AUTO mode: fall back to CPU */
+				/* Switch out of ErrorContext before any operations */
+				MemoryContext safe_context = oldcontext;
+				if (safe_context == ErrorContext || safe_context == NULL)
+				{
+					safe_context = TopMemoryContext;
+				}
+				MemoryContextSwitchTo(safe_context);
+				
 				elog(WARNING,
 					 "%s: exception caught during GPU training, falling back to CPU (auto mode)",
 					 algorithm ? algorithm : "unknown");
@@ -1588,9 +1807,37 @@ neurondb_train(PG_FUNCTION_ARGS)
 				memset(&gpu_result, 0, sizeof(MLGpuTrainResult));
 				if (gpu_errmsg && *gpu_errmsg == NULL)
 					*gpu_errmsg = pstrdup("Exception during GPU training");
+				
+				/* Free GPU-loaded data if it was loaded, but only if callcontext is still valid */
+				if (data_loaded && CurrentMemoryContext != ErrorContext && callcontext != NULL && MemoryContextIsValid(callcontext))
+				{
+					/* Switch to callcontext to free memory allocated there */
+					MemoryContextSwitchTo(callcontext);
+					if (feature_matrix)
+					{
+						NDB_FREE(feature_matrix);
+						feature_matrix = NULL;
+					}
+					if (label_vector)
+					{
+						NDB_FREE(label_vector);
+						label_vector = NULL;
+					}
+					data_loaded = false;
+					MemoryContextSwitchTo(safe_context);
+				}
+				else if (data_loaded)
+				{
+					/* Can't free safely - just mark as not loaded to avoid double-free */
+					/* The memory will be freed when callcontext is deleted */
+					feature_matrix = NULL;
+					label_vector = NULL;
+					data_loaded = false;
+				}
 			}
 		}
 		PG_END_TRY();
+		}
 		
 		if (gpu_train_result)
 		{
@@ -1765,8 +2012,16 @@ neurondb_train(PG_FUNCTION_ARGS)
 	{
 		/* GPU training failed or not attempted - handle based on compute mode */
 		
+		/* CPU mode: never attempt GPU, just fall back to CPU */
+		/* In CPU mode, we should NEVER reach this error path */
+		if (NDB_COMPUTE_MODE_IS_CPU())
+		{
+			/* CPU mode - skip GPU checks and proceed to CPU training */
+			/* This should be the only path in CPU mode */
+		}
 		/* GPU mode: error if GPU was required but not available */
-		if (NDB_REQUIRE_GPU())
+		/* Only check GPU requirement if NOT in CPU mode */
+		else if (!NDB_COMPUTE_MODE_IS_CPU() && NDB_REQUIRE_GPU())
 		{
 			NDB_FREE(feature_list_str);
 			if (feature_names)
@@ -1812,12 +2067,28 @@ neurondb_train(PG_FUNCTION_ARGS)
 		
 		/* AUTO mode or CPU mode: fall back to CPU training */
 		/* Free loaded training data if it was loaded */
-		if (data_loaded)
+		/* Make sure we're in the right context before freeing */
+		if (data_loaded && callcontext != NULL && MemoryContextIsValid(callcontext))
 		{
+			/* Switch to callcontext where the memory was allocated */
+			MemoryContextSwitchTo(callcontext);
 			if (feature_matrix)
+			{
 				NDB_FREE(feature_matrix);
+				feature_matrix = NULL;
+			}
 			if (label_vector)
+			{
 				NDB_FREE(label_vector);
+				label_vector = NULL;
+			}
+			data_loaded = false;
+			MemoryContextSwitchTo(oldcontext);
+		}
+		else if (data_loaded)
+		{
+			/* Can't free safely - just mark as not loaded to avoid double-free */
+			/* The memory will be freed when callcontext is deleted */
 			feature_matrix = NULL;
 			label_vector = NULL;
 			data_loaded = false;
@@ -1840,7 +2111,7 @@ neurondb_train(PG_FUNCTION_ARGS)
 			Datum		values[7];
 			FmgrInfo	flinfo;
 			Datum		result_datum;
-			text	   *table_name_text;
+			text	   *table_name_text_local;
 			text	   *feature_col_text;
 			text	   *label_col_text;
 			int			n_trees = 10;
@@ -1863,7 +2134,7 @@ neurondb_train(PG_FUNCTION_ARGS)
 			neurondb_parse_hyperparams_int(hyperparams, "max_features", &max_features, 0);
 			
 			/* Build arguments */
-			table_name_text = cstring_to_text(table_name);
+			table_name_text_local = cstring_to_text(table_name);
 			feature_col_text = cstring_to_text(feature_col);
 			label_col_text = cstring_to_text(target_column);
 			
@@ -1889,7 +2160,7 @@ neurondb_train(PG_FUNCTION_ARGS)
 				fmgr_info(func_oid, &flinfo);
 				
 				/* Set up arguments */
-				values[0] = PointerGetDatum(table_name_text);
+				values[0] = PointerGetDatum(table_name_text_local);
 				values[1] = PointerGetDatum(feature_col_text);
 				values[2] = PointerGetDatum(label_col_text);
 				values[3] = Int32GetDatum(n_trees);
@@ -2571,6 +2842,10 @@ neurondb_predict(PG_FUNCTION_ARGS)
 		appendStringInfo(&sql, "SELECT predict_hierarchical_cluster(%d, %s)", model_id, features_str.data);
 	else if (strcmp(algorithm, "xgboost") == 0)
 		appendStringInfo(&sql, "SELECT predict_xgboost(%d, %s)", model_id, features_str.data);
+	else if (strcmp(algorithm, "catboost") == 0)
+		appendStringInfo(&sql, "SELECT predict_catboost(%d, %s)", model_id, features_str.data);
+	else if (strcmp(algorithm, "lightgbm") == 0)
+		appendStringInfo(&sql, "SELECT predict_lightgbm(%d, %s)", model_id, features_str.data);
 	else if (strcmp(algorithm, "gmm") == 0)
 		appendStringInfo(&sql, "SELECT predict_gmm_model_id(%d, %s)", model_id, features_str.data);
 	else
@@ -2581,7 +2856,7 @@ neurondb_predict(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg(NDB_ERR_PREFIX_PREDICT " unsupported algorithm '%s' for prediction", algorithm),
 				 errdetail("Model ID: %d, Algorithm: '%s'", model_id, algorithm),
-				 errhint("Supported algorithms for prediction: linear_regression, logistic_regression, random_forest, svm, naive_bayes, knn, knn_classifier, knn_regressor, gmm, kmeans, minibatch_kmeans, hierarchical, xgboost")));
+				 errhint("Supported algorithms for prediction: linear_regression, logistic_regression, random_forest, svm, naive_bayes, knn, knn_classifier, knn_regressor, gmm, kmeans, minibatch_kmeans, hierarchical, xgboost, catboost, lightgbm")));
 	}
 
 	ret = ndb_spi_execute(spi_session, sql.data, true, 0);
@@ -3010,7 +3285,9 @@ neurondb_evaluate(PG_FUNCTION_ARGS)
 		strcmp(algorithm, NDB_ALGO_KNN) == 0 ||
 		strcmp(algorithm, NDB_ALGO_KNN_CLASSIFIER) == 0 ||
 		strcmp(algorithm, NDB_ALGO_KNN_REGRESSOR) == 0 ||
-		strcmp(algorithm, NDB_ALGO_XGBOOST) == 0)
+		strcmp(algorithm, NDB_ALGO_XGBOOST) == 0 ||
+		strcmp(algorithm, NDB_ALGO_CATBOOST) == 0 ||
+		strcmp(algorithm, NDB_ALGO_LIGHTGBM) == 0)
 	{
 		if (label_col == NULL)
 		{
@@ -3194,6 +3471,32 @@ neurondb_evaluate(PG_FUNCTION_ARGS)
 		char	   *q_label_col = neurondb_quote_literal_cstr(label_col);
 
 		appendStringInfo(&sql, "SELECT evaluate_xgboost_by_model_id(%d, %s, %s, %s)",
+						 model_id, q_table_name, q_feature_col, q_label_col);
+
+		NDB_FREE(q_table_name);
+		NDB_FREE(q_feature_col);
+		NDB_FREE(q_label_col);
+	}
+	else if (strcmp(algorithm, "catboost") == 0)
+	{
+		char	   *q_table_name = neurondb_quote_literal_cstr(table_name);
+		char	   *q_feature_col = neurondb_quote_literal_cstr(feature_col);
+		char	   *q_label_col = neurondb_quote_literal_cstr(label_col);
+
+		appendStringInfo(&sql, "SELECT evaluate_catboost_by_model_id(%d, %s, %s, %s)",
+						 model_id, q_table_name, q_feature_col, q_label_col);
+
+		NDB_FREE(q_table_name);
+		NDB_FREE(q_feature_col);
+		NDB_FREE(q_label_col);
+	}
+	else if (strcmp(algorithm, "lightgbm") == 0)
+	{
+		char	   *q_table_name = neurondb_quote_literal_cstr(table_name);
+		char	   *q_feature_col = neurondb_quote_literal_cstr(feature_col);
+		char	   *q_label_col = neurondb_quote_literal_cstr(label_col);
+
+		appendStringInfo(&sql, "SELECT evaluate_lightgbm_by_model_id(%d, %s, %s, %s)",
 						 model_id, q_table_name, q_feature_col, q_label_col);
 
 		NDB_FREE(q_table_name);
