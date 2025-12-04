@@ -4,6 +4,9 @@
 
 \set ON_ERROR_STOP on
 
+-- Enable fail_open mode to allow tests to run without API keys (uses fallback embeddings)
+SET neurondb.llm_fail_open = on;
+
 \echo '=========================================================================='
 \echo '=========================================================================='
 

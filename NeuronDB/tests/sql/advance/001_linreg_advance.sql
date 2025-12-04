@@ -198,41 +198,62 @@ SELECT neurondb.train('linear_regression',
 
 \echo 'Error Test 1: Invalid table name'
 DO $$
+DECLARE
+	error_occurred BOOLEAN := false;
 BEGIN
 	BEGIN
 		PERFORM neurondb.train('linear_regression','missing_table','features','label','{}'::jsonb);
-		RAISE EXCEPTION 'FAIL: expected error for missing table';
+		RAISE EXCEPTION 'FAIL: expected error for missing table but operation succeeded';
 	EXCEPTION WHEN OTHERS THEN 
-			NULL;
-		-- Error handled correctly
-		NULL;
+		error_occurred := true;
+		-- Verify it's a meaningful error (not just any exception)
+		IF SQLERRM IS NULL OR LENGTH(SQLERRM) = 0 THEN
+			RAISE EXCEPTION 'FAIL: error occurred but error message is empty';
+		END IF;
 	END;
+	IF NOT error_occurred THEN
+		RAISE EXCEPTION 'FAIL: expected error for missing table but no error occurred';
+	END IF;
 END$$;
 
 \echo 'Error Test 2: Invalid feature column'
 DO $$
+DECLARE
+	error_occurred BOOLEAN := false;
 BEGIN
 	BEGIN
 		PERFORM neurondb.train('linear_regression','test_train_view','notafeat','label','{}'::jsonb);
-		RAISE EXCEPTION 'FAIL: expected error for invalid feature column';
+		RAISE EXCEPTION 'FAIL: expected error for invalid feature column but operation succeeded';
 	EXCEPTION WHEN OTHERS THEN 
-			NULL;
-		-- Error handled correctly
-		NULL;
+		error_occurred := true;
+		-- Verify it's a meaningful error
+		IF SQLERRM IS NULL OR LENGTH(SQLERRM) = 0 THEN
+			RAISE EXCEPTION 'FAIL: error occurred but error message is empty';
+		END IF;
 	END;
+	IF NOT error_occurred THEN
+		RAISE EXCEPTION 'FAIL: expected error for invalid feature column but no error occurred';
+	END IF;
 END$$;
 
 \echo 'Error Test 3: Invalid label column'
 DO $$
+DECLARE
+	error_occurred BOOLEAN := false;
 BEGIN
 	BEGIN
 		PERFORM neurondb.train('linear_regression','test_train_view','features','notalabel','{}'::jsonb);
-		RAISE EXCEPTION 'FAIL: expected error for invalid label column';
+		RAISE EXCEPTION 'FAIL: expected error for invalid label column but operation succeeded';
 	EXCEPTION WHEN OTHERS THEN 
-			NULL;
-		-- Error handled correctly
-		NULL;
+		error_occurred := true;
+		-- Verify it's a meaningful error
+		IF SQLERRM IS NULL OR LENGTH(SQLERRM) = 0 THEN
+			RAISE EXCEPTION 'FAIL: error occurred but error message is empty';
+		END IF;
 	END;
+	IF NOT error_occurred THEN
+		RAISE EXCEPTION 'FAIL: expected error for invalid label column but no error occurred';
+	END IF;
 END$$;
 
 -- Error Test 4: NULL features
@@ -329,31 +350,45 @@ FROM (
 
 \echo 'Predict Error Test 1: Non-existent model ID'
 DO $$
+DECLARE
+	error_occurred BOOLEAN := false;
 BEGIN
 	BEGIN
 		PERFORM neurondb.predict(-10, ARRAY[0.1, 0.2, 0.3]::double precision[]);
-		RAISE EXCEPTION 'FAIL: non-existent model should error';
+		RAISE EXCEPTION 'FAIL: non-existent model should error but operation succeeded';
 	EXCEPTION WHEN OTHERS THEN 
-			NULL;
-		-- Error handled correctly
-		NULL;
+		error_occurred := true;
+		IF SQLERRM IS NULL OR LENGTH(SQLERRM) = 0 THEN
+			RAISE EXCEPTION 'FAIL: error occurred but error message is empty';
+		END IF;
 	END;
+	IF NOT error_occurred THEN
+		RAISE EXCEPTION 'FAIL: expected error for non-existent model but no error occurred';
+	END IF;
 END$$;
 
 \echo 'Predict Error Test 2: Wrong feature type (integer array)'
 DO $$
 DECLARE
 	cpu_mid_temp integer;
+	error_occurred BOOLEAN := false;
 BEGIN
 	SELECT cpu_model_id INTO cpu_mid_temp FROM cpu_model_temp_001 LIMIT 1;
+	IF cpu_mid_temp IS NULL THEN
+		RAISE EXCEPTION 'FAIL: no CPU model available for test';
+	END IF;
 	BEGIN
 		PERFORM neurondb.predict(cpu_mid_temp, '{1,2,3}'::integer[]);
-		RAISE EXCEPTION 'FAIL: int[] instead of float[] should error';
+		RAISE EXCEPTION 'FAIL: int[] instead of float[] should error but operation succeeded';
 	EXCEPTION WHEN OTHERS THEN 
-			NULL;
-		-- Error handled correctly
-		NULL;
+		error_occurred := true;
+		IF SQLERRM IS NULL OR LENGTH(SQLERRM) = 0 THEN
+			RAISE EXCEPTION 'FAIL: error occurred but error message is empty';
+		END IF;
 	END;
+	IF NOT error_occurred THEN
+		RAISE EXCEPTION 'FAIL: expected error for wrong feature type but no error occurred';
+	END IF;
 END$$;
 
 \echo 'Predict Error Test 3: Wrong feature dimension'
@@ -361,8 +396,12 @@ DO $$
 DECLARE
 	model_dim integer;
 	cpu_mid integer;
+	error_occurred BOOLEAN := false;
 BEGIN
 	SELECT cpu_model_id INTO cpu_mid FROM cpu_model_temp_001 LIMIT 1;
+	IF cpu_mid IS NULL THEN
+		RAISE EXCEPTION 'FAIL: no CPU model available for test';
+	END IF;
 	SELECT jsonb_array_length(metrics->'coefficients') INTO model_dim
 	FROM neurondb.ml_models WHERE model_id = cpu_mid
 	AND metrics IS NOT NULL AND metrics->'coefficients' IS NOT NULL;
@@ -371,42 +410,60 @@ BEGIN
 	END IF;
 	BEGIN
 		PERFORM neurondb.predict(cpu_mid, ARRAY[42.0]::double precision[]); -- wrong dim
-		RAISE EXCEPTION 'FAIL: wrong feature array length should error';
+		RAISE EXCEPTION 'FAIL: wrong feature array length should error but operation succeeded';
 	EXCEPTION WHEN OTHERS THEN 
-			NULL;
-		-- Error handled correctly
-		NULL;
+		error_occurred := true;
+		IF SQLERRM IS NULL OR LENGTH(SQLERRM) = 0 THEN
+			RAISE EXCEPTION 'FAIL: error occurred but error message is empty';
+		END IF;
 	END;
+	IF NOT error_occurred THEN
+		RAISE EXCEPTION 'FAIL: expected error for wrong feature dimension but no error occurred';
+	END IF;
 END
 $$;
 
 \echo 'Predict Error Test 4: NULL model ID'
 DO $$
+DECLARE
+	error_occurred BOOLEAN := false;
 BEGIN
 	BEGIN
 		PERFORM neurondb.predict(NULL, ARRAY[0.1, 0.2, 0.3]::double precision[]);
-		RAISE EXCEPTION 'FAIL: NULL model ID should error';
+		RAISE EXCEPTION 'FAIL: NULL model ID should error but operation succeeded';
 	EXCEPTION WHEN OTHERS THEN 
-			NULL;
-		-- Error handled correctly
-		NULL;
+		error_occurred := true;
+		IF SQLERRM IS NULL OR LENGTH(SQLERRM) = 0 THEN
+			RAISE EXCEPTION 'FAIL: error occurred but error message is empty';
+		END IF;
 	END;
+	IF NOT error_occurred THEN
+		RAISE EXCEPTION 'FAIL: expected error for NULL model ID but no error occurred';
+	END IF;
 END$$;
 
 \echo 'Predict Error Test 5: NULL features'
 DO $$
 DECLARE
 	cpu_mid integer;
+	error_occurred BOOLEAN := false;
 BEGIN
 	SELECT cpu_model_id INTO cpu_mid FROM cpu_model_temp_001 LIMIT 1;
+	IF cpu_mid IS NULL THEN
+		RAISE EXCEPTION 'FAIL: no CPU model available for test';
+	END IF;
 	BEGIN
 		PERFORM neurondb.predict(cpu_mid, NULL);
-		RAISE EXCEPTION 'FAIL: NULL features should error';
+		RAISE EXCEPTION 'FAIL: NULL features should error but operation succeeded';
 	EXCEPTION WHEN OTHERS THEN 
-			NULL;
-		-- Error handled correctly
-		NULL;
+		error_occurred := true;
+		IF SQLERRM IS NULL OR LENGTH(SQLERRM) = 0 THEN
+			RAISE EXCEPTION 'FAIL: error occurred but error message is empty';
+		END IF;
 	END;
+	IF NOT error_occurred THEN
+		RAISE EXCEPTION 'FAIL: expected error for NULL features but no error occurred';
+	END IF;
 END$$;
 
 /*-------------------------------------------------------------------
@@ -424,11 +481,15 @@ DECLARE
 	result jsonb;
 BEGIN
 	SELECT cpu_model_id INTO cpu_mid FROM cpu_model_temp_001 LIMIT 1;
-	IF cpu_mid IS NOT NULL THEN
-		BEGIN
-			result := neurondb.evaluate(cpu_mid, 'test_test_view', 'features', 'label');
-		EXCEPTION WHEN OTHERS THEN
-		END;
+	IF cpu_mid IS NULL THEN
+		RAISE EXCEPTION 'FAIL: no CPU model available for evaluation test';
+	END IF;
+	result := neurondb.evaluate(cpu_mid, 'test_test_view', 'features', 'label');
+	IF result IS NULL THEN
+		RAISE EXCEPTION 'FAIL: evaluation returned NULL for CPU model';
+	END IF;
+	IF result ? 'error' THEN
+		RAISE EXCEPTION 'FAIL: evaluation returned error: %', result->>'error';
 	END IF;
 END$$;
 
@@ -439,11 +500,15 @@ DECLARE
 	result jsonb;
 BEGIN
 	SELECT gpu_model_id INTO gpu_mid FROM gpu_model_temp_001 LIMIT 1;
-	IF gpu_mid IS NOT NULL THEN
-		BEGIN
-			result := neurondb.evaluate(gpu_mid, 'test_test_view', 'features', 'label');
-		EXCEPTION WHEN OTHERS THEN
-		END;
+	IF gpu_mid IS NULL THEN
+		RAISE EXCEPTION 'FAIL: no GPU model available for evaluation test';
+	END IF;
+	result := neurondb.evaluate(gpu_mid, 'test_test_view', 'features', 'label');
+	IF result IS NULL THEN
+		RAISE EXCEPTION 'FAIL: evaluation returned NULL for GPU model';
+	END IF;
+	IF result ? 'error' THEN
+		RAISE EXCEPTION 'FAIL: evaluation returned error: %', result->>'error';
 	END IF;
 END$$;
 
@@ -454,11 +519,15 @@ DECLARE
 	result jsonb;
 BEGIN
 	SELECT custom_model_id INTO custom_mid FROM custom_model_temp_001 LIMIT 1;
-	IF custom_mid IS NOT NULL THEN
-		BEGIN
-			result := neurondb.evaluate(custom_mid, 'test_test_view', 'features', 'label');
-		EXCEPTION WHEN OTHERS THEN
-		END;
+	IF custom_mid IS NULL THEN
+		RAISE EXCEPTION 'FAIL: no custom model available for evaluation test';
+	END IF;
+	result := neurondb.evaluate(custom_mid, 'test_test_view', 'features', 'label');
+	IF result IS NULL THEN
+		RAISE EXCEPTION 'FAIL: evaluation returned NULL for custom model';
+	END IF;
+	IF result ? 'error' THEN
+		RAISE EXCEPTION 'FAIL: evaluation returned error: %', result->>'error';
 	END IF;
 END$$;
 
@@ -469,11 +538,15 @@ DECLARE
 	result jsonb;
 BEGIN
 	SELECT noint_model_id INTO noint_mid FROM noint_model_temp_001 LIMIT 1;
-	IF noint_mid IS NOT NULL THEN
-		BEGIN
-			result := neurondb.evaluate(noint_mid, 'test_test_view', 'features', 'label');
-		EXCEPTION WHEN OTHERS THEN
-		END;
+	IF noint_mid IS NULL THEN
+		RAISE EXCEPTION 'FAIL: no no-intercept model available for evaluation test';
+	END IF;
+	result := neurondb.evaluate(noint_mid, 'test_test_view', 'features', 'label');
+	IF result IS NULL THEN
+		RAISE EXCEPTION 'FAIL: evaluation returned NULL for no-intercept model';
+	END IF;
+	IF result ? 'error' THEN
+		RAISE EXCEPTION 'FAIL: evaluation returned error: %', result->>'error';
 	END IF;
 END$$;
 
@@ -485,17 +558,23 @@ END$$;
 DO $$
 DECLARE
 	cpu_mid integer;
+	error_occurred BOOLEAN := false;
 BEGIN
 	SELECT cpu_model_id INTO cpu_mid FROM cpu_model_temp_001 LIMIT 1;
-	IF cpu_mid IS NOT NULL THEN
-		BEGIN
-			BEGIN
-				PERFORM neurondb.evaluate(cpu_mid, 'no_such', 'features', 'label');
-				RAISE EXCEPTION 'FAIL: eval on bad table must error';
-			EXCEPTION WHEN OTHERS THEN 
-			NULL;
-			END;
-		END;
+	IF cpu_mid IS NULL THEN
+		RAISE EXCEPTION 'FAIL: no CPU model available for test';
+	END IF;
+	BEGIN
+		PERFORM neurondb.evaluate(cpu_mid, 'no_such', 'features', 'label');
+		RAISE EXCEPTION 'FAIL: eval on bad table must error but operation succeeded';
+	EXCEPTION WHEN OTHERS THEN 
+		error_occurred := true;
+		IF SQLERRM IS NULL OR LENGTH(SQLERRM) = 0 THEN
+			RAISE EXCEPTION 'FAIL: error occurred but error message is empty';
+		END IF;
+	END;
+	IF NOT error_occurred THEN
+		RAISE EXCEPTION 'FAIL: expected error for invalid table but no error occurred';
 	END IF;
 END$$;
 
@@ -503,17 +582,23 @@ END$$;
 DO $$
 DECLARE
 	cpu_mid integer;
+	error_occurred BOOLEAN := false;
 BEGIN
 	SELECT cpu_model_id INTO cpu_mid FROM cpu_model_temp_001 LIMIT 1;
-	IF cpu_mid IS NOT NULL THEN
-		BEGIN
-			BEGIN
-				PERFORM neurondb.evaluate(cpu_mid, 'test_test_view', 'badfeature', 'label');
-				RAISE EXCEPTION 'FAIL: eval on bad feature col must error';
-			EXCEPTION WHEN OTHERS THEN 
-			NULL;
-			END;
-		END;
+	IF cpu_mid IS NULL THEN
+		RAISE EXCEPTION 'FAIL: no CPU model available for test';
+	END IF;
+	BEGIN
+		PERFORM neurondb.evaluate(cpu_mid, 'test_test_view', 'badfeature', 'label');
+		RAISE EXCEPTION 'FAIL: eval on bad feature col must error but operation succeeded';
+	EXCEPTION WHEN OTHERS THEN 
+		error_occurred := true;
+		IF SQLERRM IS NULL OR LENGTH(SQLERRM) = 0 THEN
+			RAISE EXCEPTION 'FAIL: error occurred but error message is empty';
+		END IF;
+	END;
+	IF NOT error_occurred THEN
+		RAISE EXCEPTION 'FAIL: expected error for invalid feature column but no error occurred';
 	END IF;
 END$$;
 
@@ -521,31 +606,43 @@ END$$;
 DO $$
 DECLARE
 	cpu_mid integer;
+	error_occurred BOOLEAN := false;
 BEGIN
 	SELECT cpu_model_id INTO cpu_mid FROM cpu_model_temp_001 LIMIT 1;
-	IF cpu_mid IS NOT NULL THEN
-		BEGIN
-			BEGIN
-				PERFORM neurondb.evaluate(cpu_mid, 'test_test_view', 'features', 'badlabel');
-				RAISE EXCEPTION 'FAIL: eval on bad label col must error';
-			EXCEPTION WHEN OTHERS THEN 
-			NULL;
-			END;
-		END;
+	IF cpu_mid IS NULL THEN
+		RAISE EXCEPTION 'FAIL: no CPU model available for test';
+	END IF;
+	BEGIN
+		PERFORM neurondb.evaluate(cpu_mid, 'test_test_view', 'features', 'badlabel');
+		RAISE EXCEPTION 'FAIL: eval on bad label col must error but operation succeeded';
+	EXCEPTION WHEN OTHERS THEN 
+		error_occurred := true;
+		IF SQLERRM IS NULL OR LENGTH(SQLERRM) = 0 THEN
+			RAISE EXCEPTION 'FAIL: error occurred but error message is empty';
+		END IF;
+	END;
+	IF NOT error_occurred THEN
+		RAISE EXCEPTION 'FAIL: expected error for invalid label column but no error occurred';
 	END IF;
 END$$;
 
 \echo 'Evaluate Error Test 4: NULL model ID'
 DO $$
+DECLARE
+	error_occurred BOOLEAN := false;
 BEGIN
 	BEGIN
 		PERFORM neurondb.evaluate(NULL, 'test_test_view', 'features', 'label');
-		RAISE EXCEPTION 'FAIL: NULL model ID should error';
+		RAISE EXCEPTION 'FAIL: NULL model ID should error but operation succeeded';
 	EXCEPTION WHEN OTHERS THEN 
-			NULL;
-		-- Error handled correctly
-		NULL;
+		error_occurred := true;
+		IF SQLERRM IS NULL OR LENGTH(SQLERRM) = 0 THEN
+			RAISE EXCEPTION 'FAIL: error occurred but error message is empty';
+		END IF;
 	END;
+	IF NOT error_occurred THEN
+		RAISE EXCEPTION 'FAIL: expected error for NULL model ID but no error occurred';
+	END IF;
 END$$;
 
 /*-------------------------------------------------------------------

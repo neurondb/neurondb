@@ -62,6 +62,8 @@ END $$;
 /* Step 3: Test PCA transformation */
 
 -- Test PCA transformation with proper validation
+-- Note: reduce_pca returns real[][] (array of real arrays), not a table
+-- We need to use proper array access for nested arrays
 DO $$
 DECLARE
 	result vector[];
@@ -69,9 +71,11 @@ DECLARE
 	original_dims integer;
 	transformed_dims integer;
 	result_count integer;
-	pca_result real[][];
-	vec_array real[];
+	pca_result real[][];  -- This is real[][] (array of arrays)
+	vec_array vector;
 	i integer;
+	j integer;
+	arr_elem real[];
 BEGIN
 	-- Get original data info
 	SELECT COUNT(*) INTO original_count FROM pca_data;
@@ -87,20 +91,41 @@ BEGIN
 	END IF;
 	
 	-- Perform PCA transformation using reduce_pca
-	-- reduce_pca returns real[][] (array of arrays), convert to vector[]
+	-- reduce_pca returns real[][] (array of real arrays)
 	SELECT reduce_pca('pca_data', 'features', 2) INTO pca_result;
 	
-	-- Convert real[][] to vector[]
+	-- Validate result
 	IF pca_result IS NULL OR array_length(pca_result, 1) IS NULL THEN
 		RAISE EXCEPTION 'reduce_pca returned NULL or empty';
 	END IF;
 	
 	result_count := array_length(pca_result, 1);
-	result := ARRAY[]::vector[];
+	IF result_count != original_count THEN
+		RAISE EXCEPTION 'PCA result count (%) does not match input count (%)', result_count, original_count;
+	END IF;
 	
+	-- Convert real[] array elements to vector[]
+	-- Each element of pca_result is itself a real[] array
+	-- Use direct array subscripting - PostgreSQL handles nested arrays correctly
 	FOR i IN 1..result_count LOOP
-		vec_array := pca_result[i];
-		result := array_append(result, array_to_vector_float8(vec_array)::vector);
+		-- Extract the i-th nested array element
+		-- pca_result[i] should give us the real[] array at position i
+		arr_elem := pca_result[i];
+		
+		IF arr_elem IS NULL OR array_length(arr_elem, 1) IS NULL THEN
+			RAISE EXCEPTION 'PCA result element % is NULL or invalid', i;
+		END IF;
+		
+		-- Convert real[] to vector using array_to_vector
+		-- Note: array_to_vector expects a one-dimensional real[] array
+		vec_array := array_to_vector(arr_elem);
+		
+		IF vec_array IS NULL THEN
+			RAISE EXCEPTION 'Failed to convert PCA result element % to vector', i;
+		END IF;
+		
+		-- Append to result array
+		result := array_append(result, vec_array);
 	END LOOP;
 	
 	-- Validate result
@@ -111,11 +136,6 @@ BEGIN
 	result_count := array_length(result, 1);
 	IF result_count IS NULL OR result_count = 0 THEN
 		RAISE EXCEPTION 'PCA transform returned empty array';
-	END IF;
-	
-	-- Verify result count matches input count
-	IF result_count != original_count THEN
-		RAISE EXCEPTION 'PCA result count (%) does not match input count (%)', result_count, original_count;
 	END IF;
 	
 	-- Verify transformed dimensions

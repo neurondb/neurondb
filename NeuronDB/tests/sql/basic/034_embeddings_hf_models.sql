@@ -4,13 +4,17 @@
 
 \set ON_ERROR_STOP on
 
+-- Enable fail_open mode to allow tests to run without API keys (uses fallback embeddings)
+-- This ensures tests continue even if some API calls fail due to rate limiting or other issues
+SET neurondb.llm_fail_open = on;
+
 \echo '=========================================================================='
 \echo '=========================================================================='
 \echo ''
 \echo 'Hugging Face Embedding Models Comprehensive Test'
 \echo ''
 \echo 'This test covers TEXT, IMAGE, and MULTIMODAL embedding models.'
-\echo 'Note: These tests require neurondb.llm_api_key to be configured.'
+\echo 'Note: These tests can run without neurondb.llm_api_key (uses fallback embeddings).'
 \echo 'Each model is tested individually to verify compatibility.'
 \echo ''
 

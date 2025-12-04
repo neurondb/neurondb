@@ -181,93 +181,135 @@ SELECT neurondb.train('random_forest',
 
 \echo 'Error Test 1: Invalid table name'
 DO $$
+DECLARE
+	error_occurred BOOLEAN := false;
 BEGIN
 	BEGIN
 		PERFORM neurondb.train('random_forest','missing_table','features','label','{}'::jsonb);
-		RAISE EXCEPTION 'FAIL: expected error for missing table';
+		RAISE EXCEPTION 'FAIL: expected error for missing table but operation succeeded';
 	EXCEPTION WHEN OTHERS THEN 
-			NULL;
-		-- Error handled correctly
-		NULL;
+		error_occurred := true;
+		IF SQLERRM IS NULL OR LENGTH(SQLERRM) = 0 THEN
+			RAISE EXCEPTION 'FAIL: error occurred but error message is empty';
+		END IF;
 	END;
+	IF NOT error_occurred THEN
+		RAISE EXCEPTION 'FAIL: expected error for missing table but no error occurred';
+	END IF;
 END$$;
 
 \echo 'Error Test 2: Invalid feature column'
 DO $$
+DECLARE
+	error_occurred BOOLEAN := false;
 BEGIN
 	BEGIN
 		PERFORM neurondb.train('random_forest','test_train_view','notafeat','label','{}'::jsonb);
-		RAISE EXCEPTION 'FAIL: expected error for invalid feature column';
+		RAISE EXCEPTION 'FAIL: expected error for invalid feature column but operation succeeded';
 	EXCEPTION WHEN OTHERS THEN 
-			NULL;
-		-- Error handled correctly
-		NULL;
+		error_occurred := true;
+		IF SQLERRM IS NULL OR LENGTH(SQLERRM) = 0 THEN
+			RAISE EXCEPTION 'FAIL: error occurred but error message is empty';
+		END IF;
 	END;
+	IF NOT error_occurred THEN
+		RAISE EXCEPTION 'FAIL: expected error for invalid feature column but no error occurred';
+	END IF;
 END$$;
 
 \echo 'Error Test 3: Invalid label column'
 DO $$
+DECLARE
+	error_occurred BOOLEAN := false;
 BEGIN
 	BEGIN
 		PERFORM neurondb.train('random_forest','test_train_view','features','notalabel','{}'::jsonb);
-		RAISE EXCEPTION 'FAIL: expected error for invalid label column';
+		RAISE EXCEPTION 'FAIL: expected error for invalid label column but operation succeeded';
 	EXCEPTION WHEN OTHERS THEN 
-			NULL;
-		-- Error handled correctly
-		NULL;
+		error_occurred := true;
+		IF SQLERRM IS NULL OR LENGTH(SQLERRM) = 0 THEN
+			RAISE EXCEPTION 'FAIL: error occurred but error message is empty';
+		END IF;
 	END;
+	IF NOT error_occurred THEN
+		RAISE EXCEPTION 'FAIL: expected error for invalid label column but no error occurred';
+	END IF;
 END$$;
 
 \echo 'Error Test 4: Negative n_trees'
 DO $$
+DECLARE
+	error_occurred BOOLEAN := false;
 BEGIN
 	BEGIN
 		PERFORM neurondb.train('random_forest','test_train_view','features','label','{"n_trees":-5}'::jsonb);
-		RAISE EXCEPTION 'FAIL: expected error for negative n_trees';
+		RAISE EXCEPTION 'FAIL: expected error for negative n_trees but operation succeeded';
 	EXCEPTION WHEN OTHERS THEN 
-			NULL;
-		-- Error handled correctly
-		NULL;
+		error_occurred := true;
+		IF SQLERRM IS NULL OR LENGTH(SQLERRM) = 0 THEN
+			RAISE EXCEPTION 'FAIL: error occurred but error message is empty';
+		END IF;
 	END;
+	IF NOT error_occurred THEN
+		RAISE EXCEPTION 'FAIL: expected error for negative n_trees but no error occurred';
+	END IF;
 END$$;
 
 \echo 'Error Test 5: max_depth=0'
 DO $$
+DECLARE
+	error_occurred BOOLEAN := false;
 BEGIN
 	BEGIN
 		PERFORM neurondb.train('random_forest','test_train_view','features','label','{"max_depth":0}'::jsonb);
-		RAISE EXCEPTION 'FAIL: expected error for max_depth=0';
+		RAISE EXCEPTION 'FAIL: expected error for max_depth=0 but operation succeeded';
 	EXCEPTION WHEN OTHERS THEN 
-			NULL;
-		-- Error handled correctly
-		NULL;
+		error_occurred := true;
+		IF SQLERRM IS NULL OR LENGTH(SQLERRM) = 0 THEN
+			RAISE EXCEPTION 'FAIL: error occurred but error message is empty';
+		END IF;
 	END;
+	IF NOT error_occurred THEN
+		RAISE EXCEPTION 'FAIL: expected error for max_depth=0 but no error occurred';
+	END IF;
 END$$;
 
 \echo 'Error Test 6: min_samples_split=0'
 DO $$
+DECLARE
+	error_occurred BOOLEAN := false;
 BEGIN
 	BEGIN
 		PERFORM neurondb.train('random_forest','test_train_view','features','label','{"min_samples_split":0}'::jsonb);
-		RAISE EXCEPTION 'FAIL: expected error for min_samples_split=0';
+		RAISE EXCEPTION 'FAIL: expected error for min_samples_split=0 but operation succeeded';
 	EXCEPTION WHEN OTHERS THEN 
-			NULL;
-		-- Error handled correctly
-		NULL;
+		error_occurred := true;
+		IF SQLERRM IS NULL OR LENGTH(SQLERRM) = 0 THEN
+			RAISE EXCEPTION 'FAIL: error occurred but error message is empty';
+		END IF;
 	END;
+	IF NOT error_occurred THEN
+		RAISE EXCEPTION 'FAIL: expected error for min_samples_split=0 but no error occurred';
+	END IF;
 END$$;
 
 \echo 'Error Test 7: NULL features'
 DO $$
+DECLARE
+	error_occurred BOOLEAN := false;
 BEGIN
 	BEGIN
 		PERFORM neurondb.train('random_forest','test_train_view',NULL,'label','{}'::jsonb);
-		RAISE EXCEPTION 'FAIL: expected error for NULL feature column';
+		RAISE EXCEPTION 'FAIL: expected error for NULL feature column but operation succeeded';
 	EXCEPTION WHEN OTHERS THEN 
-			NULL;
-		-- Error handled correctly
-		NULL;
+		error_occurred := true;
+		IF SQLERRM IS NULL OR LENGTH(SQLERRM) = 0 THEN
+			RAISE EXCEPTION 'FAIL: error occurred but error message is empty';
+		END IF;
 	END;
+	IF NOT error_occurred THEN
+		RAISE EXCEPTION 'FAIL: expected error for NULL feature column but no error occurred';
+	END IF;
 END$$;
 
 /*-------------------------------------------------------------------

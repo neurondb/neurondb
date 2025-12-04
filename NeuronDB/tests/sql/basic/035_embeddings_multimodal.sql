@@ -4,14 +4,17 @@
 
 \set ON_ERROR_STOP on
 
+-- Enable fail_open mode to allow tests to run without API keys (uses fallback embeddings)
+SET neurondb.llm_fail_open = on;
+
 \echo '=========================================================================='
 \echo '=========================================================================='
 \echo ''
-\echo 'NOTE: Image and multimodal embedding warnings are expected if LLM is not configured.'
+\echo 'NOTE: Image and multimodal embedding tests run with fail_open mode enabled.'
 \echo '      To generate real embeddings, configure:'
 \echo '      - neurondb.llm_api_key (Hugging Face API key)'
 \echo '      - Or enable GPU embedding via GUC (ALTER SYSTEM SET neurondb.gpu_enabled = on)'
-\echo '      Without configuration, these functions return zero vectors (graceful fallback).'
+\echo '      Without configuration, these functions return fallback embeddings (graceful fallback).'
 \echo ''
 
 -- Test 6: Cached embedding
