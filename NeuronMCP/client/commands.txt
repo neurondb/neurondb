@@ -1,0 +1,181 @@
+# NeuronMCP Client Commands File
+# This file contains examples of all available NeuronMCP server capabilities
+# Lines starting with # are comments and will be ignored
+
+# ============================================================================
+# BASIC OPERATIONS
+# ============================================================================
+
+# List all available tools
+list_tools
+
+# List all available resources
+resources/list
+
+# ============================================================================
+# VECTOR OPERATIONS
+# ============================================================================
+
+# Vector search (default L2 distance)
+vector_search:table=documents,vector_column=embedding,query_vector=[0.1,0.2,0.3,0.4,0.5],limit=10
+
+# Vector search with L2 distance
+vector_search_l2:table=documents,vector_column=embedding,query_vector=[0.1,0.2,0.3,0.4,0.5],limit=10
+
+# Vector search with cosine similarity
+vector_search_cosine:table=documents,vector_column=embedding,query_vector=[0.1,0.2,0.3,0.4,0.5],limit=10
+
+# Vector search with inner product
+vector_search_inner_product:table=documents,vector_column=embedding,query_vector=[0.1,0.2,0.3,0.4,0.5],limit=10
+
+# Calculate vector similarity
+vector_similarity:vector1=[0.1,0.2,0.3],vector2=[0.2,0.3,0.4],metric=cosine
+
+# Generate embedding
+generate_embedding:text="Sample text to embed",model=text-embedding-ada-002
+
+# Batch generate embeddings
+batch_embedding:texts=["Text 1","Text 2","Text 3"],model=text-embedding-ada-002
+
+# Create vector index
+create_vector_index:table=documents,vector_column=embedding,index_type=hnsw,m=16,ef_construction=200
+
+# ============================================================================
+# ML OPERATIONS
+# ============================================================================
+
+# Train a model
+train_model:algorithm=linear_regression,table=training_data,feature_col=features,label_col=label,project=my_project
+
+# Train with parameters
+train_model:algorithm=random_forest,table=training_data,feature_col=features,label_col=label,params={"n_estimators":100,"max_depth":10}
+
+# Make prediction
+predict:model_id=1,features=[0.1,0.2,0.3,0.4,0.5]
+
+# Batch prediction
+predict_batch:model_id=1,features=[[0.1,0.2,0.3],[0.2,0.3,0.4],[0.3,0.4,0.5]]
+
+# Evaluate model
+evaluate_model:model_id=1,table=test_data,feature_col=features,label_col=label
+
+# List all models
+list_models
+
+# Get model information
+get_model_info:model_id=1
+
+# Delete model
+delete_model:model_id=1
+
+# Export model
+export_model:model_id=1,format=onnx,output_path=/tmp/model.onnx
+
+# ============================================================================
+# ANALYTICS OPERATIONS
+# ============================================================================
+
+# Cluster data
+cluster_data:table=data,vector_column=features,algorithm=kmeans,k=5,max_iters=100
+
+# Detect outliers
+detect_outliers:table=data,column=value,threshold=3.0,method=zscore
+
+# Reduce dimensionality (PCA)
+reduce_dimensionality:table=data,vector_column=features,algorithm=pca,n_components=2
+
+# Analyze data
+analyze_data:table=data,columns=["col1","col2","col3"]
+
+# ============================================================================
+# RAG OPERATIONS
+# ============================================================================
+
+# Process document
+process_document:document="Sample document text",chunk_size=1000,chunk_overlap=200
+
+# Chunk document
+chunk_document:document="Long document text here",chunk_size=500,chunk_overlap=50
+
+# Retrieve context
+retrieve_context:query="What is the main topic?",table=documents,vector_column=embedding,limit=5
+
+# Generate response
+generate_response:query="What is NeuronDB?",context=["Context 1","Context 2"],model=gpt-4
+
+# ============================================================================
+# INDEXING OPERATIONS
+# ============================================================================
+
+# Create HNSW index
+create_hnsw_index:table=documents,vector_column=embedding,m=16,ef_construction=200,ef_search=50
+
+# Create IVF index
+create_ivf_index:table=documents,vector_column=embedding,nlist=100,nprobe=10
+
+# Get index status
+index_status:table=documents,index_name=documents_embedding_idx
+
+# Drop index
+drop_index:table=documents,index_name=documents_embedding_idx
+
+# Tune HNSW index
+tune_hnsw_index:table=documents,vector_column=embedding,target_recall=0.95
+
+# Tune IVF index
+tune_ivf_index:table=documents,vector_column=embedding,target_recall=0.95
+
+# ============================================================================
+# HYBRID SEARCH
+# ============================================================================
+
+# Hybrid search (vector + keyword)
+hybrid_search:table=documents,vector_column=embedding,query_vector=[0.1,0.2,0.3],text_query="search term",limit=10,alpha=0.7
+
+# ============================================================================
+# POSTGRESQL OPERATIONS
+# ============================================================================
+
+# Get PostgreSQL version
+postgresql_version
+
+# Get PostgreSQL statistics (all stats)
+postgresql_stats
+
+# Get PostgreSQL statistics (database only)
+postgresql_stats:include_database_stats=true,include_table_stats=false,include_connection_stats=false,include_performance_stats=false
+
+# Get PostgreSQL statistics (performance only)
+postgresql_stats:include_database_stats=false,include_table_stats=false,include_connection_stats=false,include_performance_stats=true
+
+# List all databases
+postgresql_databases
+
+# List databases including system databases
+postgresql_databases:include_system=true
+
+# ============================================================================
+# RESOURCE OPERATIONS
+# ============================================================================
+
+# List all resources first
+resources/list
+
+# Read schema resource
+resources/read:uri="neurondb://schema"
+
+# Read models resource
+resources/read:uri="neurondb://models"
+
+# Read indexes resource
+resources/read:uri="neurondb://indexes"
+
+# Read config resource
+resources/read:uri="neurondb://config"
+
+# Read workers resource
+resources/read:uri="neurondb://workers"
+
+# Read stats resource
+resources/read:uri="neurondb://stats"
+

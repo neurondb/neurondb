@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "neurondb": {
+      "command": "/home/pge/pge/neurondb/NeuronMCP/bin/neurondb-mcp",
+      "env": {
+        "NEURONDB_HOST": "localhost",
+        "NEURONDB_PORT": "5432",
+        "NEURONDB_DATABASE": "neurondb",
+        "NEURONDB_USER": "nbduser",
+        "NEURONDB_LOG_LEVEL": "info",
+        "NEURONDB_LOG_FORMAT": "text",
+        "NEURONDB_LOG_OUTPUT": "stderr"
+      }
+    }
+  }
+}
+
