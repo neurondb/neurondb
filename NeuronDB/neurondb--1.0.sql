@@ -5018,7 +5018,8 @@ BEGIN
 			BEGIN
 				RETURN neurondb_hf_embedding(model, input_text);
 			EXCEPTION WHEN OTHERS THEN
-				RETURN neurondb.generate_embedding(model::text, input_text::text);
+				-- Fallback to embed_text function (C function, more reliable)
+				RETURN embed_text(input_text, model);
 			END;
 		WHEN 'classification', 'classify' THEN
 			RAISE EXCEPTION 'Classification returns text, use neurondb.classify() instead';
