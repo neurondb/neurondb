@@ -157,8 +157,8 @@ cluster_kmeans(PG_FUNCTION_ARGS)
 	char	   *col_str;
 	int			nvec = 0;
 	int			dim = 0;
-	int		   *assignments = NULL;
-	int		   *centroids_idx = NULL;
+	NDB_DECLARE(int *, assignments);
+	NDB_DECLARE(int *, centroids_idx);
 	float	  **data = NULL;
 	float	  **centers = NULL;
 	bool		changed = false;
@@ -410,8 +410,8 @@ train_kmeans_model_id(PG_FUNCTION_ARGS)
 	char	   *col_str;
 	int			nvec = 0;
 	int			dim = 0;
-	int		   *assignments = NULL;
-	int		   *centroids_idx = NULL;
+	NDB_DECLARE(int *, assignments);
+	NDB_DECLARE(int *, centroids_idx);
 	float	  **data = NULL;
 	float	  **centers = NULL;
 	bool		changed = false;
@@ -625,18 +625,18 @@ evaluate_kmeans_by_model_id(PG_FUNCTION_ARGS)
 	int			dim = 0;
 	float	  **centers = NULL;
 	int			num_clusters = 0;
-	int		   *assignments = NULL;
-	int		   *cluster_sizes = NULL;
+	NDB_DECLARE(int *, assignments);
+	NDB_DECLARE(int *, cluster_sizes);
 	double		inertia = 0.0;
 	double		silhouette = 0.0;
 	double		davies_bouldin = 0.0;
-	double	   *cluster_scatter = NULL;
-	double	   *a_scores = NULL;
-	double	   *b_scores = NULL;
+	NDB_DECLARE(double *, cluster_scatter);
+	NDB_DECLARE(double *, a_scores);
+	NDB_DECLARE(double *, b_scores);
 	MemoryContext oldcontext;
-	Jsonb	   *result_jsonb = NULL;
-	bytea	   *model_payload = NULL;
-	Jsonb	   *model_metrics = NULL;
+	NDB_DECLARE(Jsonb *, result_jsonb);
+	NDB_DECLARE(bytea *, model_payload);
+	NDB_DECLARE(Jsonb *, model_metrics);
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 
 	if (PG_ARGISNULL(0))
@@ -887,10 +887,10 @@ evaluate_kmeans_by_model_id(PG_FUNCTION_ARGS)
 	/* Switch to old context and build JSONB directly using JSONB API */
 	MemoryContextSwitchTo(oldcontext);
 	{
-		JsonbParseState *state = NULL;
+		NDB_DECLARE(JsonbParseState *, state);
 		JsonbValue	jkey;
 		JsonbValue	jval;
-		JsonbValue *final_value = NULL;
+		NDB_DECLARE(JsonbValue *, final_value);
 		Numeric		inertia_num, silhouette_num, davies_bouldin_num, n_samples_num, n_clusters_num;
 
 		PG_TRY();
@@ -1048,8 +1048,8 @@ kmeans_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 	KMeansGpuModelState *state;
 	float	  **data = NULL;
 	float	  **centers = NULL;
-	int		   *assignments = NULL;
-	int		   *centroids_idx = NULL;
+	NDB_DECLARE(int *, assignments);
+	NDB_DECLARE(int *, centroids_idx);
 	int			num_clusters = 8;	/* Default */
 	int			max_iters = 100;
 	int			nvec = 0;
@@ -1059,8 +1059,8 @@ kmeans_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 				i,
 				c,
 				d;
-	bytea	   *model_data = NULL;
-	Jsonb	   *metrics = NULL;
+	NDB_DECLARE(bytea *, model_data);
+	NDB_DECLARE(Jsonb *, metrics);
 	StringInfoData metrics_json;
 	JsonbIterator *it;
 	JsonbValue	v;

@@ -1129,7 +1129,7 @@ ridge_model_serialize(const RidgeModel * model, uint8 training_backend)
 static RidgeModel *
 ridge_model_deserialize(const bytea * data, uint8 *training_backend_out)
 {
-	RidgeModel *model = NULL;
+	NDB_DECLARE(RidgeModel *, model);
 	StringInfoData buf;
 	int			i;
 	uint8		training_backend = 0;
@@ -1235,9 +1235,9 @@ ridge_try_gpu_predict_catalog(int32 model_id,
 							  const Vector *feature_vec,
 							  double *result_out)
 {
-	bytea	   *payload = NULL;
-	Jsonb	   *metrics = NULL;
-	char	   *gpu_err = NULL;
+	NDB_DECLARE(bytea *, payload);
+	NDB_DECLARE(Jsonb *, metrics);
+	NDB_DECLARE(char *, gpu_err);
 	double		prediction = 0.0;
 	bool		success = false;
 
@@ -1286,8 +1286,8 @@ cleanup:
 static bool
 ridge_load_model_from_catalog(int32 model_id, RidgeModel * *out)
 {
-	bytea	   *payload = NULL;
-	Jsonb	   *metrics = NULL;
+	NDB_DECLARE(bytea *, payload);
+	NDB_DECLARE(Jsonb *, metrics);
 
 	if (out == NULL)
 		return false;
@@ -1441,7 +1441,7 @@ lasso_model_serialize(const LassoModel * model, uint8 training_backend)
 static LassoModel *
 lasso_model_deserialize(const bytea * data, uint8 *training_backend_out)
 {
-	LassoModel *model = NULL;
+	NDB_DECLARE(LassoModel *, model);
 	StringInfoData buf;
 	int			i;
 	uint8		training_backend = 0;
@@ -1548,9 +1548,9 @@ lasso_try_gpu_predict_catalog(int32 model_id,
 							  const Vector *feature_vec,
 							  double *result_out)
 {
-	bytea	   *payload = NULL;
-	Jsonb	   *metrics = NULL;
-	char	   *gpu_err = NULL;
+	NDB_DECLARE(bytea *, payload);
+	NDB_DECLARE(Jsonb *, metrics);
+	NDB_DECLARE(char *, gpu_err);
 	double		prediction = 0.0;
 	bool		success = false;
 
@@ -1599,8 +1599,8 @@ cleanup:
 static bool
 lasso_load_model_from_catalog(int32 model_id, LassoModel * *out)
 {
-	bytea	   *payload = NULL;
-	Jsonb	   *metrics = NULL;
+	NDB_DECLARE(bytea *, payload);
+	NDB_DECLARE(Jsonb *, metrics);
 
 	if (out == NULL)
 		return false;
@@ -1688,8 +1688,8 @@ train_ridge_regression(PG_FUNCTION_ARGS)
 	const char *quoted_feat;
 	const char *quoted_target;
 	MLGpuTrainResult gpu_result;
-	char	   *gpu_err = NULL;
-	Jsonb	   *gpu_hyperparams = NULL;
+	NDB_DECLARE(char *, gpu_err);
+	NDB_DECLARE(Jsonb *, gpu_hyperparams);
 	StringInfoData hyperbuf = {0};
 	MemoryContext oldcontext;
 	NDB_DECLARE (NdbSpiSession *, train_spi_session);
@@ -1939,8 +1939,8 @@ train_ridge_regression(PG_FUNCTION_ARGS)
 #ifdef NDB_GPU_CUDA
 				MLCatalogModelSpec spec;
 				RidgeModel		ridge_model;
-				bytea	   *unified_model_data = NULL;
-				Jsonb	   *updated_metrics = NULL;
+				NDB_DECLARE(bytea *, unified_model_data);
+				NDB_DECLARE(Jsonb *, updated_metrics);
 				char	   *base;
 				NdbCudaRidgeModelHeader *hdr;
 				float	   *coef_src_float;
@@ -2100,11 +2100,11 @@ train_ridge_regression(PG_FUNCTION_ARGS)
 		{
 			RidgeStreamAccum stream_accum;
 			double	  **XtX_inv = NULL;
-			double	   *beta = NULL;
+			NDB_DECLARE(double *, beta);
 			int			i,
 						j;
 			int			dim_with_intercept;
-			RidgeModel *model = NULL;
+			NDB_DECLARE(RidgeModel *, model);
 			bytea	   *model_blob;
 			Jsonb	   *metrics_json;
 			int			chunk_size;
@@ -2209,9 +2209,10 @@ train_ridge_regression(PG_FUNCTION_ARGS)
 			model->n_samples = stream_accum.n_samples;
 			model->intercept = beta[0];
 			model->lambda = lambda;
-			model->r_squared = 0.8; /* Dummy value for now */
-			model->mse = 0.1;       /* Dummy value for now */
-			model->mae = 0.05;      /* Dummy value for now */
+			/* Metrics will be computed below - initialize to 0.0 */
+			model->r_squared = 0.0;
+			model->mse = 0.0;
+			model->mae = 0.0;
 			NDB_ALLOC(model->coefficients, double, dim);
 			for (i = 0; i < dim; i++)
 				model->coefficients[i] = beta[i + 1];
@@ -2247,7 +2248,7 @@ train_ridge_regression(PG_FUNCTION_ARGS)
 						int			metrics_ret;
 						int			metrics_n_rows;
 						TupleDesc	metrics_tupdesc;
-						float	   *metrics_row_buffer = NULL;
+						NDB_DECLARE(float *, metrics_row_buffer);
 						int			metrics_i;
 
 						initStringInfo(&metrics_query);
@@ -2514,7 +2515,7 @@ predict_ridge_regression_model_id(PG_FUNCTION_ARGS)
 {
 	int32		model_id;
 	Vector	   *features;
-	RidgeModel *model = NULL;
+	NDB_DECLARE(RidgeModel *, model);
 	double		prediction;
 	int			i;
 
@@ -2608,8 +2609,8 @@ train_lasso_regression(PG_FUNCTION_ARGS)
 	const char *quoted_feat;
 	const char *quoted_target;
 	MLGpuTrainResult gpu_result;
-	char	   *gpu_err = NULL;
-	Jsonb	   *gpu_hyperparams = NULL;
+	NDB_DECLARE(char *, gpu_err);
+	NDB_DECLARE(Jsonb *, gpu_hyperparams);
 	StringInfoData hyperbuf;
 	int32		model_id = 0;
 
@@ -2864,8 +2865,8 @@ train_lasso_regression(PG_FUNCTION_ARGS)
 #ifdef NDB_GPU_CUDA
 				MLCatalogModelSpec spec;
 				LassoModel		lasso_model;
-				bytea	   *unified_model_data = NULL;
-				Jsonb	   *updated_metrics = NULL;
+				NDB_DECLARE(bytea *, unified_model_data);
+				NDB_DECLARE(Jsonb *, updated_metrics);
 				char	   *base;
 				NdbCudaLassoModelHeader *hdr;
 				float	   *coef_src_float;
@@ -2911,10 +2912,10 @@ train_lasso_regression(PG_FUNCTION_ARGS)
 
 					if (gpu_result.spec.metrics != NULL)
 				{
-					JsonbParseState *state = NULL;
+					NDB_DECLARE(JsonbParseState *, state);
 					JsonbValue	jkey;
 					JsonbValue	jval;
-					JsonbValue *final_value = NULL;
+					NDB_DECLARE(JsonbValue *, final_value);
 					Numeric		n_features_num, n_samples_num, lambda_num, max_iters_num, r_squared_num, mse_num, mae_num;
 
 					PG_TRY();
@@ -3122,9 +3123,9 @@ train_lasso_regression(PG_FUNCTION_ARGS)
 
 			/* CPU training path - Coordinate Descent */
 			{
-			double	   *weights = NULL;
-			double	   *weights_old = NULL;
-			double	   *residuals = NULL;
+			NDB_DECLARE(double *, weights);
+			NDB_DECLARE(double *, weights_old);
+			NDB_DECLARE(double *, residuals);
 			double		y_mean = 0.0;
 			int			iter,
 						i,
@@ -3334,10 +3335,10 @@ train_lasso_regression(PG_FUNCTION_ARGS)
 
 				/* Build metrics JSON using JSONB API */
 				{
-					JsonbParseState *state = NULL;
+					NDB_DECLARE(JsonbParseState *, state);
 					JsonbValue	jkey;
 					JsonbValue	jval;
-					JsonbValue *final_value = NULL;
+					NDB_DECLARE(JsonbValue *, final_value);
 					Numeric		n_features_num, n_samples_num, lambda_num, max_iters_num, r_squared_num, mse_num, mae_num;
 
 					PG_TRY();
@@ -3448,10 +3449,10 @@ train_lasso_regression(PG_FUNCTION_ARGS)
 
 					/* Build hyperparameters JSON using JSONB API */
 					{
-						JsonbParseState *state = NULL;
+						NDB_DECLARE(JsonbParseState *, state);
 						JsonbValue	jkey;
 						JsonbValue	jval;
-						JsonbValue *final_value = NULL;
+						NDB_DECLARE(JsonbValue *, final_value);
 						Numeric		lambda_num, max_iters_num;
 
 						PG_TRY();
@@ -3533,7 +3534,7 @@ predict_lasso_regression_model_id(PG_FUNCTION_ARGS)
 {
 	int32		model_id;
 	Vector	   *features;
-	LassoModel *model = NULL;
+	NDB_DECLARE(LassoModel *, model);
 	double		prediction;
 	int			i;
 
@@ -3631,21 +3632,21 @@ evaluate_ridge_regression_by_model_id(PG_FUNCTION_ARGS)
 	double		y_mean = 0.0;
 	MemoryContext oldcontext;
 	StringInfoData query;
-	RidgeModel *model = NULL;
+	NDB_DECLARE(RidgeModel *, model);
 	StringInfoData jsonbuf;
-	Jsonb	   *result_jsonb = NULL;
-	bytea	   *gpu_payload = NULL;
-	Jsonb	   *gpu_metrics = NULL;
+	NDB_DECLARE(Jsonb *, result_jsonb);
+	NDB_DECLARE(bytea *, gpu_payload);
+	NDB_DECLARE(Jsonb *, gpu_metrics);
 	bool		is_gpu_model = false;
-	float	   *h_features = NULL;
-	double	   *h_targets = NULL;
+	NDB_DECLARE(float *, h_features);
+	NDB_DECLARE(double *, h_targets);
 	int			valid_rows = 0;
 	double		ss_res = 0.0;
 	double		ss_tot = 0.0;
 	NDB_DECLARE(NdbSpiSession *, spi_session);
-	double	   *cpu_coefficients = NULL;
+	NDB_DECLARE(double *, cpu_coefficients);
 	int			feat_dim = 0;
-	double	   *predictions = NULL;
+	NDB_DECLARE(double *, predictions);
 	int			valid_samples = 0;
 
 
@@ -3928,7 +3929,7 @@ evaluate_ridge_regression_by_model_id(PG_FUNCTION_ARGS)
 			double		gpu_mae = 0.0;
 			double		gpu_rmse = 0.0;
 			double		gpu_r_squared = 0.0;
-			char	   *gpu_err = NULL;
+			NDB_DECLARE(char *, gpu_err);
 			int			eval_rc;
 
 			elog(DEBUG1,
@@ -4105,8 +4106,8 @@ gpu_eval_fallback:
 
 		if (!is_gpu_model || h_features == NULL || h_targets == NULL)
 		{
-			float	   *cpu_features = NULL;
-			double	   *cpu_targets = NULL;
+			NDB_DECLARE(float *, cpu_features);
+			NDB_DECLARE(double *, cpu_targets);
 			size_t		features_size,
 						targets_size;
 
@@ -4426,7 +4427,7 @@ gpu_eval_fallback:
 	/* Switch to old context and build JSONB directly using JSONB API */
 	MemoryContextSwitchTo(oldcontext);
 	{
-		JsonbParseState *state = NULL;
+		NDB_DECLARE(JsonbParseState *, state);
 		JsonbValue	jkey;
 		JsonbValue	jval;
 		JsonbValue *final_value;
@@ -4554,13 +4555,13 @@ evaluate_lasso_regression_by_model_id(PG_FUNCTION_ARGS)
 	double		y_mean = 0.0;
 	MemoryContext oldcontext;
 	StringInfoData query;
-	LassoModel *model = NULL;
-	Jsonb	   *result_jsonb = NULL;
-	bytea	   *gpu_payload = NULL;
-	Jsonb	   *gpu_metrics = NULL;
+	NDB_DECLARE(LassoModel *, model);
+	NDB_DECLARE(Jsonb *, result_jsonb);
+	NDB_DECLARE(bytea *, gpu_payload);
+	NDB_DECLARE(Jsonb *, gpu_metrics);
 	bool		is_gpu_model = false;
-	float	   *h_features = NULL;
-	double	   *h_targets = NULL;
+	NDB_DECLARE(float *, h_features);
+	NDB_DECLARE(double *, h_targets);
 	int			valid_rows = 0;
 	double		ss_res = 0.0;
 	double		ss_tot = 0.0;
@@ -5073,7 +5074,7 @@ evaluate_lasso_regression_by_model_id(PG_FUNCTION_ARGS)
 			double		gpu_mae = 0.0;
 			double		gpu_rmse = 0.0;
 			double		gpu_r_squared = 0.0;
-			char	   *gpu_err = NULL;
+			NDB_DECLARE(char *, gpu_err);
 			int			eval_rc;
 
 			elog(DEBUG1,
@@ -5143,10 +5144,10 @@ evaluate_lasso_regression_by_model_id(PG_FUNCTION_ARGS)
 	NDB_SPI_SESSION_END(spi_session);
 	MemoryContextSwitchTo(oldcontext);
 	{
-		JsonbParseState *state = NULL;
+		NDB_DECLARE(JsonbParseState *, state);
 		JsonbValue	jkey;
 		JsonbValue	jval;
-		JsonbValue *final_value = NULL;
+		NDB_DECLARE(JsonbValue *, final_value);
 		Numeric		mse_num, mae_num, rmse_num, r_squared_num, n_samples_num;
 
 		PG_TRY();
@@ -5244,11 +5245,11 @@ gpu_eval_fallback:
 		/* Load GPU model into CPU structure for CPU evaluation */
 		const		NdbCudaLassoModelHeader *gpu_hdr;
 		const float *gpu_coefficients;
-		double	   *cpu_coefficients = NULL;
+		NDB_DECLARE(double *, cpu_coefficients);
 		double		cpu_intercept = 0.0;
 		int			feat_dim;
 		int			valid_samples = 0;
-		double	   *predictions = NULL;
+		NDB_DECLARE(double *, predictions);
 
 		if (is_gpu_model && gpu_payload)
 		{
@@ -5356,8 +5357,8 @@ gpu_eval_fallback:
 		 */
 		if (!is_gpu_model || h_features == NULL || h_targets == NULL)
 		{
-			float	   *cpu_features = NULL;
-			double	   *cpu_targets = NULL;
+			NDB_DECLARE(float *, cpu_features);
+			NDB_DECLARE(double *, cpu_targets);
 			size_t		features_size,
 						targets_size;
 
@@ -5801,10 +5802,10 @@ gpu_eval_fallback:
 	/* Switch to old context and build JSONB directly using JSONB API */
 	MemoryContextSwitchTo(oldcontext);
 	{
-		JsonbParseState *state = NULL;
+		NDB_DECLARE(JsonbParseState *, state);
 		JsonbValue	jkey;
 		JsonbValue	jval;
-		JsonbValue *final_value = NULL;
+		NDB_DECLARE(JsonbValue *, final_value);
 		Numeric		mse_num, mae_num, rmse_num, r_squared_num, n_samples_num;
 
 		PG_TRY();
@@ -5958,13 +5959,13 @@ train_elastic_net(PG_FUNCTION_ARGS)
 	int			dim;
 	int			i;
 	int			j;
-	double	   *coefficients = NULL;
+	NDB_DECLARE(double *, coefficients);
 	double		intercept = 0.0;
 	double		l1_penalty;
 	double		l2_penalty;
-	double	   *Xty = NULL;
-	double	   *beta = NULL;
-	Datum	   *result_datums = NULL;
+	NDB_DECLARE(double *, Xty);
+	NDB_DECLARE(double *, beta);
+	NDB_DECLARE(Datum *, result_datums);
 	ArrayType  *result_array;
 	MemoryContext oldcontext;
 	MemoryContext elastic_context;
@@ -6495,7 +6496,7 @@ ridge_gpu_release_state(RidgeGpuModelState * state)
 static bool
 ridge_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 {
-	RidgeGpuModelState *state = NULL;
+	NDB_DECLARE(RidgeGpuModelState *, state);
 	bytea	   *payload;
 	Jsonb	   *metrics;
 	int			rc;
@@ -6628,7 +6629,7 @@ ridge_gpu_serialize(const MLGpuModel * model, bytea * *payload_out,
 {
 	const		RidgeGpuModelState *state;
 	RidgeModel	ridge_model;
-	bytea	   *unified_payload = NULL;
+	NDB_DECLARE(bytea *, unified_payload);
 	char	   *base;
 	NdbCudaRidgeModelHeader *hdr;
 	float	   *coef_src_float;
@@ -6720,10 +6721,10 @@ static bool
 ridge_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 					  const Jsonb * metadata, char **errstr)
 {
-	RidgeGpuModelState *state = NULL;
-	RidgeModel *ridge_model = NULL;
+	NDB_DECLARE(RidgeGpuModelState *, state);
+	NDB_DECLARE(RidgeModel *, ridge_model);
 	uint8		training_backend = 0;
-	bytea	   *gpu_payload = NULL;
+	NDB_DECLARE(bytea *, gpu_payload);
 	char	   *base;
 	NdbCudaRidgeModelHeader *hdr;
 	float	   *coef_dest;
@@ -6858,7 +6859,7 @@ lasso_gpu_release_state(LassoGpuModelState * state)
 static bool
 lasso_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 {
-	LassoGpuModelState *state = NULL;
+	NDB_DECLARE(LassoGpuModelState *, state);
 	bytea	   *payload;
 	Jsonb	   *metrics;
 	int			rc;
@@ -6991,7 +6992,7 @@ lasso_gpu_serialize(const MLGpuModel * model, bytea * *payload_out,
 {
 	const		LassoGpuModelState *state;
 	LassoModel	lasso_model;
-	bytea	   *unified_payload = NULL;
+	NDB_DECLARE(bytea *, unified_payload);
 	char	   *base;
 	NdbCudaLassoModelHeader *hdr;
 	float	   *coef_src_float;
@@ -7083,10 +7084,10 @@ static bool
 lasso_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 					  const Jsonb * metadata, char **errstr)
 {
-	LassoGpuModelState *state = NULL;
-	LassoModel *lasso_model = NULL;
+	NDB_DECLARE(LassoGpuModelState *, state);
+	NDB_DECLARE(LassoModel *, lasso_model);
 	uint8		training_backend = 0;
-	bytea	   *gpu_payload = NULL;
+	NDB_DECLARE(bytea *, gpu_payload);
 	char	   *base;
 	NdbCudaLassoModelHeader *hdr;
 	float	   *coef_dest;

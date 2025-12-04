@@ -78,16 +78,16 @@ discover_topics_simple(PG_FUNCTION_ARGS)
 	float	  **data;
 	int			nvec,
 				dim;
-	int		   *assignments;
-	double	  **centroids;
-	int		   *cluster_sizes;
+	NDB_DECLARE(int *, assignments);
+	NDB_DECLARE(double **, centroids);
+	NDB_DECLARE(int *, cluster_sizes);
 	bool		changed;
 	int			iter,
 				i,
 				k,
 				d;
 	ArrayType  *result;
-	Datum	   *result_datums;
+	NDB_DECLARE(Datum *, result_datums);
 	int16		typlen;
 	bool		typbyval;
 	char		typalign;
@@ -110,6 +110,34 @@ discover_topics_simple(PG_FUNCTION_ARGS)
 	/* Fetch embeddings */
 	data = neurondb_fetch_vectors_from_table(tbl_str, col_str, &nvec, &dim);
 
+	if (data == NULL || nvec == 0)
+	{
+		NDB_FREE(tbl_str);
+		NDB_FREE(col_str);
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("No vectors found")));
+	}
+
+	if (dim <= 0)
+	{
+		NDB_FREE(tbl_str);
+		NDB_FREE(col_str);
+		/* Free data array and rows if data is not NULL */
+		if (data != NULL)
+		{
+			for (i = 0; i < nvec; i++)
+			{
+				if (data[i] != NULL)
+					NDB_FREE(data[i]);
+			}
+			NDB_FREE(data);
+		}
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("Invalid vector dimension: %d", dim)));
+	}
+
 	if (nvec < num_topics)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -118,18 +146,18 @@ discover_topics_simple(PG_FUNCTION_ARGS)
 						num_topics)));
 
 	/* Initialize centroids with random data points */
-	centroids = (double **) palloc(sizeof(double *) * num_topics);
+	NDB_ALLOC(centroids, double *, num_topics);
 	for (k = 0; k < num_topics; k++)
 	{
 		int			idx = rand() % nvec;
 
-		centroids[k] = (double *) palloc(sizeof(double) * dim);
+		NDB_ALLOC(centroids[k], double, dim);
 		for (d = 0; d < dim; d++)
 			centroids[k][d] = (double) data[idx][d];
 	}
 
-	assignments = (int *) palloc(sizeof(int) * nvec);
-	cluster_sizes = (int *) palloc(sizeof(int) * num_topics);
+	NDB_ALLOC(assignments, int, nvec);
+	NDB_ALLOC(cluster_sizes, int, num_topics);
 
 	/* K-means iterations */
 	for (iter = 0; iter < max_iters; iter++)
@@ -204,7 +232,7 @@ discover_topics_simple(PG_FUNCTION_ARGS)
 	}
 
 	/* Build result array (1-based topic IDs) */
-	result_datums = (Datum *) palloc(sizeof(Datum) * nvec);
+	NDB_ALLOC(result_datums, Datum, nvec);
 	for (i = 0; i < nvec; i++)
 		result_datums[i] = Int32GetDatum(assignments[i] + 1);
 
@@ -253,6 +281,7 @@ topic_discovery_model_serialize_to_bytea(float **topic_word_dist, int n_topics, 
 {
 	StringInfoData buf;
 	int			total_size;
+	NDB_DECLARE(char *, result_bytes);
 	bytea	   *result;
 	int			t,
 				w;
@@ -268,7 +297,8 @@ topic_discovery_model_serialize_to_bytea(float **topic_word_dist, int n_topics, 
 			appendBinaryStringInfo(&buf, (char *) &topic_word_dist[t][w], sizeof(float));
 
 	total_size = VARHDRSZ + buf.len;
-	result = (bytea *) palloc(total_size);
+	NDB_ALLOC(result_bytes, char, total_size);
+	result = (bytea *) result_bytes;
 	SET_VARSIZE(result, total_size);
 	memcpy(VARDATA(result), buf.data, buf.len);
 	NDB_FREE(buf.data);
@@ -283,7 +313,7 @@ topic_discovery_model_deserialize_from_bytea(const bytea * data, float ***topic_
 	int			offset = 0;
 	int			t,
 				w;
-	float	  **topic_word_dist;
+	NDB_DECLARE(float **, topic_word_dist);
 
 	if (data == NULL || VARSIZE(data) < VARHDRSZ + sizeof(int) * 2 + sizeof(float) * 2)
 		return -1;
@@ -301,10 +331,10 @@ topic_discovery_model_deserialize_from_bytea(const bytea * data, float ***topic_
 	if (*n_topics_out < 1 || *n_topics_out > 1000 || *vocab_size_out < 1 || *vocab_size_out > 100000)
 		return -1;
 
-	topic_word_dist = (float **) palloc(sizeof(float *) * *n_topics_out);
+	NDB_ALLOC(topic_word_dist, float *, *n_topics_out);
 	for (t = 0; t < *n_topics_out; t++)
 	{
-		topic_word_dist[t] = (float *) palloc(sizeof(float) * *vocab_size_out);
+		NDB_ALLOC(topic_word_dist[t], float, *vocab_size_out);
 		for (w = 0; w < *vocab_size_out; w++)
 		{
 			memcpy(&topic_word_dist[t][w], buf + offset, sizeof(float));
@@ -333,7 +363,7 @@ topic_discovery_model_free(float **topic_word_dist, int n_topics)
 static bool
 topic_discovery_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 {
-	TopicDiscoveryGpuModelState *state;
+	NDB_DECLARE(TopicDiscoveryGpuModelState *, state);
 	float	  **data = NULL;
 	float	  **topic_word_dist = NULL;
 	int			n_topics = 10;
@@ -345,8 +375,8 @@ topic_discovery_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char 
 	int			t,
 				w,
 				i;
-	bytea	   *model_data = NULL;
-	Jsonb	   *metrics = NULL;
+	NDB_DECLARE(bytea *, model_data);
+	NDB_DECLARE(Jsonb *, metrics);
 	StringInfoData metrics_json;
 	JsonbIterator *it;
 	JsonbValue	v;
@@ -413,20 +443,20 @@ topic_discovery_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char 
 	if (dim != vocab_size)
 		vocab_size = dim;
 
-	data = (float **) palloc(sizeof(float *) * nvec);
+	NDB_ALLOC(data, float *, nvec);
 	for (i = 0; i < nvec; i++)
 	{
-		data[i] = (float *) palloc(sizeof(float) * dim);
+		NDB_ALLOC(data[i], float, dim);
 		memcpy(data[i], &spec->feature_matrix[i * dim], sizeof(float) * dim);
 	}
 
 	/* Initialize topic-word distributions (simplified LDA) */
-	topic_word_dist = (float **) palloc(sizeof(float *) * n_topics);
+	NDB_ALLOC(topic_word_dist, float *, n_topics);
 	for (t = 0; t < n_topics; t++)
 	{
 		float		sum = 0.0f;
 
-		topic_word_dist[t] = (float *) palloc(sizeof(float) * vocab_size);
+		NDB_ALLOC(topic_word_dist[t], float, vocab_size);
 		for (w = 0; w < vocab_size; w++)
 		{
 			topic_word_dist[t][w] = (float) rand() / RAND_MAX + beta;
@@ -449,7 +479,7 @@ topic_discovery_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char 
 												 CStringGetDatum(metrics_json.data)));
 	NDB_FREE(metrics_json.data);
 
-	state = (TopicDiscoveryGpuModelState *) palloc0(sizeof(TopicDiscoveryGpuModelState));
+	NDB_ALLOC(state, TopicDiscoveryGpuModelState, 1);
 	state->model_blob = model_data;
 	state->metrics = metrics;
 	state->topic_word_distributions = topic_word_dist;
@@ -486,7 +516,7 @@ topic_discovery_gpu_predict(const MLGpuModel * model, const float *input, int in
 	float		beta = 0.0f;
 	int			t,
 				w;
-	float	   *topic_probs = NULL;
+	NDB_DECLARE(float *, topic_probs);
 	float		sum = 0.0f;
 
 	if (errstr != NULL)
@@ -538,7 +568,7 @@ topic_discovery_gpu_predict(const MLGpuModel * model, const float *input, int in
 		return false;
 	}
 
-	topic_probs = (float *) palloc(sizeof(float) * state->n_topics);
+	NDB_ALLOC(topic_probs, float, state->n_topics);
 
 	/* Compute topic probabilities for document */
 	for (t = 0; t < state->n_topics && t < output_dim; t++)
@@ -617,6 +647,7 @@ topic_discovery_gpu_serialize(const MLGpuModel * model, bytea * *payload_out,
 	const		TopicDiscoveryGpuModelState *state;
 	bytea	   *payload_copy;
 	int			payload_size;
+	NDB_DECLARE(char *, payload_bytes);
 
 	if (errstr != NULL)
 		*errstr = NULL;
@@ -640,7 +671,8 @@ topic_discovery_gpu_serialize(const MLGpuModel * model, bytea * *payload_out,
 	}
 
 	payload_size = VARSIZE(state->model_blob);
-	payload_copy = (bytea *) palloc(payload_size);
+	NDB_ALLOC(payload_bytes, char, payload_size);
+	payload_copy = (bytea *) payload_bytes;
 	memcpy(payload_copy, state->model_blob, payload_size);
 
 	if (payload_out != NULL)
@@ -659,7 +691,7 @@ static bool
 topic_discovery_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 								const Jsonb * metadata, char **errstr)
 {
-	TopicDiscoveryGpuModelState *state;
+	NDB_DECLARE(TopicDiscoveryGpuModelState *, state);
 	bytea	   *payload_copy;
 	int			payload_size;
 	float	  **topic_word_dist = NULL;
@@ -670,6 +702,9 @@ topic_discovery_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 	JsonbIterator *it;
 	JsonbValue	v;
 	int			r;
+	NDB_DECLARE(char *, payload_bytes);
+	NDB_DECLARE(char *, metadata_bytes);
+	Jsonb	   *metadata_copy;
 
 	if (errstr != NULL)
 		*errstr = NULL;
@@ -681,7 +716,8 @@ topic_discovery_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 	}
 
 	payload_size = VARSIZE(payload);
-	payload_copy = (bytea *) palloc(payload_size);
+	NDB_ALLOC(payload_bytes, char, payload_size);
+	payload_copy = (bytea *) payload_bytes;
 	memcpy(payload_copy, payload, payload_size);
 
 	if (topic_discovery_model_deserialize_from_bytea(payload_copy,
@@ -693,7 +729,7 @@ topic_discovery_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 		return false;
 	}
 
-	state = (TopicDiscoveryGpuModelState *) palloc0(sizeof(TopicDiscoveryGpuModelState));
+	NDB_ALLOC(state, TopicDiscoveryGpuModelState, 1);
 	state->model_blob = payload_copy;
 	state->topic_word_distributions = topic_word_dist;
 	state->n_topics = n_topics;
@@ -705,7 +741,8 @@ topic_discovery_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 	if (metadata != NULL)
 	{
 		int			metadata_size = VARSIZE(metadata);
-		Jsonb	   *metadata_copy = (Jsonb *) palloc(metadata_size);
+		NDB_ALLOC(metadata_bytes, char, metadata_size);
+		metadata_copy = (Jsonb *) metadata_bytes;
 
 		memcpy(metadata_copy, metadata, metadata_size);
 		state->metrics = metadata_copy;

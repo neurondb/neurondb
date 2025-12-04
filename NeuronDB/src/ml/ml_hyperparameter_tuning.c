@@ -147,7 +147,7 @@ generate_grid_combinations(Jsonb *param_grid,
 static Jsonb *
 build_param_jsonb(List *param_names, List *param_values)
 {
-	JsonbParseState *state = NULL;
+	NDB_DECLARE(JsonbParseState *, state);
 	ListCell *ncell;
 	ListCell *vcell;
 	Jsonb *result;

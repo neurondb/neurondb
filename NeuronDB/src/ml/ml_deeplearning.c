@@ -386,7 +386,7 @@ dl_predict(PG_FUNCTION_ARGS)
 	int			i;
 	int			n_outputs = 10;
 #ifdef HAVE_ONNX_RUNTIME
-	ONNXTensor *output_tensor = NULL;	/* ONNX output tensor */
+	NDB_DECLARE(ONNXTensor *, output_tensor);	/* ONNX output tensor */
 #endif
 
 	/* Get input size */
@@ -405,9 +405,9 @@ dl_predict(PG_FUNCTION_ARGS)
 
 	/* Load model from catalog */
 	{
-		bytea	   *model_data = NULL;
-		Jsonb	   *parameters = NULL;
-		Jsonb	   *metrics = NULL;
+		NDB_DECLARE(bytea *, model_data);
+		NDB_DECLARE(Jsonb *, parameters);
+		NDB_DECLARE(Jsonb *, metrics);
 
 		if (!ml_catalog_fetch_model_payload(model_id, &model_data,
 											&parameters, &metrics))
@@ -423,7 +423,7 @@ dl_predict(PG_FUNCTION_ARGS)
 			JsonbIterator *it;
 			JsonbValue	v;
 			int			r;
-			char *framework = NULL;
+			NDB_DECLARE(char *, framework);
 
 			it = JsonbIteratorInit(&parameters->root);
 			while ((r = JsonbIteratorNext(&it, &v, false)) != WJB_DONE)
@@ -448,8 +448,8 @@ dl_predict(PG_FUNCTION_ARGS)
 				{
 					/* Use ONNX runtime for inference */
 #ifdef HAVE_ONNX_RUNTIME
-					ONNXModelSession *session = NULL;
-					ONNXTensor *input_tensor = NULL;
+					NDB_DECLARE(ONNXModelSession *, session);
+					NDB_DECLARE(ONNXTensor *, input_tensor);
 					char		model_name_str[256];
 					int			d;
 

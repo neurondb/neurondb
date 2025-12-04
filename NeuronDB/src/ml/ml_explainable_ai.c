@@ -109,7 +109,7 @@ calculate_shap_values(PG_FUNCTION_ARGS)
 	int			n_samples;
 	float	   *features;
 	int			n_features;
-	double	   *shap_values = NULL;
+	NDB_DECLARE(double *, shap_values);
 	int			i,
 				j;
 	ArrayType  *result;
@@ -228,10 +228,10 @@ explain_with_lime(PG_FUNCTION_ARGS)
 	int			n_features;
 	float	   *features;
 	int			feature_dim;
-	float	   *perturbed_features = NULL;
-	double	   *predictions = NULL;
-	double	   *weights = NULL;
-	double	   *coefficients = NULL;
+	NDB_DECLARE(float *, perturbed_features);
+	NDB_DECLARE(double *, predictions);
+	NDB_DECLARE(double *, weights);
+	NDB_DECLARE(double *, coefficients);
 	int			i,
 				j;
 	StringInfoData jsonbuf;
@@ -424,8 +424,8 @@ feature_importance(PG_FUNCTION_ARGS)
 	
 	/* Try to get feature count from model metadata */
 	{
-		MLCatalogModelSpec *model_spec = NULL;
-		Jsonb	   *model_metadata = NULL;
+		NDB_DECLARE(MLCatalogModelSpec *, model_spec);
+		NDB_DECLARE(Jsonb *, model_metadata);
 		JsonbIterator *it;
 		JsonbValue	v;
 		int			r;
@@ -510,7 +510,7 @@ feature_importance(PG_FUNCTION_ARGS)
 		{
 			continue;
 		}
-		ArrayType  *feat_array = NULL;
+		NDB_DECLARE(ArrayType *, feat_array);
 		double		target = 0.0;
 		
 		/* Safe access for features - validate tupdesc has at least 1 column */

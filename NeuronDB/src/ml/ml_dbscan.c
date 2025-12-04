@@ -58,13 +58,13 @@ typedef struct DBSCANState
 static int *
 dbscan_region_query(const DBSCANState * state, int idx, int *neighbor_count)
 {
-	int		   *neighbors;
 	int			capacity;
 	int			count;
 	int			i;
+	int		   *neighbors = NULL;
 
 	capacity = 16;
-	neighbors = (int *) palloc(capacity * sizeof(int));
+	NDB_ALLOC(neighbors, int, capacity);
 	count = 0;
 
 	for (i = 0; i < state->nvec; i++)
@@ -98,13 +98,13 @@ dbscan_expand_cluster(DBSCANState * state,
 					  int neighbor_count,
 					  int cluster_id)
 {
-	int		   *seeds;
 	int			seed_count;
 	int			seed_idx;
+	int		   *seeds = NULL;
 
 	state->labels[point_idx] = cluster_id;
 
-	seeds = (int *) palloc(neighbor_count * sizeof(int));
+	NDB_ALLOC(seeds, int, neighbor_count);
 	memcpy(seeds, neighbors, neighbor_count * sizeof(int));
 	seed_count = neighbor_count;
 	seed_idx = 0;
@@ -168,10 +168,10 @@ cluster_dbscan(PG_FUNCTION_ARGS)
 	DBSCANState state;
 	int			i;
 	ArrayType  *out_array;
-	Datum	   *out_datums;
 	int16		typlen;
 	bool		typbyval;
 	char		typalign;
+	Datum	   *out_datums;
 
 	table_name = PG_GETARG_TEXT_PP(0);
 	column_name = PG_GETARG_TEXT_PP(1);
@@ -202,10 +202,35 @@ cluster_dbscan(PG_FUNCTION_ARGS)
 	state.data = neurondb_fetch_vectors_from_table(
 												   tbl_str, col_str, &state.nvec, &state.dim);
 
-	if (state.nvec == 0)
+	if (state.data == NULL || state.nvec == 0)
+	{
+		NDB_FREE(tbl_str);
+		NDB_FREE(col_str);
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),
 				 errmsg("No vectors found in table")));
+	}
+
+	if (state.dim <= 0)
+	{
+		NDB_FREE(tbl_str);
+		NDB_FREE(col_str);
+		/* Free data array and rows if data is not NULL */
+		if (state.data != NULL)
+		{
+			int			j;
+
+			for (j = 0; j < state.nvec; j++)
+			{
+				if (state.data[j] != NULL)
+					NDB_FREE(state.data[j]);
+			}
+			NDB_FREE(state.data);
+		}
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("Invalid vector dimension: %d", state.dim)));
+	}
 
 	state.eps = eps;
 	state.min_pts = min_pts;
@@ -230,7 +255,7 @@ cluster_dbscan(PG_FUNCTION_ARGS)
 		}
 	}
 
-	state.labels = (int *) palloc0(state.nvec * sizeof(int));
+	NDB_ALLOC(state.labels, int, state.nvec);
 
 	for (i = 0; i < state.nvec; i++)
 		state.labels[i] = DBSCAN_UNDEFINED;
@@ -260,7 +285,7 @@ cluster_dbscan(PG_FUNCTION_ARGS)
 		 "neurondb: DBSCAN completed with %d clusters, %d points",
 		 state.next_cluster, state.nvec);
 
-	out_datums = (Datum *) palloc(state.nvec * sizeof(Datum));
+	NDB_ALLOC(out_datums, Datum, state.nvec);
 	for (i = 0; i < state.nvec; i++)
 		out_datums[i] = Int32GetDatum(state.labels[i]);
 
@@ -291,9 +316,9 @@ predict_dbscan(PG_FUNCTION_ARGS)
 	int32		model_id = PG_GETARG_INT32(0);
 	ArrayType  *features_array = PG_GETARG_ARRAYTYPE_P(1);
 
-	float	   *features;
 	int			cluster_id = DBSCAN_NOISE;
 	int			n_elems = 0;
+	float	   *features;
 
 	/* Extract features from array */
 	{
@@ -309,7 +334,7 @@ predict_dbscan(PG_FUNCTION_ARGS)
 		deconstruct_array(features_array, elmtype, typlen, typbyval, typalign,
 						  &elems, &nulls, &n_elems);
 
-		features = palloc(sizeof(float) * n_elems);
+		NDB_ALLOC(features, float, n_elems);
 
 		for (i = 0; i < n_elems; i++)
 			features[i] = DatumGetFloat4(elems[i]);
@@ -317,8 +342,8 @@ predict_dbscan(PG_FUNCTION_ARGS)
 
 	/* Load model from catalog and perform proper DBSCAN prediction */
 	{
-		bytea *model_payload = NULL;
-		Jsonb *model_parameters = NULL;
+		NDB_DECLARE(bytea *, model_payload);
+		NDB_DECLARE(Jsonb *, model_parameters);
 		float **cluster_centers = NULL;
 		int n_clusters = 0;
 		int dim = 0;
@@ -502,8 +527,8 @@ evaluate_dbscan_by_model_id(PG_FUNCTION_ARGS)
 
 	/* Load model and compute actual metrics */
 	{
-		bytea	   *model_payload = NULL;
-		Jsonb	   *model_parameters = NULL;
+		NDB_DECLARE(bytea *, model_payload);
+		NDB_DECLARE(Jsonb *, model_parameters);
 		float	  **centers = NULL;
 		float	  **data = NULL;
 		int			model_dim = 0;
@@ -679,6 +704,7 @@ dbscan_model_serialize_to_bytea(float **cluster_centers, int n_clusters, int dim
 	int			i,
 				j;
 	int			total_size;
+	NDB_DECLARE(char *, result_bytes);
 	bytea	   *result;
 
 	initStringInfo(&buf);
@@ -692,7 +718,8 @@ dbscan_model_serialize_to_bytea(float **cluster_centers, int n_clusters, int dim
 			appendBinaryStringInfo(&buf, (char *) &cluster_centers[i][j], sizeof(float));
 
 	total_size = VARHDRSZ + buf.len;
-	result = (bytea *) palloc(total_size);
+	NDB_ALLOC(result_bytes, char, total_size);
+	result = (bytea *) result_bytes;
 	SET_VARSIZE(result, total_size);
 	memcpy(VARDATA(result), buf.data, buf.len);
 	NDB_FREE(buf.data);
@@ -725,10 +752,10 @@ dbscan_model_deserialize_from_bytea(const bytea * data, float ***centers_out, in
 	if (*n_clusters_out < 0 || *n_clusters_out > 10000 || *dim_out <= 0 || *dim_out > 100000)
 		return -1;
 
-	centers = (float **) palloc(sizeof(float *) * *n_clusters_out);
+	NDB_ALLOC(centers, float *, *n_clusters_out);
 	for (i = 0; i < *n_clusters_out; i++)
 	{
-		centers[i] = (float *) palloc(sizeof(float) * *dim_out);
+		NDB_ALLOC(centers[i], float, *dim_out);
 		for (j = 0; j < *dim_out; j++)
 		{
 			memcpy(&centers[i][j], buf + offset, sizeof(float));
@@ -743,7 +770,6 @@ dbscan_model_deserialize_from_bytea(const bytea * data, float ***centers_out, in
 static bool
 dbscan_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 {
-	DBSCANGpuModelState *state;
 	float	  **data = NULL;
 	int		   *labels = NULL;
 	float	  **cluster_centers = NULL;
@@ -763,6 +789,7 @@ dbscan_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 	JsonbIterator *it;
 	JsonbValue	v;
 	int			r;
+	DBSCANGpuModelState *state = NULL;
 
 	if (errstr != NULL)
 		*errstr = NULL;
@@ -812,10 +839,10 @@ dbscan_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 	nvec = spec->sample_count;
 	dim = spec->feature_dim;
 
-	data = (float **) palloc(sizeof(float *) * nvec);
+	NDB_ALLOC(data, float *, nvec);
 	for (i = 0; i < nvec; i++)
 	{
-		data[i] = (float *) palloc(sizeof(float) * dim);
+		NDB_ALLOC(data[i], float, dim);
 		memcpy(data[i], &spec->feature_matrix[i * dim], sizeof(float) * dim);
 	}
 
@@ -826,7 +853,7 @@ dbscan_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 	dbscan_state.eps = eps;
 	dbscan_state.min_pts = min_pts;
 	dbscan_state.next_cluster = 0;
-	labels = (int *) palloc0(nvec * sizeof(int));
+	NDB_ALLOC(labels, int, nvec);
 
 	for (i = 0; i < nvec; i++)
 		labels[i] = DBSCAN_UNDEFINED;
@@ -857,12 +884,12 @@ dbscan_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 	/* Compute cluster centroids */
 	if (n_clusters > 0)
 	{
-		cluster_centers = (float **) palloc(sizeof(float *) * n_clusters);
-		cluster_sizes = (int *) palloc0(sizeof(int) * n_clusters);
+		NDB_ALLOC(cluster_centers, float *, n_clusters);
+		NDB_ALLOC(cluster_sizes, int, n_clusters);
 
 		for (c = 0; c < n_clusters; c++)
 		{
-			cluster_centers[c] = (float *) palloc0(sizeof(float) * dim);
+			NDB_ALLOC(cluster_centers[c], float, dim);
 		}
 
 		for (i = 0; i < nvec; i++)
@@ -889,8 +916,8 @@ dbscan_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 	else
 	{
 		/* No clusters found, create empty model */
-		cluster_centers = (float **) palloc(sizeof(float *));
-		cluster_centers[0] = (float *) palloc0(sizeof(float) * dim);
+		NDB_ALLOC(cluster_centers, float *, 1);
+		NDB_ALLOC(cluster_centers[0], float, dim);
 		n_clusters = 0;
 	}
 
@@ -906,7 +933,7 @@ dbscan_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 												 CStringGetTextDatum(metrics_json.data)));
 	NDB_FREE(metrics_json.data);
 
-	state = (DBSCANGpuModelState *) palloc0(sizeof(DBSCANGpuModelState));
+	NDB_ALLOC(state, DBSCANGpuModelState, 1);
 	state->model_blob = model_data;
 	state->metrics = metrics;
 	state->eps = eps;
@@ -1069,6 +1096,7 @@ dbscan_gpu_serialize(const MLGpuModel * model, bytea * *payload_out,
 	const		DBSCANGpuModelState *state;
 	bytea	   *payload_copy;
 	int			payload_size;
+	char	   *payload_bytes;
 
 	if (errstr != NULL)
 		*errstr = NULL;
@@ -1092,7 +1120,8 @@ dbscan_gpu_serialize(const MLGpuModel * model, bytea * *payload_out,
 	}
 
 	payload_size = VARSIZE(state->model_blob);
-	payload_copy = (bytea *) palloc(payload_size);
+	NDB_ALLOC(payload_bytes, char, payload_size);
+	payload_copy = (bytea *) payload_bytes;
 	memcpy(payload_copy, state->model_blob, payload_size);
 
 	if (payload_out != NULL)
@@ -1111,7 +1140,6 @@ static bool
 dbscan_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 					   const Jsonb * metadata, char **errstr)
 {
-	DBSCANGpuModelState *state;
 	bytea	   *payload_copy;
 	int			payload_size;
 	float	  **centers = NULL;
@@ -1122,6 +1150,9 @@ dbscan_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 	JsonbIterator *it;
 	JsonbValue	v;
 	int			r;
+	Jsonb	   *metadata_copy;
+	char	   *payload_bytes;
+	DBSCANGpuModelState *state;
 
 	if (errstr != NULL)
 		*errstr = NULL;
@@ -1133,7 +1164,8 @@ dbscan_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 	}
 
 	payload_size = VARSIZE(payload);
-	payload_copy = (bytea *) palloc(payload_size);
+	NDB_ALLOC(payload_bytes, char, payload_size);
+	payload_copy = (bytea *) payload_bytes;
 	memcpy(payload_copy, payload, payload_size);
 
 	if (dbscan_model_deserialize_from_bytea(payload_copy,
@@ -1145,11 +1177,15 @@ dbscan_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 		return false;
 	}
 
-	for (int c = 0; c < n_clusters; c++)
-		NDB_FREE(centers[c]);
-	NDB_FREE(centers);
+	{
+		int			c;
 
-	state = (DBSCANGpuModelState *) palloc0(sizeof(DBSCANGpuModelState));
+		for (c = 0; c < n_clusters; c++)
+			NDB_FREE(centers[c]);
+		NDB_FREE(centers);
+	}
+
+	NDB_ALLOC(state, DBSCANGpuModelState, 1);
 	state->model_blob = payload_copy;
 	state->eps = eps;
 	state->min_pts = min_pts;
@@ -1160,7 +1196,10 @@ dbscan_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 	if (metadata != NULL)
 	{
 		int			metadata_size = VARSIZE(metadata);
-		Jsonb	   *metadata_copy = (Jsonb *) palloc(metadata_size);
+		char	   *metadata_bytes = NULL;
+
+		NDB_ALLOC(metadata_bytes, char, metadata_size);
+		metadata_copy = (Jsonb *) metadata_bytes;
 
 		memcpy(metadata_copy, metadata, metadata_size);
 		state->metrics = metadata_copy;

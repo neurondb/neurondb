@@ -61,13 +61,13 @@ load_training_data(const char *table,
 	int nrows;
 	int ncols;
 	StringInfoData query;
-	float *features = NULL;
-	float *labels = NULL;
+	NDB_DECLARE(float *, features);
+	NDB_DECLARE(float *, labels);
 	TupleDesc tupdesc;
 	HeapTuple tuple;
 	bool isnull;
 	Datum feat_datum;
-	ArrayType *feat_arr = NULL;
+	NDB_DECLARE(ArrayType *, feat_arr);
 
 	initStringInfo(&query);
 
@@ -368,8 +368,8 @@ train_xgboost_classifier(PG_FUNCTION_ARGS)
 	char *feature_str = text_to_cstring(feature_col);
 	char *label_str = text_to_cstring(label_col);
 
-	float *features = NULL;
-	float *labels = NULL;
+	NDB_DECLARE(float *, features);
+	NDB_DECLARE(float *, labels);
 	int nrows = 0;
 	int ncols = 0;
 	DMatrixHandle dtrain = NULL;
@@ -384,7 +384,7 @@ train_xgboost_classifier(PG_FUNCTION_ARGS)
 	float max_label = 0.0f;
 	int num_class;
 	bst_ulong out_len = 0;
-	char *out_bytes = NULL;
+	NDB_DECLARE(char *, out_bytes);
 	int32 model_id;
 
 		"neurondb: XGBoost Classifier: table=%s, feature=%s, label=%s, "
@@ -498,8 +498,8 @@ train_xgboost_regressor(PG_FUNCTION_ARGS)
 	char *feature_str = text_to_cstring(feature_col);
 	char *target_str = text_to_cstring(target_col);
 
-	float *features = NULL;
-	float *labels = NULL;
+	NDB_DECLARE(float *, features);
+	NDB_DECLARE(float *, labels);
 	int nrows = 0;
 	int ncols = 0;
 	DMatrixHandle dtrain = NULL;
@@ -511,7 +511,7 @@ train_xgboost_regressor(PG_FUNCTION_ARGS)
 	int param_count = 5;
 	int i, iter;
 	bst_ulong out_len = 0;
-	char *out_bytes = NULL;
+	NDB_DECLARE(char *, out_bytes);
 	int32 model_id;
 
 		"neurondb: XGBoost Regressor: table=%s, feature=%s, target=%s, "
@@ -601,12 +601,12 @@ predict_xgboost(PG_FUNCTION_ARGS)
 	int32 model_id = PG_GETARG_INT32(0);
 	ArrayType *features_array = PG_GETARG_ARRAYTYPE_P(1);
 	int n_dims;
-	float8 *features = NULL;
-	float *feat_f = NULL;
+	NDB_DECLARE(float8 *, features);
+	NDB_DECLARE(float *, feat_f);
 	DMatrixHandle dmat = NULL;
 	BoosterHandle booster = NULL;
 	size_t model_size;
-	void *mod_bytes = NULL;
+	NDB_DECLARE(void *, mod_bytes);
 	bst_ulong out_len = 0;
 	const float *out_result = NULL;
 	int i;
@@ -660,8 +660,15 @@ train_xgboost_classifier(PG_FUNCTION_ARGS)
 	ereport(ERROR,
 		(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 			errmsg("XGBoost is not available"),
-			errhint("Install libxgboost and recompile NeuronDB to "
-				"enable XGBoost support.")));
+			errhint("XGBoost library was not found during compilation. "
+				"Reason: <xgboost/c_api.h> header file not found. "
+				"To enable XGBoost support:\n"
+				"1. Install XGBoost development libraries:\n"
+				"   Ubuntu/Debian: sudo apt-get install libxgboost-dev\n"
+				"   RHEL/CentOS: sudo yum install xgboost-devel\n"
+				"   macOS: brew install xgboost\n"
+				"2. Ensure XGBoost headers are in standard include paths\n"
+				"3. Recompile NeuronDB: make clean && make install")));
 	PG_RETURN_INT32(-1);
 }
 
@@ -671,8 +678,15 @@ train_xgboost_regressor(PG_FUNCTION_ARGS)
 	ereport(ERROR,
 		(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 			errmsg("XGBoost is not available"),
-			errhint("Install libxgboost and recompile NeuronDB to "
-				"enable XGBoost support.")));
+			errhint("XGBoost library was not found during compilation. "
+				"Reason: <xgboost/c_api.h> header file not found. "
+				"To enable XGBoost support:\n"
+				"1. Install XGBoost development libraries:\n"
+				"   Ubuntu/Debian: sudo apt-get install libxgboost-dev\n"
+				"   RHEL/CentOS: sudo yum install xgboost-devel\n"
+				"   macOS: brew install xgboost\n"
+				"2. Ensure XGBoost headers are in standard include paths\n"
+				"3. Recompile NeuronDB: make clean && make install")));
 	PG_RETURN_INT32(-1);
 }
 
@@ -1022,15 +1036,15 @@ xgboost_model_deserialize_from_bytea(const bytea *data, int *n_estimators_out, i
 static bool
 xgboost_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **errstr)
 {
-	XGBoostGpuModelState *state = NULL;
+	NDB_DECLARE(XGBoostGpuModelState *, state);
 	int n_estimators = 100;
 	int max_depth = 6;
 	float learning_rate = 0.1f;
 	char objective[32] = "reg:squarederror";
 	int nvec = 0;
 	int dim = 0;
-	bytea *model_data = NULL;
-	Jsonb *metrics = NULL;
+	NDB_DECLARE(bytea *, model_data);
+	NDB_DECLARE(Jsonb *, metrics);
 	StringInfoData metrics_json;
 	JsonbIterator *it;
 	JsonbValue v;
@@ -1263,8 +1277,8 @@ static bool
 xgboost_gpu_deserialize(MLGpuModel *model, const bytea *payload,
 	const Jsonb *metadata, char **errstr)
 {
-	XGBoostGpuModelState *state = NULL;
-	bytea *payload_copy = NULL;
+	NDB_DECLARE(XGBoostGpuModelState *, state);
+	NDB_DECLARE(bytea *, payload_copy);
 	int payload_size;
 	int n_estimators = 0;
 	int max_depth = 0;

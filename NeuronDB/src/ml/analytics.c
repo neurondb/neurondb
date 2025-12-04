@@ -213,8 +213,8 @@ reduce_pca(PG_FUNCTION_ARGS)
 				j,
 				c;
 	ArrayType  *result_array;
-	Datum	   *result_datums = NULL;
-	float	   *mean = NULL;
+	NDB_DECLARE(Datum *, result_datums);
+	NDB_DECLARE(float *, mean);
 
 	table_name = PG_GETARG_TEXT_PP(0);
 	column_name = PG_GETARG_TEXT_PP(1);
@@ -236,10 +236,33 @@ reduce_pca(PG_FUNCTION_ARGS)
 		 n_components);
 
 	data = neurondb_fetch_vectors_from_table(tbl_str, col_str, &nvec, &dim);
-	if (nvec == 0)
+	if (data == NULL || nvec == 0)
+	{
+		NDB_FREE(tbl_str);
+		NDB_FREE(col_str);
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),
 				 errmsg("No vectors found")));
+	}
+
+	if (dim <= 0)
+	{
+		NDB_FREE(tbl_str);
+		NDB_FREE(col_str);
+		/* Free data array and rows if data is not NULL */
+		if (data != NULL)
+		{
+			for (j = 0; j < nvec; j++)
+			{
+				if (data[j] != NULL)
+					NDB_FREE(data[j]);
+			}
+			NDB_FREE(data);
+		}
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("Invalid vector dimension: %d", dim)));
+	}
 
 	if (n_components > dim)
 		ereport(ERROR,
@@ -292,7 +315,59 @@ reduce_pca(PG_FUNCTION_ARGS)
 		}
 	}
 
+	/* Validate inputs before array construction - nvec should already be validated above */
+	/* n_components is validated at function entry, but double-check */
+	if (n_components <= 0)
+	{
+		for (j = 0; j < nvec; j++)
+		{
+			if (data[j] != NULL)
+				NDB_FREE(data[j]);
+			if (projected[j] != NULL)
+				NDB_FREE(projected[j]);
+		}
+		for (c = 0; c < n_components; c++)
+		{
+			if (components[c] != NULL)
+				NDB_FREE(components[c]);
+		}
+		NDB_FREE(data);
+		NDB_FREE(projected);
+		NDB_FREE(components);
+		NDB_FREE(mean);
+		NDB_FREE(tbl_str);
+		NDB_FREE(col_str);
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("reduce_pca: invalid n_components: %d", n_components)));
+	}
+
 	NDB_ALLOC(result_datums, Datum, nvec);
+	if (result_datums == NULL)
+	{
+		for (j = 0; j < nvec; j++)
+		{
+			if (data[j] != NULL)
+				NDB_FREE(data[j]);
+			if (projected[j] != NULL)
+				NDB_FREE(projected[j]);
+		}
+		for (c = 0; c < n_components; c++)
+		{
+			if (components[c] != NULL)
+				NDB_FREE(components[c]);
+		}
+		NDB_FREE(data);
+		NDB_FREE(projected);
+		NDB_FREE(components);
+		NDB_FREE(mean);
+		NDB_FREE(tbl_str);
+		NDB_FREE(col_str);
+		ereport(ERROR,
+				(errcode(ERRCODE_OUT_OF_MEMORY),
+				 errmsg("reduce_pca: failed to allocate result_datums")));
+	}
+
 	for (j = 0; j < nvec; j++)
 	{
 		ArrayType  *vec_array;
@@ -301,17 +376,246 @@ reduce_pca(PG_FUNCTION_ARGS)
 		bool		typbyval;
 		char		typalign;
 
+		/* Validate projected data */
+		if (projected[j] == NULL)
+		{
+			/* Clean up and error */
+			for (i = 0; i < j; i++)
+			{
+				if (result_datums[i] != 0)
+				{
+					ArrayType *arr = DatumGetArrayTypeP(result_datums[i]);
+					if (arr != NULL)
+						NDB_FREE(arr);
+				}
+			}
+			NDB_FREE(result_datums);
+			for (i = 0; i < nvec; i++)
+			{
+				if (data[i] != NULL)
+					NDB_FREE(data[i]);
+				if (projected[i] != NULL)
+					NDB_FREE(projected[i]);
+			}
+			for (c = 0; c < n_components; c++)
+			{
+				if (components[c] != NULL)
+					NDB_FREE(components[c]);
+			}
+			NDB_FREE(data);
+			NDB_FREE(projected);
+			NDB_FREE(components);
+			NDB_FREE(mean);
+			NDB_FREE(tbl_str);
+			NDB_FREE(col_str);
+			ereport(ERROR,
+					(errcode(ERRCODE_DATA_EXCEPTION),
+					 errmsg("reduce_pca: projected[%d] is NULL", j)));
+		}
+
 		NDB_ALLOC(vec_datums, Datum, n_components);
+		if (vec_datums == NULL)
+		{
+			/* Clean up and error */
+			for (i = 0; i < j; i++)
+			{
+				if (result_datums[i] != 0)
+				{
+					ArrayType *arr = DatumGetArrayTypeP(result_datums[i]);
+					if (arr != NULL)
+						NDB_FREE(arr);
+				}
+			}
+			NDB_FREE(result_datums);
+			for (i = 0; i < nvec; i++)
+			{
+				if (data[i] != NULL)
+					NDB_FREE(data[i]);
+				if (projected[i] != NULL)
+					NDB_FREE(projected[i]);
+			}
+			for (c = 0; c < n_components; c++)
+			{
+				if (components[c] != NULL)
+					NDB_FREE(components[c]);
+			}
+			NDB_FREE(data);
+			NDB_FREE(projected);
+			NDB_FREE(components);
+			NDB_FREE(mean);
+			NDB_FREE(tbl_str);
+			NDB_FREE(col_str);
+			ereport(ERROR,
+					(errcode(ERRCODE_OUT_OF_MEMORY),
+					 errmsg("reduce_pca: failed to allocate vec_datums for row %d", j)));
+		}
+
 		for (c = 0; c < n_components; c++)
+		{
+			/* Validate projected value is finite */
+			if (!isfinite(projected[j][c]))
+			{
+				NDB_FREE(vec_datums);
+				/* Clean up and error */
+				for (i = 0; i < j; i++)
+				{
+					if (result_datums[i] != 0)
+					{
+						ArrayType *arr = DatumGetArrayTypeP(result_datums[i]);
+						if (arr != NULL)
+							pfree(arr);
+					}
+				}
+				NDB_FREE(result_datums);
+				for (i = 0; i < nvec; i++)
+				{
+					if (data[i] != NULL)
+						NDB_FREE(data[i]);
+					if (projected[i] != NULL)
+						NDB_FREE(projected[i]);
+				}
+				for (c = 0; c < n_components; c++)
+				{
+					if (components[c] != NULL)
+						NDB_FREE(components[c]);
+				}
+				NDB_FREE(data);
+				NDB_FREE(projected);
+				NDB_FREE(components);
+				NDB_FREE(mean);
+				NDB_FREE(tbl_str);
+				NDB_FREE(col_str);
+				ereport(ERROR,
+						(errcode(ERRCODE_DATA_EXCEPTION),
+						 errmsg("reduce_pca: non-finite value in projected[%d][%d]", j, c)));
+			}
 			vec_datums[c] = Float4GetDatum(projected[j][c]);
+		}
 
 		get_typlenbyvalalign(FLOAT4OID, &typlen, &typbyval, &typalign);
+		
+		/* Validate type information */
+		if (typlen <= 0)
+		{
+			NDB_FREE(vec_datums);
+			/* Clean up and error */
+			for (i = 0; i < j; i++)
+			{
+				if (result_datums[i] != 0)
+				{
+					ArrayType *arr = DatumGetArrayTypeP(result_datums[i]);
+					if (arr != NULL)
+						NDB_FREE(arr);
+				}
+			}
+			NDB_FREE(result_datums);
+			for (i = 0; i < nvec; i++)
+			{
+				if (data[i] != NULL)
+					NDB_FREE(data[i]);
+				if (projected[i] != NULL)
+					NDB_FREE(projected[i]);
+			}
+			for (c = 0; c < n_components; c++)
+			{
+				if (components[c] != NULL)
+					NDB_FREE(components[c]);
+			}
+			NDB_FREE(data);
+			NDB_FREE(projected);
+			NDB_FREE(components);
+			NDB_FREE(mean);
+			NDB_FREE(tbl_str);
+			NDB_FREE(col_str);
+			ereport(ERROR,
+					(errcode(ERRCODE_INTERNAL_ERROR),
+					 errmsg("reduce_pca: invalid type length for FLOAT4OID: %d", typlen)));
+		}
+
 		vec_array = construct_array(vec_datums,
 									n_components,
 									FLOAT4OID,
 									typlen,
 									typbyval,
 									typalign);
+		
+		/* Validate constructed array */
+		if (vec_array == NULL)
+		{
+			NDB_FREE(vec_datums);
+			/* Clean up and error */
+			for (i = 0; i < j; i++)
+			{
+				if (result_datums[i] != 0)
+				{
+					ArrayType *arr = DatumGetArrayTypeP(result_datums[i]);
+					if (arr != NULL)
+						NDB_FREE(arr);
+				}
+			}
+			NDB_FREE(result_datums);
+			for (i = 0; i < nvec; i++)
+			{
+				if (data[i] != NULL)
+					NDB_FREE(data[i]);
+				if (projected[i] != NULL)
+					NDB_FREE(projected[i]);
+			}
+			for (c = 0; c < n_components; c++)
+			{
+				if (components[c] != NULL)
+					NDB_FREE(components[c]);
+			}
+			NDB_FREE(data);
+			NDB_FREE(projected);
+			NDB_FREE(components);
+			NDB_FREE(mean);
+			NDB_FREE(tbl_str);
+			NDB_FREE(col_str);
+			ereport(ERROR,
+					(errcode(ERRCODE_OUT_OF_MEMORY),
+					 errmsg("reduce_pca: failed to construct array for row %d", j)));
+		}
+
+		/* Validate array structure */
+		if (ARR_NDIM(vec_array) != 1 || ARR_DIMS(vec_array)[0] != n_components)
+		{
+			NDB_FREE(vec_array);
+			NDB_FREE(vec_datums);
+			/* Clean up and error */
+			for (i = 0; i < j; i++)
+			{
+				if (result_datums[i] != 0)
+				{
+					ArrayType *arr = DatumGetArrayTypeP(result_datums[i]);
+					if (arr != NULL)
+						NDB_FREE(arr);
+				}
+			}
+			NDB_FREE(result_datums);
+			for (i = 0; i < nvec; i++)
+			{
+				if (data[i] != NULL)
+					NDB_FREE(data[i]);
+				if (projected[i] != NULL)
+					NDB_FREE(projected[i]);
+			}
+			for (c = 0; c < n_components; c++)
+			{
+				if (components[c] != NULL)
+					NDB_FREE(components[c]);
+			}
+			NDB_FREE(data);
+			NDB_FREE(projected);
+			NDB_FREE(components);
+			NDB_FREE(mean);
+			NDB_FREE(tbl_str);
+			NDB_FREE(col_str);
+			ereport(ERROR,
+					(errcode(ERRCODE_INTERNAL_ERROR),
+					 errmsg("reduce_pca: constructed array has invalid dimensions for row %d", j)));
+		}
+
 		result_datums[j] = PointerGetDatum(vec_array);
 		NDB_FREE(vec_datums);
 	}
@@ -321,14 +625,327 @@ reduce_pca(PG_FUNCTION_ARGS)
 		bool		typbyval;
 		char		typalign;
 
-		get_typlenbyvalalign(
-							 FLOAT4ARRAYOID, &typlen, &typbyval, &typalign);
+		get_typlenbyvalalign(FLOAT4ARRAYOID, &typlen, &typbyval, &typalign);
+		
+		/* Validate type information for array of arrays */
+		/* Note: typlen = -1 is valid for variable-length types (arrays) */
+		if (typlen < -1)
+		{
+			/* Clean up */
+			for (j = 0; j < nvec; j++)
+			{
+				if (result_datums[j] != 0)
+				{
+					ArrayType *arr = DatumGetArrayTypeP(result_datums[j]);
+					if (arr != NULL)
+						pfree(arr);
+				}
+			}
+			NDB_FREE(result_datums);
+			for (j = 0; j < nvec; j++)
+			{
+				if (data[j] != NULL)
+					NDB_FREE(data[j]);
+				if (projected[j] != NULL)
+					NDB_FREE(projected[j]);
+			}
+			for (c = 0; c < n_components; c++)
+			{
+				if (components[c] != NULL)
+					NDB_FREE(components[c]);
+			}
+			NDB_FREE(data);
+			NDB_FREE(projected);
+			NDB_FREE(components);
+			NDB_FREE(mean);
+			NDB_FREE(tbl_str);
+			NDB_FREE(col_str);
+			ereport(ERROR,
+					(errcode(ERRCODE_INTERNAL_ERROR),
+					 errmsg("reduce_pca: invalid type length for FLOAT4ARRAYOID: %d", typlen)));
+		}
+
 		result_array = construct_array(result_datums,
 									   nvec,
 									   FLOAT4ARRAYOID,
 									   typlen,
 									   typbyval,
 									   typalign);
+		
+		/* Validate final array */
+		if (result_array == NULL)
+		{
+			/* Clean up */
+			for (j = 0; j < nvec; j++)
+			{
+				if (result_datums[j] != 0)
+				{
+					ArrayType *arr = DatumGetArrayTypeP(result_datums[j]);
+					if (arr != NULL)
+						pfree(arr);
+				}
+			}
+			NDB_FREE(result_datums);
+			for (j = 0; j < nvec; j++)
+			{
+				if (data[j] != NULL)
+					NDB_FREE(data[j]);
+				if (projected[j] != NULL)
+					NDB_FREE(projected[j]);
+			}
+			for (c = 0; c < n_components; c++)
+			{
+				if (components[c] != NULL)
+					NDB_FREE(components[c]);
+			}
+			NDB_FREE(data);
+			NDB_FREE(projected);
+			NDB_FREE(components);
+			NDB_FREE(mean);
+			NDB_FREE(tbl_str);
+			NDB_FREE(col_str);
+			ereport(ERROR,
+					(errcode(ERRCODE_OUT_OF_MEMORY),
+					 errmsg("reduce_pca: failed to construct result array")));
+		}
+
+		/* Validate final array structure */
+		if (ARR_NDIM(result_array) != 1 || ARR_DIMS(result_array)[0] != nvec)
+		{
+			NDB_FREE(result_array);
+			/* Clean up */
+			for (j = 0; j < nvec; j++)
+			{
+				if (result_datums[j] != 0)
+				{
+					ArrayType *arr = DatumGetArrayTypeP(result_datums[j]);
+					if (arr != NULL)
+						pfree(arr);
+				}
+			}
+			NDB_FREE(result_datums);
+			for (j = 0; j < nvec; j++)
+			{
+				if (data[j] != NULL)
+					NDB_FREE(data[j]);
+				if (projected[j] != NULL)
+					NDB_FREE(projected[j]);
+			}
+			for (c = 0; c < n_components; c++)
+			{
+				if (components[c] != NULL)
+					NDB_FREE(components[c]);
+			}
+			NDB_FREE(data);
+			NDB_FREE(projected);
+			NDB_FREE(components);
+			NDB_FREE(mean);
+			NDB_FREE(tbl_str);
+			NDB_FREE(col_str);
+			ereport(ERROR,
+					(errcode(ERRCODE_INTERNAL_ERROR),
+					 errmsg("reduce_pca: result array has invalid dimensions")));
+		}
+
+		/* Validate element type matches expected FLOAT4ARRAYOID */
+		if (ARR_ELEMTYPE(result_array) != FLOAT4ARRAYOID)
+		{
+			NDB_FREE(result_array);
+			/* Clean up */
+			for (j = 0; j < nvec; j++)
+			{
+				if (result_datums[j] != 0)
+				{
+					ArrayType *arr = DatumGetArrayTypeP(result_datums[j]);
+					if (arr != NULL)
+						pfree(arr);
+				}
+			}
+			NDB_FREE(result_datums);
+			for (j = 0; j < nvec; j++)
+			{
+				if (data[j] != NULL)
+					NDB_FREE(data[j]);
+				if (projected[j] != NULL)
+					NDB_FREE(projected[j]);
+			}
+			for (c = 0; c < n_components; c++)
+			{
+				if (components[c] != NULL)
+					NDB_FREE(components[c]);
+			}
+			NDB_FREE(data);
+			NDB_FREE(projected);
+			NDB_FREE(components);
+			NDB_FREE(mean);
+			NDB_FREE(tbl_str);
+			NDB_FREE(col_str);
+			ereport(ERROR,
+					(errcode(ERRCODE_INTERNAL_ERROR),
+					 errmsg("reduce_pca: result array has incorrect element type (expected %u, got %u)",
+							FLOAT4ARRAYOID, ARR_ELEMTYPE(result_array))));
+		}
+
+		/* Validate nested array structure - check directly from result_datums before construction */
+		/* This validation happens after construction but validates the source arrays */
+		/* We validate a sample to ensure structure is correct without risking crashes */
+		for (j = 0; j < nvec && j < 10; j++)
+		{
+			ArrayType  *nested_array;
+
+			if (result_datums[j] == 0)
+			{
+				NDB_FREE(result_array);
+				/* Clean up */
+				for (i = 0; i < nvec; i++)
+				{
+					if (result_datums[i] != 0)
+					{
+						ArrayType *arr = DatumGetArrayTypeP(result_datums[i]);
+						if (arr != NULL)
+							pfree(arr);
+					}
+				}
+				NDB_FREE(result_datums);
+				for (i = 0; i < nvec; i++)
+				{
+					if (data[i] != NULL)
+						NDB_FREE(data[i]);
+					if (projected[i] != NULL)
+						NDB_FREE(projected[i]);
+				}
+				for (c = 0; c < n_components; c++)
+				{
+					if (components[c] != NULL)
+						NDB_FREE(components[c]);
+				}
+				NDB_FREE(data);
+				NDB_FREE(projected);
+				NDB_FREE(components);
+				NDB_FREE(mean);
+				NDB_FREE(tbl_str);
+				NDB_FREE(col_str);
+				ereport(ERROR,
+						(errcode(ERRCODE_INTERNAL_ERROR),
+						 errmsg("reduce_pca: nested array element %d datum is NULL", j)));
+			}
+
+			nested_array = DatumGetArrayTypeP(result_datums[j]);
+			if (nested_array == NULL)
+			{
+				NDB_FREE(result_array);
+				/* Clean up */
+				for (i = 0; i < nvec; i++)
+				{
+					if (result_datums[i] != 0)
+					{
+						ArrayType *arr = DatumGetArrayTypeP(result_datums[i]);
+						if (arr != NULL)
+							pfree(arr);
+					}
+				}
+				NDB_FREE(result_datums);
+				for (i = 0; i < nvec; i++)
+				{
+					if (data[i] != NULL)
+						NDB_FREE(data[i]);
+					if (projected[i] != NULL)
+						NDB_FREE(projected[i]);
+				}
+				for (c = 0; c < n_components; c++)
+				{
+					if (components[c] != NULL)
+						NDB_FREE(components[c]);
+				}
+				NDB_FREE(data);
+				NDB_FREE(projected);
+				NDB_FREE(components);
+				NDB_FREE(mean);
+				NDB_FREE(tbl_str);
+				NDB_FREE(col_str);
+				ereport(ERROR,
+						(errcode(ERRCODE_INTERNAL_ERROR),
+						 errmsg("reduce_pca: nested array element %d is invalid", j)));
+			}
+
+			/* Validate nested array is one-dimensional with correct size */
+			if (ARR_NDIM(nested_array) != 1 || ARR_DIMS(nested_array)[0] != n_components)
+			{
+				NDB_FREE(result_array);
+				/* Clean up */
+				for (i = 0; i < nvec; i++)
+				{
+					if (result_datums[i] != 0)
+					{
+						ArrayType *arr = DatumGetArrayTypeP(result_datums[i]);
+						if (arr != NULL)
+							pfree(arr);
+					}
+				}
+				NDB_FREE(result_datums);
+				for (i = 0; i < nvec; i++)
+				{
+					if (data[i] != NULL)
+						NDB_FREE(data[i]);
+					if (projected[i] != NULL)
+						NDB_FREE(projected[i]);
+				}
+				for (c = 0; c < n_components; c++)
+				{
+					if (components[c] != NULL)
+						NDB_FREE(components[c]);
+				}
+				NDB_FREE(data);
+				NDB_FREE(projected);
+				NDB_FREE(components);
+				NDB_FREE(mean);
+				NDB_FREE(tbl_str);
+				NDB_FREE(col_str);
+				ereport(ERROR,
+						(errcode(ERRCODE_INTERNAL_ERROR),
+						 errmsg("reduce_pca: nested array element %d has invalid dimensions (expected 1 dim with %d elements, got %d dims)",
+								j, n_components, ARR_NDIM(nested_array))));
+			}
+
+			/* Validate nested array element type is FLOAT4OID */
+			if (ARR_ELEMTYPE(nested_array) != FLOAT4OID)
+			{
+				NDB_FREE(result_array);
+				/* Clean up */
+				for (i = 0; i < nvec; i++)
+				{
+					if (result_datums[i] != 0)
+					{
+						ArrayType *arr = DatumGetArrayTypeP(result_datums[i]);
+						if (arr != NULL)
+							pfree(arr);
+					}
+				}
+				NDB_FREE(result_datums);
+				for (i = 0; i < nvec; i++)
+				{
+					if (data[i] != NULL)
+						NDB_FREE(data[i]);
+					if (projected[i] != NULL)
+						NDB_FREE(projected[i]);
+				}
+				for (c = 0; c < n_components; c++)
+				{
+					if (components[c] != NULL)
+						NDB_FREE(components[c]);
+				}
+				NDB_FREE(data);
+				NDB_FREE(projected);
+				NDB_FREE(components);
+				NDB_FREE(mean);
+				NDB_FREE(tbl_str);
+				NDB_FREE(col_str);
+				ereport(ERROR,
+						(errcode(ERRCODE_INTERNAL_ERROR),
+						 errmsg("reduce_pca: nested array element %d has incorrect element type (expected %u, got %u)",
+								j, FLOAT4OID, ARR_ELEMTYPE(nested_array))));
+			}
+		}
 	}
 
 	for (j = 0; j < nvec; j++)
@@ -345,6 +962,21 @@ reduce_pca(PG_FUNCTION_ARGS)
 	NDB_FREE(result_datums);
 	NDB_FREE(tbl_str);
 	NDB_FREE(col_str);
+
+	/* Final validation: ensure array is properly constructed and typed */
+	if (result_array == NULL)
+	{
+		ereport(ERROR,
+				(errcode(ERRCODE_INTERNAL_ERROR),
+				 errmsg("reduce_pca: result array is NULL")));
+	}
+
+	/* Ensure array is in current memory context for proper return */
+	if (GetMemoryChunkContext((void *) result_array) != CurrentMemoryContext)
+	{
+		/* This shouldn't happen with construct_array, but check anyway */
+		elog(WARNING, "reduce_pca: result array is not in current memory context");
+	}
 
 	PG_RETURN_ARRAYTYPE_P(result_array);
 }
@@ -376,7 +1008,7 @@ build_iso_tree(float **data,
 			   int depth,
 			   int max_depth)
 {
-	IsoTreeNode *node;
+	NDB_DECLARE(IsoTreeNode *, node);
 	int			i,
 				split_dim;
 	float		split_val,
@@ -387,7 +1019,7 @@ build_iso_tree(float **data,
 	int		   *left_indices = NULL,
 			   *right_indices = NULL;
 
-	node = (IsoTreeNode *) palloc0(sizeof(IsoTreeNode));
+	NDB_ALLOC(node, IsoTreeNode, 1);
 	node->size = n;
 
 	if (n <= 1 || depth >= max_depth)
@@ -496,15 +1128,15 @@ detect_outliers(PG_FUNCTION_ARGS)
 	float	  **data;
 	int			nvec,
 				dim;
-	IsoTreeNode **forest;
-	double	   *scores;
+	NDB_DECLARE(IsoTreeNode **, forest);
+	NDB_DECLARE(double *, scores);
 	int			i,
 				t;
-	int		   *indices;
+	NDB_DECLARE(int *, indices);
 	int			max_depth;
 	double		avg_path_length_full;
 	ArrayType  *result_array;
-	Datum	   *result_datums = NULL;
+	NDB_DECLARE(Datum *, result_datums);
 	int16		typlen;
 	bool		typbyval;
 	char		typalign;
@@ -542,8 +1174,8 @@ detect_outliers(PG_FUNCTION_ARGS)
 				 errmsg("No vectors found")));
 
 	max_depth = (int) ceil(log2(nvec));
-	forest = (IsoTreeNode * *) palloc(sizeof(IsoTreeNode *) * n_trees);
-	indices = (int *) palloc(sizeof(int) * nvec);
+	NDB_ALLOC(forest, IsoTreeNode *, n_trees);
+	NDB_ALLOC(indices, int, nvec);
 
 	for (t = 0; t < n_trees; t++)
 	{
@@ -559,7 +1191,7 @@ detect_outliers(PG_FUNCTION_ARGS)
 	avg_path_length_full = (nvec > 1) ? 2.0 * (log(nvec - 1) + 0.5772156649)
 		- 2.0 * (nvec - 1.0) / nvec
 		: 0.0;
-	scores = (double *) palloc0(sizeof(double) * nvec);
+	NDB_ALLOC(scores, double, nvec);
 
 	for (i = 0; i < nvec; i++)
 	{
@@ -642,9 +1274,9 @@ build_knn_graph(PG_FUNCTION_ARGS)
 	int			i,
 				j,
 				n;
-	KNNEdge    *edges;
+	NDB_DECLARE(KNNEdge *, edges);
 	ArrayType  *result_array;
-	Datum	   *result_datums;
+	NDB_DECLARE(Datum *, result_datums);
 	int			result_count;
 	int16		typlen;
 	bool		typbyval;
@@ -669,17 +1301,40 @@ build_knn_graph(PG_FUNCTION_ARGS)
 		 k);
 
 	data = neurondb_fetch_vectors_from_table(tbl_str, col_str, &nvec, &dim);
-	if (nvec == 0)
+	if (data == NULL || nvec == 0)
+	{
+		NDB_FREE(tbl_str);
+		NDB_FREE(col_str);
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),
 				 errmsg("No vectors found")));
+	}
+
+	if (dim <= 0)
+	{
+		NDB_FREE(tbl_str);
+		NDB_FREE(col_str);
+		/* Free data array and rows if data is not NULL */
+		if (data != NULL)
+		{
+			for (i = 0; i < nvec; i++)
+			{
+				if (data[i] != NULL)
+					NDB_FREE(data[i]);
+			}
+			NDB_FREE(data);
+		}
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("Invalid vector dimension: %d", dim)));
+	}
 
 	if (k >= nvec)
 		k = nvec - 1;
 
-	edges = (KNNEdge *) palloc(sizeof(KNNEdge) * nvec);
+	NDB_ALLOC(edges, KNNEdge, nvec);
 	result_count = 0;
-	result_datums = (Datum *) palloc(sizeof(Datum) * nvec * k * 3);
+	NDB_ALLOC(result_datums, Datum, nvec * k * 3);
 
 	for (i = 0; i < nvec; i++)
 	{
@@ -752,13 +1407,13 @@ compute_embedding_quality(PG_FUNCTION_ARGS)
 	char	   *col_str;
 	char	   *cluster_col_str;
 	float	  **data;
-	int		   *clusters = NULL;
+	NDB_DECLARE(int *, clusters);
 	int			nvec,
 				dim;
 	int			i,
 				j;
-	double	   *a_scores = NULL;		/* Average distance to same cluster */
-	double	   *b_scores = NULL;		/* Average distance to nearest other cluster */
+	NDB_DECLARE(double *, a_scores);		/* Average distance to same cluster */
+	NDB_DECLARE(double *, b_scores);		/* Average distance to nearest other cluster */
 	double		silhouette;
 	StringInfoData sql;
 	int			ret;
@@ -780,10 +1435,35 @@ compute_embedding_quality(PG_FUNCTION_ARGS)
 		 cluster_col_str);
 
 	data = neurondb_fetch_vectors_from_table(tbl_str, col_str, &nvec, &dim);
-	if (nvec == 0)
+	if (data == NULL || nvec == 0)
+	{
+		NDB_FREE(tbl_str);
+		NDB_FREE(col_str);
+		NDB_FREE(cluster_col_str);
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),
 				 errmsg("No vectors found")));
+	}
+
+	if (dim <= 0)
+	{
+		NDB_FREE(tbl_str);
+		NDB_FREE(col_str);
+		NDB_FREE(cluster_col_str);
+		/* Free data array and rows if data is not NULL */
+		if (data != NULL)
+		{
+			for (i = 0; i < nvec; i++)
+			{
+				if (data[i] != NULL)
+					NDB_FREE(data[i]);
+			}
+			NDB_FREE(data);
+		}
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("Invalid vector dimension: %d", dim)));
+	}
 
 	oldcontext = CurrentMemoryContext;
 	NDB_ALLOC(clusters, int, nvec);

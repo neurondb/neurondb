@@ -91,8 +91,8 @@ monitor_drift_timeseries(PG_FUNCTION_ARGS)
 	StringInfoData sql;
 	MemoryContext oldcontext;
 	MemoryContext drift_context;
-	Vector	   *baseline_centroid = NULL;
-	Vector	   *current_centroid = NULL;
+	NDB_DECLARE(Vector *, baseline_centroid);
+	NDB_DECLARE(Vector *, current_centroid);
 	float		drift_distance = 0.0f;
 	int			n_baseline = 0;
 	int			n_current = 0;

@@ -189,7 +189,7 @@ static TimeSeriesModel *
 fit_arima(const float *data, int n, int p, int d, int q)
 {
 	TimeSeriesModel *model;
-	float	   *diff_data = NULL;
+	NDB_DECLARE(float *, diff_data);
 	int			diff_n,
 				i,
 				j;
@@ -330,8 +330,18 @@ fit_arima(const float *data, int n, int p, int d, int q)
 			float		pred = model->intercept;
 
 			for (j = 0; j < p; j++)
-				pred += model->ar_coeffs[j]
-					* diff_data[i - (j + 1)];
+			{
+				int			idx = i - (j + 1);
+
+				/* Validate array index */
+				if (idx < 0 || idx >= diff_n)
+				{
+					elog(ERROR,
+						 "neurondb: train_arima: array index out of bounds: idx=%d, diff_n=%d, i=%d, j=%d",
+						 idx, diff_n, i, j);
+				}
+				pred += model->ar_coeffs[j] * diff_data[idx];
+			}
 			model->residuals[i] = diff_data[i] - pred;
 		}
 		for (i = 0; i < p && i < diff_n; i++)
@@ -427,8 +437,8 @@ train_arima(PG_FUNCTION_ARGS)
 				i;
 	SPITupleTable *tuptable;
 	TupleDesc	tupdesc;
-	float	   *values = NULL;
-	TimeSeriesModel *model = NULL;
+	NDB_DECLARE(float *, values);
+	NDB_DECLARE(TimeSeriesModel *, model);
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext;
 
@@ -548,10 +558,10 @@ train_arima(PG_FUNCTION_ARGS)
 		int32		model_id_val = 0;
 		StringInfoData insert_sql;
 		int			ret2;
-		Datum	   *ar_datums = NULL;
-		Datum	   *ma_datums = NULL;
-		ArrayType  *ar_array = NULL;
-		ArrayType  *ma_array = NULL;
+		NDB_DECLARE(Datum *, ar_datums);
+		NDB_DECLARE(Datum *, ma_datums);
+		NDB_DECLARE(ArrayType *, ar_array);
+		NDB_DECLARE(ArrayType *, ma_array);
 		int			i2;
 
 		initStringInfo(&insert_sql);
@@ -672,9 +682,9 @@ forecast_arima(PG_FUNCTION_ARGS)
 
 	StringInfoData sql;
 	TimeSeriesModel model;
-	ArrayType  *ar_coeffs_arr = NULL;
-	ArrayType  *ma_coeffs_arr = NULL;
-	ArrayType  *last_values_arr = NULL;
+	NDB_DECLARE(ArrayType *, ar_coeffs_arr);
+	NDB_DECLARE(ArrayType *, ma_coeffs_arr);
+	NDB_DECLARE(ArrayType *, last_values_arr);
 	int			ret;
 	int		   *dims,
 				ndims,
@@ -685,12 +695,12 @@ forecast_arima(PG_FUNCTION_ARGS)
 				q = 0,
 				n_last = 0;
 	float8		intercept = 0;
-	float	   *ar_coeffs = NULL;
-	float	   *ma_coeffs = NULL;
-	float	   *last_values = NULL;
-	float	   *forecast = NULL;
-	Datum	   *outdatums = NULL;
-	ArrayType  *arr = NULL;
+	NDB_DECLARE(float *, ar_coeffs);
+	NDB_DECLARE(float *, ma_coeffs);
+	NDB_DECLARE(float *, last_values);
+	NDB_DECLARE(float *, forecast);
+	NDB_DECLARE(Datum *, outdatums);
+	NDB_DECLARE(ArrayType *, arr);
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext;
 
@@ -924,13 +934,13 @@ Datum
 evaluate_arima_by_model_id(PG_FUNCTION_ARGS)
 {
 	int32		model_id = 0;
-	text	   *table_name = NULL;
-	text	   *time_col = NULL;
-	text	   *value_col = NULL;
+	NDB_DECLARE(text *, table_name);
+	NDB_DECLARE(text *, time_col);
+	NDB_DECLARE(text *, value_col);
 	int32		forecast_horizon = 0;
-	char	   *tbl_str = NULL;
-	char	   *time_str = NULL;
-	char	   *value_str = NULL;
+	NDB_DECLARE(char *, tbl_str);
+	NDB_DECLARE(char *, time_str);
+	NDB_DECLARE(char *, value_str);
 	StringInfoData query;
 	int			ret = 0;
 	int			n_points = 0;
@@ -938,7 +948,7 @@ evaluate_arima_by_model_id(PG_FUNCTION_ARGS)
 	double		mae = 0.0;
 	int			i = 0;
 	StringInfoData jsonbuf;
-	Jsonb	   *result = NULL;
+	NDB_DECLARE(Jsonb *, result);
 	MemoryContext oldcontext = NULL;
 	int			valid_predictions = 0;
 	double		rmse = 0.0;
@@ -1116,9 +1126,9 @@ detect_anomalies(PG_FUNCTION_ARGS)
 				n_anomalies = 0;
 	SPITupleTable *tuptable;
 	TupleDesc	tupdesc;
-	float	   *values = NULL;
-	float	   *ma_values = NULL;
-	float	   *smoothed = NULL;
+	NDB_DECLARE(float *, values);
+	NDB_DECLARE(float *, ma_values);
+	NDB_DECLARE(float *, smoothed);
 	float		mean,
 				stddev,
 				sum = 0.0f,
@@ -1244,15 +1254,15 @@ seasonal_decompose(PG_FUNCTION_ARGS)
 				j;
 	SPITupleTable *tuptable;
 	TupleDesc	tupdesc;
-	float	   *values = NULL;
-	float	   *trend = NULL;
-	float	   *seasonal = NULL;
-	float	   *residual = NULL;
-	float	   *seasonal_pattern = NULL;
-	int		   *seasonal_counts = NULL;
-	Datum	   *trend_datums = NULL;
-	Datum	   *seasonal_datums = NULL;
-	Datum	   *residual_datums = NULL;
+	NDB_DECLARE(float *, values);
+	NDB_DECLARE(float *, trend);
+	NDB_DECLARE(float *, seasonal);
+	NDB_DECLARE(float *, residual);
+	NDB_DECLARE(float *, seasonal_pattern);
+	NDB_DECLARE(int *, seasonal_counts);
+	NDB_DECLARE(Datum *, trend_datums);
+	NDB_DECLARE(Datum *, seasonal_datums);
+	NDB_DECLARE(Datum *, residual_datums);
 	ArrayType  *trend_arr,
 			   *seasonal_arr,
 			   *residual_arr;
@@ -1511,20 +1521,34 @@ timeseries_model_serialize_to_bytea(const float *ar_coeffs, int p, const float *
 	int			type_len;
 	int			i;
 
+	/* Validate inputs */
+	if (model_type == NULL)
+		ereport(ERROR,
+				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
+				 errmsg("timeseries_model_serialize_to_bytea: model_type cannot be NULL")));
+
 	initStringInfo(&buf);
 	appendBinaryStringInfo(&buf, (char *) &p, sizeof(int));
 	appendBinaryStringInfo(&buf, (char *) &d, sizeof(int));
 	appendBinaryStringInfo(&buf, (char *) &q, sizeof(int));
 	appendBinaryStringInfo(&buf, (char *) &intercept, sizeof(float));
 	appendBinaryStringInfo(&buf, (char *) &n_obs, sizeof(int));
-	type_len = strlen(model_type);
+	type_len = model_type != NULL ? strlen(model_type) : 0;
 	appendBinaryStringInfo(&buf, (char *) &type_len, sizeof(int));
 	appendBinaryStringInfo(&buf, model_type, type_len);
 
-	for (i = 0; i < p; i++)
-		appendBinaryStringInfo(&buf, (char *) &ar_coeffs[i], sizeof(float));
-	for (i = 0; i < q; i++)
-		appendBinaryStringInfo(&buf, (char *) &ma_coeffs[i], sizeof(float));
+	/* Only serialize ar_coeffs if p > 0 and ar_coeffs is not NULL */
+	if (p > 0 && ar_coeffs != NULL)
+	{
+		for (i = 0; i < p; i++)
+			appendBinaryStringInfo(&buf, (char *) &ar_coeffs[i], sizeof(float));
+	}
+	/* Only serialize ma_coeffs if q > 0 and ma_coeffs is not NULL */
+	if (q > 0 && ma_coeffs != NULL)
+	{
+		for (i = 0; i < q; i++)
+			appendBinaryStringInfo(&buf, (char *) &ma_coeffs[i], sizeof(float));
+	}
 
 	total_size = VARHDRSZ + buf.len;
 	result = (bytea *) palloc(total_size);
@@ -1590,8 +1614,8 @@ static bool
 timeseries_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 {
 	TimeSeriesGpuModelState *state;
-	float	   *ar_coeffs = NULL;
-	float	   *ma_coeffs = NULL;
+	NDB_DECLARE(float *, ar_coeffs);
+	NDB_DECLARE(float *, ma_coeffs);
 	int			p = 1;
 	int			d = 1;
 	int			q = 1;
@@ -1600,8 +1624,8 @@ timeseries_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **err
 	int			nvec = 0;
 	int			dim = 0;
 	int			i;
-	bytea	   *model_data = NULL;
-	Jsonb	   *metrics = NULL;
+	NDB_DECLARE(bytea *, model_data);
+	NDB_DECLARE(Jsonb *, metrics);
 	StringInfoData metrics_json;
 	JsonbIterator *it;
 	JsonbValue	v;
@@ -1753,8 +1777,8 @@ timeseries_gpu_predict(const MLGpuModel * model, const float *input, int input_d
 	/* Deserialize if needed */
 	if (state->ar_coeffs == NULL)
 	{
-		float	   *ar_coeffs = NULL;
-		float	   *ma_coeffs = NULL;
+		NDB_DECLARE(float *, ar_coeffs);
+		NDB_DECLARE(float *, ma_coeffs);
 		int			p = 0,
 					d = 0,
 					q = 0;
@@ -1780,8 +1804,25 @@ timeseries_gpu_predict(const MLGpuModel * model, const float *input, int input_d
 
 	/* ARIMA prediction: AR component */
 	prediction = state->intercept;
+	/* Validate input_dim before accessing array */
+	if (input_dim <= 0)
+	{
+		if (errstr)
+			*errstr = pstrdup("timeseries_gpu_predict: invalid input_dim");
+		return false;
+	}
 	for (i = 0; i < state->p && i < input_dim; i++)
-		prediction += state->ar_coeffs[i] * input[input_dim - 1 - i];
+	{
+		int			idx = input_dim - 1 - i;
+
+		if (idx < 0 || idx >= input_dim)
+		{
+			if (errstr)
+				*errstr = psprintf("timeseries_gpu_predict: array index out of bounds: idx=%d, input_dim=%d", idx, input_dim);
+			return false;
+		}
+		prediction += state->ar_coeffs[i] * input[idx];
+	}
 
 	output[0] = prediction;
 
@@ -1882,8 +1923,8 @@ timeseries_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 	TimeSeriesGpuModelState *state;
 	bytea	   *payload_copy;
 	int			payload_size;
-	float	   *ar_coeffs = NULL;
-	float	   *ma_coeffs = NULL;
+	NDB_DECLARE(float *, ar_coeffs);
+	NDB_DECLARE(float *, ma_coeffs);
 	int			p = 0,
 				d = 0,
 				q = 0;
@@ -2035,27 +2076,44 @@ train_timeseries_cpu(PG_FUNCTION_ARGS)
 	int32		p = PG_GETARG_INT32(3);
 	int32		d = PG_GETARG_INT32(4);
 	int32		q = PG_GETARG_INT32(5);
-
-	char	   *table_name_str = text_to_cstring(table_name);
-	char	   *feature_col_str = text_to_cstring(feature_col);
-	char	   *target_col_str = text_to_cstring(target_col);
+	char	   *table_name_str;
+	char	   *feature_col_str;
+	char	   *target_col_str;
 	StringInfoData sql;
 	int			ret;
 	SPITupleTable *tuptable;
 	TupleDesc	tupdesc;
-	float	   *values = NULL;
-	TimeSeriesModel *model = NULL;
+	NDB_DECLARE(float *, values);
+	NDB_DECLARE(TimeSeriesModel *, model);
 	int			n_samples = 0;
 	int			i;
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext;
 	int32		model_id = 0;
 	MLCatalogModelSpec spec;
-	bytea	   *model_data = NULL;
-	Jsonb	   *params_jsonb = NULL;
-	Jsonb	   *metrics_jsonb = NULL;
+	NDB_DECLARE(bytea *, model_data);
+	NDB_DECLARE(Jsonb *, params_jsonb);
+	NDB_DECLARE(Jsonb *, metrics_jsonb);
 	StringInfoData paramsbuf;
 	StringInfoData metricsbuf;
+
+	/* Validate inputs */
+	if (table_name == NULL)
+		ereport(ERROR,
+				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
+				 errmsg("train_timeseries_cpu: table_name cannot be NULL")));
+	if (feature_col == NULL)
+		ereport(ERROR,
+				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
+				 errmsg("train_timeseries_cpu: feature_col cannot be NULL")));
+	if (target_col == NULL)
+		ereport(ERROR,
+				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
+				 errmsg("train_timeseries_cpu: target_col cannot be NULL")));
+
+	table_name_str = text_to_cstring(table_name);
+	feature_col_str = text_to_cstring(feature_col);
+	target_col_str = text_to_cstring(target_col);
 
 	if (p < 0 || p > MAX_ARIMA_ORDER_P)
 		ereport(ERROR,
@@ -2093,6 +2151,19 @@ train_timeseries_cpu(PG_FUNCTION_ARGS)
 				 errmsg("failed to execute time series query")));
 	}
 
+	/* Validate SPI result before accessing */
+	if (SPI_tuptable == NULL || SPI_tuptable->tupdesc == NULL || SPI_tuptable->vals == NULL)
+	{
+		ndb_spi_stringinfo_free(spi_session, &sql);
+		NDB_SPI_SESSION_END(spi_session);
+		NDB_FREE(table_name_str);
+		NDB_FREE(feature_col_str);
+		NDB_FREE(target_col_str);
+		ereport(ERROR,
+				(errcode(ERRCODE_INTERNAL_ERROR),
+				 errmsg("SPI_tuptable is NULL or invalid after time series query")));
+	}
+
 	tuptable = SPI_tuptable;
 	tupdesc = tuptable->tupdesc;
 	n_samples = SPI_processed;
@@ -2114,9 +2185,27 @@ train_timeseries_cpu(PG_FUNCTION_ARGS)
 
 	for (i = 0; i < n_samples; i++)
 	{
-		HeapTuple	tuple = tuptable->vals[i];
+		HeapTuple	tuple;
 		bool		isnull = false;
-		Datum		value_datum = SPI_getbinval(tuple, tupdesc, 1, &isnull);
+		Datum		value_datum;
+
+		/* Validate tuple exists before accessing */
+		if (i >= SPI_processed || tuptable->vals[i] == NULL)
+		{
+			if (values)
+				NDB_FREE(values);
+			ndb_spi_stringinfo_free(spi_session, &sql);
+			NDB_SPI_SESSION_END(spi_session);
+			NDB_FREE(table_name_str);
+			NDB_FREE(feature_col_str);
+			NDB_FREE(target_col_str);
+			ereport(ERROR,
+					(errcode(ERRCODE_INTERNAL_ERROR),
+					 errmsg("invalid tuple at index %d in time series data", i)));
+		}
+
+		tuple = tuptable->vals[i];
+		value_datum = SPI_getbinval(tuple, tupdesc, 1, &isnull);
 
 		if (isnull)
 		{

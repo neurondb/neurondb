@@ -47,7 +47,15 @@ train_lightgbm_classifier(PG_FUNCTION_ARGS)
 	ereport(ERROR,
 			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 			 errmsg("LightGBM library not available"),
-			 errhint("Rebuild NeuronDB with LightGBM support.")));
+			 errhint("LightGBM library was not found during compilation. "
+				"Reason: LightGBM headers not found. "
+				"To enable LightGBM support:\n"
+				"1. Install LightGBM development libraries:\n"
+				"   Ubuntu/Debian: sudo apt-get install liblightgbm-dev\n"
+				"   RHEL/CentOS: sudo yum install lightgbm-devel\n"
+				"   macOS: brew install lightgbm\n"
+				"2. Ensure LightGBM headers are in standard include paths\n"
+				"3. Recompile NeuronDB: make clean && make install")));
 	PG_RETURN_INT32(0);
 }
 
@@ -67,7 +75,15 @@ train_lightgbm_regressor(PG_FUNCTION_ARGS)
 	ereport(ERROR,
 			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 			 errmsg("LightGBM library not available"),
-			 errhint("Rebuild NeuronDB with LightGBM support.")));
+			 errhint("LightGBM library was not found during compilation. "
+				"Reason: LightGBM headers not found. "
+				"To enable LightGBM support:\n"
+				"1. Install LightGBM development libraries:\n"
+				"   Ubuntu/Debian: sudo apt-get install liblightgbm-dev\n"
+				"   RHEL/CentOS: sudo yum install lightgbm-devel\n"
+				"   macOS: brew install lightgbm\n"
+				"2. Ensure LightGBM headers are in standard include paths\n"
+				"3. Recompile NeuronDB: make clean && make install")));
 	PG_RETURN_INT32(0);
 }
 
@@ -175,8 +191,8 @@ lightgbm_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errst
 	char		boosting_type[32] = "gbdt";
 	int			nvec = 0;
 	int			dim = 0;
-	bytea	   *model_data = NULL;
-	Jsonb	   *metrics = NULL;
+	NDB_DECLARE(bytea *, model_data);
+	NDB_DECLARE(Jsonb *, metrics);
 	StringInfoData metrics_json;
 	JsonbIterator *it;
 	JsonbValue	v;

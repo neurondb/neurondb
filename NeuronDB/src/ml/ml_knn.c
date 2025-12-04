@@ -113,7 +113,7 @@ knn_classify(PG_FUNCTION_ARGS)
 	int			ret;
 	int			nvec = 0;
 	int			dim;
-	KNNSample  *samples = NULL;
+	NDB_DECLARE(KNNSample *, samples);
 	double		class_votes[2] = {0.0, 0.0};
 	int			predicted_class;
 	int			i;
@@ -357,7 +357,7 @@ knn_regress(PG_FUNCTION_ARGS)
 	int			ret;
 	int			nvec = 0;
 	int			dim;
-	KNNSample  *samples = NULL;
+	NDB_DECLARE(KNNSample *, samples);
 	double		prediction = 0.0;
 	int			i;
 	MemoryContext oldcontext;
@@ -573,7 +573,7 @@ evaluate_knn_classifier(PG_FUNCTION_ARGS)
 				recall,
 				f1_score;
 	int			i;
-	Datum	   *result_datums = NULL;
+	NDB_DECLARE(Datum *, result_datums);
 	ArrayType  *result_array;
 	MemoryContext oldcontext;
 
@@ -740,7 +740,7 @@ train_knn_model_id(PG_FUNCTION_ARGS)
 	int			nvec,
 				dim;
 	int			i;
-	bytea	   *model_data = NULL;
+	NDB_DECLARE(bytea *, model_data);
 	MLCatalogModelSpec spec;
 	Jsonb	   *metrics;
 	StringInfoData metrics_json;
@@ -1017,18 +1017,18 @@ predict_knn_model_id(PG_FUNCTION_ARGS)
 {
 	int32		model_id;
 	ArrayType  *features_array;
-	bytea	   *model_data = NULL;
-	Jsonb	   *metrics = NULL;
+	NDB_DECLARE(bytea *, model_data);
+	NDB_DECLARE(Jsonb *, metrics);
 	const char *base;
 	NdbCudaKnnModelHeader *hdr;
-	float	   *query_features = NULL;
+	NDB_DECLARE(float *, query_features);
 	int			i;
 	int			j;
 	int			ndims;
 	int		   *dims;
 	int			nelems;
-	float8	   *features = NULL;
-	float8	   *features_allocated = NULL;	/* For float4->float8 conversion */
+	NDB_DECLARE(float8 *, features);
+	NDB_DECLARE(float8 *, features_allocated);	/* For float4->float8 conversion */
 	double		prediction = 0.0;
 	MemoryContext oldcontext;
 	MemoryContext callcontext;
@@ -1348,7 +1348,7 @@ predict_knn_model_id(PG_FUNCTION_ARGS)
 	if (neurondb_gpu_is_available())
 	{
 		int			rc;
-		char	   *gpu_errstr = NULL;
+		NDB_DECLARE(char *, gpu_errstr);
 
 		PG_TRY();
 		{
@@ -1500,8 +1500,8 @@ knn_predict_batch(int32 model_id,
 	int			tn = 0;
 	int			fp = 0;
 	int			fn = 0;
-	bytea	   *model_data = NULL;
-	Jsonb	   *metrics = NULL;
+	NDB_DECLARE(bytea *, model_data);
+	NDB_DECLARE(Jsonb *, metrics);
 	const char *base;
 	int			k_value = 0;
 
@@ -1627,9 +1627,9 @@ knn_predict_batch(int32 model_id,
 #ifdef NDB_GPU_CUDA
 			if (neurondb_gpu_is_available() && gpu_hdr->task_type == 0)
 			{
-				int		   *predictions = NULL;
+				NDB_DECLARE(int *, predictions);
 				int			rc;
-				char	   *gpu_errstr = NULL;
+				NDB_DECLARE(char *, gpu_errstr);
 
 				elog(DEBUG1,
 					 "neurondb: knn_predict_batch: attempting GPU batch prediction for %d samples (model_id=%d, n_features=%d, k=%d)",
@@ -1742,8 +1742,8 @@ knn_predict_batch(int32 model_id,
 					int			true_class;
 					double		prediction = 0.0;
 					int			pred_class;
-					float	   *distances_local = NULL;
-					int		   *indices_local = NULL;
+					NDB_DECLARE(float *, distances_local);
+					NDB_DECLARE(int *, indices_local);
 					int			j;
 
 					if (!isfinite(y_true))
@@ -1839,8 +1839,8 @@ knn_predict_batch(int32 model_id,
 			StringInfoData query;
 			int			ret;
 			int			n_train = 0;
-			float	   *train_features = NULL;
-			double	   *train_labels = NULL;
+			NDB_DECLARE(float *, train_features);
+			NDB_DECLARE(double *, train_labels);
 			int			train_valid = 0;
 			int			j;
 			MemoryContext outer_context;
@@ -1983,7 +1983,7 @@ knn_predict_batch(int32 model_id,
 				int			true_class;
 				double		prediction = 0.0;
 				int			pred_class;
-				KNNSample  *samples_local = NULL;
+				NDB_DECLARE(KNNSample *, samples_local);
 
 				if (!isfinite(y_true))
 					continue;
@@ -2098,9 +2098,9 @@ evaluate_knn_by_model_id(PG_FUNCTION_ARGS)
 	MemoryContext oldcontext;
 	MemoryContext callcontext;
 	StringInfoData query;
-	Jsonb	   *result_jsonb = NULL;
-	bytea	   *gpu_payload = NULL;
-	Jsonb	   *gpu_metrics = NULL;
+	NDB_DECLARE(Jsonb *, result_jsonb);
+	NDB_DECLARE(bytea *, gpu_payload);
+	NDB_DECLARE(Jsonb *, gpu_metrics);
 	bool		is_gpu_model = false;
 	int			feat_dim = 0;
 	NDB_DECLARE(NdbSpiSession *, spi_session);
@@ -2110,9 +2110,9 @@ evaluate_knn_by_model_id(PG_FUNCTION_ARGS)
 	 * strings may be needed after SPI operations complete, so we copy them to
 	 * the current memory context.
 	 */
-	char	   *tbl_str_copy = NULL;
-	char	   *feat_str_copy = NULL;
-	char	   *targ_str_copy = NULL;
+	NDB_DECLARE(char *, tbl_str_copy);
+	NDB_DECLARE(char *, feat_str_copy);
+	NDB_DECLARE(char *, targ_str_copy);
 
 	if (PG_ARGISNULL(0))
 		ereport(ERROR,
@@ -2326,8 +2326,8 @@ evaluate_knn_by_model_id(PG_FUNCTION_ARGS)
 	{
 #ifdef NDB_GPU_CUDA
 		const		NdbCudaKnnModelHeader *gpu_hdr;
-		double	   *h_labels = NULL;
-		float	   *h_features = NULL;
+		NDB_DECLARE(double *, h_labels);
+		NDB_DECLARE(float *, h_features);
 		size_t		payload_size;
 
 		valid_rows = 0;
@@ -2509,7 +2509,7 @@ evaluate_knn_by_model_id(PG_FUNCTION_ARGS)
 
 		{
 			int			rc;
-			char	   *gpu_errstr = NULL;
+			NDB_DECLARE(char *, gpu_errstr);
 
 			if (h_features == NULL || h_labels == NULL || valid_rows <= 0 || feat_dim <= 0)
 			{
@@ -2615,8 +2615,8 @@ cpu_evaluation_path:
 #pragma GCC diagnostic pop
 
 	{
-		float	   *cpu_h_features = NULL;
-		double	   *cpu_h_labels = NULL;
+		NDB_DECLARE(float *, cpu_h_features);
+		NDB_DECLARE(double *, cpu_h_labels);
 
 		valid_rows = 0;
 
@@ -2831,10 +2831,10 @@ cpu_evaluation_path:
 
 	MemoryContextSwitchTo(oldcontext);
 	{
-		JsonbParseState *state = NULL;
+		NDB_DECLARE(JsonbParseState *, state);
 		JsonbValue	jkey;
 		JsonbValue	jval;
-		JsonbValue *final_value = NULL;
+		NDB_DECLARE(JsonbValue *, final_value);
 		Numeric		accuracy_num, precision_num, recall_num, f1_score_num, n_samples_num;
 		int			n_samples_val = valid_rows > 0 ? valid_rows : nvec;
 
@@ -2956,7 +2956,7 @@ knn_gpu_release_state(KnnGpuModelState * state)
 static bool
 knn_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 {
-	KnnGpuModelState *state = NULL;
+	NDB_DECLARE(KnnGpuModelState *, state);
 	bytea	   *payload;
 	Jsonb	   *metrics;
 	int			rc;
@@ -3231,8 +3231,8 @@ knn_gpu_deserialize(MLGpuModel * model,
 					const Jsonb * metadata,
 					char **errstr)
 {
-	KnnGpuModelState *state = NULL;
-	bytea	   *payload_copy = NULL;
+	NDB_DECLARE(KnnGpuModelState *, state);
+	NDB_DECLARE(bytea *, payload_copy);
 	int			payload_size;
 
 	if (errstr != NULL)

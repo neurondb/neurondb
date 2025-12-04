@@ -250,6 +250,34 @@ cluster_minibatch_kmeans(PG_FUNCTION_ARGS)
 	/* Fetch training data */
 	data = neurondb_fetch_vectors_from_table(tbl_str, col_str, &nvec, &dim);
 
+	if (data == NULL || nvec == 0)
+	{
+		NDB_FREE(tbl_str);
+		NDB_FREE(col_str);
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("No vectors found")));
+	}
+
+	if (dim <= 0)
+	{
+		NDB_FREE(tbl_str);
+		NDB_FREE(col_str);
+		/* Free data array and rows if data is not NULL */
+		if (data != NULL)
+		{
+			for (int i = 0; i < nvec; i++)
+			{
+				if (data[i] != NULL)
+					NDB_FREE(data[i]);
+			}
+			NDB_FREE(data);
+		}
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("Invalid vector dimension: %d", dim)));
+	}
+
 	if (nvec < num_clusters)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -441,8 +469,8 @@ predict_minibatch_kmeans(PG_FUNCTION_ARGS)
 
 	/* Load model and find closest centroid */
 	{
-		bytea	   *model_payload = NULL;
-		Jsonb	   *model_parameters = NULL;
+		NDB_DECLARE(bytea *, model_payload);
+		NDB_DECLARE(Jsonb *, model_parameters);
 		float	  **centers = NULL;
 		int			num_clusters = 0;
 		int			model_dim = 0;
@@ -606,9 +634,9 @@ evaluate_minibatch_kmeans_by_model_id(PG_FUNCTION_ARGS)
 
 	/* Load model and compute clustering metrics */
 	{
-		bytea	   *model_payload = NULL;
-		Jsonb	   *parameters = NULL;
-		Jsonb	   *metrics = NULL;
+		NDB_DECLARE(bytea *, model_payload);
+		NDB_DECLARE(Jsonb *, parameters);
+		NDB_DECLARE(Jsonb *, metrics);
 		const char *buf;
 		int			i,
 					c,
@@ -877,8 +905,8 @@ minibatch_kmeans_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char
 	MiniBatchKMeansGpuModelState *state;
 	float	  **data = NULL;
 	float	  **centroids = NULL;
-	int		   *centroid_counts = NULL;
-	int		   *batch_indices = NULL;
+	NDB_DECLARE(int *, centroid_counts);
+	NDB_DECLARE(int *, batch_indices);
 	int			num_clusters = 8;
 	int			batch_size = 100;
 	int			max_iters = 100;
@@ -888,8 +916,8 @@ minibatch_kmeans_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char
 				i,
 				c,
 				d;
-	bytea	   *model_data = NULL;
-	Jsonb	   *metrics = NULL;
+	NDB_DECLARE(bytea *, model_data);
+	NDB_DECLARE(Jsonb *, metrics);
 	StringInfoData metrics_json;
 	JsonbIterator *it;
 	JsonbValue	v;

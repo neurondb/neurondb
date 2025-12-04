@@ -147,7 +147,7 @@ rerank_long_context(PG_FUNCTION_ARGS)
 		int			ncandidates;
 		char	   *query_str;
 		int			i;
-		float	   *scores = NULL;
+		NDB_DECLARE(float *, scores);
 		const char **docs = NULL;
 		NdbLLMConfig cfg;
 		NdbLLMCallOptions call_opts;

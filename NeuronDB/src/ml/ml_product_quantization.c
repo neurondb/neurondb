@@ -83,7 +83,7 @@ train_subspace_kmeans(float **subspace_data,
 	int		   *assignments =
 		NULL;					/* Assignment for each vector (index of
 								 * centroid) */
-	int		   *counts = NULL;	/* Number of points assigned to each centroid */
+	NDB_DECLARE(int *, counts);	/* Number of points assigned to each centroid */
 	bool		changed = true;
 	int			iter,
 				i,
@@ -250,12 +250,35 @@ train_pq_codebook(PG_FUNCTION_ARGS)
 	 */
 	data = neurondb_fetch_vectors_from_table(tbl_str, col_str, &nvec, &dim);
 
-	if (nvec <= 0)
+	if (data == NULL || nvec <= 0)
+	{
+		NDB_FREE(tbl_str);
+		NDB_FREE(col_str);
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),
 				 errmsg("No training vectors found in table '%s' column '%s'",
 						tbl_str,
 						col_str)));
+	}
+
+	if (dim <= 0)
+	{
+		NDB_FREE(tbl_str);
+		NDB_FREE(col_str);
+		/* Free data array and rows if data is not NULL */
+		if (data != NULL)
+		{
+			for (int i = 0; i < nvec; i++)
+			{
+				if (data[i] != NULL)
+					NDB_FREE(data[i]);
+			}
+			NDB_FREE(data);
+		}
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("Invalid vector dimension: %d", dim)));
+	}
 
 	if (dim % m != 0)
 		ereport(ERROR,
@@ -404,7 +427,7 @@ pq_encode_vector(PG_FUNCTION_ARGS)
 				dsub;
 	char	   *cb_ptr;
 	float	 ***centroids = NULL;
-	int16	   *codes = NULL;	/* array of length m */
+	NDB_DECLARE(int16 *, codes);	/* array of length m */
 	ArrayType  *result;
 	Datum	   *result_datums;
 	int			sub,
@@ -515,8 +538,8 @@ predict_pq_codebook(PG_FUNCTION_ARGS)
 {
 	int32		model_id;
 	ArrayType  *vector_array;
-	bytea	   *model_data = NULL;
-	Jsonb	   *parameters = NULL;
+	NDB_DECLARE(bytea *, model_data);
+	NDB_DECLARE(Jsonb *, parameters);
 	float4	   *vec_data;
 	int			dim;
 	int			m,
@@ -524,7 +547,7 @@ predict_pq_codebook(PG_FUNCTION_ARGS)
 				dsub;
 	char	   *cb_ptr;
 	float	 ***centroids = NULL;
-	int16	   *codes = NULL;
+	NDB_DECLARE(int16 *, codes);
 	ArrayType  *result;
 	Datum	   *result_datums;
 	int			sub,
@@ -738,9 +761,9 @@ evaluate_pq_codebook_by_model_id(PG_FUNCTION_ARGS)
 
 	/* Load model and compute quantization metrics */
 	{
-		bytea	   *model_payload = NULL;
-		Jsonb	   *parameters = NULL;
-		Jsonb	   *metrics = NULL;
+		NDB_DECLARE(bytea *, model_payload);
+		NDB_DECLARE(Jsonb *, parameters);
+		NDB_DECLARE(Jsonb *, metrics);
 		char	   *cb_ptr;
 		int			m,
 					ksub,
@@ -1187,8 +1210,8 @@ product_quantization_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, 
 	int			dim = 0;
 	int			sub,
 				i;
-	bytea	   *model_data = NULL;
-	Jsonb	   *metrics = NULL;
+	NDB_DECLARE(bytea *, model_data);
+	NDB_DECLARE(Jsonb *, metrics);
 	StringInfoData metrics_json;
 	JsonbIterator *it;
 	JsonbValue	v;

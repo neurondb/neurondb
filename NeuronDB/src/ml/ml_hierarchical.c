@@ -208,6 +208,34 @@ cluster_hierarchical(PG_FUNCTION_ARGS)
 	/* Fetch data from table */
 	data = neurondb_fetch_vectors_from_table(tbl_str, col_str, &nvec, &dim);
 
+	if (data == NULL || nvec == 0)
+	{
+		NDB_FREE(tbl_str);
+		NDB_FREE(col_str);
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("No vectors found")));
+	}
+
+	if (dim <= 0)
+	{
+		NDB_FREE(tbl_str);
+		NDB_FREE(col_str);
+		/* Free data array and rows if data is not NULL */
+		if (data != NULL)
+		{
+			for (int i = 0; i < nvec; i++)
+			{
+				if (data[i] != NULL)
+					NDB_FREE(data[i]);
+			}
+			NDB_FREE(data);
+		}
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("Invalid vector dimension: %d", dim)));
+	}
+
 	if (nvec < num_clusters)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -457,9 +485,9 @@ predict_hierarchical_cluster(PG_FUNCTION_ARGS)
 
 	/* Load model from catalog and find closest cluster */
 	{
-		bytea	   *model_data = NULL;
-		Jsonb	   *parameters = NULL;
-		Jsonb	   *metrics = NULL;
+		NDB_DECLARE(bytea *, model_data);
+		NDB_DECLARE(Jsonb *, parameters);
+		NDB_DECLARE(Jsonb *, metrics);
 		float	  **cluster_centers = NULL;
 		int			n_clusters = 0;
 		int			model_dim = 0;
@@ -642,8 +670,8 @@ evaluate_hierarchical_by_model_id(PG_FUNCTION_ARGS)
 
 	/* Load model to get centroids */
 	{
-		bytea	   *model_payload = NULL;
-		Jsonb	   *model_parameters = NULL;
+		NDB_DECLARE(bytea *, model_payload);
+		NDB_DECLARE(Jsonb *, model_parameters);
 		float	  **centers = NULL;
 		int			model_dim = 0;
 		char		linkage_str[16] = "average";
@@ -1041,8 +1069,8 @@ hierarchical_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **e
 	int			iter,
 				j,
 				k;
-	bytea	   *model_data = NULL;
-	Jsonb	   *metrics = NULL;
+	NDB_DECLARE(bytea *, model_data);
+	NDB_DECLARE(Jsonb *, metrics);
 	StringInfoData metrics_json;
 	JsonbIterator *it;
 	JsonbValue	v;
@@ -1081,7 +1109,10 @@ hierarchical_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **e
 	if (num_clusters < 1)
 		num_clusters = 8;
 	if (strlen(linkage) == 0)
-		strcpy(linkage, "average");
+	{
+		strncpy(linkage, "average", sizeof(linkage) - 1);
+		linkage[sizeof(linkage) - 1] = '\0';
+	}
 
 	/* Convert feature matrix to 2D array */
 	if (spec->feature_matrix == NULL || spec->sample_count <= 0
@@ -1427,7 +1458,7 @@ hierarchical_gpu_serialize(const MLGpuModel * model, bytea * *payload_out,
 	}
 
 	{
-		char	   *payload_bytes = NULL;
+		NDB_DECLARE(char *, payload_bytes);
 		payload_size = VARSIZE(state->model_blob);
 		NDB_ALLOC(payload_bytes, char, payload_size);
 		payload_copy = (bytea *) payload_bytes;
@@ -1471,7 +1502,7 @@ hierarchical_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 	}
 
 	{
-		char	   *payload_bytes = NULL;
+		NDB_DECLARE(char *, payload_bytes);
 		payload_size = VARSIZE(payload);
 		NDB_ALLOC(payload_bytes, char, payload_size);
 		payload_copy = (bytea *) payload_bytes;
@@ -1501,7 +1532,7 @@ hierarchical_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 	if (metadata != NULL)
 	{
 		int			metadata_size;
-		char	   *metadata_bytes = NULL;
+		NDB_DECLARE(char *, metadata_bytes);
 		Jsonb	   *metadata_copy;
 
 		metadata_size = VARSIZE(metadata);

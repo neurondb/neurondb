@@ -98,7 +98,7 @@ cluster_gmm(PG_FUNCTION_ARGS)
 	int			nvec,
 				dim;
 	GMMModel	model;
-	double	  **responsibilities;
+	NDB_DECLARE(double **, responsibilities);
 	double		log_likelihood,
 				prev_log_likelihood;
 	int			iter,
@@ -106,7 +106,7 @@ cluster_gmm(PG_FUNCTION_ARGS)
 				k,
 				d;
 	ArrayType  *result;
-	Datum	   *result_datums;
+	Datum	   *result_datums = NULL;
 	int			dims[2];
 	int			lbs[2];
 
@@ -128,6 +128,34 @@ cluster_gmm(PG_FUNCTION_ARGS)
 
 	data = neurondb_fetch_vectors_from_table(tbl_str, col_str, &nvec, &dim);
 
+	if (data == NULL || nvec == 0)
+	{
+		NDB_FREE(tbl_str);
+		NDB_FREE(col_str);
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("No vectors found")));
+	}
+
+	if (dim <= 0)
+	{
+		NDB_FREE(tbl_str);
+		NDB_FREE(col_str);
+		/* Free data array and rows if data is not NULL */
+		if (data != NULL)
+		{
+			for (int i = 0; i < nvec; i++)
+			{
+				if (data[i] != NULL)
+					NDB_FREE(data[i]);
+			}
+			NDB_FREE(data);
+		}
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("Invalid vector dimension: %d", dim)));
+	}
+
 	if (nvec < num_components)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -136,16 +164,16 @@ cluster_gmm(PG_FUNCTION_ARGS)
 
 	model.k = num_components;
 	model.dim = dim;
-	model.mixing_coeffs = (double *) palloc(sizeof(double) * num_components);
-	model.means = (double **) palloc(sizeof(double *) * num_components);
-	model.variances = (double **) palloc(sizeof(double *) * num_components);
+	NDB_ALLOC(model.mixing_coeffs, double, num_components);
+	NDB_ALLOC(model.means, double *, num_components);
+	NDB_ALLOC(model.variances, double *, num_components);
 
 	for (k = 0; k < num_components; k++)
 	{
 		int			idx;
 
-		model.means[k] = (double *) palloc(sizeof(double) * dim);
-		model.variances[k] = (double *) palloc(sizeof(double) * dim);
+		NDB_ALLOC(model.means[k], double, dim);
+		NDB_ALLOC(model.variances[k], double, dim);
 
 		idx = rand() % nvec;
 
@@ -158,9 +186,9 @@ cluster_gmm(PG_FUNCTION_ARGS)
 		model.mixing_coeffs[k] = 1.0 / num_components;
 	}
 
-	responsibilities = (double **) palloc(sizeof(double *) * nvec);
+	NDB_ALLOC(responsibilities, double *, nvec);
 	for (i = 0; i < nvec; i++)
-		responsibilities[i] = (double *) palloc(sizeof(double) * num_components);
+		NDB_ALLOC(responsibilities[i], double, num_components);
 
 	prev_log_likelihood = -DBL_MAX;
 
@@ -203,7 +231,8 @@ cluster_gmm(PG_FUNCTION_ARGS)
 		prev_log_likelihood = log_likelihood;
 
 		{
-			double	   *N_k = (double *) palloc0(sizeof(double) * num_components);
+			NDB_DECLARE(double *, N_k);
+			NDB_ALLOC(N_k, double, num_components);
 
 			for (k = 0; k < num_components; k++)
 			{
@@ -261,7 +290,7 @@ cluster_gmm(PG_FUNCTION_ARGS)
 				 iter + 1, log_likelihood);
 	}
 
-	result_datums = (Datum *) palloc(sizeof(Datum) * nvec * num_components);
+	NDB_ALLOC(result_datums, Datum, nvec * num_components);
 	for (i = 0; i < nvec; i++)
 	{
 		for (k = 0; k < num_components; k++)
@@ -318,6 +347,7 @@ gmm_model_serialize_to_bytea(const GMMModel * model, uint8 training_backend)
 				j;
 	int			total_size;
 	bytea	   *result;
+	NDB_DECLARE(char *, result_bytes);
 
 	/* Validate training_backend */
 	if (training_backend > 1)
@@ -348,7 +378,8 @@ gmm_model_serialize_to_bytea(const GMMModel * model, uint8 training_backend)
 			appendBinaryStringInfo(&buf, (char *) &model->variances[i][j], sizeof(double));
 
 	total_size = VARHDRSZ + buf.len;
-	result = (bytea *) palloc(total_size);
+	NDB_ALLOC(result_bytes, char, total_size);
+	result = (bytea *) result_bytes;
 	SET_VARSIZE(result, total_size);
 	memcpy(VARDATA(result), buf.data, buf.len);
 	NDB_FREE(buf.data);
@@ -362,7 +393,7 @@ gmm_model_serialize_to_bytea(const GMMModel * model, uint8 training_backend)
 static GMMModel *
 gmm_model_deserialize_from_bytea(const bytea * data, uint8 *training_backend_out)
 {
-	GMMModel   *model;
+	GMMModel   *model = NULL;
 	const char *buf;
 	int			offset = 0;
 	int			i,
@@ -383,7 +414,7 @@ gmm_model_deserialize_from_bytea(const bytea * data, uint8 *training_backend_out
 	if (training_backend_out != NULL)
 		*training_backend_out = training_backend;
 
-	model = (GMMModel *) palloc0(sizeof(GMMModel));
+	NDB_ALLOC(model, GMMModel, 1);
 
 	memcpy(&model->k, buf + offset, sizeof(int));
 	offset += sizeof(int);
@@ -399,9 +430,9 @@ gmm_model_deserialize_from_bytea(const bytea * data, uint8 *training_backend_out
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("neurondb: invalid model data: dim=%d (expected 1-100000)", model->dim)));
 
-	model->mixing_coeffs = (double *) palloc0(sizeof(double) * model->k);
-	model->means = (double **) palloc(sizeof(double *) * model->k);
-	model->variances = (double **) palloc(sizeof(double *) * model->k);
+	NDB_ALLOC(model->mixing_coeffs, double, model->k);
+	NDB_ALLOC(model->means, double *, model->k);
+	NDB_ALLOC(model->variances, double *, model->k);
 
 	for (i = 0; i < model->k; i++)
 	{
@@ -411,7 +442,7 @@ gmm_model_deserialize_from_bytea(const bytea * data, uint8 *training_backend_out
 
 	for (i = 0; i < model->k; i++)
 	{
-		model->means[i] = (double *) palloc(sizeof(double) * model->dim);
+		NDB_ALLOC(model->means[i], double, model->dim);
 		for (j = 0; j < model->dim; j++)
 		{
 			memcpy(&model->means[i][j], buf + offset, sizeof(double));
@@ -421,7 +452,7 @@ gmm_model_deserialize_from_bytea(const bytea * data, uint8 *training_backend_out
 
 	for (i = 0; i < model->k; i++)
 	{
-		model->variances[i] = (double *) palloc(sizeof(double) * model->dim);
+		NDB_ALLOC(model->variances[i], double, model->dim);
 		for (j = 0; j < model->dim; j++)
 		{
 			memcpy(&model->variances[i][j], buf + offset, sizeof(double));
@@ -452,7 +483,7 @@ train_gmm_model_id(PG_FUNCTION_ARGS)
 	int			nvec,
 				dim;
 	GMMModel	model;
-	double	  **responsibilities;
+	NDB_DECLARE(double **, responsibilities);
 	double		log_likelihood,
 				prev_log_likelihood;
 	int			iter,
@@ -483,6 +514,34 @@ train_gmm_model_id(PG_FUNCTION_ARGS)
 
 	data = neurondb_fetch_vectors_from_table(tbl_str, col_str, &nvec, &dim);
 
+	if (data == NULL || nvec == 0)
+	{
+		NDB_FREE(tbl_str);
+		NDB_FREE(col_str);
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("No vectors found")));
+	}
+
+	if (dim <= 0)
+	{
+		NDB_FREE(tbl_str);
+		NDB_FREE(col_str);
+		/* Free data array and rows if data is not NULL */
+		if (data != NULL)
+		{
+			for (int i = 0; i < nvec; i++)
+			{
+				if (data[i] != NULL)
+					NDB_FREE(data[i]);
+			}
+			NDB_FREE(data);
+		}
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("Invalid vector dimension: %d", dim)));
+	}
+
 	if (nvec < num_components)
 	{
 		NDB_FREE(tbl_str);
@@ -494,16 +553,16 @@ train_gmm_model_id(PG_FUNCTION_ARGS)
 
 	model.k = num_components;
 	model.dim = dim;
-	model.mixing_coeffs = (double *) palloc(sizeof(double) * num_components);
-	model.means = (double **) palloc(sizeof(double *) * num_components);
-	model.variances = (double **) palloc(sizeof(double *) * num_components);
+	NDB_ALLOC(model.mixing_coeffs, double, num_components);
+	NDB_ALLOC(model.means, double *, num_components);
+	NDB_ALLOC(model.variances, double *, num_components);
 
 	for (k = 0; k < num_components; k++)
 	{
 		int			idx;
 
-		model.means[k] = (double *) palloc(sizeof(double) * dim);
-		model.variances[k] = (double *) palloc(sizeof(double) * dim);
+		NDB_ALLOC(model.means[k], double, dim);
+		NDB_ALLOC(model.variances[k], double, dim);
 		idx = rand() % nvec;
 		for (d = 0; d < dim; d++)
 			model.means[k][d] = (double) data[idx][d];
@@ -512,9 +571,9 @@ train_gmm_model_id(PG_FUNCTION_ARGS)
 		model.mixing_coeffs[k] = 1.0 / num_components;
 	}
 
-	responsibilities = (double **) palloc(sizeof(double *) * nvec);
+	NDB_ALLOC(responsibilities, double *, nvec);
 	for (i = 0; i < nvec; i++)
-		responsibilities[i] = (double *) palloc(sizeof(double) * num_components);
+		NDB_ALLOC(responsibilities[i], double, num_components);
 
 	prev_log_likelihood = -DBL_MAX;
 
@@ -550,7 +609,8 @@ train_gmm_model_id(PG_FUNCTION_ARGS)
 		prev_log_likelihood = log_likelihood;
 
 		{
-			double	   *N_k = (double *) palloc0(sizeof(double) * num_components);
+			NDB_DECLARE(double *, N_k);
+			NDB_ALLOC(N_k, double, num_components);
 
 			for (k = 0; k < num_components; k++)
 			{
@@ -647,7 +707,7 @@ predict_gmm_model_id(PG_FUNCTION_ARGS)
 	bytea	   *model_data = NULL;
 	Jsonb	   *metrics = NULL;
 	GMMModel   *model = NULL;
-	double	   *probabilities;
+	double	   *probabilities = NULL;
 	int			predicted_cluster = 0;
 	double		max_prob = -DBL_MAX;
 	int			i,
@@ -677,7 +737,10 @@ predict_gmm_model_id(PG_FUNCTION_ARGS)
 	if (model_data != NULL)
 	{
 		int			data_len = VARSIZE(model_data);
-		bytea	   *copy = (bytea *) palloc(data_len);
+		NDB_DECLARE(char *, copy_bytes);
+		bytea	   *copy;
+		NDB_ALLOC(copy_bytes, char, data_len);
+		copy = (bytea *) copy_bytes;
 
 		memcpy(copy, model_data, data_len);
 		model_data = copy;
@@ -708,7 +771,7 @@ predict_gmm_model_id(PG_FUNCTION_ARGS)
 	}
 
 	/* Compute probabilities for each component */
-	probabilities = (double *) palloc(sizeof(double) * model->k);
+	NDB_ALLOC(probabilities, double, model->k);
 	for (k = 0; k < model->k; k++)
 	{
 		double		pdf = gaussian_pdf(features->data, model->means[k], model->variances[k], model->dim);
@@ -800,17 +863,17 @@ evaluate_gmm_by_model_id(PG_FUNCTION_ARGS)
 				c;
 	float	  **data = NULL;
 	int			dim = 0;
-	GMMModel   *model = NULL;
-	int		   *assignments = NULL;
-	int		   *cluster_sizes = NULL;
+	NDB_DECLARE(GMMModel *, model);
+	NDB_DECLARE(int *, assignments);
+	NDB_DECLARE(int *, cluster_sizes);
 	double		inertia = 0.0;
 	double		silhouette = 0.0;
-	double	   *a_scores = NULL;
-	double	   *b_scores = NULL;
+	NDB_DECLARE(double *, a_scores);
+	NDB_DECLARE(double *, b_scores);
 	MemoryContext oldcontext;
-	Jsonb	   *result_jsonb = NULL;
-	bytea	   *model_payload = NULL;
-	Jsonb	   *model_metrics = NULL;
+	NDB_DECLARE(Jsonb *, result_jsonb);
+	NDB_DECLARE(bytea *, model_payload);
+	NDB_DECLARE(Jsonb *, model_metrics);
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 
 	if (PG_ARGISNULL(0))
@@ -928,8 +991,8 @@ evaluate_gmm_by_model_id(PG_FUNCTION_ARGS)
 	}
 
 	/* Assign points to clusters (based on maximum probability) */
-	assignments = (int *) palloc(sizeof(int) * nvec);
-	cluster_sizes = (int *) palloc0(sizeof(int) * model->k);
+	NDB_ALLOC(assignments, int, nvec);
+	NDB_ALLOC(cluster_sizes, int, model->k);
 
 	for (i = 0; i < nvec; i++)
 	{
@@ -953,8 +1016,8 @@ evaluate_gmm_by_model_id(PG_FUNCTION_ARGS)
 	}
 
 	/* Compute silhouette score */
-	a_scores = (double *) palloc0(sizeof(double) * nvec);
-	b_scores = (double *) palloc0(sizeof(double) * nvec);
+	NDB_ALLOC(a_scores, double, nvec);
+	NDB_ALLOC(b_scores, double, nvec);
 
 	for (i = 0; i < nvec; i++)
 	{
@@ -1267,7 +1330,7 @@ gmm_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 		model->backend_state = NULL;
 	}
 
-	state = (GmmGpuModelState *) palloc0(sizeof(GmmGpuModelState));
+	NDB_ALLOC(state, GmmGpuModelState, 1);
 	state->model_blob = payload;
 	state->feature_dim = spec->feature_dim;
 	state->n_samples = spec->sample_count;
@@ -1387,6 +1450,7 @@ gmm_gpu_serialize(const MLGpuModel * model,
 				  char **errstr)
 {
 	const		GmmGpuModelState *state;
+	char	   *payload_bytes = NULL;
 	bytea	   *payload_copy;
 	int			payload_size;
 
@@ -1404,7 +1468,8 @@ gmm_gpu_serialize(const MLGpuModel * model,
 		return false;
 
 	payload_size = VARSIZE(state->model_blob);
-	payload_copy = (bytea *) palloc(payload_size);
+	NDB_ALLOC(payload_bytes, char, payload_size);
+	payload_copy = (bytea *) payload_bytes;
 	memcpy(payload_copy, state->model_blob, payload_size);
 
 	if (payload_out != NULL)
@@ -1431,7 +1496,8 @@ gmm_gpu_deserialize(MLGpuModel * model,
 					const Jsonb * metadata,
 					char **errstr)
 {
-	GmmGpuModelState *state;
+	GmmGpuModelState *state = NULL;
+	char	   *payload_bytes = NULL;
 	bytea	   *payload_copy;
 	int			payload_size;
 
@@ -1441,10 +1507,11 @@ gmm_gpu_deserialize(MLGpuModel * model,
 		return false;
 
 	payload_size = VARSIZE(payload);
-	payload_copy = (bytea *) palloc(payload_size);
+	NDB_ALLOC(payload_bytes, char, payload_size);
+	payload_copy = (bytea *) payload_bytes;
 	memcpy(payload_copy, payload, payload_size);
 
-	state = (GmmGpuModelState *) palloc0(sizeof(GmmGpuModelState));
+	NDB_ALLOC(state, GmmGpuModelState, 1);
 	state->model_blob = payload_copy;
 	state->feature_dim = -1;
 	state->n_samples = -1;

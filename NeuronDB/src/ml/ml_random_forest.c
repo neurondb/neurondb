@@ -1252,9 +1252,9 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 	text	   *feature_col_text;
 	text	   *label_col_text;
 
-	char	   *table_name = NULL;
-	char	   *feature_col = NULL;
-	char	   *label_col = NULL;
+	NDB_DECLARE(char *, table_name);
+	NDB_DECLARE(char *, feature_col);
+	NDB_DECLARE(char *, label_col);
 	const char *quoted_tbl = NULL;
 	const char *quoted_feat = NULL;
 	const char *quoted_label = NULL;
@@ -1268,12 +1268,12 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 	int			majority_count = 0;
 	int			second_count = 0;
 	int			second_idx = -1;
-	int		   *class_counts_tmp = NULL;
-	int		   *counts = NULL;
+	NDB_DECLARE(int *, class_counts_tmp);
+	NDB_DECLARE(int *, counts);
 	int			feature_sum_count = 0;
 	int			split_feature = -1;
-	int		   *left_counts = NULL;
-	int		   *right_counts = NULL;
+	NDB_DECLARE(int *, left_counts);
+	NDB_DECLARE(int *, right_counts);
 	int			left_majority_idx = -1;
 	int			right_majority_idx = -1;
 	int			left_total = 0;
@@ -1281,32 +1281,32 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 	int			majority_idx = -1;
 	int			feature_limit = 0;
 	int			best_feature = -1;
-	int		   *left_feature_counts_vec = NULL;
-	int		   *right_feature_counts_vec = NULL;
+	NDB_DECLARE(int *, left_feature_counts_vec);
+	NDB_DECLARE(int *, right_feature_counts_vec);
 	int			n_samples = 0;
 	int			split_pair_count = 0;
 	int			sample_count = 0;
-	int		   *bootstrap_indices = NULL;
-	int		   *feature_order = NULL;
+	NDB_DECLARE(int *, bootstrap_indices);
+	NDB_DECLARE(int *, feature_order);
 	pg_prng_state rng;
 	int32		model_id = 0;
 	RFDataset	dataset;
 
-	double	   *labels = NULL;
+	NDB_DECLARE(double *, labels);
 	double		majority_value = 0.0;
 	double		majority_fraction = 0.0;
 	double		gini_impurity = 0.0;
 	double		label_entropy = 0.0;
 	double		second_value = 0.0;
-	double	   *feature_means_tmp = NULL;
-	double	   *feature_vars_tmp = NULL;
-	double	   *feature_importance_tmp = NULL;
-	double	   *feature_sums = NULL;
-	double	   *feature_sums_sq = NULL;
-	double	   *class_feature_sums = NULL;
-	int		   *class_feature_counts = NULL;
-	double	   *left_feature_sums_vec = NULL;
-	double	   *right_feature_sums_vec = NULL;
+	NDB_DECLARE(double *, feature_means_tmp);
+	NDB_DECLARE(double *, feature_vars_tmp);
+	NDB_DECLARE(double *, feature_importance_tmp);
+	NDB_DECLARE(double *, feature_sums);
+	NDB_DECLARE(double *, feature_sums_sq);
+	NDB_DECLARE(double *, class_feature_sums);
+	NDB_DECLARE(int *, class_feature_counts);
+	NDB_DECLARE(double *, left_feature_sums_vec);
+	NDB_DECLARE(double *, right_feature_sums_vec);
 	double		left_leaf_value = 0.0;
 	double		right_leaf_value = 0.0;
 	double		left_sum = 0.0;
@@ -1323,18 +1323,18 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 	double		max_split_deviation = 0.0;
 	double		split_threshold = 0.0;
 	double		second_fraction = 0.0;
-	double	   *left_branch_means_vec = NULL;
-	double	   *right_branch_means_vec = NULL;
+	NDB_DECLARE(double *, left_branch_means_vec);
+	NDB_DECLARE(double *, right_branch_means_vec);
 	double		forest_oob_accuracy = 0.0;
-	double	   *tree_oob_accuracy = NULL;
+	NDB_DECLARE(double *, tree_oob_accuracy);
 	int			oob_total_all = 0;
 	int			oob_correct_all = 0;
-	float	   *stage_features = NULL;
+	NDB_DECLARE(float *, stage_features);
 	GTree	  **trees = NULL;
-	double	   *tree_majorities = NULL;
-	double	   *tree_majority_fractions = NULL;
-	double	   *tree_seconds = NULL;
-	double	   *tree_second_fractions = NULL;
+	NDB_DECLARE(double *, tree_majorities);
+	NDB_DECLARE(double *, tree_majority_fractions);
+	NDB_DECLARE(double *, tree_seconds);
+	NDB_DECLARE(double *, tree_second_fractions);
 	int			tree_count = 0;
 	int			forest_trees_arg = RF_DEFAULT_TREES;
 	int			max_depth_arg = RF_MAX_DEPTH;
@@ -1346,8 +1346,8 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 	bool		class_mean_threshold_valid = false;
 	bool		best_score_valid = false;
 	bool		best_split_valid = false;
-	GTree	   *primary_tree = NULL;
-	RFSplitPair *split_pairs = NULL;
+	NDB_DECLARE(GTree *, primary_tree);
+	NDB_DECLARE(RFSplitPair *, split_pairs);
 
 	if (PG_NARGS() < 3)
 		ereport(ERROR,
@@ -1435,8 +1435,8 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 		if (gpu_class_count > 0)
 		{
 			StringInfoData hyperbuf;
-			Jsonb	   *gpu_hyperparams = NULL;
-			char	   *gpu_err = NULL;
+			NDB_DECLARE(Jsonb *, gpu_hyperparams);
+			NDB_DECLARE(char *, gpu_err);
 			const char *gpu_features[1];
 			MLGpuTrainResult gpu_result;
 
@@ -1445,10 +1445,10 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 
 			/* Build hyperparameters JSON using JSONB API */
 			{
-				JsonbParseState *state = NULL;
+				NDB_DECLARE(JsonbParseState *, state);
 				JsonbValue	jkey;
 				JsonbValue	jval;
-				JsonbValue *final_value = NULL;
+				NDB_DECLARE(JsonbValue *, final_value);
 				Numeric		n_trees_num, max_depth_num, min_samples_split_num;
 
 				PG_TRY();
@@ -2480,12 +2480,12 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 				double		tree_second_value = second_value;
 				double		tree_majority_frac = majority_fraction;
 				double		tree_second_frac = second_fraction;
-				int		   *tree_counts = NULL;
+				NDB_DECLARE(int *, tree_counts);
 				int			boot_samples = 0;
 				int			sample_target = n_samples;
 				int			j;
-				int		   *tree_bootstrap = NULL;
-				RFSplitPair *tree_pairs = NULL;
+				NDB_DECLARE(int *, tree_bootstrap);
+				NDB_DECLARE(RFSplitPair *, tree_pairs);
 				int			tree_pair_count = 0;
 				double		tree_best_impurity = DBL_MAX;
 				double		tree_best_threshold = split_threshold;
@@ -2493,8 +2493,8 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 				bool		tree_split_valid = false;
 				int			mtry = 0;
 				int			candidates = 0;
-				int		   *left_tmp = NULL;
-				int		   *right_tmp = NULL;
+				NDB_DECLARE(int *, left_tmp);
+				NDB_DECLARE(int *, right_tmp);
 				int			left_total_local = 0;
 				int			right_total_local = 0;
 				int			left_majority_local = -1;
@@ -2505,11 +2505,11 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 				double		tree_right_value = right_leaf_value;
 				double		tree_left_fraction = left_branch_fraction;
 				double		tree_right_fraction = right_branch_fraction;
-				bool	   *inbag = NULL;
+				NDB_DECLARE(bool *, inbag);
 				int			oob_total_local = 0;
 				int			oob_correct_local = 0;
-				int		   *left_indices_local = NULL;
-				int		   *right_indices_local = NULL;
+				NDB_DECLARE(int *, left_indices_local);
+				NDB_DECLARE(int *, right_indices_local);
 				int			left_index_count = 0;
 				int			right_index_count = 0;
 
@@ -3257,22 +3257,22 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 		{
 			RFModel    *stored_model;
 			MLCatalogModelSpec spec;
-			bytea	   *serialized = NULL;
-			Jsonb	   *params_jsonb = NULL;
-			Jsonb	   *metrics_jsonb = NULL;
-			bytea	   *gpu_payload = NULL;
-			Jsonb	   *gpu_metrics = NULL;
-			char	   *gpu_err = NULL;
+			NDB_DECLARE(bytea *, serialized);
+			NDB_DECLARE(Jsonb *, params_jsonb);
+			NDB_DECLARE(Jsonb *, metrics_jsonb);
+			NDB_DECLARE(bytea *, gpu_payload);
+			NDB_DECLARE(Jsonb *, gpu_metrics);
+			NDB_DECLARE(char *, gpu_err);
 			bool		gpu_packed = false;
 
 			stored_model = &rf_models[rf_model_count - 1];
 
 			/* Build parameters JSON using JSONB API */
 			{
-				JsonbParseState *state = NULL;
+				NDB_DECLARE(JsonbParseState *, state);
 				JsonbValue	jkey;
 				JsonbValue	jval;
-				JsonbValue *final_value = NULL;
+				NDB_DECLARE(JsonbValue *, final_value);
 				Numeric		n_trees_num, max_depth_num, min_samples_split_num;
 
 				PG_TRY();
@@ -3328,10 +3328,10 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 
 			/* Build metrics JSON using JSONB API */
 			{
-				JsonbParseState *state = NULL;
+				NDB_DECLARE(JsonbParseState *, state);
 				JsonbValue	jkey;
 				JsonbValue	jval;
-				JsonbValue *final_value = NULL;
+				NDB_DECLARE(JsonbValue *, final_value);
 				Numeric		oob_accuracy_num, gini_num, majority_fraction_num;
 
 				PG_TRY();
@@ -3702,7 +3702,7 @@ predict_random_forest(PG_FUNCTION_ARGS)
 {
 	int32		model_id;
 	RFModel    *model;
-	Vector	   *feature_vec = NULL;
+	NDB_DECLARE(Vector *, feature_vec);
 	double		result;
 	double		split_z = 0.0;
 	bool		split_z_valid = false;
@@ -3718,7 +3718,7 @@ predict_random_forest(PG_FUNCTION_ARGS)
 	double		second_vote_fraction = 0.0;
 	double		vote_total_weight = 0.0;
 	int			i;
-	double	   *vote_histogram = NULL;
+	NDB_DECLARE(double *, vote_histogram);
 	int			vote_classes = 0;
 	double		fallback_value = 0.0;
 	double		fallback_fraction = 0.0;
@@ -4113,13 +4113,13 @@ evaluate_random_forest(PG_FUNCTION_ARGS)
 	Datum		result_datums[4];
 	ArrayType  *result_array;
 	int32		model_id;
-	RFModel    *model = NULL;
+	NDB_DECLARE(RFModel *, model);
 	double		accuracy = 0.0;
 	double		error_rate = 0.0;
 	double		gini = 0.0;
 	int			n_classes = 0;
-	bytea	   *payload = NULL;
-	Jsonb	   *metrics = NULL;
+	NDB_DECLARE(bytea *, payload);
+	NDB_DECLARE(Jsonb *, metrics);
 
 	if (PG_NARGS() < 1 || PG_ARGISNULL(0))
 		ereport(ERROR,
@@ -4359,7 +4359,7 @@ rf_predict_batch(const RFModel * model,
 	int			fp = 0;
 	int			fn = 0;
 	int			n_classes = model->n_classes;
-	double	   *vote_histogram = NULL;
+	NDB_DECLARE(double *, vote_histogram);
 	int			vote_classes = n_classes;
 
 	if (model == NULL || features == NULL || labels == NULL || n_samples <= 0)
@@ -4570,9 +4570,9 @@ evaluate_random_forest_by_model_id(PG_FUNCTION_ARGS)
 	text	   *table_name;
 	text	   *feature_col;
 	text	   *label_col;
-	char	   *tbl_str = NULL;
-	char	   *feat_str = NULL;
-	char	   *targ_str = NULL;
+	NDB_DECLARE(char *, tbl_str);
+	NDB_DECLARE(char *, feat_str);
+	NDB_DECLARE(char *, targ_str);
 	int			ret;
 	int			nvec = 0;
 	int			i;
@@ -4590,10 +4590,10 @@ evaluate_random_forest_by_model_id(PG_FUNCTION_ARGS)
 	MemoryContext oldcontext;
 	NDB_DECLARE (NdbSpiSession *, eval_spi_session);
 	StringInfoData query = {0};
-	RFModel    *model = NULL;
-	Jsonb	   *result_jsonb = NULL;
-	bytea	   *gpu_payload = NULL;
-	Jsonb	   *gpu_metrics = NULL;
+	NDB_DECLARE(RFModel *, model);
+	NDB_DECLARE(Jsonb *, result_jsonb);
+	NDB_DECLARE(bytea *, gpu_payload);
+	NDB_DECLARE(Jsonb *, gpu_metrics);
 	bool		is_gpu_model = false;
 
 	elog(DEBUG1, "evaluate_random_forest_by_model_id: [DEBUG] Function entry, PG_NARGS=%d", PG_NARGS());
@@ -4739,8 +4739,8 @@ evaluate_random_forest_by_model_id(PG_FUNCTION_ARGS)
 	{
 #ifdef NDB_GPU_CUDA
 		const		NdbCudaRfModelHeader *gpu_hdr;
-		int		   *h_labels = NULL;
-		float	   *h_features = NULL;
+		NDB_DECLARE(int *, h_labels);
+		NDB_DECLARE(float *, h_features);
 		int			feat_dim = 0;
 		int			valid_rows = 0;
 		size_t		payload_size;
@@ -4970,7 +4970,7 @@ evaluate_random_forest_by_model_id(PG_FUNCTION_ARGS)
 		/* Use optimized GPU batch evaluation */
 		{
 			int			rc;
-			char	   *gpu_errstr = NULL;
+			NDB_DECLARE(char *, gpu_errstr);
 			bool		cleanup_done = false;
 			bool		h_features_freed = false;
 			bool		h_labels_freed = false;
@@ -5032,10 +5032,10 @@ evaluate_random_forest_by_model_id(PG_FUNCTION_ARGS)
 					/* Switch to old context and build JSONB directly using JSONB API */
 					MemoryContextSwitchTo(oldcontext);
 					{
-						JsonbParseState *state = NULL;
+						NDB_DECLARE(JsonbParseState *, state);
 						JsonbValue	jkey;
 						JsonbValue	jval;
-						JsonbValue *final_value = NULL;
+						NDB_DECLARE(JsonbValue *, final_value);
 						Numeric		accuracy_num, precision_num, recall_num, f1_score_num, n_samples_num;
 
 						/* Suppress shadow warnings from nested PG_TRY blocks */
@@ -5316,8 +5316,8 @@ cpu_evaluation_path:
 	elog(DEBUG1, "evaluate_random_forest_by_model_id: [DEBUG] Entering CPU evaluation path");
 	/* Use optimized batch prediction */
 	{
-		float	   *h_features = NULL;
-		double	   *h_labels = NULL;
+		NDB_DECLARE(float *, h_features);
+		NDB_DECLARE(double *, h_labels);
 		int			feat_dim = 0;
 		int			valid_rows = 0;
 
@@ -5670,10 +5670,10 @@ cpu_evaluation_path:
 		/* Switch to old context and build JSONB directly using JSONB API */
 		MemoryContextSwitchTo(oldcontext);
 		{
-			JsonbParseState *state = NULL;
+			NDB_DECLARE(JsonbParseState *, state);
 			JsonbValue	jkey;
 			JsonbValue	jval;
-			JsonbValue *final_value = NULL;
+			NDB_DECLARE(JsonbValue *, final_value);
 			Numeric		accuracy_num, precision_num, recall_num, f1_score_num, n_samples_num;
 
 			PG_TRY();
@@ -6151,7 +6151,7 @@ static RFModel *
 rf_model_deserialize(const bytea * data, uint8 *training_backend_out)
 {
 	StringInfoData buf;
-	RFModel    *model = NULL;
+	NDB_DECLARE(RFModel *, model);
 	int			i;
 	uint8		training_backend = 0;
 
@@ -6876,9 +6876,9 @@ rf_dataset_load(const char *quoted_tbl,
 static bool
 rf_load_model_from_catalog(int32 model_id, RFModel * *out)
 {
-	bytea	   *payload = NULL;
-	Jsonb	   *metrics = NULL;
-	RFModel    *decoded = NULL;
+	NDB_DECLARE(bytea *, payload);
+	NDB_DECLARE(Jsonb *, metrics);
+	NDB_DECLARE(RFModel *, decoded);
 	bool		result = false;
 
 	elog(DEBUG1, "neurondb: rf_load_model_from_catalog() called for model_id=%d, CurrentMemoryContext=%p, TopMemoryContext=%p",
@@ -7112,9 +7112,9 @@ rf_try_gpu_predict_catalog(int32 model_id,
 						   const Vector *feature_vec,
 						   double *result_out)
 {
-	bytea	   *payload = NULL;
-	Jsonb	   *metrics = NULL;
-	char	   *gpu_err = NULL;
+	NDB_DECLARE(bytea *, payload);
+	NDB_DECLARE(Jsonb *, metrics);
+	NDB_DECLARE(char *, gpu_err);
 	int			class_out = -1;
 	bool		success = false;
 

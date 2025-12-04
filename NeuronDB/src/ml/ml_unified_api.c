@@ -664,10 +664,10 @@ ml_metrics_is_gpu(Jsonb *metrics)
 static void
 neurondb_parse_hyperparams_int(Jsonb *hyperparams, const char *key, int *value, int default_value)
 {
-	JsonbIterator *it;
+	Jsonb	   *field_jsonb;
 	JsonbValue	v;
+	JsonbIterator *it;
 	int			r;
-	char	   *key_str;
 
 	if (hyperparams == NULL || key == NULL || value == NULL)
 	{
@@ -677,18 +677,33 @@ neurondb_parse_hyperparams_int(Jsonb *hyperparams, const char *key, int *value, 
 	}
 
 	*value = default_value;
-	it = JsonbIteratorInit(&hyperparams->root);
-	while ((r = JsonbIteratorNext(&it, &v, false)) != WJB_DONE)
+	
+	/* Wrap JSONB operations in PG_TRY to handle corrupted JSONB gracefully */
+	PG_TRY();
 	{
-		if (r == WJB_KEY && v.type == jbvString)
+		/* Use ndb_jsonb_object_field to get the field directly */
+		field_jsonb = ndb_jsonb_object_field(hyperparams, key);
+		if (field_jsonb != NULL)
 		{
-			key_str = pnstrdup(v.val.string.val, v.val.string.len);
-			r = JsonbIteratorNext(&it, &v, false);
-			if (strcmp(key_str, key) == 0 && v.type == jbvNumeric)
-				*value = DatumGetInt32(DirectFunctionCall1(numeric_int4, NumericGetDatum(v.val.numeric)));
-			NDB_FREE(key_str);
+			/* Extract numeric value from the JSONB field */
+			it = JsonbIteratorInit((JsonbContainer *) &field_jsonb->root);
+			while ((r = JsonbIteratorNext(&it, &v, false)) != WJB_DONE)
+			{
+				if (r == WJB_VALUE && v.type == jbvNumeric)
+				{
+					*value = DatumGetInt32(DirectFunctionCall1(numeric_int4, NumericGetDatum(v.val.numeric)));
+					break;
+				}
+			}
 		}
 	}
+	PG_CATCH();
+	{
+		FlushErrorState();
+		elog(DEBUG2, "neurondb_parse_hyperparams_int: Failed to parse hyperparameters JSONB (possibly corrupted), using default value");
+		*value = default_value;
+	}
+	PG_END_TRY();
 }
 
 /*
@@ -714,21 +729,32 @@ neurondb_parse_hyperparams_float8(Jsonb *hyperparams, const char *key, double *v
 
 	*value = default_value;
 	
-	/* Use ndb_jsonb_object_field to get the field directly */
-	field_jsonb = ndb_jsonb_object_field(hyperparams, key);
-	if (field_jsonb != NULL)
+	/* Wrap JSONB operations in PG_TRY to handle corrupted JSONB gracefully */
+	PG_TRY();
 	{
-		/* Extract numeric value from the JSONB field */
-		it = JsonbIteratorInit(&field_jsonb->root);
-		while ((r = JsonbIteratorNext(&it, &v, false)) != WJB_DONE)
+		/* Use ndb_jsonb_object_field to get the field directly */
+		field_jsonb = ndb_jsonb_object_field(hyperparams, key);
+		if (field_jsonb != NULL)
 		{
-			if (r == WJB_VALUE && v.type == jbvNumeric)
+			/* Extract numeric value from the JSONB field */
+			it = JsonbIteratorInit((JsonbContainer *) &field_jsonb->root);
+			while ((r = JsonbIteratorNext(&it, &v, false)) != WJB_DONE)
 			{
-				*value = DatumGetFloat8(DirectFunctionCall1(numeric_float8, NumericGetDatum(v.val.numeric)));
-				break;
+				if (r == WJB_VALUE && v.type == jbvNumeric)
+				{
+					*value = DatumGetFloat8(DirectFunctionCall1(numeric_float8, NumericGetDatum(v.val.numeric)));
+					break;
+				}
 			}
 		}
 	}
+	PG_CATCH();
+	{
+		FlushErrorState();
+		elog(DEBUG2, "neurondb_parse_hyperparams_float8: Failed to parse hyperparameters JSONB (possibly corrupted), using default value");
+		*value = default_value;
+	}
+	PG_END_TRY();
 }
 
 /*
@@ -1259,7 +1285,7 @@ neurondb_train(PG_FUNCTION_ARGS)
 	char	   *algorithm;
 	char	   *table_name;
 	char	   *target_column;
-	char	   *default_project_name = NULL;  /* Pre-allocated "default" string */
+	NDB_DECLARE(char *, default_project_name);  /* Pre-allocated "default" string */
 	MemoryContext callcontext;
 	MemoryContext oldcontext;
 	NDB_DECLARE (NdbSpiSession *, spi_session);
@@ -1393,8 +1419,8 @@ neurondb_train(PG_FUNCTION_ARGS)
 	if (feature_columns_array != NULL)
 	{
 		int			nelems;
-		Datum	   *elem_values = NULL;
-		bool	   *elem_nulls = NULL;
+		NDB_DECLARE(Datum *, elem_values);
+		NDB_DECLARE(bool *, elem_nulls);
 		int			i;
 
 		/* Validate array */

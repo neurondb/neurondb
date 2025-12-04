@@ -638,9 +638,9 @@ svm_try_gpu_predict_catalog(int32 model_id,
 							const Vector *feature_vec,
 							double *result_out)
 {
-	bytea	   *payload = NULL;
-	Jsonb	   *metrics = NULL;
-	char	   *gpu_err = NULL;
+	NDB_DECLARE(bytea *, payload);
+	NDB_DECLARE(Jsonb *, metrics);
+	NDB_DECLARE(char *, gpu_err);
 	double		prediction = 0.0;
 	bool		success = false;
 
@@ -692,8 +692,8 @@ cleanup:
 static bool
 svm_load_model_from_catalog(int32 model_id, SVMModel * *out)
 {
-	bytea	   *payload = NULL;
-	Jsonb	   *metrics = NULL;
+	NDB_DECLARE(bytea *, payload);
+	NDB_DECLARE(Jsonb *, metrics);
 	SVMModel   *decoded;
 	MemoryContext oldcontext;
 
@@ -759,9 +759,9 @@ train_svm_classifier(PG_FUNCTION_ARGS)
 	text	   *label_col;
 	double		c_param;
 	int			max_iters;
-	char	   *tbl_str = NULL;
-	char	   *feat_str = NULL;
-	char	   *label_str = NULL;
+	NDB_DECLARE(char *, tbl_str);
+	NDB_DECLARE(char *, feat_str);
+	NDB_DECLARE(char *, label_str);
 	MemoryContext oldcontext;
 	int			nvec = 0;
 	int			dim = 0;
@@ -772,12 +772,12 @@ train_svm_classifier(PG_FUNCTION_ARGS)
 	const char *quoted_feat;
 	const char *quoted_label;
 	MLGpuTrainResult gpu_result;
-	char	   *gpu_err = NULL;
-	Jsonb	   *gpu_hyperparams = NULL;
+	NDB_DECLARE(char *, gpu_err);
+	NDB_DECLARE(Jsonb *, gpu_hyperparams);
 	int32		model_id = 0;
 	SVMModel	model;
-	double	   *alphas = NULL;
-	double	   *errors = NULL;
+	NDB_DECLARE(double *, alphas);
+	NDB_DECLARE(double *, errors);
 
 	if (PG_NARGS() < 3 || PG_NARGS() > 5)
 	{
@@ -959,10 +959,10 @@ train_svm_classifier(PG_FUNCTION_ARGS)
 	{
 		/* Create hyperparameters JSONB using JSONB API */
 		{
-			JsonbParseState *state = NULL;
+			NDB_DECLARE(JsonbParseState *, state);
 			JsonbValue	jkey;
 			JsonbValue	jval;
-			JsonbValue *final_value = NULL;
+			NDB_DECLARE(JsonbValue *, final_value);
 			Numeric		C_num, max_iters_num;
 
 			PG_TRY();
@@ -1032,8 +1032,8 @@ train_svm_classifier(PG_FUNCTION_ARGS)
 #ifdef NDB_GPU_CUDA
 			MLCatalogModelSpec spec;
 			SVMModel		svm_model;
-			bytea	   *unified_model_data = NULL;
-			Jsonb	   *updated_metrics = NULL;
+			NDB_DECLARE(bytea *, unified_model_data);
+			NDB_DECLARE(Jsonb *, updated_metrics);
 			char	   *base;
 			NdbCudaSvmModelHeader *hdr;
 			float	   *sv_src_float;
@@ -1093,10 +1093,10 @@ train_svm_classifier(PG_FUNCTION_ARGS)
 			{
 				/* Build metrics JSON using JSONB API */
 				{
-					JsonbParseState *state = NULL;
+					NDB_DECLARE(JsonbParseState *, state);
 					JsonbValue	jkey;
 					JsonbValue	jval;
-					JsonbValue *final_value = NULL;
+					NDB_DECLARE(JsonbValue *, final_value);
 					Numeric		n_features_num, n_samples_num, n_support_vectors_num, C_num, max_iters_num;
 
 					PG_TRY();
@@ -1242,10 +1242,10 @@ train_svm_classifier(PG_FUNCTION_ARGS)
 			{
 				/* Build metrics JSON using JSONB API */
 				{
-					JsonbParseState *state = NULL;
+					NDB_DECLARE(JsonbParseState *, state);
 					JsonbValue	jkey;
 					JsonbValue	jval;
-					JsonbValue *final_value = NULL;
+					NDB_DECLARE(JsonbValue *, final_value);
 					Numeric		n_features_num, n_samples_num, n_support_vectors_num, C_num, max_iters_num;
 
 					PG_TRY();
@@ -1402,10 +1402,10 @@ train_svm_classifier(PG_FUNCTION_ARGS)
 		int			examine_all = 1;
 		double		eps = 1e-3;
 		int			sv_count = 0;
-		bytea	   *serialized = NULL;
+		NDB_DECLARE(bytea *, serialized);
 		MLCatalogModelSpec spec;
-		Jsonb	   *params_jsonb = NULL;
-		Jsonb	   *metrics_jsonb = NULL;
+		NDB_DECLARE(Jsonb *, params_jsonb);
+		NDB_DECLARE(Jsonb *, metrics_jsonb);
 		int			correct = 0;
 		double		accuracy = 0.0;
 
@@ -1906,10 +1906,10 @@ train_svm_classifier(PG_FUNCTION_ARGS)
 
 		/* Build hyperparameters JSON using JSONB API */
 		{
-			JsonbParseState *state = NULL;
+			NDB_DECLARE(JsonbParseState *, state);
 			JsonbValue	jkey;
 			JsonbValue	jval;
-			JsonbValue *final_value = NULL;
+			NDB_DECLARE(JsonbValue *, final_value);
 			Numeric		C_num, max_iters_num;
 
 			PG_TRY();
@@ -1993,10 +1993,10 @@ train_svm_classifier(PG_FUNCTION_ARGS)
 
 		/* Build metrics JSON using JSONB API */
 		{
-			JsonbParseState *state = NULL;
+			NDB_DECLARE(JsonbParseState *, state);
 			JsonbValue	jkey;
 			JsonbValue	jval;
-			JsonbValue *final_value = NULL;
+			NDB_DECLARE(JsonbValue *, final_value);
 			Numeric		n_samples_num, n_features_num, n_support_vectors_num, C_num, max_iters_num, actual_iters_num, accuracy_num, bias_num;
 
 			PG_TRY();
@@ -2197,7 +2197,7 @@ predict_svm_model_id(PG_FUNCTION_ARGS)
 {
 	int32		model_id;
 	Vector	   *features;
-	SVMModel   *model = NULL;
+	NDB_DECLARE(SVMModel *, model);
 	double		prediction;
 	int			i;
 
@@ -2233,8 +2233,8 @@ predict_svm_model_id(PG_FUNCTION_ARGS)
 
 	/* Check if model is GPU-only before attempting CPU deserialization */
 	{
-		bytea	   *payload = NULL;
-		Jsonb	   *metrics = NULL;
+		NDB_DECLARE(bytea *, payload);
+		NDB_DECLARE(Jsonb *, metrics);
 		bool		is_gpu_only = false;
 
 		if (ml_catalog_fetch_model_payload(model_id, &payload, NULL, &metrics))
@@ -2465,15 +2465,15 @@ evaluate_svm_by_model_id(PG_FUNCTION_ARGS)
 	int			fn = 0;
 	MemoryContext oldcontext;
 	StringInfoData query;
-	SVMModel   *model = NULL;
+	NDB_DECLARE(SVMModel *, model);
 	StringInfoData jsonbuf;
-	Jsonb	   *result_jsonb = NULL;
-	bytea	   *gpu_payload = NULL;
-	Jsonb	   *gpu_metrics = NULL;
+	NDB_DECLARE(Jsonb *, result_jsonb);
+	NDB_DECLARE(bytea *, gpu_payload);
+	NDB_DECLARE(Jsonb *, gpu_metrics);
 	bool		is_gpu_model = false;
 #ifdef NDB_GPU_CUDA
-	int		   *h_labels = NULL;
-	float	   *h_features = NULL;
+	NDB_DECLARE(int *, h_labels);
+	NDB_DECLARE(float *, h_features);
 #endif
 	int			valid_rows = 0;
 	NDB_DECLARE (NdbSpiSession *, eval_spi_session);
@@ -2829,7 +2829,7 @@ evaluate_svm_by_model_id(PG_FUNCTION_ARGS)
 		/* Use optimized GPU batch evaluation */
 		{
 			int			rc;
-			char	   *gpu_errstr = NULL;
+			NDB_DECLARE(char *, gpu_errstr);
 
 			/* Defensive checks before GPU call */
 			if (h_features == NULL || h_labels == NULL || valid_rows <= 0 || feat_dim <= 0)
@@ -2867,10 +2867,10 @@ evaluate_svm_by_model_id(PG_FUNCTION_ARGS)
 					/* Switch to old context and build JSONB directly using JSONB API */
 					MemoryContextSwitchTo(oldcontext);
 					{
-						JsonbParseState *state = NULL;
+						NDB_DECLARE(JsonbParseState *, state);
 						JsonbValue	jkey;
 						JsonbValue	jval;
-						JsonbValue *final_value = NULL;
+						NDB_DECLARE(JsonbValue *, final_value);
 						Numeric		accuracy_num, precision_num, recall_num, f1_score_num, n_samples_num;
 
 						/* Suppress shadow warnings from nested PG_TRY blocks */
@@ -3013,8 +3013,8 @@ cpu_evaluation_path:
 	/* CPU evaluation path */
 	/* Use optimized batch prediction */
 	{
-		float	   *cpu_h_features = NULL;
-		double	   *cpu_h_labels = NULL;
+		NDB_DECLARE(float *, cpu_h_features);
+		NDB_DECLARE(double *, cpu_h_labels);
 		int			cpu_valid_rows = 0;
 
 		/* Determine feature dimension from model */
@@ -3203,7 +3203,7 @@ cpu_evaluation_path:
 				double		prediction = 0.0;
 				double		actual = cpu_h_labels[i];
 				int			rc;
-				char	   *gpu_err = NULL;
+				NDB_DECLARE(char *, gpu_err);
 				bool		prediction_made = false;
 
 				rc = ndb_gpu_svm_predict_double(gpu_payload,
@@ -3418,10 +3418,10 @@ cpu_evaluation_path:
 		/* Switch to old context and build JSONB directly using JSONB API */
 		MemoryContextSwitchTo(oldcontext);
 		{
-			JsonbParseState *state = NULL;
+			NDB_DECLARE(JsonbParseState *, state);
 			JsonbValue	jkey;
 			JsonbValue	jval;
-			JsonbValue *final_value = NULL;
+			NDB_DECLARE(JsonbValue *, final_value);
 			Numeric		accuracy_num, precision_num, recall_num, f1_score_num, n_samples_num;
 
 			PG_TRY();
@@ -3668,7 +3668,7 @@ svm_gpu_serialize(const MLGpuModel * model,
 {
 	const		SVMGpuModelState *state;
 	SVMModel	svm_model;
-	bytea	   *unified_payload = NULL;
+	NDB_DECLARE(bytea *, unified_payload);
 	char	   *base;
 	NdbCudaSvmModelHeader *hdr;
 	float	   *sv_src_float;

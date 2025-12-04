@@ -471,9 +471,9 @@ monitor_model_performance(PG_FUNCTION_ARGS)
 
 		/* Estimate accuracy from model metrics if available */
 		{
-			bytea	   *model_data = NULL;
-			Jsonb	   *parameters = NULL;
-			Jsonb	   *metrics = NULL;
+			NDB_DECLARE(bytea *, model_data);
+			NDB_DECLARE(Jsonb *, parameters);
+			NDB_DECLARE(Jsonb *, metrics);
 
 			if (ml_catalog_fetch_model_payload(model_id, &model_data,
 											   &parameters, &metrics))
@@ -706,9 +706,9 @@ create_model_version(PG_FUNCTION_ARGS)
 
 	/* Create version by copying model with new version tag */
 	{
-		bytea	   *model_data = NULL;
-		Jsonb	   *parameters = NULL;
-		Jsonb	   *metrics = NULL;
+		NDB_DECLARE(bytea *, model_data);
+		NDB_DECLARE(Jsonb *, parameters);
+		NDB_DECLARE(Jsonb *, metrics);
 
 		/* Fetch current model */
 		if (!ml_catalog_fetch_model_payload(model_id, &model_data,

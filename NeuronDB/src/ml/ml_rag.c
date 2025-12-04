@@ -35,6 +35,8 @@
 #include "neurondb_validation.h"
 #include "neurondb_safe_memory.h"
 #include "neurondb_macros.h"
+#include "neurondb_llm.h"
+#include "neurondb_gpu.h"
 
 PG_FUNCTION_INFO_V1(neurondb_chunk_text);
 PG_FUNCTION_INFO_V1(neurondb_embed_text);
@@ -164,7 +166,7 @@ neurondb_chunk_text(PG_FUNCTION_ARGS)
 
 /*
  * neurondb_embed_text
- *	  Generate vector embeddings for text with mock GPU support.
+ *	  Generate vector embeddings for text using actual embedding API or GPU implementation.
  */
 Datum
 neurondb_embed_text(PG_FUNCTION_ARGS)
@@ -175,12 +177,11 @@ neurondb_embed_text(PG_FUNCTION_ARGS)
 
 	char	   *model_name;
 	char	   *input_str;
-	int			input_len;
-	const int	embedding_dim = 384;
-	float	   *embedding_data;
-	Vector	   *result;
-	uint32		hash = 5381;
-	int			i;
+	NdbLLMConfig cfg;
+	NdbLLMCallOptions call_opts;
+	NDB_DECLARE(float *, vec_data);
+	NDB_DECLARE(Vector *, result);
+	int			dim = 0;
 
 	if (PG_NARGS() < 2 || PG_NARGS() > 3)
 		ereport(ERROR,
@@ -194,38 +195,52 @@ neurondb_embed_text(PG_FUNCTION_ARGS)
 
 	model_name = text_to_cstring(model_text);
 	input_str = text_to_cstring(input_text);
-	input_len = strlen(input_str);
 
 	elog(DEBUG1,
 		 "neurondb_embed_text: model='%s', use_gpu=%d",
 		 model_name,
 		 use_gpu);
 
-	embedding_data = (float *) palloc(sizeof(float) * embedding_dim);
+	/* Setup LLM config for embedding */
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.provider = (neurondb_llm_provider != NULL) ? neurondb_llm_provider : "huggingface";
+	cfg.endpoint = (neurondb_llm_endpoint != NULL) ?
+		neurondb_llm_endpoint :
+		"https://api-inference.huggingface.co";
+	cfg.model = model_name != NULL ? model_name :
+		(neurondb_llm_model != NULL ?
+		 neurondb_llm_model :
+		 "sentence-transformers/all-MiniLM-L6-v2");
+	cfg.api_key = neurondb_llm_api_key;
+	cfg.timeout_ms = neurondb_llm_timeout_ms;
+	cfg.prefer_gpu = use_gpu && NDB_SHOULD_TRY_GPU();
+	cfg.require_gpu = false;
 
-	/*
-	 * Mock: create a deterministic pseudo-random vector using djb2-like hash
-	 * for plausible-appearing results (not real embedding).
-	 */
-	for (i = 0; i < input_len; i++)
-		hash = ((hash << 5) + hash) ^ (unsigned char) input_str[i];
+	call_opts.task = "embed";
+	call_opts.prefer_gpu = cfg.prefer_gpu;
+	call_opts.require_gpu = cfg.require_gpu;
+	call_opts.fail_open = neurondb_llm_fail_open;
 
-	for (i = 0; i < embedding_dim; i++)
+	/* Call actual embedding API */
+	if (ndb_llm_route_embed(&cfg, &call_opts, input_str, &vec_data, &dim) != 0 ||
+		vec_data == NULL || dim <= 0)
 	{
-		hash = ((hash << 5) + hash)
-			^ (unsigned char) (model_name[i % strlen(model_name)]);
-		embedding_data[i] = ((float) ((hash % 2000) - 1000)) / 1000.0f;
+		NDB_FREE(model_name);
+		NDB_FREE(input_str);
+		ereport(ERROR,
+				(errcode(ERRCODE_EXTERNAL_ROUTINE_INVOCATION_EXCEPTION),
+				 errmsg("neurondb_embed_text: embedding generation failed"),
+				 errdetail("Real model implementation required. Embedding generation failed for model '%s'", model_name)));
 	}
 
-	result = (Vector *) palloc(
-							   VARHDRSZ + sizeof(int16) * 2 + sizeof(float) * embedding_dim);
-	SET_VARSIZE(result,
-				VARHDRSZ + sizeof(int16) * 2 + sizeof(float) * embedding_dim);
-	result->dim = embedding_dim;
+	/* Create result vector */
+	result = (Vector *) palloc(VARHDRSZ + sizeof(int16) * 2 + dim * sizeof(float));
+	SET_VARSIZE(result, VARHDRSZ + sizeof(int16) * 2 + dim * sizeof(float));
+	result->dim = dim;
 	result->unused = 0;
-	memcpy(result->data, embedding_data, sizeof(float) * embedding_dim);
+	memcpy(result->data, vec_data, dim * sizeof(float));
 
-	NDB_FREE(embedding_data);
+	NDB_FREE(vec_data);
 	NDB_FREE(model_name);
 	NDB_FREE(input_str);
 
@@ -289,6 +304,7 @@ simple_cosine(const char *query, const char *doc)
 			   *saveptr_q;
 	char	   *tok_d,
 			   *saveptr_d;
+	size_t		doc_len;
 
 	for (int i = 0; doc_lc[i]; i++)
 		doc_lc[i] = tolower(doc_lc[i]);
@@ -310,7 +326,12 @@ simple_cosine(const char *query, const char *doc)
 			}
 		}
 		/* important: re-initialize for next q token */
-		strcpy(doc_lc, doc);
+		/* doc_lc was allocated with pstrdup(doc) so it has enough space */
+		/* Restore original doc string (strtok_r modifies the string) */
+		doc_len = strlen(doc);
+		/* pstrdup allocates strlen(doc) + 1, so we have enough space */
+		strncpy(doc_lc, doc, doc_len + 1);
+		doc_lc[doc_len] = '\0';
 		for (int i = 0; doc_lc[i]; i++)
 			doc_lc[i] = tolower(doc_lc[i]);
 	}
@@ -527,8 +548,8 @@ neurondb_transform_data(PG_FUNCTION_ARGS)
 				nelems,
 			   *dims;
 	Oid			element_type;
-	Datum	   *elem_values = NULL;
-	bool	   *elem_nulls = NULL;
+	NDB_DECLARE(Datum *, elem_values);
+	NDB_DECLARE(bool *, elem_nulls);
 	float8	   *transformed_data;
 	Datum	   *result_datums;
 	ArrayType  *result_array;

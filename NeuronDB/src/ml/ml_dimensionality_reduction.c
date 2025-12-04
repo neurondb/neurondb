@@ -100,6 +100,34 @@ reduce_tsne(PG_FUNCTION_ARGS)
 
 		vectors = neurondb_fetch_vectors_from_table(
 													tbl_str, vec_col_str, &nvec, &dim);
+		if (vectors == NULL || nvec == 0)
+		{
+			NDB_FREE(tbl_str);
+			NDB_FREE(vec_col_str);
+			ereport(ERROR,
+					(errcode(ERRCODE_DATA_EXCEPTION),
+					 errmsg("No vectors found")));
+		}
+
+		if (dim <= 0)
+		{
+			NDB_FREE(tbl_str);
+			NDB_FREE(vec_col_str);
+			/* Free vectors array and rows if vectors is not NULL */
+			if (vectors != NULL)
+			{
+				for (int i = 0; i < nvec; i++)
+				{
+					if (vectors[i] != NULL)
+						NDB_FREE(vectors[i]);
+				}
+				NDB_FREE(vectors);
+			}
+			ereport(ERROR,
+					(errcode(ERRCODE_DATA_EXCEPTION),
+					 errmsg("Invalid vector dimension: %d", dim)));
+		}
+
 		if (nvec < 2)
 			ereport(ERROR,
 					(errcode(ERRCODE_DATA_EXCEPTION),
@@ -123,7 +151,7 @@ reduce_tsne(PG_FUNCTION_ARGS)
 			double	  **distances_sq = NULL;
 			double	  **P = NULL;	/* High-dimensional probabilities */
 			double	  **Q = NULL;	/* Low-dimensional probabilities */
-			double	   *sum_P = NULL;
+			NDB_DECLARE(double *, sum_P);
 			int			iter;
 			int			k;
 
@@ -446,6 +474,34 @@ reduce_umap(PG_FUNCTION_ARGS)
 
 		vectors = neurondb_fetch_vectors_from_table(
 													tbl_str, vec_col_str, &nvec, &dim);
+		if (vectors == NULL || nvec == 0)
+		{
+			NDB_FREE(tbl_str);
+			NDB_FREE(vec_col_str);
+			ereport(ERROR,
+					(errcode(ERRCODE_DATA_EXCEPTION),
+					 errmsg("No vectors found")));
+		}
+
+		if (dim <= 0)
+		{
+			NDB_FREE(tbl_str);
+			NDB_FREE(vec_col_str);
+			/* Free vectors array and rows if vectors is not NULL */
+			if (vectors != NULL)
+			{
+				for (int i = 0; i < nvec; i++)
+				{
+					if (vectors[i] != NULL)
+						NDB_FREE(vectors[i]);
+				}
+				NDB_FREE(vectors);
+			}
+			ereport(ERROR,
+					(errcode(ERRCODE_DATA_EXCEPTION),
+					 errmsg("Invalid vector dimension: %d", dim)));
+		}
+
 		if (nvec < 2)
 			ereport(ERROR,
 					(errcode(ERRCODE_DATA_EXCEPTION),
@@ -507,8 +563,10 @@ reduce_umap(PG_FUNCTION_ARGS)
 			NDB_ALLOC(neighbors, int *, nvec);
 			for (i = 0; i < nvec; i++)
 			{
-				int		   *neighbor_indices = (int *) palloc(sizeof(int) * n_neighbors);
-				double	   *neighbor_dists = (double *) palloc(sizeof(double) * n_neighbors);
+				NDB_DECLARE(int *, neighbor_indices);
+				NDB_DECLARE(double *, neighbor_dists);
+				NDB_ALLOC(neighbor_indices, int, n_neighbors);
+				NDB_ALLOC(neighbor_dists, double, n_neighbors);
 				int			found = 0;
 
 				/* Initialize with first n_neighbors */
@@ -572,7 +630,8 @@ reduce_umap(PG_FUNCTION_ARGS)
 			}
 
 			/* Compute high-dimensional probabilities (fuzzy simplicial set) */
-			high_prob = (double **) palloc(sizeof(double *) * nvec);
+			NDB_DECLARE(double **, high_prob);
+			NDB_ALLOC(high_prob, double *, nvec);
 			for (i = 0; i < nvec; i++)
 			{
 				double		sigma = 0.0;
@@ -614,7 +673,7 @@ reduce_umap(PG_FUNCTION_ARGS)
 					}
 				}
 
-				high_prob[i] = (double *) palloc0(sizeof(double) * nvec);
+				NDB_ALLOC(high_prob[i], double, nvec);
 				for (j = 0; j < n_neighbors; j++)
 				{
 					int			neighbor_idx = neighbors[i][j];
@@ -643,9 +702,10 @@ reduce_umap(PG_FUNCTION_ARGS)
 				double	  **gradient = NULL;
 				int			d;
 
-				gradient = (double **) palloc(sizeof(double *) * nvec);
+				NDB_DECLARE(double **, gradient);
+				NDB_ALLOC(gradient, double *, nvec);
 				for (i = 0; i < nvec; i++)
-					gradient[i] = (double *) palloc0(sizeof(double) * n_components);
+					NDB_ALLOC(gradient[i], double, n_components);
 
 				/* Compute gradient */
 				for (i = 0; i < nvec; i++)
@@ -959,7 +1019,8 @@ autoencoder_init(int n_inputs,
 				k;
 	int			prev_size;
 	int			total_layers = n_encoder_layers + n_decoder_layers;
-	Autoencoder *ae = (Autoencoder *) palloc0(sizeof(Autoencoder));
+	NDB_DECLARE(Autoencoder *, ae);
+	NDB_ALLOC(ae, Autoencoder, 1);
 
 	ae->n_inputs = n_inputs;
 	ae->n_outputs = n_inputs;	/* Reconstruction target */
@@ -968,7 +1029,7 @@ autoencoder_init(int n_inputs,
 	ae->activation_func = pstrdup(activation);
 	ae->learning_rate = learning_rate;
 
-	ae->layers = (AutoencoderLayer *) palloc(ae->n_layers * sizeof(AutoencoderLayer));
+	NDB_ALLOC(ae->layers, AutoencoderLayer, ae->n_layers);
 
 	/* Initialize encoder layers */
 	prev_size = n_inputs;
@@ -978,13 +1039,13 @@ autoencoder_init(int n_inputs,
 
 		layer->n_inputs = prev_size;
 		layer->n_outputs = encoder_layers[i];
-		layer->weights = (float **) palloc(layer->n_outputs * sizeof(float *));
-		layer->activations = (float *) palloc(layer->n_outputs * sizeof(float));
-		layer->deltas = (float *) palloc(layer->n_outputs * sizeof(float));
+		NDB_ALLOC(layer->weights, float *, layer->n_outputs);
+		NDB_ALLOC(layer->activations, float, layer->n_outputs);
+		NDB_ALLOC(layer->deltas, float, layer->n_outputs);
 
 		for (j = 0; j < layer->n_outputs; j++)
 		{
-			layer->weights[j] = (float *) palloc((layer->n_inputs + 1) * sizeof(float));
+			NDB_ALLOC(layer->weights[j], float, layer->n_inputs + 1);
 			/* Initialize weights randomly */
 			for (k = 0; k <= layer->n_inputs; k++)
 				layer->weights[j][k] = ((float) rand() / (float) RAND_MAX) * 0.1f - 0.05f;
@@ -1001,13 +1062,13 @@ autoencoder_init(int n_inputs,
 
 		bottleneck->n_inputs = prev_size;
 		bottleneck->n_outputs = bottleneck_dim;
-		bottleneck->weights = (float **) palloc(bottleneck->n_outputs * sizeof(float *));
-		bottleneck->activations = (float *) palloc(bottleneck->n_outputs * sizeof(float));
-		bottleneck->deltas = (float *) palloc(bottleneck->n_outputs * sizeof(float));
+		NDB_ALLOC(bottleneck->weights, float *, bottleneck->n_outputs);
+		NDB_ALLOC(bottleneck->activations, float, bottleneck->n_outputs);
+		NDB_ALLOC(bottleneck->deltas, float, bottleneck->n_outputs);
 
 		for (j = 0; j < bottleneck->n_outputs; j++)
 		{
-			bottleneck->weights[j] = (float *) palloc((bottleneck->n_inputs + 1) * sizeof(float));
+			NDB_ALLOC(bottleneck->weights[j], float, bottleneck->n_inputs + 1);
 			for (k = 0; k <= bottleneck->n_inputs; k++)
 				bottleneck->weights[j][k] = ((float) rand() / (float) RAND_MAX) * 0.1f - 0.05f;
 		}
@@ -1028,13 +1089,13 @@ autoencoder_init(int n_inputs,
 
 		layer->n_inputs = prev_size;
 		layer->n_outputs = decoder_idx < n_decoder_layers ? decoder_layers[decoder_idx] : n_inputs;
-		layer->weights = (float **) palloc(layer->n_outputs * sizeof(float *));
-		layer->activations = (float *) palloc(layer->n_outputs * sizeof(float));
-		layer->deltas = (float *) palloc(layer->n_outputs * sizeof(float));
+		NDB_ALLOC(layer->weights, float *, layer->n_outputs);
+		NDB_ALLOC(layer->activations, float, layer->n_outputs);
+		NDB_ALLOC(layer->deltas, float, layer->n_outputs);
 
 		for (j = 0; j < layer->n_outputs; j++)
 		{
-			layer->weights[j] = (float *) palloc((layer->n_inputs + 1) * sizeof(float));
+			NDB_ALLOC(layer->weights[j], float, layer->n_inputs + 1);
 			for (k = 0; k <= layer->n_inputs; k++)
 				layer->weights[j][k] = ((float) rand() / (float) RAND_MAX) * 0.1f - 0.05f;
 		}
@@ -1126,9 +1187,9 @@ train_autoencoder(PG_FUNCTION_ARGS)
 	float	  **vectors = NULL;
 	int			nvec,
 				dim;
-	Autoencoder *ae = NULL;
-	int		   *encoder_layers = NULL;
-	int		   *decoder_layers = NULL;
+	NDB_DECLARE(Autoencoder *, ae);
+	NDB_DECLARE(int *, encoder_layers);
+	NDB_DECLARE(int *, decoder_layers);
 	int			n_encoder_layers = 0;
 	int			n_decoder_layers = 0;
 	int			epoch,
@@ -1136,13 +1197,13 @@ train_autoencoder(PG_FUNCTION_ARGS)
 	float		loss;
 	int			i,
 				j;
-	bytea	   *serialized = NULL;
+	NDB_DECLARE(bytea *, serialized);
 	MLCatalogModelSpec spec;
 	int32		model_id = 0;
 	StringInfoData metricsbuf;
 	StringInfoData paramsbuf;
-	Jsonb	   *params_jsonb = NULL;
-	Jsonb	   *metrics_jsonb = NULL;
+	NDB_DECLARE(Jsonb *, params_jsonb);
+	NDB_DECLARE(Jsonb *, metrics_jsonb);
 
 	/* Validate inputs */
 	if (bottleneck_dim <= 0 || bottleneck_dim > 10000)
@@ -1171,7 +1232,7 @@ train_autoencoder(PG_FUNCTION_ARGS)
 	if (encoder_layers_array != NULL)
 	{
 		n_encoder_layers = ArrayGetNItems(ARR_NDIM(encoder_layers_array), ARR_DIMS(encoder_layers_array));
-		encoder_layers = (int *) palloc(n_encoder_layers * sizeof(int));
+		NDB_ALLOC(encoder_layers, int, n_encoder_layers);
 		for (i = 0; i < n_encoder_layers; i++)
 		{
 			bool		isnull;
@@ -1192,14 +1253,14 @@ train_autoencoder(PG_FUNCTION_ARGS)
 	{
 		/* Default: single encoder layer to bottleneck */
 		n_encoder_layers = 1;
-		encoder_layers = (int *) palloc(sizeof(int));
+		NDB_ALLOC(encoder_layers, int, 1);
 		encoder_layers[0] = bottleneck_dim;
 	}
 
 	if (decoder_layers_array != NULL)
 	{
 		n_decoder_layers = ArrayGetNItems(ARR_NDIM(decoder_layers_array), ARR_DIMS(decoder_layers_array));
-		decoder_layers = (int *) palloc(n_decoder_layers * sizeof(int));
+		NDB_ALLOC(decoder_layers, int, n_decoder_layers);
 		for (i = 0; i < n_decoder_layers; i++)
 		{
 			bool		isnull;
@@ -1225,6 +1286,34 @@ train_autoencoder(PG_FUNCTION_ARGS)
 
 	/* Fetch vectors from table */
 	vectors = neurondb_fetch_vectors_from_table(table_name_str, vector_col_str, &nvec, &dim);
+	if (vectors == NULL || nvec == 0)
+	{
+		NDB_FREE(table_name_str);
+		NDB_FREE(vector_col_str);
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("No vectors found")));
+	}
+
+	if (dim <= 0)
+	{
+		NDB_FREE(table_name_str);
+		NDB_FREE(vector_col_str);
+		/* Free vectors array and rows if vectors is not NULL */
+		if (vectors != NULL)
+		{
+			for (int i = 0; i < nvec; i++)
+			{
+				if (vectors[i] != NULL)
+					NDB_FREE(vectors[i]);
+			}
+			NDB_FREE(vectors);
+		}
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("Invalid vector dimension: %d", dim)));
+	}
+
 	if (nvec < 1)
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),
@@ -1253,7 +1342,8 @@ train_autoencoder(PG_FUNCTION_ARGS)
 
 		for (sample = 0; sample < nvec; sample++)
 		{
-			float	   *reconstructed = (float *) palloc(dim * sizeof(float));
+			NDB_DECLARE(float *, reconstructed);
+			NDB_ALLOC(reconstructed, float, dim);
 			float	   *input = vectors[sample];
 
 			/* Forward pass */

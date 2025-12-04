@@ -128,7 +128,7 @@ neurondb_text_classify(PG_FUNCTION_ARGS)
 		char	   *input_str;
 		char	   *tokens[MAX_TOKENS];
 		int			num_tokens = 0;
-		ClassifyResult *results = NULL;
+		NDB_DECLARE(ClassifyResult *, results);
 		int			n_categories = 0;
 		int			ret;
 		char		qry[256];
@@ -371,7 +371,7 @@ neurondb_sentiment_analysis(PG_FUNCTION_ARGS)
 	{
 		MemoryContext oldcontext;
 		char	   *input_str;
-		char	   *model_name = NULL;
+		NDB_DECLARE(char *, model_name);
 		char	   *tokens[MAX_TOKENS];
 		int			num_tokens = 0;
 		int			pos = 0,
@@ -1016,8 +1016,8 @@ text_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 	int			feature_dim = 128;
 	char		task_type[32] = "classification";
 	int			nvec = 0;
-	bytea	   *model_data = NULL;
-	Jsonb	   *metrics = NULL;
+	NDB_DECLARE(bytea *, model_data);
+	NDB_DECLARE(Jsonb *, metrics);
 	StringInfoData metrics_json;
 	JsonbIterator *it;
 	JsonbValue	v;

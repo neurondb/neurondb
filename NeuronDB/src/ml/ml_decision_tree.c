@@ -945,9 +945,9 @@ dt_metadata_is_gpu(Jsonb * metadata)
 static bool
 dt_try_gpu_predict_catalog(int32 model_id, const Vector *feature_vec, double *result_out)
 {
-	bytea	   *payload = NULL;
-	Jsonb	   *metrics = NULL;
-	char	   *gpu_err = NULL;
+	NDB_DECLARE(bytea *, payload);
+	NDB_DECLARE(Jsonb *, metrics);
+	NDB_DECLARE(char *, gpu_err);
 	double		prediction = 0.0;
 	bool		success = false;
 
@@ -997,8 +997,8 @@ cleanup:
 static bool
 dt_load_model_from_catalog(int32 model_id, DTModel * *out)
 {
-	bytea	   *payload = NULL;
-	Jsonb	   *metrics = NULL;
+	NDB_DECLARE(bytea *, payload);
+	NDB_DECLARE(Jsonb *, metrics);
 
 	if (out == NULL)
 		return false;
@@ -1051,18 +1051,18 @@ train_decision_tree_classifier(PG_FUNCTION_ARGS)
 	const char *quoted_feat;
 	const char *quoted_label;
 	MLGpuTrainResult gpu_result;
-	char	   *gpu_err = NULL;
-	Jsonb	   *gpu_hyperparams = NULL;
+	NDB_DECLARE(char *, gpu_err);
+	NDB_DECLARE(Jsonb *, gpu_hyperparams);
 	StringInfoData hyperbuf;
 	int32		model_id = 0;
-	int		   *indices = NULL;
-	DTModel    *model = NULL;
-	bytea	   *model_blob = NULL;
+	NDB_DECLARE(int *, indices);
+	NDB_DECLARE(DTModel *, model);
+	NDB_DECLARE(bytea *, model_blob);
 	MLCatalogModelSpec spec;
 	StringInfoData paramsbuf;
 	StringInfoData metricsbuf;
-	Jsonb	   *params_jsonb = NULL;
-	Jsonb	   *metrics_jsonb = NULL;
+	NDB_DECLARE(Jsonb *, params_jsonb);
+	NDB_DECLARE(Jsonb *, metrics_jsonb);
 	int			i;
 
 	table_name = PG_GETARG_TEXT_PP(0);
@@ -1519,11 +1519,11 @@ evaluate_decision_tree_by_model_id(PG_FUNCTION_ARGS)
 	int			fn = 0;
 	MemoryContext oldcontext;
 	StringInfoData query;
-	DTModel    *model = NULL;
+	NDB_DECLARE(DTModel *, model);
 	StringInfoData jsonbuf;
-	Jsonb	   *result_jsonb = NULL;
-	bytea	   *gpu_payload = NULL;
-	Jsonb	   *gpu_metrics = NULL;
+	NDB_DECLARE(Jsonb *, result_jsonb);
+	NDB_DECLARE(bytea *, gpu_payload);
+	NDB_DECLARE(Jsonb *, gpu_metrics);
 	bool		is_gpu_model = false;
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 
@@ -1690,8 +1690,8 @@ evaluate_decision_tree_by_model_id(PG_FUNCTION_ARGS)
 	{
 #ifdef NDB_GPU_CUDA
 		const		NdbCudaDtModelHeader *gpu_hdr;
-		int		   *h_labels = NULL;
-		float	   *h_features = NULL;
+		NDB_DECLARE(int *, h_labels);
+		NDB_DECLARE(float *, h_features);
 		int			feat_dim = 0;
 		int			valid_rows = 0;
 		size_t		payload_size;
@@ -1873,7 +1873,7 @@ evaluate_decision_tree_by_model_id(PG_FUNCTION_ARGS)
 		/* Use optimized GPU batch evaluation */
 		{
 			int			rc;
-			char	   *gpu_errstr = NULL;
+			NDB_DECLARE(char *, gpu_errstr);
 
 			/* Defensive checks before GPU call */
 			if (h_features == NULL || h_labels == NULL || valid_rows <= 0 || feat_dim <= 0)
@@ -1985,8 +1985,8 @@ cpu_evaluation_path:
 	/* CPU evaluation path */
 	/* Use optimized batch prediction */
 	{
-		float	   *h_features = NULL;
-		double	   *h_labels = NULL;
+		NDB_DECLARE(float *, h_features);
+		NDB_DECLARE(double *, h_labels);
 		int			feat_dim = 0;
 		int			valid_rows = 0;
 
@@ -2475,7 +2475,7 @@ dt_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 	/* Extract feature_dim and n_samples from metadata if available */
 	if (metadata != NULL)
 	{
-		JsonbIterator *it = NULL;
+		NDB_DECLARE(JsonbIterator *, it);
 		JsonbValue	v;
 		int			r;
 

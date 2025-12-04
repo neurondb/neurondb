@@ -228,19 +228,18 @@ rerank_cross_encoder(PG_FUNCTION_ARGS)
 			}
 			else
 			{
-				/*
-				 * If Hugging Face (or model) is unavailable, fallback to
-				 * sequential dummy scores. This prevents user errors from
-				 * causing null results.
-				 */
+				/* Reranking failed - cannot return dummy scores */
 				for (i = 0; i < ncandidates; i++)
 				{
-					state->indices[i] = i;
-					state->scores[i] = 1.0f
-						- ((float) i
-						   / (float)
-						   ncandidates);	/* [1.0, 0.0] linear scores */
+					if (docs[i] && docs[i][0] != '\0')
+						pfree((char *)docs[i]);
 				}
+				NDB_FREE(docs);
+				NDB_FREE(query_str);
+				ereport(ERROR,
+						(errcode(ERRCODE_EXTERNAL_ROUTINE_INVOCATION_EXCEPTION),
+						 errmsg("neurondb_rerank: reranking failed"),
+						 errdetail("Reranking failed. Cannot return dummy scores.")));
 			}
 
 			/* --- Free allocated (detached) strings in docs[] --- */
@@ -343,7 +342,7 @@ rerank_llm(PG_FUNCTION_ARGS)
 		float4		temperature;
 		NDB_DECLARE(char *, query_str);
 		NDB_DECLARE(char *, model_str);
-		char	   *prompt_template = NULL;
+		NDB_DECLARE(char *, prompt_template);
 		Datum	   *candidate_datums;
 		bool	   *candidate_nulls;
 		int			ncandidates;
@@ -354,7 +353,7 @@ rerank_llm(PG_FUNCTION_ARGS)
 		NdbLLMConfig cfg;
 		NdbLLMCallOptions call_opts;
 		NdbLLMResp	resp;
-		char	   *llm_response = NULL;
+		NDB_DECLARE(char *, llm_response);
 		int			api_result;
 
 		/*-- Prepare multi-call context --*/
@@ -773,9 +772,9 @@ rerank_colbert(PG_FUNCTION_ARGS)
 		int			i, j;
 		NDB_DECLARE(char *, model_str);
 		NdbLLMConfig cfg;
-		float	   *query_embedding = NULL;
+		NDB_DECLARE(float *, query_embedding);
 		int			query_dim = 0;
-		float	   *doc_embeddings = NULL;
+		NDB_DECLARE(float *, doc_embeddings);
 
 		funcctx = SRF_FIRSTCALL_INIT();
 		oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
@@ -819,11 +818,19 @@ rerank_colbert(PG_FUNCTION_ARGS)
 			&& query_embedding != NULL)
 		{
 			/* Get document embeddings and compute MaxSim scores */
+			/* Check for integer overflow in size calculation */
+			if (ncandidates > 0 && query_dim > 0 && (size_t) ncandidates > MaxAllocSize / sizeof(float) / (size_t) query_dim)
+			{
+				NDB_FREE(state);
+				ereport(ERROR,
+						(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+						 errmsg("neurondb: doc_embeddings allocation size exceeds MaxAllocSize")));
+			}
 			doc_embeddings = (float *) palloc0(ncandidates * query_dim * sizeof(float));
 			for (i = 0; i < ncandidates; i++)
 			{
 				char	   *doc_str;
-				float	   *doc_emb = NULL;
+				NDB_DECLARE(float *, doc_emb);
 				int			temp_dim = 0;
 
 				if (!candidate_nulls[i] && DatumGetPointer(candidate_datums[i]))
@@ -952,7 +959,7 @@ rerank_ltr(PG_FUNCTION_ARGS)
 		int			i;
 		NDB_DECLARE(char *, model_str);
 		NdbLLMConfig cfg;
-		float	   *query_embedding = NULL;
+		NDB_DECLARE(float *, query_embedding);
 		int			query_dim = 0;
 
 		funcctx = SRF_FIRSTCALL_INIT();
@@ -1000,7 +1007,7 @@ rerank_ltr(PG_FUNCTION_ARGS)
 			for (i = 0; i < ncandidates; i++)
 			{
 				char	   *doc_str;
-				float	   *doc_emb = NULL;
+				NDB_DECLARE(float *, doc_emb);
 				int			doc_dim = 0;
 				float		cosine_sim = 0.0f;
 				float		doc_length = 0.0f;
@@ -1130,7 +1137,7 @@ rerank_ensemble(PG_FUNCTION_ARGS)
 		int			nmethods;
 		float	   **method_scores;
 		int			i, j;
-		float	   *weights = NULL;
+		NDB_DECLARE(float *, weights);
 
 		funcctx = SRF_FIRSTCALL_INIT();
 		oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
@@ -1178,7 +1185,7 @@ rerank_ensemble(PG_FUNCTION_ARGS)
 		for (i = 0; i < nmethods; i++)
 		{
 			char	   *method_str;
-			float	   *temp_scores = NULL;
+			NDB_DECLARE(float *, temp_scores);
 			int			api_result;
 			NdbLLMConfig cfg;
 			NdbLLMCallOptions call_opts;

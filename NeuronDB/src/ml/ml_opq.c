@@ -135,6 +135,34 @@ train_opq_rotation(PG_FUNCTION_ARGS)
 	/* Fetch training data */
 	data = neurondb_fetch_vectors_from_table(tbl_str, col_str, &nvec, &dim);
 
+	if (data == NULL || nvec == 0)
+	{
+		NDB_FREE(tbl_str);
+		NDB_FREE(col_str);
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("No vectors found")));
+	}
+
+	if (dim <= 0)
+	{
+		NDB_FREE(tbl_str);
+		NDB_FREE(col_str);
+		/* Free data array and rows if data is not NULL */
+		if (data != NULL)
+		{
+			for (i = 0; i < nvec; i++)
+			{
+				if (data[i] != NULL)
+					NDB_FREE(data[i]);
+			}
+			NDB_FREE(data);
+		}
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("Invalid vector dimension: %d", dim)));
+	}
+
 	if (dim % num_subspaces != 0)
 	{
 		elog(DEBUG1, "Vector dimension %d must be divisible by num_subspaces %d",
@@ -150,8 +178,8 @@ train_opq_rotation(PG_FUNCTION_ARGS)
 	{
 		double	  **covariance = NULL;
 		double	  **eigenvectors = NULL;
-		double	   *eigenvalues = NULL;
-		double	   *mean = NULL;
+		NDB_DECLARE(double *, eigenvalues);
+		NDB_DECLARE(double *, mean);
 		int			j,
 					k,
 					iter;
@@ -287,6 +315,17 @@ train_opq_rotation(PG_FUNCTION_ARGS)
 		}
 
 		/* Build rotation matrix from eigenvectors (transpose for rotation) */
+		/* Check for integer overflow in size calculation */
+		if (dim > 0 && (size_t) dim > MaxAllocSize / sizeof(double) / (size_t) dim)
+		{
+			NDB_FREE(eigenvalues);
+			for (i = 0; i < dim; i++)
+				NDB_FREE(eigenvectors[i]);
+			NDB_FREE(eigenvectors);
+			ereport(ERROR,
+					(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+					 errmsg("neurondb: rotation_matrix allocation size exceeds MaxAllocSize")));
+		}
 		rotation_matrix = (double *) palloc0(sizeof(double) * dim * dim);
 		NDB_CHECK_ALLOC(rotation_matrix, "rotation_matrix");
 
@@ -440,8 +479,8 @@ predict_opq_rotation(PG_FUNCTION_ARGS)
 {
 	int32		model_id;
 	ArrayType  *vector_array;
-	bytea	   *model_data = NULL;
-	Jsonb	   *parameters = NULL;
+	NDB_DECLARE(bytea *, model_data);
+	NDB_DECLARE(Jsonb *, parameters);
 	float8	   *vector;
 	float8	   *rotation;
 	int			dim;
@@ -813,9 +852,9 @@ evaluate_opq_rotation_by_model_id(PG_FUNCTION_ARGS)
 
 	/* Load model and compute quantization metrics */
 	{
-		bytea	   *model_payload = NULL;
-		Jsonb	   *parameters = NULL;
-		Jsonb	   *metrics = NULL;
+		NDB_DECLARE(bytea *, model_payload);
+		NDB_DECLARE(Jsonb *, parameters);
+		NDB_DECLARE(Jsonb *, metrics);
 		char	   *cb_ptr;
 		int			m,
 					ksub,
@@ -1103,6 +1142,13 @@ opq_model_deserialize_from_bytea(const bytea * data, PQCodebook * codebook, floa
 	if (codebook->m < 1 || codebook->m > 128 || codebook->ksub < 2 || codebook->ksub > 65536 || codebook->dsub <= 0 || *dim_out <= 0)
 		return -1;
 
+	/* Check for integer overflow in size calculation */
+	if (*dim_out > 0 && (size_t) *dim_out > MaxAllocSize / sizeof(float) / (size_t) *dim_out)
+	{
+		if (errstr)
+			*errstr = pstrdup("opq_deserialize: rotation_matrix allocation size exceeds MaxAllocSize");
+		return -1;
+	}
 	*rotation_matrix_out = (float *) palloc(sizeof(float) * *dim_out * *dim_out);
 	NDB_CHECK_ALLOC(rotation_matrix_out, "rotation_matrix_out");
 	memcpy(*rotation_matrix_out, buf + offset, sizeof(float) * *dim_out * *dim_out);
@@ -1132,15 +1178,15 @@ opq_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 	OPQGpuModelState *state;
 	float	  **data = NULL;
 	PQCodebook	codebook;
-	float	   *rotation_matrix = NULL;
+	NDB_DECLARE(float *, rotation_matrix);
 	int			m = 8;
 	int			ksub = 256;
 	int			nvec = 0;
 	int			dim = 0;
 	int			sub,
 				i;
-	bytea	   *model_data = NULL;
-	Jsonb	   *metrics = NULL;
+	NDB_DECLARE(bytea *, model_data);
+	NDB_DECLARE(Jsonb *, metrics);
 	StringInfoData metrics_json;
 	JsonbIterator *it;
 	JsonbValue	v;
@@ -1314,12 +1360,12 @@ opq_gpu_predict(const MLGpuModel * model, const float *input, int input_dim,
 {
 	const		OPQGpuModelState *state;
 	PQCodebook *codebook;
-	float	   *rotated_input = NULL;
+	NDB_DECLARE(float *, rotated_input);
 	int			sub;
 	int			start_dim;
 	double		min_dist;
 	int			best_code;
-	float	   *reconstructed = NULL;
+	NDB_DECLARE(float *, reconstructed);
 	int			i,
 				j;
 
@@ -1365,7 +1411,7 @@ opq_gpu_predict(const MLGpuModel * model, const float *input, int input_dim,
 	if (state->codebook == NULL)
 	{
 		PQCodebook	temp_codebook;
-		float	   *temp_rotation = NULL;
+		NDB_DECLARE(float *, temp_rotation);
 		int			temp_dim = 0;
 
 		if (opq_model_deserialize_from_bytea(state->model_blob, &temp_codebook, &temp_rotation, &temp_dim) != 0)
@@ -1534,7 +1580,7 @@ opq_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 	bytea	   *payload_copy;
 	int			payload_size;
 	PQCodebook	codebook;
-	float	   *rotation_matrix = NULL;
+	NDB_DECLARE(float *, rotation_matrix);
 	int			dim = 0;
 	JsonbIterator *it;
 	JsonbValue	v;

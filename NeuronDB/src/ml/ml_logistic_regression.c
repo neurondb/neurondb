@@ -168,7 +168,7 @@ train_logistic_regression(PG_FUNCTION_ARGS)
 	char	   *targ_str;
 	int			nvec = 0;
 	int			dim = 0;
-	double	   *weights = NULL;
+	NDB_DECLARE(double *, weights);
 	double		bias = 0.0;
 	int			iter;
 	int			j;
@@ -614,8 +614,8 @@ train_logistic_regression(PG_FUNCTION_ARGS)
 #ifdef NDB_GPU_CUDA
 					MLCatalogModelSpec spec;
 					LRModel		lr_model;
-					bytea	   *unified_model_data = NULL;
-					Jsonb	   *updated_metrics = NULL;
+					NDB_DECLARE(bytea *, unified_model_data);
+					NDB_DECLARE(Jsonb *, updated_metrics);
 					char	   *base;
 					NdbCudaLrModelHeader *hdr;
 					float	   *weights_src;
@@ -677,10 +677,10 @@ train_logistic_regression(PG_FUNCTION_ARGS)
 
 					/* Build metrics JSON using JSONB API */
 					{
-						JsonbParseState *state = NULL;
+						NDB_DECLARE(JsonbParseState *, state);
 						JsonbValue	jkey;
 						JsonbValue	jval;
-						JsonbValue *final_value = NULL;
+						NDB_DECLARE(JsonbValue *, final_value);
 						Numeric		n_features_num, n_samples_num, max_iters_num, learning_rate_num, lambda_num, final_loss_num, accuracy_num;
 
 						PG_TRY();
@@ -1366,7 +1366,7 @@ predict_logistic_regression_model_id(PG_FUNCTION_ARGS)
 {
 	int32		model_id;
 	Vector	   *features;
-	LRModel    *model = NULL;
+	NDB_DECLARE(LRModel *, model);
 	double		probability;
 	double		z;
 	int			i;
@@ -1476,7 +1476,7 @@ evaluate_logistic_regression(PG_FUNCTION_ARGS)
 				f1_score;
 	int			i,
 				j;
-	Datum	   *result_datums = NULL;
+	NDB_DECLARE(Datum *, result_datums);
 	ArrayType  *result_array;
 	MemoryContext oldcontext;
 	NDB_DECLARE (NdbSpiSession *, eval_spi_session);
@@ -1679,8 +1679,8 @@ evaluate_logistic_regression_by_model_id(PG_FUNCTION_ARGS)
 	bool		feat_is_array = false;
 	Jsonb	   *result_jsonb;
 	StringInfoData jsonbuf;
-	bytea	   *gpu_payload = NULL;
-	Jsonb	   *gpu_metrics = NULL;
+	NDB_DECLARE(bytea *, gpu_payload);
+	NDB_DECLARE(Jsonb *, gpu_metrics);
 	bool		is_gpu_model = false;
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext;
@@ -1783,8 +1783,8 @@ evaluate_logistic_regression_by_model_id(PG_FUNCTION_ARGS)
 	{
 #ifdef NDB_GPU_CUDA
 		const		NdbCudaLrModelHeader *gpu_hdr;
-		double	   *h_labels = NULL;
-		float	   *h_features = NULL;
+		NDB_DECLARE(double *, h_labels);
+		NDB_DECLARE(float *, h_features);
 		int			feat_dim = 0;
 		int			valid_rows = 0;
 		size_t		payload_size;
@@ -1977,7 +1977,7 @@ evaluate_logistic_regression_by_model_id(PG_FUNCTION_ARGS)
 		/* Use optimized GPU batch evaluation */
 		{
 			int			rc;
-			char	   *gpu_errstr = NULL;
+			NDB_DECLARE(char *, gpu_errstr);
 
 			/* Defensive checks before GPU call */
 			if (h_features == NULL || h_labels == NULL || valid_rows <= 0 || feat_dim <= 0)
@@ -2119,7 +2119,7 @@ evaluate_logistic_regression_by_model_id(PG_FUNCTION_ARGS)
 cpu_evaluation_path:
 	/* CPU evaluation path */
 	{
-		LRModel    *model = NULL;
+		NDB_DECLARE(LRModel *, model);
 		int			tp = 0,
 					tn = 0,
 					fp = 0,
@@ -2134,8 +2134,8 @@ cpu_evaluation_path:
 			 * If CPU model loading failed, try to load GPU model for CPU
 			 * evaluation
 			 */
-			bytea	   *gpu_model_payload = NULL;
-			Jsonb	   *gpu_model_metrics = NULL;
+			NDB_DECLARE(bytea *, gpu_model_payload);
+			NDB_DECLARE(Jsonb *, gpu_model_metrics);
 
 			if (ml_catalog_fetch_model_payload(model_id, &gpu_model_payload, NULL, &gpu_model_metrics))
 			{
@@ -3148,7 +3148,7 @@ lr_gpu_serialize(const MLGpuModel * model,
 				 char **errstr)
 {
 	const		LRGpuModelState *state;
-	bytea	   *unified_payload = NULL;
+	NDB_DECLARE(bytea *, unified_payload);
 
 	if (errstr != NULL)
 		*errstr = NULL;
@@ -3561,9 +3561,9 @@ lr_try_gpu_predict_catalog(int32 model_id,
 						   const Vector *feature_vec,
 						   double *result_out)
 {
-	bytea	   *payload = NULL;
-	Jsonb	   *metrics = NULL;
-	char	   *gpu_err = NULL;
+	NDB_DECLARE(bytea *, payload);
+	NDB_DECLARE(Jsonb *, metrics);
+	NDB_DECLARE(char *, gpu_err);
 	double		probability = 0.0;
 	bool		success = false;
 
@@ -3607,9 +3607,9 @@ lr_try_gpu_predict_catalog(int32 model_id,
 #ifdef NDB_GPU_CUDA
 	/* Convert unified format to GPU format for prediction */
 	{
-		LRModel    *lr_model = NULL;
+		NDB_DECLARE(LRModel *, lr_model);
 		uint8		training_backend = 0;
-		bytea	   *gpu_payload = NULL;
+		NDB_DECLARE(bytea *, gpu_payload);
 		char	   *base;
 		NdbCudaLrModelHeader *hdr;
 		float	   *weights_dest;
@@ -3741,8 +3741,8 @@ cleanup:
 static bool
 lr_load_model_from_catalog(int32 model_id, LRModel * *out)
 {
-	bytea	   *payload = NULL;
-	Jsonb	   *metrics = NULL;
+	NDB_DECLARE(bytea *, payload);
+	NDB_DECLARE(Jsonb *, metrics);
 	LRModel    *decoded;
 
 	if (out == NULL)

@@ -122,6 +122,47 @@ detect_centroid_drift(PG_FUNCTION_ARGS)
 	current_vecs = neurondb_fetch_vectors_from_table(
 													 current_tbl, current_col, &n_current, &dim_current);
 
+	if (baseline_vecs == NULL || n_baseline == 0 || current_vecs == NULL || n_current == 0)
+	{
+		NDB_FREE(baseline_tbl);
+		NDB_FREE(baseline_col);
+		NDB_FREE(current_tbl);
+		NDB_FREE(current_col);
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("No vectors found in one or both datasets")));
+	}
+
+	if (dim_baseline <= 0 || dim_current <= 0)
+	{
+		NDB_FREE(baseline_tbl);
+		NDB_FREE(baseline_col);
+		NDB_FREE(current_tbl);
+		NDB_FREE(current_col);
+		/* Free vectors arrays if not NULL */
+		if (baseline_vecs != NULL)
+		{
+			for (int i = 0; i < n_baseline; i++)
+			{
+				if (baseline_vecs[i] != NULL)
+					NDB_FREE(baseline_vecs[i]);
+			}
+			NDB_FREE(baseline_vecs);
+		}
+		if (current_vecs != NULL)
+		{
+			for (int i = 0; i < n_current; i++)
+			{
+				if (current_vecs[i] != NULL)
+					NDB_FREE(current_vecs[i]);
+			}
+			NDB_FREE(current_vecs);
+		}
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("Invalid vector dimensions: baseline=%d, current=%d", dim_baseline, dim_current)));
+	}
+
 	if (n_baseline < 10 || n_current < 10)
 	{
 		elog(DEBUG1,
@@ -277,6 +318,47 @@ compute_distribution_divergence(PG_FUNCTION_ARGS)
 													  baseline_tbl, baseline_col, &n_baseline, &dim_baseline);
 	current_vecs = neurondb_fetch_vectors_from_table(
 													 current_tbl, current_col, &n_current, &dim_current);
+
+	if (baseline_vecs == NULL || n_baseline == 0 || current_vecs == NULL || n_current == 0)
+	{
+		NDB_FREE(baseline_tbl);
+		NDB_FREE(baseline_col);
+		NDB_FREE(current_tbl);
+		NDB_FREE(current_col);
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("No vectors found in one or both datasets")));
+	}
+
+	if (dim_baseline <= 0 || dim_current <= 0)
+	{
+		NDB_FREE(baseline_tbl);
+		NDB_FREE(baseline_col);
+		NDB_FREE(current_tbl);
+		NDB_FREE(current_col);
+		/* Free vectors arrays if not NULL */
+		if (baseline_vecs != NULL)
+		{
+			for (int i = 0; i < n_baseline; i++)
+			{
+				if (baseline_vecs[i] != NULL)
+					NDB_FREE(baseline_vecs[i]);
+			}
+			NDB_FREE(baseline_vecs);
+		}
+		if (current_vecs != NULL)
+		{
+			for (int i = 0; i < n_current; i++)
+			{
+				if (current_vecs[i] != NULL)
+					NDB_FREE(current_vecs[i]);
+			}
+			NDB_FREE(current_vecs);
+		}
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("Invalid vector dimensions: baseline=%d, current=%d", dim_baseline, dim_current)));
+	}
 
 	if (n_baseline < 10 || n_current < 10)
 		ereport(ERROR,

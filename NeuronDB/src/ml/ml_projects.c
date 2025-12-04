@@ -661,13 +661,13 @@ predict_kmeans_project(PG_FUNCTION_ARGS)
 {
 	int32		model_id = PG_GETARG_INT32(0);
 	ArrayType  *features_array = PG_GETARG_ARRAYTYPE_P(1);
-	bytea	   *model_data = NULL;
-	Jsonb	   *parameters = NULL;
-	Jsonb	   *metrics = NULL;
+	NDB_DECLARE(bytea *, model_data);
+	NDB_DECLARE(Jsonb *, parameters);
+	NDB_DECLARE(Jsonb *, metrics);
 	float	  **centers = NULL;
 	int			n_clusters = 0;
 	int			dim = 0;
-	float	   *features = NULL;
+	NDB_DECLARE(float *, features);
 	int			n_features = 0;
 	int			cluster_id = 0;
 	int			i;
@@ -851,14 +851,14 @@ evaluate_kmeans_project_by_model_id(PG_FUNCTION_ARGS)
 
 	/* Load model and compute actual inertia */
 	{
-		bytea	   *model_payload = NULL;
-		Jsonb	   *model_parameters = NULL;
+		NDB_DECLARE(bytea *, model_payload);
+		NDB_DECLARE(Jsonb *, model_parameters);
 		NDB_DECLARE(float **, centers);
 		float	  **data = NULL;
 		int			model_dim = 0;
 		int			i,
 					c;
-		int		   *assignments = NULL;
+		NDB_DECLARE(int *, assignments);
 
 		/* Load model from catalog */
 		if (ml_catalog_fetch_model_payload(model_id, &model_payload, &model_parameters, NULL))

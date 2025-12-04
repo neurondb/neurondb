@@ -272,13 +272,13 @@ neurondb_get_features(PG_FUNCTION_ARGS)
 	int			i,
 				j,
 				ndefs;
-	Datum	   *entity_datums = NULL;
-	bool	   *entity_nulls = NULL;
-	Datum	   *feat_datums = NULL;
-	bool	   *feat_nulls = NULL;
+	NDB_DECLARE(Datum *, entity_datums);
+	NDB_DECLARE(bool *, entity_nulls);
+	NDB_DECLARE(Datum *, feat_datums);
+	NDB_DECLARE(bool *, feat_nulls);
 
-	char	   *entity_key_col = NULL;
-	char	   *entity_table = NULL;
+	NDB_DECLARE(char *, entity_key_col);
+	NDB_DECLARE(char *, entity_table);
 	char	  **feature_names = NULL;
 	char	  **feature_types = NULL;
 	char	  **feature_transforms = NULL;
@@ -289,8 +289,8 @@ neurondb_get_features(PG_FUNCTION_ARGS)
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext_spi;
 
-	JsonbParseState *ps_top = NULL;
-	JsonbValue *o = NULL;
+	NDB_DECLARE(JsonbParseState *, ps_top);
+	NDB_DECLARE(JsonbValue *, o);
 	JsonbValue	ent_key_jbv,
 				feature_obj_value;
 	Jsonb	   *result_jsonb;

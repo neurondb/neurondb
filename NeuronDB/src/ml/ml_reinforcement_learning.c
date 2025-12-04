@@ -358,12 +358,12 @@ multi_armed_bandit(PG_FUNCTION_ARGS)
 	double		beta;
 	char	   *tbl_str;
 	char	   *algorithm;
-	int		   *arm_counts = NULL;
-	double	   *arm_rewards = NULL;
-	double	   *arm_probs = NULL;
+	NDB_DECLARE(int *, arm_counts);
+	NDB_DECLARE(double *, arm_rewards);
+	NDB_DECLARE(double *, arm_probs);
 	int			i;
 	ArrayType  *result;
-	Datum	   *result_datums = NULL;
+	NDB_DECLARE(Datum *, result_datums);
 	StringInfoData query;
 	int			ret;
 

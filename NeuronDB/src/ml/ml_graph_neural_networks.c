@@ -315,7 +315,7 @@ gcn_train(PG_FUNCTION_ARGS)
 					continue;
 				int			node_id = node_id_val;
 				/* For ArrayType, need to use SPI_getbinval with safe access */
-				ArrayType  *feat_array = NULL;
+				NDB_DECLARE(ArrayType *, feat_array);
 				if (tupdesc->natts >= 2)
 				{
 					Datum		feat_datum = SPI_getbinval(tuple, tupdesc, 2, NULL);
@@ -749,11 +749,11 @@ gcn_train(PG_FUNCTION_ARGS)
 	/* Serialize GCN model */
 	{
 		StringInfoData model_buf;
-		bytea	   *serialized = NULL;
+		NDB_DECLARE(bytea *, serialized);
 		StringInfoData paramsbuf;
 		StringInfoData metricsbuf;
-		Jsonb	   *params_jsonb = NULL;
-		Jsonb	   *metrics_jsonb = NULL;
+		NDB_DECLARE(Jsonb *, params_jsonb);
+		NDB_DECLARE(Jsonb *, metrics_jsonb);
 		MLCatalogModelSpec spec;
 
 		/* Serialize model weights and biases */

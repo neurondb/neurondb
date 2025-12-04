@@ -128,7 +128,7 @@ ml_catalog_register_model(const MLCatalogModelSpec * spec)
 	NDB_DECLARE (char *, table_quoted);
 	NDB_DECLARE (char *, column_quoted);
 	NDB_DECLARE (char *, meta_txt);
-	char	   *saved_project_name = NULL;
+	NDB_DECLARE(char *, saved_project_name);
 
 	/* Initialize copy pointers to NULL since we're not doing string copying anymore */
 	project_name_copy = NULL;
@@ -606,7 +606,7 @@ ml_catalog_register_model(const MLCatalogModelSpec * spec)
 
 error:
 	{
-		char	   *error_project_name = NULL;
+		NDB_DECLARE(char *, error_project_name);
 		
 		/* Save project_name for error reporting before freeing */
 		if (project_name != NULL && strlen(project_name) > 0)

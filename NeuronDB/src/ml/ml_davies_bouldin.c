@@ -69,7 +69,7 @@ davies_bouldin_index(PG_FUNCTION_ARGS)
 	int			num_clusters;
 	NDB_DECLARE(int *, cluster_sizes);
 	NDB_DECLARE(float **, cluster_centroids);
-	double	   *cluster_scatter = NULL;
+	NDB_DECLARE(double *, cluster_scatter);
 	double		db_index;
 	int			i;
 	int			c;
@@ -94,6 +94,36 @@ davies_bouldin_index(PG_FUNCTION_ARGS)
 		 tbl_str, vec_col_str, cluster_col_str);
 
 	vectors = neurondb_fetch_vectors_from_table(tbl_str, vec_col_str, &nvec, &dim);
+
+	if (vectors == NULL || nvec == 0)
+	{
+		NDB_FREE(tbl_str);
+		NDB_FREE(vec_col_str);
+		NDB_FREE(cluster_col_str);
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("No vectors found")));
+	}
+
+	if (dim <= 0)
+	{
+		NDB_FREE(tbl_str);
+		NDB_FREE(vec_col_str);
+		NDB_FREE(cluster_col_str);
+		/* Free vectors array and rows if vectors is not NULL */
+		if (vectors != NULL)
+		{
+			for (int i = 0; i < nvec; i++)
+			{
+				if (vectors[i] != NULL)
+					NDB_FREE(vectors[i]);
+			}
+			NDB_FREE(vectors);
+		}
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("Invalid vector dimension: %d", dim)));
+	}
 
 	if (nvec < 2)
 		ereport(ERROR,
@@ -361,17 +391,17 @@ davies_bouldin_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char *
 {
 	DaviesBouldinGpuModelState *state;
 	float	  **data = NULL;
-	int		   *labels = NULL;
+	NDB_DECLARE(int *, labels);
 	float	  **centroids = NULL;
-	int		   *cluster_sizes = NULL;
+	NDB_DECLARE(int *, cluster_sizes);
 	int			num_clusters = 8;
 	int			nvec = 0;
 	int			dim = 0;
 	int			i,
 				c,
 				d;
-	bytea	   *model_data = NULL;
-	Jsonb	   *metrics = NULL;
+	NDB_DECLARE(bytea *, model_data);
+	NDB_DECLARE(Jsonb *, metrics);
 	StringInfoData metrics_json;
 	JsonbIterator *it;
 	JsonbValue	v;
@@ -650,8 +680,8 @@ davies_bouldin_gpu_evaluate(const MLGpuModel * model, const MLGpuEvalSpec * spec
 			float	  **data = NULL;
 			int			nvec = 0;
 			int			data_dim = 0;
-			int		   *cluster_assignments = NULL;
-			int		   *cluster_counts = NULL;
+			NDB_DECLARE(int *, cluster_assignments);
+			NDB_DECLARE(int *, cluster_counts);
 			int			s;
 			char	   *vec_col = "vector"; /* Default vector column name */
 
@@ -834,7 +864,7 @@ davies_bouldin_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 	bytea	   *payload_copy;
 	int			payload_size;
 	float	  **centroids = NULL;
-	int		   *cluster_sizes = NULL;
+	NDB_DECLARE(int *, cluster_sizes);
 	int			n_clusters = 0;
 	int			dim = 0;
 	JsonbIterator *it;

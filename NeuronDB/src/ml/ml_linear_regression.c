@@ -239,7 +239,7 @@ linreg_dataset_load_limited(const char *quoted_tbl,
 							LinRegDataset * dataset,
 							int max_rows)
 {
-	NdbSpiSession *spi_session = NULL;
+	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext;
 	int			ret;
 	int			n_samples = 0;
@@ -1362,8 +1362,8 @@ train_linear_regression(PG_FUNCTION_ARGS)
 #ifdef NDB_GPU_CUDA
 				MLCatalogModelSpec spec;
 				LinRegModel		linreg_model;
-				bytea	   *unified_model_data = NULL;
-				Jsonb	   *updated_metrics = NULL;
+				NDB_DECLARE(bytea *, unified_model_data);
+				NDB_DECLARE(Jsonb *, updated_metrics);
 				char	   *base;
 				NdbCudaLinRegModelHeader *hdr;
 				int			i;
@@ -1627,11 +1627,11 @@ train_linear_regression(PG_FUNCTION_ARGS)
 		{
 			LinRegStreamAccum stream_accum;
 			double	  **XtX_inv = NULL;
-			double	   *beta = NULL;
+			NDB_DECLARE(double *, beta);
 			int			i,
 						j;
 			int			dim_with_intercept;
-			LinRegModel *model = NULL;
+			NDB_DECLARE(LinRegModel *, model);
 			bytea	   *model_blob;
 			Jsonb	   *metrics_json;
 			StringInfoData metricsbuf = {0};
@@ -1824,7 +1824,7 @@ train_linear_regression(PG_FUNCTION_ARGS)
 						int			metrics_ret;
 						int			metrics_n_rows;
 						TupleDesc	metrics_tupdesc;
-						float	   *metrics_row_buffer = NULL;
+						NDB_DECLARE(float *, metrics_row_buffer);
 						int			metrics_i;
 
 						initStringInfo(&metrics_query);
@@ -2080,7 +2080,7 @@ predict_linear_regression_model_id(PG_FUNCTION_ARGS)
 {
 	int32		model_id;
 	Vector	   *features;
-	LinRegModel *model = NULL;
+	NDB_DECLARE(LinRegModel *, model);
 	double		prediction;
 	int			i;
 
@@ -2442,7 +2442,7 @@ evaluate_linear_regression_by_model_id_jsonb(int32 model_id, text * table_name, 
 	double		r_squared;
 	double		rmse;
 	int			i;
-	Jsonb	   *result = NULL;
+	NDB_DECLARE(Jsonb *, result);
 	MemoryContext oldcontext;
 
 	Oid			feat_type_oid;

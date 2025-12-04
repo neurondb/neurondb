@@ -147,6 +147,34 @@ detect_outliers_zscore(PG_FUNCTION_ARGS)
 	/* Fetch vectors */
 	vectors = neurondb_fetch_vectors_from_table(
 												tbl_str, vec_col_str, &nvec, &dim);
+	if (vectors == NULL || nvec == 0)
+	{
+		NDB_FREE(tbl_str);
+		NDB_FREE(vec_col_str);
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("No vectors found")));
+	}
+
+	if (dim <= 0)
+	{
+		NDB_FREE(tbl_str);
+		NDB_FREE(vec_col_str);
+		/* Free vectors array and rows if vectors is not NULL */
+		if (vectors != NULL)
+		{
+			for (int i = 0; i < nvec; i++)
+			{
+				if (vectors[i] != NULL)
+					NDB_FREE(vectors[i]);
+			}
+			NDB_FREE(vectors);
+		}
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("Invalid vector dimension: %d", dim)));
+	}
+
 	if (nvec < 2)
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),
@@ -393,6 +421,36 @@ compute_outlier_scores(PG_FUNCTION_ARGS)
 	/* Fetch vectors */
 	vectors = neurondb_fetch_vectors_from_table(
 												tbl_str, vec_col_str, &nvec, &dim);
+	if (vectors == NULL || nvec == 0)
+	{
+		NDB_FREE(tbl_str);
+		NDB_FREE(vec_col_str);
+		NDB_FREE(method);
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("No vectors found")));
+	}
+
+	if (dim <= 0)
+	{
+		NDB_FREE(tbl_str);
+		NDB_FREE(vec_col_str);
+		NDB_FREE(method);
+		/* Free vectors array and rows if vectors is not NULL */
+		if (vectors != NULL)
+		{
+			for (int i = 0; i < nvec; i++)
+			{
+				if (vectors[i] != NULL)
+					NDB_FREE(vectors[i]);
+			}
+			NDB_FREE(vectors);
+		}
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("Invalid vector dimension: %d", dim)));
+	}
+
 	if (nvec < 2)
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),

@@ -287,7 +287,8 @@ summarize_text(PG_FUNCTION_ARGS)
 	{
 		summary = (char *) palloc(max_length + 4);
 		memcpy(summary, text_str, max_length);
-		strcpy(summary + max_length, "...");
+		strncpy(summary + max_length, "...", 4);
+		summary[max_length + 3] = '\0';
 	}
 
 	NDB_FREE(text_str);
@@ -484,8 +485,8 @@ nlp_production_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char *
 	int			max_seq_len = 512;
 	char		model_type[32] = "bert";
 	int			nvec = 0;
-	bytea	   *model_data = NULL;
-	Jsonb	   *metrics = NULL;
+	NDB_DECLARE(bytea *, model_data);
+	NDB_DECLARE(Jsonb *, metrics);
 	StringInfoData metrics_json;
 	JsonbIterator *it;
 	JsonbValue	v;

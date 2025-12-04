@@ -247,6 +247,34 @@ detect_anomalies_isolation_forest(PG_FUNCTION_ARGS)
 
 	vectors = neurondb_fetch_vectors_from_table(
 												tbl_str, vec_col_str, &nvec, &dim);
+	if (vectors == NULL || nvec == 0)
+	{
+		NDB_FREE(tbl_str);
+		NDB_FREE(vec_col_str);
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("No vectors found")));
+	}
+
+	if (dim <= 0)
+	{
+		NDB_FREE(tbl_str);
+		NDB_FREE(vec_col_str);
+		/* Free vectors array and rows if vectors is not NULL */
+		if (vectors != NULL)
+		{
+			for (int i = 0; i < nvec; i++)
+			{
+				if (vectors[i] != NULL)
+					NDB_FREE(vectors[i]);
+			}
+			NDB_FREE(vectors);
+		}
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("Invalid vector dimension: %d", dim)));
+	}
+
 	if (nvec < 2)
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),
@@ -540,6 +568,34 @@ detect_anomalies_lof(PG_FUNCTION_ARGS)
 
 	vectors = neurondb_fetch_vectors_from_table(
 												tbl_str, vec_col_str, &nvec, &dim);
+	if (vectors == NULL || nvec == 0)
+	{
+		NDB_FREE(tbl_str);
+		NDB_FREE(vec_col_str);
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("No vectors found")));
+	}
+
+	if (dim <= 0)
+	{
+		NDB_FREE(tbl_str);
+		NDB_FREE(vec_col_str);
+		/* Free vectors array and rows if vectors is not NULL */
+		if (vectors != NULL)
+		{
+			for (int i = 0; i < nvec; i++)
+			{
+				if (vectors[i] != NULL)
+					NDB_FREE(vectors[i]);
+			}
+			NDB_FREE(vectors);
+		}
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("Invalid vector dimension: %d", dim)));
+	}
+
 	if (k >= nvec)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -710,6 +766,34 @@ detect_anomalies_ocsvm(PG_FUNCTION_ARGS)
 
 	vectors = neurondb_fetch_vectors_from_table(
 												tbl_str, vec_col_str, &nvec, &dim);
+	if (vectors == NULL || nvec == 0)
+	{
+		NDB_FREE(tbl_str);
+		NDB_FREE(vec_col_str);
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("No vectors found")));
+	}
+
+	if (dim <= 0)
+	{
+		NDB_FREE(tbl_str);
+		NDB_FREE(vec_col_str);
+		/* Free vectors array and rows if vectors is not NULL */
+		if (vectors != NULL)
+		{
+			for (int i = 0; i < nvec; i++)
+			{
+				if (vectors[i] != NULL)
+					NDB_FREE(vectors[i]);
+			}
+			NDB_FREE(vectors);
+		}
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("Invalid vector dimension: %d", dim)));
+	}
+
 	if (nvec < 2)
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),

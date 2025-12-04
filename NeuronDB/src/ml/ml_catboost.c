@@ -333,7 +333,7 @@ train_catboost_classifier(PG_FUNCTION_ARGS)
 
             /* Setup CatBoost C API options and train */
             {
-                ModelCalcerHandle           *model_handle = NULL;
+                NDB_DECLARE(ModelCalcerHandle *, model_handle);
                 CatBoostModelTrainingOptions *opts;
 
                 opts = CatBoostCreateModelTrainingOptions();
@@ -367,7 +367,16 @@ train_catboost_classifier(PG_FUNCTION_ARGS)
 #else
     ereport(ERROR,
             (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-             errmsg("CatBoost library not available. Please install CatBoost to use this function.")));
+             errmsg("CatBoost library not available"),
+            errhint("CatBoost library was not found during compilation. "
+                "Reason: <catboost/c_api.h> header file not found. "
+                "To enable CatBoost support:\n"
+                "1. Install CatBoost development libraries:\n"
+                "   Ubuntu/Debian: Build from source or use conda: conda install -c conda-forge catboost\n"
+                "   RHEL/CentOS: Build from source\n"
+                "   macOS: brew install catboost or conda install -c conda-forge catboost\n"
+                "2. Ensure CatBoost headers are in standard include paths\n"
+                "3. Recompile NeuronDB: make clean && make install")));
     PG_RETURN_NULL();
 #endif
 }
@@ -482,7 +491,7 @@ train_catboost_regressor(PG_FUNCTION_ARGS)
                                target_idx);
 
             {
-                ModelCalcerHandle           *model_handle = NULL;
+                NDB_DECLARE(ModelCalcerHandle *, model_handle);
                 CatBoostModelTrainingOptions *opts;
 
                 opts = CatBoostCreateModelTrainingOptions();
@@ -514,7 +523,16 @@ train_catboost_regressor(PG_FUNCTION_ARGS)
 #else
     ereport(ERROR,
             (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-             errmsg("CatBoost library not available. Please install CatBoost to use this function.")));
+             errmsg("CatBoost library not available"),
+            errhint("CatBoost library was not found during compilation. "
+                "Reason: <catboost/c_api.h> header file not found. "
+                "To enable CatBoost support:\n"
+                "1. Install CatBoost development libraries:\n"
+                "   Ubuntu/Debian: Build from source or use conda: conda install -c conda-forge catboost\n"
+                "   RHEL/CentOS: Build from source\n"
+                "   macOS: brew install catboost or conda install -c conda-forge catboost\n"
+                "2. Ensure CatBoost headers are in standard include paths\n"
+                "3. Recompile NeuronDB: make clean && make install")));
     PG_RETURN_NULL();
 #endif
 }
@@ -542,7 +560,7 @@ predict_catboost(PG_FUNCTION_ARGS)
     bool       *nulls;
     float64     result = 0.0;
 
-    ModelCalcerHandle *model_handle = NULL;
+    NDB_DECLARE(ModelCalcerHandle *, model_handle);
     char        model_path[MAXPGPATH];
 
     model_id = PG_GETARG_INT32(0);
@@ -630,7 +648,16 @@ predict_catboost(PG_FUNCTION_ARGS)
 #else
     ereport(ERROR,
             (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-             errmsg("CatBoost library not available. Please install CatBoost to use this function.")));
+             errmsg("CatBoost library not available"),
+            errhint("CatBoost library was not found during compilation. "
+                "Reason: <catboost/c_api.h> header file not found. "
+                "To enable CatBoost support:\n"
+                "1. Install CatBoost development libraries:\n"
+                "   Ubuntu/Debian: Build from source or use conda: conda install -c conda-forge catboost\n"
+                "   RHEL/CentOS: Build from source\n"
+                "   macOS: brew install catboost or conda install -c conda-forge catboost\n"
+                "2. Ensure CatBoost headers are in standard include paths\n"
+                "3. Recompile NeuronDB: make clean && make install")));
     PG_RETURN_NULL();
 #endif
 }
@@ -987,8 +1014,8 @@ catboost_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **errstr)
 	char loss_function[32] = "RMSE";
 	int nvec = 0;
 	int dim = 0;
-	bytea *model_data = NULL;
-	Jsonb *metrics = NULL;
+	NDB_DECLARE(bytea *, model_data);
+	NDB_DECLARE(Jsonb *, metrics);
 	StringInfoData metrics_json;
 	JsonbIterator *it;
 	JsonbValue v;

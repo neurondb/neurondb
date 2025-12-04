@@ -319,7 +319,7 @@ auto_train(PG_FUNCTION_ARGS)
 		PG_CATCH();
 		{
 			/* Individual algorithm failed - log warning and continue */
-			ErrorData  *edata = NULL;
+			NDB_DECLARE(ErrorData *, edata);
 			NDB_DECLARE (char *, error_message);
 			MemoryContext safe_context;
 			
@@ -406,7 +406,7 @@ auto_train(PG_FUNCTION_ARGS)
 			Oid eval_argtypes[4];
 			Datum eval_values[4];
 			Datum eval_result_datum;
-			Jsonb *metrics_jsonb = NULL;
+			NDB_DECLARE(Jsonb *, metrics_jsonb);
 			bool metrics_isnull = false;
 			JsonbIterator *it;
 			JsonbValue v;
@@ -780,8 +780,8 @@ optimize_hyperparameters(PG_FUNCTION_ARGS)
 	int			ret;
 	int32		best_model_id = 0;
 	float		best_score = -1.0f;
-	Jsonb	   *best_params = NULL;
-	char	   *best_params_str = NULL;
+	NDB_DECLARE(Jsonb *, best_params);
+	NDB_DECLARE(char *, best_params_str);
 	int			n_combinations = 0;
 
 	/* Defensive: validate inputs */
@@ -1112,16 +1112,16 @@ feature_importance(PG_FUNCTION_ARGS)
 {
 	int32		model_id;
 	ArrayType  *result_array;
-	float	   *scores = NULL;
-	Datum	   *elems = NULL;
+	NDB_DECLARE(float *, scores);
+	NDB_DECLARE(Datum *, elems);
 	int			i;
 	int			n_features = 0;
 	int			ret;
 	StringInfoData sql;
-	bytea	   *model_data = NULL;
-	Jsonb	   *metrics = NULL;
-	Jsonb	   *parameters = NULL;
-	char	   *algorithm_str = NULL;
+	NDB_DECLARE(bytea *, model_data);
+	NDB_DECLARE(Jsonb *, metrics);
+	NDB_DECLARE(Jsonb *, parameters);
+	NDB_DECLARE(char *, algorithm_str);
 	MemoryContext oldcontext;
 	MemoryContext feat_context;
 	NDB_DECLARE (NdbSpiSession *, feat_spi_session);
@@ -1333,7 +1333,7 @@ feature_importance(PG_FUNCTION_ARGS)
 	/* Cleanup and return */
 	MemoryContextSwitchTo(oldcontext);
 	{
-		ArrayType  *result_copy = NULL;
+		NDB_DECLARE(ArrayType *, result_copy);
 
 		NDB_ALLOC(result_copy, ArrayType, VARSIZE(result_array));
 
@@ -1574,7 +1574,7 @@ create_ensemble(PG_FUNCTION_ARGS)
 	text	   *method_text;
 	char	   *method;
 	int			n_models;
-	int32	   *model_ids = NULL;
+	NDB_DECLARE(int32 *, model_ids);
 	int			i;
 	int			ret;
 	StringInfoData result;
@@ -1584,8 +1584,8 @@ create_ensemble(PG_FUNCTION_ARGS)
 	MemoryContext ensemble_context;
 	MLCatalogModelSpec spec;
 	int32		ensemble_model_id = 0;
-	Jsonb	   *ensemble_params = NULL;
-	Jsonb	   *ensemble_metrics = NULL;
+	NDB_DECLARE(Jsonb *, ensemble_params);
+	NDB_DECLARE(Jsonb *, ensemble_metrics);
 	NDB_DECLARE (NdbSpiSession *, ensemble_spi_session);
 
 	/* Defensive: validate inputs */
@@ -2135,7 +2135,7 @@ automl_model_serialize_to_bytea(int selected_model_id, const char *selected_algo
 {
 	StringInfoData buf;
 	int			total_size;
-	bytea	   *result = NULL;
+	NDB_DECLARE(bytea *, result);
 	int			alg_len;
 	int			task_len;
 	int			hyper_size = 0;
@@ -2233,13 +2233,13 @@ automl_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 	AutoMLGpuModelState *state;
 	int			selected_model_id = 1;
 	char		selected_algorithm[64] = "linear_regression";
-	Jsonb	   *best_hyperparameters = NULL;
+	NDB_DECLARE(Jsonb *, best_hyperparameters);
 	float		best_score_val = 0.0f;
 	char		task_type[32] = "regression";
 	int			nvec = 0;
 	int			dim = 0;
-	bytea	   *model_data = NULL;
-	Jsonb	   *metrics = NULL;
+	NDB_DECLARE(bytea *, model_data);
+	NDB_DECLARE(Jsonb *, metrics);
 	StringInfoData metrics_json;
 	JsonbIterator *it;
 	JsonbValue	v;
@@ -2308,10 +2308,10 @@ automl_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 		int			i;
 		int			train_size;
 		int			test_size;
-		float	   *train_features = NULL;
-		double	   *train_labels = NULL;
-		float	   *test_features = NULL;
-		double	   *test_labels = NULL;
+		NDB_DECLARE(float *, train_features);
+		NDB_DECLARE(double *, train_labels);
+		NDB_DECLARE(float *, test_features);
+		NDB_DECLARE(double *, test_labels);
 		int			j;
 
 		/* Select candidate algorithms based on task type */
@@ -2346,6 +2346,19 @@ automl_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 		/* Allocate train/test splits */
 		if (train_size > 0 && test_size > 0)
 		{
+			/* Check for integer overflow in size calculations */
+			if (train_size > 0 && (size_t) train_size > MaxAllocSize / sizeof(float) / (size_t) dim)
+			{
+				if (errstr)
+					*errstr = pstrdup("automl_gpu_train: train_features allocation size exceeds MaxAllocSize");
+				goto cleanup;
+			}
+			if (test_size > 0 && (size_t) test_size > MaxAllocSize / sizeof(float) / (size_t) dim)
+			{
+				if (errstr)
+					*errstr = pstrdup("automl_gpu_train: test_features allocation size exceeds MaxAllocSize");
+				goto cleanup;
+			}
 			train_features = (float *) palloc(sizeof(float) * train_size * dim);
 			train_labels = (double *) palloc(sizeof(double) * train_size);
 			test_features = (float *) palloc(sizeof(float) * test_size * dim);
@@ -2371,11 +2384,11 @@ automl_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 			MLGpuModel eval_model;
 			MLGpuEvalSpec eval_spec;
 			MLGpuMetrics eval_metrics;
-			char	   *train_err = NULL;
-			char	   *eval_err = NULL;
+			NDB_DECLARE(char *, train_err);
+			NDB_DECLARE(char *, eval_err);
 			bool		trained = false;
 			float		score = 0.0f;
-			Jsonb	   *algo_hyperparams = NULL;
+			NDB_DECLARE(Jsonb *, algo_hyperparams);
 
 			memset(&train_result, 0, sizeof(train_result));
 			memset(&eval_model, 0, sizeof(eval_model));
@@ -2541,7 +2554,24 @@ automl_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 				best_idx = i;
 		}
 
-		strcpy(selected_algorithm, candidate_algorithms[best_idx]);
+		/* Validate bounds before copying */
+		if (best_idx < 0 || best_idx >= n_candidates || candidate_algorithms[best_idx] == NULL)
+		{
+			/* Cleanup train/test splits */
+			if (train_features)
+				NDB_FREE(train_features);
+			if (train_labels)
+				NDB_FREE(train_labels);
+			if (test_features)
+				NDB_FREE(test_features);
+			if (test_labels)
+				NDB_FREE(test_labels);
+			if (errstr)
+				*errstr = pstrdup("automl_gpu_train: invalid best_idx or NULL algorithm name");
+			return false;
+		}
+		strncpy(selected_algorithm, candidate_algorithms[best_idx], sizeof(selected_algorithm) - 1);
+		selected_algorithm[sizeof(selected_algorithm) - 1] = '\0';
 		best_score_val = candidate_scores[best_idx] >= 0.0f ? candidate_scores[best_idx] : 0.5f;
 
 		/* Cleanup train/test splits */
@@ -2705,7 +2735,7 @@ automl_gpu_serialize(const MLGpuModel * model, bytea * *payload_out,
 					 Jsonb * *metadata_out, char **errstr)
 {
 	const		AutoMLGpuModelState *state;
-	bytea	   *payload_copy = NULL;
+	NDB_DECLARE(bytea *, payload_copy);
 	int			payload_size;
 
 	if (errstr != NULL)
@@ -2750,11 +2780,11 @@ automl_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 					   const Jsonb * metadata, char **errstr)
 {
 	AutoMLGpuModelState *state;
-	bytea	   *payload_copy = NULL;
+	NDB_DECLARE(bytea *, payload_copy);
 	int			payload_size;
 	int			selected_model_id = 0;
 	char		selected_algorithm[64];
-	Jsonb	   *best_hyperparameters = NULL;
+	NDB_DECLARE(Jsonb *, best_hyperparameters);
 	float		best_score = 0.0f;
 	int			n_features = 0;
 	char		task_type[32];
@@ -2798,7 +2828,7 @@ automl_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 	if (metadata != NULL)
 	{
 		int			metadata_size = VARSIZE(metadata);
-		Jsonb	   *metadata_copy = NULL;
+		NDB_DECLARE(Jsonb *, metadata_copy);
 
 		NDB_ALLOC(metadata_copy, Jsonb, metadata_size);
 		memcpy(metadata_copy, metadata, metadata_size);

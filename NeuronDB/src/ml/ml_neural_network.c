@@ -955,8 +955,8 @@ train_neural_network(PG_FUNCTION_ARGS)
 	Jsonb	   *params_jsonb;
 	Jsonb	   *metrics_jsonb;
 	float	  **X = NULL;
-	float	   *y = NULL;
-	NeuralNetwork *net = NULL;
+	NDB_DECLARE(float *, y);
+	NDB_DECLARE(NeuralNetwork *, net);
 	int			epoch,
 				sample;
 	float		loss;
@@ -965,7 +965,7 @@ train_neural_network(PG_FUNCTION_ARGS)
 	StringInfoData metricsbuf;
 	MLCatalogModelSpec spec;
 	int32		model_id = 0;
-	char	   *hidden_layers_json = NULL;
+	NDB_DECLARE(char *, hidden_layers_json);
 	int			idx;
 
 	table_name_str = text_to_cstring(table_name);
@@ -1510,13 +1510,13 @@ predict_neural_network(PG_FUNCTION_ARGS)
 {
 	Vector	   *features;
 	int32		model_id;
-	bytea	   *model_data = NULL;
-	Jsonb	   *parameters = NULL;
-	Jsonb	   *metrics = NULL;
+	NDB_DECLARE(bytea *, model_data);
+	NDB_DECLARE(Jsonb *, parameters);
+	NDB_DECLARE(Jsonb *, metrics);
 	MemoryContext oldcontext;
 	MemoryContext pred_context;
 	NeuralNetwork *net;
-	float	   *input_features = NULL;
+	NDB_DECLARE(float *, input_features);
 	float		result[1];
 	int			i;
 
@@ -1939,14 +1939,14 @@ typedef struct NeuralNetworkGpuModelState
 static bool
 neural_network_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 {
-	NeuralNetworkGpuModelState *state = NULL;
+	NDB_DECLARE(NeuralNetworkGpuModelState *, state);
 	float	  **X = NULL;
-	float	   *y = NULL;
-	NeuralNetwork *net = NULL;
+	NDB_DECLARE(float *, y);
+	NDB_DECLARE(NeuralNetwork *, net);
 	int			nvec = 0;
 	int			dim = 0;
 	int			n_outputs = 1;
-	int		   *hidden_layers = NULL;
+	NDB_DECLARE(int *, hidden_layers);
 	int			n_hidden = 1;
 	char		activation[16] = "relu";
 	float		learning_rate = 0.01f;
@@ -1954,8 +1954,8 @@ neural_network_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char *
 	int			epoch,
 				sample;
 	float		loss;
-	bytea	   *model_data = NULL;
-	Jsonb	   *metrics = NULL;
+	NDB_DECLARE(bytea *, model_data);
+	NDB_DECLARE(Jsonb *, metrics);
 	StringInfoData metrics_json;
 	JsonbIterator *it;
 	JsonbValue	v;
@@ -1988,7 +1988,7 @@ neural_network_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char *
 					JsonbValue	arr_v;
 					int			arr_r;
 					int			count = 0;
-					int		   *temp_layers = NULL;
+					NDB_DECLARE(int *, temp_layers);
 					int			capacity = 4;
 
 					NDB_ALLOC(temp_layers, int, capacity);
@@ -2034,7 +2034,10 @@ neural_network_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char *
 	}
 
 	if (strlen(activation) == 0)
-		strcpy(activation, "relu");
+	{
+		strncpy(activation, "relu", sizeof(activation) - 1);
+		activation[sizeof(activation) - 1] = '\0';
+	}
 	if (learning_rate <= 0.0f)
 		learning_rate = 0.01f;
 	if (epochs < 1)
@@ -2153,7 +2156,7 @@ neural_network_gpu_predict(const MLGpuModel * model, const float *input, int inp
 						   float *output, int output_dim, char **errstr)
 {
 	const		NeuralNetworkGpuModelState *state;
-	NeuralNetwork *net = NULL;
+	NDB_DECLARE(NeuralNetwork *, net);
 
 	if (errstr != NULL)
 		*errstr = NULL;
@@ -2263,7 +2266,7 @@ neural_network_gpu_serialize(const MLGpuModel * model, bytea * *payload_out,
 							 Jsonb * *metadata_out, char **errstr)
 {
 	const		NeuralNetworkGpuModelState *state;
-	bytea	   *payload_copy = NULL;
+	NDB_DECLARE(bytea *, payload_copy);
 	int			payload_size;
 
 	if (errstr != NULL)
@@ -2307,10 +2310,10 @@ static bool
 neural_network_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 							   const Jsonb * metadata, char **errstr)
 {
-	NeuralNetworkGpuModelState *state = NULL;
-	bytea	   *payload_copy = NULL;
+	NDB_DECLARE(NeuralNetworkGpuModelState *, state);
+	NDB_DECLARE(bytea *, payload_copy);
 	int			payload_size;
-	NeuralNetwork *net = NULL;
+	NDB_DECLARE(NeuralNetwork *, net);
 	JsonbIterator *it;
 	JsonbValue	v;
 	int			r;

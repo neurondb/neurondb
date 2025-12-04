@@ -889,7 +889,7 @@ train_naive_bayes_classifier_model_id(PG_FUNCTION_ARGS)
 	 int n_params;
 	 int n_classes;
 	 int n_features;
-	 double *class_priors = NULL;
+	 NDB_DECLARE(double *, class_priors);
 	 double **means = NULL;
 	 double **variances = NULL;
 	 double log_probs[2] = {0.0, 0.0};
@@ -1008,7 +1008,7 @@ predict_naive_bayes_model_id(PG_FUNCTION_ARGS)
 	 Vector *features;
 	 NDB_DECLARE (bytea *, model_data);
 	 NDB_DECLARE (Jsonb *, metrics);
-	 GaussianNBModel *model = NULL;
+	 NDB_DECLARE(GaussianNBModel *, model);
 	 double log_probs[2] = {0.0, 0.0};
 	 int predicted_class;
 	 int i, j;
@@ -1254,7 +1254,7 @@ nb_evaluate_naive_bayes_internal(FunctionCallInfo fcinfo)
 	 int n_samples_for_json = 0; /* For accurate n_samples reporting in JSON */
 	 MemoryContext oldcontext;
 	 StringInfoData query;
-	 GaussianNBModel *model = NULL;
+	 NDB_DECLARE(GaussianNBModel *, model);
 	 StringInfoData jsonbuf;
 	 NDB_DECLARE (Jsonb *, result_jsonb);
 	 NDB_DECLARE (bytea *, gpu_payload);
@@ -1522,8 +1522,8 @@ nb_evaluate_naive_bayes_internal(FunctionCallInfo fcinfo)
 	 {
  #ifdef NDB_GPU_CUDA
 		 const NdbCudaNbModelHeader *gpu_hdr;
-		 int *h_labels = NULL;
-		 float *h_features = NULL;
+		 NDB_DECLARE(int *, h_labels);
+		 NDB_DECLARE(float *, h_features);
 		 int gpu_valid_rows = 0;
 		 size_t payload_size;
  
@@ -1863,8 +1863,8 @@ cpu_evaluation_path:
  
 	 /* CPU evaluation path */
 	 {
-		 float *h_features = NULL;
-		 double *h_labels = NULL;
+		 NDB_DECLARE(float *, h_features);
+		 NDB_DECLARE(double *, h_labels);
 		 valid_rows = 0; /* Reset for CPU path */
  
 		 if (model != NULL)
@@ -2340,8 +2340,8 @@ nb_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec,
 	 char **errstr)
  {
 	 const NbGpuModelState *state;
-	 bytea *blob_copy = NULL;
-	 Jsonb *metrics_copy = NULL;
+	 NDB_DECLARE(bytea *, blob_copy);
+	 NDB_DECLARE(Jsonb *, metrics_copy);
 
 	 if (errstr)
 		 *errstr = NULL;
@@ -2386,7 +2386,7 @@ nb_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec,
 	 const Jsonb *metadata,
 	 char **errstr)
  {
-	 NbGpuModelState *state = NULL;
+	 NDB_DECLARE(NbGpuModelState *, state);
 	 const NdbCudaNbModelHeader *hdr;
 	 size_t payload_size;
 

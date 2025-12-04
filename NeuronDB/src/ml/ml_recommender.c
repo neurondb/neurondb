@@ -1676,18 +1676,18 @@ recommend_hybrid(PG_FUNCTION_ARGS)
 		Datum		arr;
 		ArrayType  *user_vec;
 		int			n_factors;
-		float	   *user_factors = NULL;
+		NDB_DECLARE(float *, user_factors);
 		int			n_items_total;
-		int32	   *item_ids = NULL;
+		NDB_DECLARE(int32 *, item_ids);
 		float	  **item_factors = NULL;
 		int			n_feat_items;
-		int32	   *feat_item_ids = NULL;
+		NDB_DECLARE(int32 *, feat_item_ids);
 		float	  **content_factors = NULL;
 		int			nf_content;
 		int			ntop;
-		int32	   *top_items = NULL;
-		float	   *top_scores = NULL;
-		Datum	   *elems = NULL;
+		NDB_DECLARE(int32 *, top_items);
+		NDB_DECLARE(float *, top_scores);
+		NDB_DECLARE(Datum *, elems);
 		ArrayType  *result_array;
 
 		NDB_DECLARE(NdbSpiSession *, hybrid_spi_session);
@@ -2063,7 +2063,7 @@ recommender_model_serialize_to_bytea(float **user_factors, int n_users, float **
 {
 	StringInfoData buf;
 	int			total_size;
-	bytea	   *result = NULL;
+	NDB_DECLARE(bytea *, result);
 	int			u,
 				i,
 				f;
@@ -2426,7 +2426,7 @@ recommender_gpu_serialize(const MLGpuModel * model, bytea * *payload_out,
 						  Jsonb * *metadata_out, char **errstr)
 {
 	const		RecommenderGpuModelState *state;
-	bytea	   *payload_copy = NULL;
+	NDB_DECLARE(bytea *, payload_copy);
 	int			payload_size;
 
 	if (errstr != NULL)
@@ -2471,7 +2471,7 @@ recommender_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 							const Jsonb * metadata, char **errstr)
 {
 	RecommenderGpuModelState *state;
-	bytea	   *payload_copy = NULL;
+	NDB_DECLARE(bytea *, payload_copy);
 	int			payload_size;
 	NDB_DECLARE(float **, user_factors);
 	NDB_DECLARE(float **, item_factors);
@@ -2519,7 +2519,7 @@ recommender_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 	if (metadata != NULL)
 	{
 		int			metadata_size = VARSIZE(metadata);
-		Jsonb	   *metadata_copy = NULL;
+		NDB_DECLARE(Jsonb *, metadata_copy);
 
 		NDB_ALLOC(metadata_copy, Jsonb, metadata_size);
 		memcpy(metadata_copy, metadata, metadata_size);

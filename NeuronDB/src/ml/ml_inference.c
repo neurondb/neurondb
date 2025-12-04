@@ -229,7 +229,7 @@ model_backend_load(const char *path, ModelType type)
 		case MODEL_ONNX:
 			{
 				/* Try to actually load ONNX model */
-				ONNXModelSession *session = NULL;
+				NDB_DECLARE(ONNXModelSession *, session);
 				NDB_DECLARE(char *, model_name);
 				char	   *last_slash = strrchr(path, '/');
 				char	   *last_dot = strrchr(path, '.');
@@ -292,16 +292,16 @@ model_backend_load(const char *path, ModelType type)
 					{
 						snprintf(hdl->backend_msg,
 								 sizeof(hdl->backend_msg),
-								 "ONNX backend stub loaded [%lu bytes]",
+								 "ONNX backend not available (stub) [%lu bytes]",
 								 (unsigned long) hdl->model_size_bytes);
 					}
 				}
 				PG_CATCH();
 				{
-					/* ONNX Runtime not available or load failed - use stub */
+					/* ONNX Runtime not available or load failed */
 					snprintf(hdl->backend_msg,
 							 sizeof(hdl->backend_msg),
-							 "ONNX backend stub loaded [%lu bytes]",
+							 "ONNX backend not available (stub) [%lu bytes]",
 							 (unsigned long) hdl->model_size_bytes);
 					FlushErrorState();
 				}
@@ -309,7 +309,7 @@ model_backend_load(const char *path, ModelType type)
 #else
 				snprintf(hdl->backend_msg,
 						 sizeof(hdl->backend_msg),
-						 "ONNX backend stub loaded [%lu bytes]",
+						 "ONNX backend not available (stub) [%lu bytes]",
 						 (unsigned long) hdl->model_size_bytes);
 #endif
 				if (model_name)
@@ -319,13 +319,13 @@ model_backend_load(const char *path, ModelType type)
 		case MODEL_TF:
 			snprintf(hdl->backend_msg,
 					 sizeof(hdl->backend_msg),
-					 "TensorFlow backend stub loaded [%lu bytes]",
+					 "TensorFlow backend not available (stub) [%lu bytes]",
 					 (unsigned long) hdl->model_size_bytes);
 			break;
 		case MODEL_PYTORCH:
 			snprintf(hdl->backend_msg,
 					 sizeof(hdl->backend_msg),
-					 "PyTorch backend stub loaded [%lu bytes]",
+					 "PyTorch backend not available (stub) [%lu bytes]",
 					 (unsigned long) hdl->model_size_bytes);
 			break;
 		default:
@@ -492,7 +492,7 @@ predict(PG_FUNCTION_ARGS)
 {
 	text	   *model_name;
 	Vector	   *input;
-	char	   *name_str = NULL;
+	NDB_DECLARE(char *, name_str);
 	ModelEntry *m;
 	Vector	   *result;
 
@@ -736,8 +736,8 @@ predict(PG_FUNCTION_ARGS)
 			{
 #ifdef HAVE_ONNX_RUNTIME
 				ONNXModelSession *session = (ONNXModelSession *) m->model_handle->opaque_backend_state;
-				ONNXTensor *input_tensor = NULL;
-				ONNXTensor *output_tensor = NULL;
+				NDB_DECLARE(ONNXTensor *, input_tensor);
+				NDB_DECLARE(ONNXTensor *, output_tensor);
 
 				if (session != NULL && session->is_loaded)
 				{
@@ -987,11 +987,11 @@ predict_batch(PG_FUNCTION_ARGS)
 				for (i = 0; i < nvecs; i++)
 				{
 					Vector	   *input_vec = (Vector *) DatumGetPointer(input_datums[i]);
-					ONNXTensor *input_tensor = NULL;
-					ONNXTensor *output_tensor = NULL;
-					Vector	   *output_vec = NULL;
-					int64	   *shape = NULL;
-					float	   *data = NULL;
+					NDB_DECLARE(ONNXTensor *, input_tensor);
+					NDB_DECLARE(ONNXTensor *, output_tensor);
+					NDB_DECLARE(Vector *, output_vec);
+					NDB_DECLARE(int64 *, shape);
+					NDB_DECLARE(float *, data);
 
 					if (input_nulls[i] || input_vec == NULL)
 					{
@@ -1499,36 +1499,89 @@ export_model(PG_FUNCTION_ARGS)
 						path_str, strerror(saved_errno))));
 	}
 
-	/* Mock: Write a dummy content or hash for demonstration. */
+	/* Check if model data is actually available (not a stub) */
+	if (m->model_handle == NULL || 
+		strstr(m->model_handle->backend_msg, "stub") != NULL ||
+		m->model_handle->model_size_bytes == 0)
 	{
-		size_t		i;
+		fclose(f);
+		ereport(ERROR,
+				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+				 errmsg("Cannot export model: model data is not available"),
+				 errdetail("Model '%s' backend is not available or model data is missing. Backend message: %s",
+						   name_str,
+						   m->model_handle ? m->model_handle->backend_msg : "model handle is NULL"),
+				 errhint("Real model implementation required. Install ONNX Runtime, TensorFlow, or PyTorch to enable model export.")));
+	}
 
-		for (i = 0; i < 32; ++i)
+	/* Export model data: read from original file and write to export file */
+	{
+		FILE	   *src_f = NULL;
+		char	   *buffer = NULL;
+		size_t		bytes_read;
+		size_t		buffer_size = 8192; /* 8KB buffer for file copy */
+		const char *src_path = m->path;
+
+		/* Open source model file */
+		src_f = fopen(src_path, "rb");
+		if (src_f == NULL)
 		{
-			if (fprintf(f, "%02X", (unsigned char) (rand() & 0xFF)) < 0)
+			int			saved_errno = errno;
+
+			fclose(f);
+			ereport(ERROR,
+					(errcode(ERRCODE_IO_ERROR),
+					 errmsg("Cannot export model: failed to read source model file"),
+					 errdetail("Failed to open source model file '%s' for reading: %s",
+							   src_path, strerror(saved_errno))));
+		}
+
+		/* Allocate buffer for file copy */
+		buffer = (char *) palloc(buffer_size);
+		if (buffer == NULL)
+		{
+			fclose(src_f);
+			fclose(f);
+			ereport(ERROR,
+					(errcode(ERRCODE_OUT_OF_MEMORY),
+					 errmsg("Cannot export model: failed to allocate memory for file copy")));
+		}
+
+		/* Copy file contents */
+		while ((bytes_read = fread(buffer, 1, buffer_size, src_f)) > 0)
+		{
+			if (fwrite(buffer, 1, bytes_read, f) != bytes_read)
 			{
 				int			saved_errno = errno;
 
+				pfree(buffer);
+				fclose(src_f);
 				fclose(f);
 				ereport(ERROR,
 						(errcode(ERRCODE_IO_ERROR),
-						 errmsg("neurondb: Failed to write data to export file '%s' (%s)",
-								path_str, strerror(saved_errno))));
-			}
-			if ((i + 1) % 16 == 0)
-			{
-				if (fprintf(f, "\n") < 0)
-				{
-					int			saved_errno = errno;
-
-					fclose(f);
-					ereport(ERROR,
-							(errcode(ERRCODE_IO_ERROR),
-							 errmsg("neurondb: Failed to write newline to export file '%s' (%s)",
-									path_str, strerror(saved_errno))));
-				}
+						 errmsg("Cannot export model: failed to write model data"),
+						 errdetail("Failed to write to export file '%s': %s",
+								   path_str, strerror(saved_errno))));
 			}
 		}
+
+		/* Check for read errors */
+		if (ferror(src_f))
+		{
+			int			saved_errno = errno;
+
+			pfree(buffer);
+			fclose(src_f);
+			fclose(f);
+			ereport(ERROR,
+					(errcode(ERRCODE_IO_ERROR),
+					 errmsg("Cannot export model: failed to read source model file"),
+					 errdetail("Error reading from source file '%s': %s",
+							   src_path, strerror(saved_errno))));
+		}
+
+		pfree(buffer);
+		fclose(src_f);
 	}
 
 	if (fclose(f) != 0)
