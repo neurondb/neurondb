@@ -157,6 +157,28 @@ rf_split_pair_cmp(const void *a, const void *b)
 	return 0;
 }
 
+/*
+ * rf_select_split
+ *    Select optimal feature and threshold for splitting in random forest trees.
+ *
+ * This function implements the split selection algorithm for random forest
+ * decision trees, which evaluates candidate features and thresholds to find
+ * the split that minimizes Gini impurity. The algorithm uses random feature
+ * selection, examining only a random subset of features at each node rather
+ * than all features, which decorrelates trees in the forest and improves
+ * generalization. The number of features to consider is determined by the
+ * mtry parameter, typically set to the square root of the total feature count.
+ * For each candidate feature, the algorithm collects all feature value and
+ * class label pairs from the current node's samples, sorts them by feature
+ * value, and evaluates potential split thresholds at midpoints between
+ * adjacent distinct values. For each threshold, it computes the weighted
+ * Gini impurity of the resulting left and right child nodes, selecting the
+ * threshold that produces the lowest weighted impurity. The weighted impurity
+ * accounts for the relative sizes of the child nodes, ensuring that splits
+ * creating balanced partitions are preferred over splits that isolate a few
+ * samples. This process continues until all candidate features are evaluated,
+ * and the best overall split is returned.
+ */
 static bool
 rf_select_split(const float *features,
 				const double *labels,
@@ -414,6 +436,26 @@ rf_select_split(const float *features,
 	return (*best_feature >= 0);
 }
 
+/*
+ * rf_build_branch_tree
+ *    Recursively build a decision tree node using the CART algorithm.
+ *
+ * This function constructs a decision tree node by recursively splitting the
+ * training data based on feature thresholds that minimize Gini impurity. The
+ * algorithm first counts class labels in the current subset to determine the
+ * majority class, which becomes the default prediction if no split is made.
+ * If the current node is pure, has reached maximum depth, or contains too few
+ * samples, it creates a leaf node with the majority class. Otherwise, it
+ * calls rf_select_split to find the optimal feature and threshold for
+ * splitting. When a valid split is found, the function partitions the indices
+ * into left and right child subsets based on the split threshold, then
+ * recursively builds child nodes for each subset. The recursive process
+ * continues until stopping criteria are met, creating a binary tree structure
+ * where internal nodes contain split conditions and leaf nodes contain class
+ * predictions. The tree structure enables efficient prediction by following
+ * a path from root to leaf based on feature values, making a prediction at
+ * the leaf node.
+ */
 static int
 rf_build_branch_tree(GTree * tree,
 					 const float *features,
@@ -1409,7 +1451,6 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 				JsonbValue *final_value = NULL;
 				Numeric		n_trees_num, max_depth_num, min_samples_split_num;
 
-				/* Start object */
 				PG_TRY();
 				{
 					(void) pushJsonbValue(&state, WJB_BEGIN_OBJECT, NULL);
@@ -1442,7 +1483,6 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 					jval.val.numeric = min_samples_split_num;
 					(void) pushJsonbValue(&state, WJB_VALUE, &jval);
 
-					/* End object */
 					final_value = pushJsonbValue(&state, WJB_END_OBJECT, NULL);
 					
 					if (final_value == NULL)
@@ -3235,7 +3275,6 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 				JsonbValue *final_value = NULL;
 				Numeric		n_trees_num, max_depth_num, min_samples_split_num;
 
-				/* Start object */
 				PG_TRY();
 				{
 					(void) pushJsonbValue(&state, WJB_BEGIN_OBJECT, NULL);
@@ -3268,7 +3307,6 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 					jval.val.numeric = min_samples_split_num;
 					(void) pushJsonbValue(&state, WJB_VALUE, &jval);
 
-					/* End object */
 					final_value = pushJsonbValue(&state, WJB_END_OBJECT, NULL);
 					
 					if (final_value == NULL)
@@ -3296,7 +3334,6 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 				JsonbValue *final_value = NULL;
 				Numeric		oob_accuracy_num, gini_num, majority_fraction_num;
 
-				/* Start object */
 				PG_TRY();
 				{
 					(void) pushJsonbValue(&state, WJB_BEGIN_OBJECT, NULL);
@@ -3329,7 +3366,6 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 					jval.val.numeric = majority_fraction_num;
 					(void) pushJsonbValue(&state, WJB_VALUE, &jval);
 
-					/* End object */
 					final_value = pushJsonbValue(&state, WJB_END_OBJECT, NULL);
 					
 					if (final_value == NULL)
@@ -5002,12 +5038,13 @@ evaluate_random_forest_by_model_id(PG_FUNCTION_ARGS)
 						JsonbValue *final_value = NULL;
 						Numeric		accuracy_num, precision_num, recall_num, f1_score_num, n_samples_num;
 
-						/* Start object */
+						/* Suppress shadow warnings from nested PG_TRY blocks */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wshadow=compatible-local"
 						PG_TRY();
 						{
 							(void) pushJsonbValue(&state, WJB_BEGIN_OBJECT, NULL);
 
-							/* Add accuracy */
 							jkey.type = jbvString;
 							jkey.val.string.val = "accuracy";
 							jkey.val.string.len = strlen("accuracy");
@@ -5017,7 +5054,6 @@ evaluate_random_forest_by_model_id(PG_FUNCTION_ARGS)
 							jval.val.numeric = accuracy_num;
 							(void) pushJsonbValue(&state, WJB_VALUE, &jval);
 
-							/* Add precision */
 							jkey.val.string.val = "precision";
 							jkey.val.string.len = strlen("precision");
 							(void) pushJsonbValue(&state, WJB_KEY, &jkey);
@@ -5026,7 +5062,6 @@ evaluate_random_forest_by_model_id(PG_FUNCTION_ARGS)
 							jval.val.numeric = precision_num;
 							(void) pushJsonbValue(&state, WJB_VALUE, &jval);
 
-							/* Add recall */
 							jkey.val.string.val = "recall";
 							jkey.val.string.len = strlen("recall");
 							(void) pushJsonbValue(&state, WJB_KEY, &jkey);
@@ -5035,7 +5070,6 @@ evaluate_random_forest_by_model_id(PG_FUNCTION_ARGS)
 							jval.val.numeric = recall_num;
 							(void) pushJsonbValue(&state, WJB_VALUE, &jval);
 
-							/* Add f1_score */
 							jkey.val.string.val = "f1_score";
 							jkey.val.string.len = strlen("f1_score");
 							(void) pushJsonbValue(&state, WJB_KEY, &jkey);
@@ -5044,7 +5078,6 @@ evaluate_random_forest_by_model_id(PG_FUNCTION_ARGS)
 							jval.val.numeric = f1_score_num;
 							(void) pushJsonbValue(&state, WJB_VALUE, &jval);
 
-							/* Add n_samples */
 							jkey.val.string.val = "n_samples";
 							jkey.val.string.len = strlen("n_samples");
 							(void) pushJsonbValue(&state, WJB_KEY, &jkey);
@@ -5053,7 +5086,6 @@ evaluate_random_forest_by_model_id(PG_FUNCTION_ARGS)
 							jval.val.numeric = n_samples_num;
 							(void) pushJsonbValue(&state, WJB_VALUE, &jval);
 
-							/* End object */
 							final_value = pushJsonbValue(&state, WJB_END_OBJECT, NULL);
 							
 							if (final_value == NULL)
@@ -5071,6 +5103,7 @@ evaluate_random_forest_by_model_id(PG_FUNCTION_ARGS)
 							result_jsonb = NULL;
 						}
 						PG_END_TRY();
+#pragma GCC diagnostic pop
 					}
 					{
 						Jsonb	   *temp_jsonb = result_jsonb;
@@ -5586,7 +5619,6 @@ cpu_evaluation_path:
 						 &fn);
 		elog(DEBUG1, "evaluate_random_forest_by_model_id: rf_predict_batch returned tp=%d, tn=%d, fp=%d, fn=%d", tp, tn, fp, fn);
 
-		/* Compute metrics */
 		if (valid_rows > 0)
 		{
 			accuracy = (double) (tp + tn) / (double) valid_rows;
@@ -5607,7 +5639,6 @@ cpu_evaluation_path:
 				f1_score = 0.0;
 		}
 
-		/* Cleanup */
 		if (h_features != NULL)
 		{
 			NDB_FREE(h_features);
@@ -5645,12 +5676,10 @@ cpu_evaluation_path:
 			JsonbValue *final_value = NULL;
 			Numeric		accuracy_num, precision_num, recall_num, f1_score_num, n_samples_num;
 
-			/* Start object */
 			PG_TRY();
 			{
 				(void) pushJsonbValue(&state, WJB_BEGIN_OBJECT, NULL);
 
-				/* Add accuracy */
 				jkey.type = jbvString;
 				jkey.val.string.val = "accuracy";
 				jkey.val.string.len = strlen("accuracy");
@@ -5660,7 +5689,6 @@ cpu_evaluation_path:
 				jval.val.numeric = accuracy_num;
 				(void) pushJsonbValue(&state, WJB_VALUE, &jval);
 
-				/* Add precision */
 				jkey.val.string.val = "precision";
 				jkey.val.string.len = strlen("precision");
 				(void) pushJsonbValue(&state, WJB_KEY, &jkey);
@@ -5669,7 +5697,6 @@ cpu_evaluation_path:
 				jval.val.numeric = precision_num;
 				(void) pushJsonbValue(&state, WJB_VALUE, &jval);
 
-				/* Add recall */
 				jkey.val.string.val = "recall";
 				jkey.val.string.len = strlen("recall");
 				(void) pushJsonbValue(&state, WJB_KEY, &jkey);
@@ -5678,7 +5705,6 @@ cpu_evaluation_path:
 				jval.val.numeric = recall_num;
 				(void) pushJsonbValue(&state, WJB_VALUE, &jval);
 
-				/* Add f1_score */
 				jkey.val.string.val = "f1_score";
 				jkey.val.string.len = strlen("f1_score");
 				(void) pushJsonbValue(&state, WJB_KEY, &jkey);
@@ -5687,7 +5713,6 @@ cpu_evaluation_path:
 				jval.val.numeric = f1_score_num;
 				(void) pushJsonbValue(&state, WJB_VALUE, &jval);
 
-				/* Add n_samples */
 				jkey.val.string.val = "n_samples";
 				jkey.val.string.len = strlen("n_samples");
 				(void) pushJsonbValue(&state, WJB_KEY, &jkey);
@@ -5696,7 +5721,6 @@ cpu_evaluation_path:
 				jval.val.numeric = n_samples_num;
 				(void) pushJsonbValue(&state, WJB_VALUE, &jval);
 
-				/* End object */
 				final_value = pushJsonbValue(&state, WJB_END_OBJECT, NULL);
 				
 				if (final_value == NULL)
@@ -5738,7 +5762,6 @@ cpu_evaluation_path:
 					 errmsg("neurondb: evaluate_random_forest_by_model_id: JSONB result is NULL")));
 		}
 
-		/* Cleanup */
 		if (tbl_str)
 		{
 			NDB_FREE(tbl_str);
