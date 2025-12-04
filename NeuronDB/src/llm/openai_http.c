@@ -271,6 +271,20 @@ ndb_openai_complete(const NdbLLMConfig * cfg,
 		return -1;
 	}
 
+	/* Validate API key is always required for OpenAI */
+	if (!cfg->api_key || cfg->api_key[0] == '\0')
+	{
+		NDB_FREE(url.data);
+		url.data = NULL;
+		NDB_FREE(body.data);
+		body.data = NULL;
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("API key is required for OpenAI but was not provided"),
+				 errhint("Set neurondb.llm_api_key configuration parameter")));
+		return -1;
+	}
+
 	/* Build OpenAI chat completion endpoint */
 	if (cfg->endpoint)
 	{
@@ -459,6 +473,20 @@ ndb_openai_embed(const NdbLLMConfig * cfg,
 		return -1;
 	}
 
+	/* Validate API key is always required for OpenAI */
+	if (!cfg->api_key || cfg->api_key[0] == '\0')
+	{
+		NDB_FREE(url.data);
+		url.data = NULL;
+		NDB_FREE(body.data);
+		body.data = NULL;
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("API key is required for OpenAI but was not provided"),
+				 errhint("Set neurondb.llm_api_key configuration parameter")));
+		return -1;
+	}
+
 	/* Build OpenAI embedding endpoint */
 	if (cfg->endpoint)
 	{
@@ -543,6 +571,18 @@ ndb_openai_embed_batch(const NdbLLMConfig * cfg,
 	{
 		NDB_FREE(url.data);
 		NDB_FREE(body.data);
+		return -1;
+	}
+
+	/* Validate API key is always required for OpenAI */
+	if (!cfg->api_key || cfg->api_key[0] == '\0')
+	{
+		NDB_FREE(url.data);
+		NDB_FREE(body.data);
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("API key is required for OpenAI but was not provided"),
+				 errhint("Set neurondb.llm_api_key configuration parameter")));
 		return -1;
 	}
 
@@ -733,6 +773,18 @@ ndb_openai_vision_complete(const NdbLLMConfig * cfg,
 	{
 		NDB_FREE(url.data);
 		NDB_FREE(body.data);
+		return -1;
+	}
+
+	/* Validate API key is always required for OpenAI */
+	if (!cfg->api_key || cfg->api_key[0] == '\0')
+	{
+		NDB_FREE(url.data);
+		NDB_FREE(body.data);
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("API key is required for OpenAI but was not provided"),
+				 errhint("Set neurondb.llm_api_key configuration parameter")));
 		return -1;
 	}
 
@@ -934,8 +986,8 @@ ndb_openai_multimodal_embed(const NdbLLMConfig * cfg,
 /* OpenAI reranking
  *
  * Note: OpenAI doesn't have a dedicated reranking API.
- * Could potentially use completion API with scoring prompt,
- * but this is not efficient. This is a stub that reports not implemented.
+ * Uses chat completion API with scoring prompt for each document.
+ * This implementation makes individual API calls for each document.
  */
 int
 ndb_openai_rerank(const NdbLLMConfig * cfg,
@@ -956,8 +1008,18 @@ ndb_openai_rerank(const NdbLLMConfig * cfg,
 	int			i;
 	float	   *scores = NULL;
 
-	if (!cfg || !cfg->api_key || !query || !docs || ndocs <= 0 || !scores_out)
+	if (!cfg || !query || !docs || ndocs <= 0 || !scores_out)
 		return -1;
+
+	/* Validate API key is always required for OpenAI */
+	if (!cfg->api_key || cfg->api_key[0] == '\0')
+	{
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("API key is required for OpenAI but was not provided"),
+				 errhint("Set neurondb.llm_api_key configuration parameter")));
+		return -1;
+	}
 
 	/* Allocate scores array */
 	scores = (float *) palloc(sizeof(float) * ndocs);
@@ -1011,19 +1073,26 @@ ndb_openai_rerank(const NdbLLMConfig * cfg,
 			}
 			else
 			{
-				scores[i] = 0.5f;	/* Default if parsing fails */
+				/* Parsing failed - cannot return dummy score */
+				NDB_FREE(json_response);
+				NDB_FREE(scores);
+				ereport(ERROR,
+						(errcode(ERRCODE_EXTERNAL_ROUTINE_INVOCATION_EXCEPTION),
+						 errmsg("OpenAI reranking failed: could not parse response for document %d", i),
+						 errdetail("Failed to extract relevance score from OpenAI API response")));
 			}
 			NDB_FREE(json_response);
 			json_response = NULL;
 		}
 		else
 		{
-			scores[i] = 0.5f;	/* Default on error */
-			if (json_response)
-			{
-				NDB_FREE(json_response);
-				json_response = NULL;
-			}
+			/* API call failed - cannot return dummy score */
+			NDB_FREE(json_response);
+			NDB_FREE(scores);
+			ereport(ERROR,
+					(errcode(ERRCODE_EXTERNAL_ROUTINE_INVOCATION_EXCEPTION),
+					 errmsg("OpenAI reranking failed: API call failed for document %d", i),
+					 errdetail("HTTP status: %d. Cannot return dummy scores.", http_status)));
 		}
 	}
 

@@ -660,21 +660,11 @@ ndb_llm_complete(PG_FUNCTION_ARGS)
 
 	if (cfg.endpoint && strncmp(cfg.endpoint, "mock://", 7) == 0)
 	{
-		end_time = GetCurrentTimestamp();
-		latency_ms = (int64)ndb_elapsed_ms(start_time, end_time);
-		cache_hit = false;
-		success = true;
-		tokens_in = 0;
-		tokens_out = 0;
-		record_llm_stats(cfg.model,
-			"complete",
-			success,
-			cache_hit,
-			latency_ms,
-			tokens_in,
-			tokens_out,
-			NULL);
-		PG_RETURN_TEXT_P(cstring_to_text("mock-completion"));
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("Mock endpoints are not supported"),
+				 errdetail("Use real API endpoints with valid API keys. Mock endpoints for testing are not allowed."),
+				 errhint("Set neurondb.llm_endpoint to a valid API endpoint (e.g., https://api.openai.com or https://api-inference.huggingface.co)")));
 	}
 
 	/* Rate limit */
@@ -1100,30 +1090,14 @@ ndb_llm_embed(PG_FUNCTION_ARGS)
 	call_opts.require_gpu = cfg.require_gpu;
 	call_opts.fail_open = neurondb_llm_fail_open;
 
-	/* Shortcut: for dev/test, mock output. */
+	/* Mock endpoints are not supported */
 	if (cfg.endpoint && strncmp(cfg.endpoint, "mock://", 7) == 0)
 	{
-		end_time = GetCurrentTimestamp();
-		latency_ms = (int64)ndb_elapsed_ms(start_time, end_time);
-		dim = 4;
-		v = new_vector(dim);
-		v->data[0] = 1;
-		v->data[1] = 2;
-		v->data[2] = 3;
-		v->data[3] = 4;
-		cache_hit = false;
-		success = true;
-		tokens_in = 0;
-		tokens_out = 0;
-		record_llm_stats(cfg.model,
-			"embed",
-			success,
-			cache_hit,
-			latency_ms,
-			tokens_in,
-			tokens_out,
-			NULL);
-		PG_RETURN_VECTOR_P(v);
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("Mock endpoints are not supported"),
+				 errdetail("Use real API endpoints with valid API keys. Mock endpoints for testing are not allowed."),
+				 errhint("Set neurondb.llm_endpoint to a valid API endpoint (e.g., https://api.openai.com or https://api-inference.huggingface.co)")));
 	}
 
 	/* Rate limiting */
@@ -1225,7 +1199,7 @@ ndb_llm_embed(PG_FUNCTION_ARGS)
 /* SQL: llm_rerank(query text, docs text[], model text default null, top_n int default 10)
  * RETURNS TABLE(idx int, score real)
  * 
- * This is a mock/test implementation only.
+ * Rerank documents using LLM provider APIs. Requires valid API keys and endpoints.
  */
 PG_FUNCTION_INFO_V1(ndb_llm_rerank);
 Datum
@@ -1520,8 +1494,8 @@ neurondb_llm_gpu_utilization(PG_FUNCTION_ARGS)
 				}
 				/* Note: GPU utilization percentage, temperature, and power require
 				 * system-level APIs (NVML for CUDA, rocm-smi for ROCm, IOKit for Metal).
-				 * These are not yet implemented, so we return 0.0 as placeholders.
-				 * TODO: Integrate with backend-specific monitoring APIs */
+				 * These require integration with backend-specific monitoring APIs.
+				 * For now, return 0.0 to indicate metrics are not available. */
 				utilization_pct = 0.0;
 				temperature_c = 0;
 				power_w = 0.0;

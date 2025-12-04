@@ -45,6 +45,16 @@ ndb_hf_vision_complete(const NdbLLMConfig * cfg,
 	if (!cfg || !image_data || image_size == 0 || !prompt || !out)
 		return -1;
 
+	/* Validate API key is required for HuggingFace inference API */
+	if (!cfg->api_key || cfg->api_key[0] == '\0')
+	{
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("API key is required for HuggingFace but was not provided"),
+				 errhint("Set neurondb.llm_api_key configuration parameter")));
+		return -1;
+	}
+
 	initStringInfo(&url);
 	initStringInfo(&body);
 
@@ -302,6 +312,18 @@ ndb_hf_complete(const NdbLLMConfig * cfg,
 		return -1;
 	}
 
+	/* Validate API key is required for HuggingFace inference API */
+	if (!cfg->api_key || cfg->api_key[0] == '\0')
+	{
+		pfree(url.data);
+		pfree(body.data);
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("API key is required for HuggingFace but was not provided"),
+				 errhint("Set neurondb.llm_api_key configuration parameter")));
+		return -1;
+	}
+
 	appendStringInfo(&url, "%s/models/%s", cfg->endpoint, cfg->model);
 	appendStringInfo(&body,
 					 "{\"inputs\":%s,\"parameters\":%s}",
@@ -455,6 +477,18 @@ ndb_hf_embed(const NdbLLMConfig * cfg,
 	{
 		pfree(url.data);
 		pfree(body.data);
+		return -1;
+	}
+
+	/* Validate API key is required for HuggingFace inference API */
+	if (!cfg->api_key || cfg->api_key[0] == '\0')
+	{
+		pfree(url.data);
+		pfree(body.data);
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("API key is required for HuggingFace but was not provided"),
+				 errhint("Set neurondb.llm_api_key configuration parameter")));
 		return -1;
 	}
 
@@ -1022,6 +1056,18 @@ ndb_hf_rerank(const NdbLLMConfig * cfg,
 	{
 		pfree(url.data);
 		pfree(body.data);
+		return -1;
+	}
+
+	/* Validate API key is required for HuggingFace inference API */
+	if (!cfg->api_key || cfg->api_key[0] == '\0')
+	{
+		pfree(url.data);
+		pfree(body.data);
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("API key is required for HuggingFace but was not provided"),
+				 errhint("Set neurondb.llm_api_key configuration parameter")));
 		return -1;
 	}
 

@@ -423,7 +423,7 @@ hnswinsert(Relation index,
 	PG_TRY();
 	{
 		metaBuffer = ReadBuffer(index, 0);
-		LockBuffer(metaBuffer, BUFFER_LOCK_SHARE);
+		LockBuffer(metaBuffer, BUFFER_LOCK_EXCLUSIVE);
 		metaPage = BufferGetPage(metaBuffer);
 		meta = (HnswMetaPage) PageGetContents(metaPage);
 
@@ -1605,6 +1605,13 @@ hnswInsertNode(Relation index,
 		int			idx,
 					j;
 
+		/* Skip neighbor linking if this is the first node in the index */
+		if (metaPage->entryPoint == InvalidBlockNumber || entryLevel < 0)
+		{
+			/* No neighbors to link yet - this is the first node */
+			goto skip_neighbor_linking;
+		}
+
 		if (blkno == InvalidBlockNumber ||
 			blkno >= RelationGetNumberOfBlocks(index))
 		{
@@ -1641,24 +1648,42 @@ hnswInsertNode(Relation index,
 			int			selectedCount;
 			float4	   *selectedDistances;
 
-			/* Find neighbor candidates for this level */
-			hnswSearch(index,
-					   metaPage,
-					   vector,
-					   dim,
-					   1,		/* L2 distance */
-					   efConstruction,
-					   efConstruction,
-					   &candidates,
-					   &candidateDistances,
-					   &candidateCount);
+			/* Skip search if index is empty (first insertion) */
+			if (metaPage->entryPoint == InvalidBlockNumber)
+			{
+				candidateCount = 0;
+				candidates = NULL;
+				candidateDistances = NULL;
+			}
+			else
+			{
+				/* Find neighbor candidates for this level */
+				hnswSearch(index,
+						   metaPage,
+						   vector,
+						   dim,
+						   1,		/* L2 distance */
+						   efConstruction,
+						   efConstruction,
+						   &candidates,
+						   &candidateDistances,
+						   &candidateCount);
+			}
 
 			selectedCount = Min(m, candidateCount);
-			selectedNeighbors = (BlockNumber *) palloc(selectedCount * sizeof(BlockNumber));
-			selectedDistances = (float4 *) palloc(selectedCount * sizeof(float4));
+			if (selectedCount > 0)
+			{
+				selectedNeighbors = (BlockNumber *) palloc(selectedCount * sizeof(BlockNumber));
+				selectedDistances = (float4 *) palloc(selectedCount * sizeof(float4));
+			}
+			else
+			{
+				selectedNeighbors = NULL;
+				selectedDistances = NULL;
+			}
 
 			/* Sort by distance: select top m */
-			for (idx = 0; idx < selectedCount; idx++)
+			for (idx = 0; idx < selectedCount && candidates != NULL && candidateDistances != NULL; idx++)
 			{
 				int			bestIdx = idx;
 				float4		bestDist = candidateDistances[idx];
@@ -1802,10 +1827,16 @@ hnswInsertNode(Relation index,
 				UnlockReleaseBuffer(neighborBuf);
 			}
 
-			NDB_FREE(selectedNeighbors);
-			selectedNeighbors = NULL;
-			NDB_FREE(selectedDistances);
-			selectedDistances = NULL;
+			if (selectedNeighbors)
+			{
+				NDB_FREE(selectedNeighbors);
+				selectedNeighbors = NULL;
+			}
+			if (selectedDistances)
+			{
+				NDB_FREE(selectedDistances);
+				selectedDistances = NULL;
+			}
 
 			if (candidates)
 			{
@@ -1820,6 +1851,9 @@ hnswInsertNode(Relation index,
 		}
 		MarkBufferDirty(newNodeBuf);
 		UnlockReleaseBuffer(newNodeBuf);
+
+skip_neighbor_linking:
+		;	/* Empty statement to satisfy C syntax */
 	}
 
 	/* Step 6: Update entry point and meta info if necessary */

@@ -602,13 +602,29 @@ ivfbuild(Relation heap, Relation index, struct IndexInfo *indexInfo)
 						 buildstate.dim,
 						 buildstate.sampleVectors,
 						 buildstate.sampleCount);
+	if (kmeans == NULL)
+	{
+		ereport(ERROR,
+				(errcode(ERRCODE_INTERNAL_ERROR),
+				 errmsg("ivf: kmeans_init failed")));
+	}
 	kmeans_run(kmeans);
+
+	/* Validate kmeans state */
+	if (kmeans->centroids == NULL)
+	{
+		kmeans_free(kmeans);
+		ereport(ERROR,
+				(errcode(ERRCODE_INTERNAL_ERROR),
+				 errmsg("ivf: kmeans centroids are NULL")));
+	}
 
 	/* Step 3: Store centroids in dedicated page(s) */
 	centroidsBlock = RelationGetNumberOfBlocks(index);
 	centroidsBuf = ReadBuffer(index, P_NEW);
 	if (!BufferIsValid(centroidsBuf))
 	{
+		kmeans_free(kmeans);
 		ereport(ERROR,
 				(errcode(ERRCODE_INTERNAL_ERROR),
 				 errmsg("neurondb: ReadBuffer failed")));
@@ -624,6 +640,15 @@ ivfbuild(Relation heap, Relation index, struct IndexInfo *indexInfo)
 
 	for (i = 0; i < nlists; i++)
 	{
+		if (kmeans->centroids[i] == NULL)
+		{
+			UnlockReleaseBuffer(centroidsBuf);
+			kmeans_free(kmeans);
+			ereport(ERROR,
+					(errcode(ERRCODE_INTERNAL_ERROR),
+					 errmsg("ivf: centroid %d is NULL", i)));
+		}
+
 		centroid = (IvfCentroidData *) palloc(centroidSize);
 		centroid->listId = i;
 		centroid->dim = buildstate.dim;
@@ -643,11 +668,17 @@ ivfbuild(Relation heap, Relation index, struct IndexInfo *indexInfo)
 							 false,
 							 false);
 		if (offnum == InvalidOffsetNumber)
+		{
+			pfree(centroid);
+			UnlockReleaseBuffer(centroidsBuf);
+			kmeans_free(kmeans);
 			ereport(ERROR,
 					(errcode(ERRCODE_INTERNAL_ERROR),
 					 errmsg("ivf: failed to add centroid to page")));
+		}
 
-		NDB_FREE(centroid);
+		/* PageAddItem copies the data, so we can free the temporary allocation */
+		pfree(centroid);
 	}
 
 	MarkBufferDirty(centroidsBuf);
@@ -663,6 +694,10 @@ ivfbuild(Relation heap, Relation index, struct IndexInfo *indexInfo)
 	/* This would require a second pass through the heap */
 	/* For now, we mark the index as built with centroids ready */
 	/* Actual list building happens during inserts */
+
+	/* Clean up kmeans (allocated in CurrentMemoryContext, not tmpCtx) */
+	kmeans_free(kmeans);
+	kmeans = NULL;
 
 	/* Clean up */
 	MemoryContextDelete(buildstate.tmpCtx);
@@ -2055,7 +2090,7 @@ kmeans_compute_cost(KMeansState * state)
 /*
  * Free KMeans state
  */
-__attribute__((unused)) static void
+static void
 kmeans_free(KMeansState * state)
 {
 	int			i;

@@ -156,10 +156,11 @@ consistent_knn_search(PG_FUNCTION_ARGS)
 
 		/*
 		 * Use index-backed search: this must reference the correct index
-		 * table in a complete impl. For this mockup, we assume
-		 * "my_vectors(id, embedding)" exists.
+		 * table in a complete implementation. This is a placeholder for
+		 * future implementation that will dynamically determine the index table.
+		 * For now, assumes "my_vectors(id, embedding)" exists.
 		 *
-		 * Deteministic ordering: ORDER BY dist ASC, ctid ASC, id ASC
+		 * Deterministic ordering: ORDER BY dist ASC, ctid ASC, id ASC
 		 */
 		snprintf(sql,
 				 sizeof(sql),
