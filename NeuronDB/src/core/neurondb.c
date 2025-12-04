@@ -554,16 +554,40 @@ array_to_vector(PG_FUNCTION_ARGS)
 	bool	   *nulls;
 	int			nelems;
 	int			i;
+	Oid			elem_type;
+
+	if (array == NULL)
+		ereport(ERROR,
+				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
+				 errmsg("array_to_vector: input array cannot be NULL")));
 
 	if (ARR_NDIM(array) != 1)
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),
-				 errmsg("array must be one-dimensional")));
+				 errmsg("array must be one-dimensional"),
+				 errdetail("array_to_vector received array with %d dimensions", ARR_NDIM(array))));
 
-	get_typlenbyvalalign(
-						 ARR_ELEMTYPE(array), &typlen, &typbyval, &typalign);
+	elem_type = ARR_ELEMTYPE(array);
+	
+	/* Validate element type - must be a numeric type, not an array type */
+	if (get_element_type(elem_type) != InvalidOid)
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("array_to_vector: input array contains nested arrays"),
+				 errdetail("array_to_vector expects a flat array of numeric values, but received an array of arrays (element type: %u)", elem_type),
+				 errhint("Extract the nested array element first, or use array_to_vector on each nested array separately")));
+
+	get_typlenbyvalalign(elem_type, &typlen, &typbyval, &typalign);
+	
+	/* Validate type information before deconstructing */
+	if (typlen <= 0 && elem_type != FLOAT4OID && elem_type != FLOAT8OID)
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("array_to_vector: invalid element type"),
+				 errdetail("Expected numeric type (float4 or float8), got type %u with length %d", elem_type, typlen)));
+
 	deconstruct_array(array,
-					  ARR_ELEMTYPE(array),
+					  elem_type,
 					  typlen,
 					  typbyval,
 					  typalign,

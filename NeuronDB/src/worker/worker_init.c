@@ -106,6 +106,22 @@ _PG_init(void)
 	elog(LOG, "neurondb: registered reloption kinds (HNSW=%d, IVF=%d)",
 		 relopt_kind_hnsw, relopt_kind_ivf);
 
+	/* Register HNSW index options */
+	add_int_reloption(relopt_kind_hnsw, "m",
+					  "Maximum number of connections per node",
+					  16, 4, 200, AccessExclusiveLock);
+	add_int_reloption(relopt_kind_hnsw, "ef_construction",
+					  "Size of dynamic candidate list during construction",
+					  200, 10, 1000, AccessExclusiveLock);
+	add_int_reloption(relopt_kind_hnsw, "ef_search",
+					  "Size of dynamic candidate list during search",
+					  64, 10, 1000, AccessExclusiveLock);
+
+	/* Register IVF index options */
+	add_int_reloption(relopt_kind_ivf, "lists",
+					  "Number of inverted lists",
+					  100, 1, 10000, AccessExclusiveLock);
+
 	/* Initialize all GUC variables (centralized) */
 	neurondb_init_all_gucs();
 

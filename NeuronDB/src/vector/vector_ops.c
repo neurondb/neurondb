@@ -129,14 +129,8 @@ vector_append(PG_FUNCTION_ARGS)
 	val = PG_GETARG_FLOAT4(1);
 
 	result = new_vector(v->dim + 1);
-	memcpy(result->data, v->data, sizeof(float4) * v->dim);
-	if (v->dim < 0 || v->dim >= result->dim)
-	{
-		ereport(ERROR,
-				(errcode(ERRCODE_ARRAY_SUBSCRIPT_ERROR),
-				 errmsg("neurondb: array index %d out of bounds (dim=%d)",
-						v->dim, result->dim)));
-	}
+	if (v->dim > 0)
+		memcpy(result->data, v->data, sizeof(float4) * v->dim);
 	result->data[v->dim] = val;
 
 	PG_RETURN_VECTOR_P(result);

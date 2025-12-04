@@ -237,8 +237,8 @@ PG_FUNCTION_INFO_V1(sparse_vector_dot_product);
 Datum
 sparse_vector_dot_product(PG_FUNCTION_ARGS)
 {
-	NDB_DECLARE(SparseVector *, a);
-	NDB_DECLARE(SparseVector *, b);
+	SparseVector *a;
+	SparseVector *b;
 	int32	   *a_tokens;
 	int32	   *b_tokens;
 	float4	   *a_weights;
@@ -247,12 +247,30 @@ sparse_vector_dot_product(PG_FUNCTION_ARGS)
 	int			i,
 				j;
 
+	/* Get and detoast the arguments (STRICT function, so NULLs already handled) */
 	a = PG_GETARG_SPARSE_VECTOR_P(0);
 	b = PG_GETARG_SPARSE_VECTOR_P(1);
 
-	if (a == NULL || b == NULL)
-		PG_RETURN_FLOAT4(0.0);
+	/* Validate basic structure */
+	if (VARSIZE_ANY(a) < sizeof(SparseVector) ||
+		VARSIZE_ANY(b) < sizeof(SparseVector))
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("invalid sparse_vector: too small")));
 
+	if (a->nnz < 0 || a->nnz > 10000 ||
+		b->nnz < 0 || b->nnz > 10000)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("invalid sparse_vector nnz: %d, %d", a->nnz, b->nnz)));
+
+	if (VARSIZE_ANY(a) < SPARSE_VEC_SIZE(a->nnz) ||
+		VARSIZE_ANY(b) < SPARSE_VEC_SIZE(b->nnz))
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("invalid sparse_vector: size mismatch")));
+
+	/* Get array pointers */
 	a_tokens = SPARSE_VEC_TOKEN_IDS(a);
 	b_tokens = SPARSE_VEC_TOKEN_IDS(b);
 	a_weights = SPARSE_VEC_WEIGHTS(a);

@@ -117,14 +117,8 @@ vector_append(PG_FUNCTION_ARGS)
 	Vector	   *result;
 
 	result = new_vector(v->dim + 1);
-	memcpy(result->data, v->data, sizeof(float4) * v->dim);
-	if (v->dim < 0 || v->dim >= result->dim)
-	{
-		ereport(ERROR,
-				(errcode(ERRCODE_ARRAY_SUBSCRIPT_ERROR),
-				 errmsg("neurondb: array index %d out of bounds (dim=%d)",
-						v->dim, result->dim)));
-	}
+	if (v->dim > 0)
+		memcpy(result->data, v->data, sizeof(float4) * v->dim);
 	result->data[v->dim] = val;
 
 	PG_RETURN_VECTOR_P(result);
@@ -313,6 +307,12 @@ vector_mean(PG_FUNCTION_ARGS)
 	double		sum = 0.0;
 	int			i;
 
+	if (v->dim <= 0)
+		ereport(ERROR,
+				(errcode(ERRCODE_DIVISION_BY_ZERO),
+				 errmsg("cannot compute mean of vector with dimension %d",
+						v->dim)));
+
 	for (i = 0; i < v->dim; i++)
 		sum += v->data[i];
 
@@ -329,6 +329,12 @@ vector_variance(PG_FUNCTION_ARGS)
 	double		mean = 0.0,
 				variance = 0.0;
 	int			i;
+
+	if (v->dim <= 0)
+		ereport(ERROR,
+				(errcode(ERRCODE_DIVISION_BY_ZERO),
+				 errmsg("cannot compute variance of vector with dimension %d",
+						v->dim)));
 
 	for (i = 0; i < v->dim; i++)
 		mean += v->data[i];
@@ -355,6 +361,12 @@ vector_stddev(PG_FUNCTION_ARGS)
 				variance = 0.0;
 	int			i;
 
+	if (v->dim <= 0)
+		ereport(ERROR,
+				(errcode(ERRCODE_DIVISION_BY_ZERO),
+				 errmsg("cannot compute standard deviation of vector with dimension %d",
+						v->dim)));
+
 	for (i = 0; i < v->dim; i++)
 		mean += v->data[i];
 	mean /= v->dim;
@@ -376,9 +388,15 @@ vector_min(PG_FUNCTION_ARGS)
 	Vector	   *v = PG_GETARG_VECTOR_P(0);
 
 	NDB_CHECK_VECTOR_VALID(v);
-	float4		min_val = v->data[0];
+	float4		min_val;
 	int			i;
 
+	if (v->dim <= 0)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("cannot compute minimum of empty vector")));
+
+	min_val = v->data[0];
 	for (i = 1; i < v->dim; i++)
 		if (v->data[i] < min_val)
 			min_val = v->data[i];
@@ -393,9 +411,15 @@ vector_max(PG_FUNCTION_ARGS)
 	Vector	   *v = PG_GETARG_VECTOR_P(0);
 
 	NDB_CHECK_VECTOR_VALID(v);
-	float4		max_val = v->data[0];
+	float4		max_val;
 	int			i;
 
+	if (v->dim <= 0)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("cannot compute maximum of empty vector")));
+
+	max_val = v->data[0];
 	for (i = 1; i < v->dim; i++)
 		if (v->data[i] > max_val)
 			max_val = v->data[i];
@@ -503,6 +527,12 @@ vector_standardize(PG_FUNCTION_ARGS)
 				stddev = 0.0;
 	int			i;
 
+	if (v->dim <= 0)
+		ereport(ERROR,
+				(errcode(ERRCODE_DIVISION_BY_ZERO),
+				 errmsg("cannot standardize vector with dimension %d",
+						v->dim)));
+
 	/* Calculate mean */
 	for (i = 0; i < v->dim; i++)
 		mean += v->data[i];
@@ -544,12 +574,18 @@ vector_minmax_normalize(PG_FUNCTION_ARGS)
 
 	NDB_CHECK_VECTOR_VALID(v);
 	Vector	   *result;
-	float4		min_val = v->data[0],
-				max_val = v->data[0];
+	float4		min_val;
+	float4		max_val;
 	float4		range;
 	int			i;
 
+	if (v->dim <= 0)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("cannot normalize empty vector")));
+
 	/* Find min and max */
+	min_val = max_val = v->data[0];
 	for (i = 1; i < v->dim; i++)
 	{
 		if (v->data[i] < min_val)

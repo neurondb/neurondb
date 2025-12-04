@@ -228,7 +228,7 @@ vector_time_travel(PG_FUNCTION_ARGS)
  *   - Inspects metadata and verifies the destination cold table,
  *   - Logs all SQL execution steps,
  *   - Attempts up to 1000 compress/move records per call,
- *   - Applies base64 encoding as a mock of PQ compression,
+ *   - Applies base64 encoding as an alternative to PQ compression,
  *   - Updates per-row metadata and marks rows as compressed,
  *   - Handles corner cases for missing columns and failure modes.
  *
