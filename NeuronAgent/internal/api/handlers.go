@@ -58,7 +58,7 @@ func (h *Handlers) CreateAgent(w http.ResponseWriter, r *http.Request) {
 		ModelName:    req.ModelName,
 		MemoryTable:  req.MemoryTable,
 		EnabledTools: req.EnabledTools,
-		Config:       req.Config,
+		Config:       db.FromMap(req.Config),
 	}
 
 	if err := h.queries.CreateAgent(r.Context(), agent); err != nil {
@@ -144,7 +144,7 @@ func (h *Handlers) UpdateAgent(w http.ResponseWriter, r *http.Request) {
 	agent.ModelName = req.ModelName
 	agent.MemoryTable = req.MemoryTable
 	agent.EnabledTools = req.EnabledTools
-	agent.Config = req.Config
+	agent.Config = db.FromMap(req.Config)
 
 	if err := h.queries.UpdateAgent(r.Context(), agent); err != nil {
 		requestID := GetRequestID(r.Context())
@@ -188,10 +188,14 @@ func (h *Handlers) CreateSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	metadata := db.FromMap(req.Metadata)
+	if req.Metadata == nil {
+		metadata = make(db.JSONBMap)
+	}
 	session := &db.Session{
 		AgentID:       req.AgentID,
 		ExternalUserID: req.ExternalUserID,
-		Metadata:      req.Metadata,
+		Metadata:      metadata,
 	}
 
 	if err := h.queries.CreateSession(r.Context(), session); err != nil {
@@ -355,7 +359,7 @@ func toAgentResponse(a *db.Agent) AgentResponse {
 		ModelName:    a.ModelName,
 		MemoryTable:  a.MemoryTable,
 		EnabledTools: a.EnabledTools,
-		Config:       a.Config,
+		Config:       a.Config.ToMap(),
 		CreatedAt:    a.CreatedAt,
 		UpdatedAt:    a.UpdatedAt,
 	}
@@ -366,13 +370,17 @@ func toSessionResponse(s *db.Session) SessionResponse {
 		ID:             s.ID,
 		AgentID:        s.AgentID,
 		ExternalUserID: s.ExternalUserID,
-		Metadata:       s.Metadata,
+		Metadata:       s.Metadata.ToMap(),
 		CreatedAt:      s.CreatedAt,
 		LastActivityAt: s.LastActivityAt,
 	}
 }
 
 func toMessageResponse(m *db.Message) MessageResponse {
+	metadata := make(map[string]interface{})
+	if m.Metadata != nil {
+		metadata = m.Metadata
+	}
 	return MessageResponse{
 		ID:         m.ID,
 		SessionID:  m.SessionID,
@@ -381,7 +389,7 @@ func toMessageResponse(m *db.Message) MessageResponse {
 		ToolName:   m.ToolName,
 		ToolCallID: m.ToolCallID,
 		TokenCount: m.TokenCount,
-		Metadata:   m.Metadata,
+		Metadata:   metadata,
 		CreatedAt:  m.CreatedAt,
 	}
 }

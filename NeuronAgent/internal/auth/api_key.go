@@ -40,6 +40,7 @@ func (m *APIKeyManager) GenerateAPIKey(ctx context.Context, organizationID, user
 		UserID:          userID,
 		RateLimitPerMin: rateLimit,
 		Roles:           roles,
+		Metadata:        make(db.JSONBMap), // Initialize empty metadata
 	}
 
 	if err := m.queries.CreateAPIKey(ctx, apiKey); err != nil {
@@ -52,17 +53,22 @@ func (m *APIKeyManager) GenerateAPIKey(ctx context.Context, organizationID, user
 // ValidateAPIKey validates an API key and returns the key record
 func (m *APIKeyManager) ValidateAPIKey(ctx context.Context, key string) (*db.APIKey, error) {
 	prefix := GetKeyPrefix(key)
+	fmt.Printf("[AUTH] ValidateAPIKey: prefix=%s, key_len=%d\n", prefix, len(key))
 
 	// Find key by prefix
 	apiKey, err := m.queries.GetAPIKeyByPrefix(ctx, prefix)
 	if err != nil {
-		return nil, fmt.Errorf("API key not found")
+		fmt.Printf("[AUTH] GetAPIKeyByPrefix failed: prefix=%s, error=%v\n", prefix, err)
+		return nil, fmt.Errorf("API key lookup failed: prefix=%s, error=%w", prefix, err)
 	}
+	fmt.Printf("[AUTH] GetAPIKeyByPrefix succeeded: prefix=%s, hash=%s\n", apiKey.KeyPrefix, apiKey.KeyHash[:30])
 
 	// Verify key
 	if !VerifyAPIKey(key, apiKey.KeyHash) {
-		return nil, fmt.Errorf("invalid API key")
+		fmt.Printf("[AUTH] Key verification failed: prefix=%s\n", prefix)
+		return nil, fmt.Errorf("invalid API key: key verification failed")
 	}
+	fmt.Printf("[AUTH] Key verification succeeded: prefix=%s\n", prefix)
 
 	// Update last used
 	_ = m.queries.UpdateAPIKeyLastUsed(ctx, apiKey.ID)

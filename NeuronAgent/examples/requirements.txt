@@ -1,0 +1,193 @@
+# ============================================================================
+# NeuronAgent Python Client Library - Requirements
+# ============================================================================
+# 
+# This file contains all dependencies for the NeuronAgent modular client
+# library and examples. It is designed to be 100% compatible with NeuronDB.
+#
+# Installation:
+#   pip install -r requirements.txt
+#
+# For development:
+#   pip install -r requirements.txt[dev]
+#
+# For NeuronDB integration:
+#   pip install -r requirements.txt[neurondb]
+#
+# ============================================================================
+
+# ============================================================================
+# Core Dependencies (Required)
+# ============================================================================
+# These are the minimum required packages for the client library to function.
+
+# HTTP client library for API requests
+# Used in: core/client.py
+# Features: Retry logic, connection pooling, session management
+requests>=2.31.0,<3.0.0
+
+# WebSocket client for streaming responses
+# Used in: core/websocket.py
+# Features: Real-time streaming, message handling
+websocket-client>=1.6.0,<2.0.0
+
+# HTTP library with retry support (dependency of requests)
+# Used in: core/client.py for Retry strategy
+# Note: Usually comes with requests, but explicitly listed for clarity
+urllib3>=2.0.0,<3.0.0
+
+# ============================================================================
+# NeuronDB Integration Dependencies (Optional but Recommended)
+# ============================================================================
+# These packages enable direct integration with NeuronDB PostgreSQL extension
+# for vector operations, embeddings, and database queries.
+
+# PostgreSQL adapter for Python
+# Used for: Direct database connections, vector operations, embedding storage
+# Required if: Using NeuronDB vector search, embeddings, or direct DB access
+psycopg2-binary>=2.9.7,<3.0.0; platform_system != "Windows"
+psycopg2-binary>=2.9.7,<3.0.0; platform_system == "Windows"
+
+# Alternative async PostgreSQL adapter (optional)
+# Used for: Asynchronous database operations
+# Required if: Using async/await patterns with NeuronDB
+# psycopg[binary,pool]>=3.1.0,<4.0.0; python_version >= "3.8"
+
+# NumPy for numerical operations and vector handling
+# Used for: Vector operations, array handling, embedding processing
+# Required if: Working with embeddings, vector similarity, or numerical data
+numpy>=1.24.0,<2.0.0
+
+# ============================================================================
+# Development Dependencies (Optional)
+# ============================================================================
+# These are only needed for development, testing, and code quality.
+
+# Type checking and static analysis
+# Used for: Type checking, linting, code quality
+mypy>=1.5.0,<2.0.0; python_version >= "3.8"
+types-requests>=2.31.0,<3.0.0; python_version >= "3.8"
+
+# Code formatting
+# Used for: Code formatting, style consistency
+black>=23.0.0,<25.0.0; python_version >= "3.8"
+
+# Linting
+# Used for: Code linting, style checking
+flake8>=6.0.0,<8.0.0; python_version >= "3.8"
+pylint>=2.17.0,<4.0.0; python_version >= "3.8"
+
+# Testing framework
+# Used for: Unit tests, integration tests
+pytest>=7.4.0,<8.0.0; python_version >= "3.8"
+pytest-cov>=4.1.0,<5.0.0; python_version >= "3.8"
+pytest-asyncio>=0.21.0,<1.0.0; python_version >= "3.8"
+
+# Documentation generation
+# Used for: Generating API documentation
+sphinx>=7.1.0,<8.0.0; python_version >= "3.8"
+sphinx-rtd-theme>=1.3.0,<3.0.0; python_version >= "3.8"
+
+# ============================================================================
+# Optional Dependencies for Advanced Features
+# ============================================================================
+
+# Environment variable management
+# Used for: Better configuration management
+python-dotenv>=1.0.0,<2.0.0
+
+# Enhanced JSON handling (optional)
+# Used for: Better JSON parsing, validation
+jsonschema>=4.19.0,<5.0.0
+
+# Progress bars for long operations
+# Used for: User feedback during long operations
+tqdm>=4.66.0,<5.0.0
+
+# Date/time handling (if needed for advanced features)
+# Used for: Better date/time parsing and formatting
+python-dateutil>=2.8.2,<3.0.0
+
+# ============================================================================
+# NeuronDB-Specific Optional Dependencies
+# ============================================================================
+# These are useful when working directly with NeuronDB features
+
+# Hugging Face transformers (for local embedding models)
+# Used for: Running embedding models locally
+# transformers>=4.35.0,<5.0.0; extra == "neurondb"
+
+# ONNX runtime (for model inference)
+# Used for: Running ONNX models exported from NeuronDB
+# onnxruntime>=1.16.0,<2.0.0; extra == "neurondb"
+
+# Vector similarity libraries (alternative to direct SQL)
+# Used for: Client-side vector operations
+# faiss-cpu>=1.7.4,<2.0.0; extra == "neurondb" and platform_system != "Darwin"
+# faiss-cpu>=1.7.4,<2.0.0; extra == "neurondb" and platform_system == "Darwin"
+
+# ============================================================================
+# Platform-Specific Dependencies
+# ============================================================================
+
+# Windows-specific (if needed)
+# pywin32>=306; platform_system == "Windows" and sys_platform == "win32"
+
+# macOS-specific (if needed)
+# pyobjc>=10.0; platform_system == "Darwin"
+
+# ============================================================================
+# Version Constraints
+# ============================================================================
+# Python version requirement: >= 3.8
+# All packages are tested with Python 3.8, 3.9, 3.10, 3.11, 3.12
+
+# ============================================================================
+# Installation Notes
+# ============================================================================
+#
+# 1. Basic installation (core only):
+#    pip install -r requirements.txt
+#
+# 2. With NeuronDB integration:
+#    pip install -r requirements.txt
+#    pip install psycopg2-binary numpy
+#
+# 3. For development:
+#    pip install -r requirements.txt
+#    pip install mypy black flake8 pytest pytest-cov
+#
+# 4. For full development with NeuronDB:
+#    pip install -r requirements.txt
+#    pip install psycopg2-binary numpy
+#    pip install mypy black flake8 pytest pytest-cov
+#
+# ============================================================================
+# Compatibility Notes
+# ============================================================================
+#
+# - All packages are compatible with Python 3.8+
+# - Tested with PostgreSQL 16+ and NeuronDB extension
+# - Compatible with NeuronDB vector search, embeddings, and ML features
+# - Works on Linux, macOS, and Windows
+#
+# ============================================================================
+# Troubleshooting
+# ============================================================================
+#
+# If you encounter issues:
+#
+# 1. psycopg2-binary installation fails:
+#    - On Linux: Install postgresql-dev package first
+#    - On macOS: Install PostgreSQL via Homebrew
+#    - On Windows: Use pre-built wheels (should work automatically)
+#
+# 2. numpy installation fails:
+#    - Ensure you have a C compiler installed
+#    - Consider using conda instead of pip for numpy
+#
+# 3. websocket-client issues:
+#    - Ensure Python SSL support is enabled
+#    - Check firewall settings for WebSocket connections
+#
+# ============================================================================

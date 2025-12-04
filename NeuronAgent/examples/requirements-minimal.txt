@@ -1,0 +1,18 @@
+# ============================================================================
+# Minimal Requirements
+# ============================================================================
+# Absolute minimum dependencies for basic client functionality
+# Use this if you only need basic HTTP/WebSocket client features
+#
+# Install with: pip install -r requirements-minimal.txt
+# ============================================================================
+
+# HTTP client (required)
+requests>=2.31.0,<3.0.0
+
+# WebSocket client (required for streaming)
+websocket-client>=1.6.0,<2.0.0
+
+# HTTP retry support (dependency of requests)
+urllib3>=2.0.0,<3.0.0
+

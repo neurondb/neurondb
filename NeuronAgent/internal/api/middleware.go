@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -41,14 +42,26 @@ func AuthMiddleware(keyManager *auth.APIKeyManager, rateLimiter *auth.RateLimite
 			}
 
 			key := parts[1]
+			keyPrefix := key
+			if len(keyPrefix) > 8 {
+				keyPrefix = keyPrefix[:8]
+			}
+			fmt.Printf("[MIDDLEWARE] Extracted key: prefix=%s, len=%d\n", keyPrefix, len(key))
 
 			// Validate key
 			apiKey, err := keyManager.ValidateAPIKey(r.Context(), key)
 			if err != nil {
 				requestID := GetRequestID(r.Context())
+				// Log the actual error for debugging
+				prefix := key
+				if len(prefix) > 8 {
+					prefix = prefix[:8]
+				}
+				fmt.Printf("[MIDDLEWARE] Authentication failed: %v, prefix=%s\n", err, prefix)
 				respondError(w, WrapError(ErrUnauthorized, requestID))
 				return
 			}
+			fmt.Printf("[MIDDLEWARE] Authentication succeeded: prefix=%s\n", apiKey.KeyPrefix)
 
 			// Check rate limit
 			if !rateLimiter.CheckLimit(apiKey.ID.String(), apiKey.RateLimitPerMin) {

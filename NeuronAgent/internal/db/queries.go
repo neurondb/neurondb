@@ -157,7 +157,7 @@ const (
 		VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)
 		RETURNING id, created_at`
 
-	getAPIKeyByPrefixQuery = `SELECT * FROM neurondb_agent.api_keys WHERE key_prefix = $1`
+	getAPIKeyByPrefixQuery = `SELECT id, key_hash, key_prefix, organization_id, user_id, rate_limit_per_minute, roles, metadata, created_at, last_used_at, expires_at FROM neurondb_agent.api_keys WHERE key_prefix = $1`
 
 	getAPIKeyByIDQuery = `SELECT * FROM neurondb_agent.api_keys WHERE id = $1`
 
@@ -515,9 +515,15 @@ func (q *Queries) ListJobs(ctx context.Context, agentID *uuid.UUID, sessionID *u
 
 // API Key methods
 func (q *Queries) CreateAPIKey(ctx context.Context, apiKey *APIKey) error {
+	// Convert metadata to JSONB-compatible format using JSONBMap.Value()
+	metadataValue, err := apiKey.Metadata.Value()
+	if err != nil {
+		return fmt.Errorf("failed to convert metadata: %w", err)
+	}
+	
 	params := []interface{}{apiKey.KeyHash, apiKey.KeyPrefix, apiKey.OrganizationID, apiKey.UserID,
-		apiKey.RateLimitPerMin, apiKey.Roles, apiKey.Metadata, apiKey.ExpiresAt}
-	err := q.db.GetContext(ctx, apiKey, createAPIKeyQuery, params...)
+		apiKey.RateLimitPerMin, apiKey.Roles, metadataValue, apiKey.ExpiresAt}
+	err = q.db.GetContext(ctx, apiKey, createAPIKeyQuery, params...)
 	if err != nil {
 		return fmt.Errorf("API key creation failed on %s: query='%s', params_count=%d, key_prefix='%s', organization_id=%s, user_id=%s, rate_limit_per_min=%d, table='neurondb_agent.api_keys', error=%w",
 			q.getConnInfoString(), createAPIKeyQuery, len(params), apiKey.KeyPrefix,
@@ -529,12 +535,14 @@ func (q *Queries) CreateAPIKey(ctx context.Context, apiKey *APIKey) error {
 func (q *Queries) GetAPIKeyByPrefix(ctx context.Context, prefix string) (*APIKey, error) {
 	var apiKey APIKey
 	err := q.db.GetContext(ctx, &apiKey, getAPIKeyByPrefixQuery, prefix)
-	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("API key not found on %s: query='%s', key_prefix='%s', table='neurondb_agent.api_keys', error=%w",
-			q.getConnInfoString(), getAPIKeyByPrefixQuery, prefix, err)
-	}
 	if err != nil {
-		return nil, q.formatQueryError("SELECT", getAPIKeyByPrefixQuery, 1, "neurondb_agent.api_keys", err)
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("API key not found on %s: query='%s', key_prefix='%s', table='neurondb_agent.api_keys', error=%w",
+				q.getConnInfoString(), getAPIKeyByPrefixQuery, prefix, err)
+		}
+		// Return detailed error for debugging
+		return nil, fmt.Errorf("API key lookup failed on %s: query='%s', key_prefix='%s', error=%w (error_type=%T)",
+			q.getConnInfoString(), getAPIKeyByPrefixQuery, prefix, err, err)
 	}
 	return &apiKey, nil
 }

@@ -31,6 +31,9 @@ func main() {
 		if err != nil {
 			fmt.Printf("Failed to load config: %v, using defaults\n", err)
 		}
+	} else {
+		// Load from environment variables if no config file
+		config.LoadFromEnv(cfg)
 	}
 
 	// Initialize logging

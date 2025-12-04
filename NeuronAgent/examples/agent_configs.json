@@ -1,0 +1,84 @@
+{
+  "agent_configurations": {
+    "general_assistant": {
+      "name": "general-assistant",
+      "description": "General purpose assistant for answering questions and helping with tasks",
+      "system_prompt": "You are a helpful, harmless, and honest assistant. Answer questions accurately and helpfully.",
+      "model_name": "gpt-4",
+      "enabled_tools": ["sql", "http"],
+      "config": {
+        "temperature": 0.7,
+        "max_tokens": 1000,
+        "top_p": 0.9
+      }
+    },
+    "code_assistant": {
+      "name": "code-assistant",
+      "description": "Specialized assistant for code analysis and programming tasks",
+      "system_prompt": "You are an expert programmer. Help with code analysis, debugging, and writing code. Always provide clear, well-commented code examples.",
+      "model_name": "gpt-4",
+      "enabled_tools": ["code", "sql"],
+      "config": {
+        "temperature": 0.3,
+        "max_tokens": 2000,
+        "top_p": 0.95
+      }
+    },
+    "data_analyst": {
+      "name": "data-analyst",
+      "description": "Assistant specialized in data analysis and SQL queries",
+      "system_prompt": "You are a data analyst. Help with SQL queries, data analysis, and insights. Always validate SQL queries and explain your findings clearly.",
+      "model_name": "gpt-4",
+      "enabled_tools": ["sql"],
+      "config": {
+        "temperature": 0.2,
+        "max_tokens": 1500,
+        "top_p": 0.9
+      }
+    },
+    "research_assistant": {
+      "name": "research-assistant",
+      "description": "Assistant for research and information gathering",
+      "system_prompt": "You are a research assistant. Help gather information, summarize content, and provide insights. Always cite sources and verify information.",
+      "model_name": "gpt-4",
+      "enabled_tools": ["http", "sql"],
+      "config": {
+        "temperature": 0.5,
+        "max_tokens": 2000,
+        "top_p": 0.95
+      }
+    },
+    "customer_support": {
+      "name": "customer-support",
+      "description": "Customer support agent with access to knowledge base",
+      "system_prompt": "You are a friendly customer support agent. Help customers with their questions and issues. Be patient, empathetic, and solution-oriented.",
+      "model_name": "gpt-4",
+      "enabled_tools": ["sql", "http"],
+      "config": {
+        "temperature": 0.6,
+        "max_tokens": 1500,
+        "top_p": 0.9
+      },
+      "memory_table": "customer_support_memory"
+    },
+    "content_writer": {
+      "name": "content-writer",
+      "description": "Content writing assistant",
+      "system_prompt": "You are a professional content writer. Create engaging, well-structured content. Adapt your writing style to the audience and purpose.",
+      "model_name": "gpt-4",
+      "enabled_tools": ["http"],
+      "config": {
+        "temperature": 0.8,
+        "max_tokens": 3000,
+        "top_p": 0.95
+      }
+    }
+  },
+  "usage_examples": {
+    "create_agent_from_config": {
+      "python": "import json\nfrom python_client import NeuronAgentClient\n\nclient = NeuronAgentClient()\nwith open('agent_configs.json') as f:\n    configs = json.load(f)\n\nconfig = configs['agent_configurations']['general_assistant']\nagent = client.create_agent(**config)",
+      "go": "// Load config and create agent\nconfig := loadAgentConfig(\"general_assistant\")\nagent, err := client.CreateAgent(config)"
+    }
+  }
+}
+

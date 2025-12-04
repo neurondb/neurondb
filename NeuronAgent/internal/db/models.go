@@ -15,7 +15,7 @@ type Agent struct {
 	ModelName    string                 `db:"model_name"`
 	MemoryTable  *string                `db:"memory_table"`
 	EnabledTools pq.StringArray         `db:"enabled_tools"`
-	Config       map[string]interface{} `db:"config"`
+	Config       JSONBMap               `db:"config"`
 	CreatedAt    time.Time              `db:"created_at"`
 	UpdatedAt    time.Time              `db:"updated_at"`
 }
@@ -24,7 +24,7 @@ type Session struct {
 	ID             uuid.UUID              `db:"id"`
 	AgentID        uuid.UUID              `db:"agent_id"`
 	ExternalUserID *string                `db:"external_user_id"`
-	Metadata       map[string]interface{} `db:"metadata"`
+	Metadata       JSONBMap               `db:"metadata"`
 	CreatedAt      time.Time              `db:"created_at"`
 	LastActivityAt time.Time              `db:"last_activity_at"`
 }
@@ -49,7 +49,7 @@ type MemoryChunk struct {
 	Content         string                 `db:"content"`
 	Embedding       []float32              `db:"embedding"` // Will be converted to/from neurondb_vector
 	ImportanceScore float64                `db:"importance_score"`
-	Metadata        map[string]interface{} `db:"metadata"`
+	Metadata        JSONBMap               `db:"metadata"`
 	CreatedAt       time.Time              `db:"created_at"`
 }
 
@@ -62,9 +62,9 @@ type MemoryChunkWithSimilarity struct {
 type Tool struct {
 	Name          string                 `db:"name"`
 	Description   string                 `db:"description"`
-	ArgSchema     map[string]interface{} `db:"arg_schema"`
+	ArgSchema     JSONBMap               `db:"arg_schema"`
 	HandlerType   string                 `db:"handler_type"`
-	HandlerConfig map[string]interface{} `db:"handler_config"`
+	HandlerConfig JSONBMap               `db:"handler_config"`
 	Enabled       bool                   `db:"enabled"`
 	CreatedAt     time.Time              `db:"created_at"`
 	UpdatedAt     time.Time              `db:"updated_at"`
@@ -77,8 +77,8 @@ type Job struct {
 	Type         string                 `db:"type"`
 	Status       string                 `db:"status"`
 	Priority     int                    `db:"priority"`
-	Payload      map[string]interface{} `db:"payload"`
-	Result       map[string]interface{} `db:"result"`
+	Payload      JSONBMap               `db:"payload"`
+	Result       JSONBMap               `db:"result"`
 	ErrorMessage *string                `db:"error_message"`
 	RetryCount   int                    `db:"retry_count"`
 	MaxRetries   int                    `db:"max_retries"`
@@ -96,7 +96,7 @@ type APIKey struct {
 	UserID          *string                `db:"user_id"`
 	RateLimitPerMin int                    `db:"rate_limit_per_minute"`
 	Roles           pq.StringArray         `db:"roles"`
-	Metadata        map[string]interface{} `db:"metadata"`
+	Metadata        JSONBMap               `db:"metadata"`
 	CreatedAt       time.Time              `db:"created_at"`
 	LastUsedAt      *time.Time             `db:"last_used_at"`
 	ExpiresAt       *time.Time             `db:"expires_at"`
