@@ -39,8 +39,7 @@ COMMENT ON FUNCTION sparse_vector_dot_product(sparse_vector, sparse_vector) IS
 CREATE OPERATOR <*> (
 	LEFTARG = sparse_vector,
 	RIGHTARG = sparse_vector,
-	FUNCTION = sparse_vector_dot_product,
-	COMMUTATOR = <*>
+	PROCEDURE = sparse_vector_dot_product
 );
 
 COMMENT ON OPERATOR <*>(sparse_vector, sparse_vector) IS

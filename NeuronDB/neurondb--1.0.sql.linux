@@ -1233,6 +1233,74 @@ CREATE FUNCTION cluster_kmeans(text, text, integer, integer DEFAULT 100)
     LANGUAGE C STABLE;
 COMMENT ON FUNCTION cluster_kmeans IS 'K-means clustering: (table, vector_col, num_clusters, max_iters) - returns array of cluster assignments (1-based)';
 
+-- ============================================================================
+-- XGBOOST FUNCTIONS
+-- ============================================================================
+
+CREATE FUNCTION train_xgboost_classifier(text, text, text, integer DEFAULT 100, integer DEFAULT 6, float8 DEFAULT 0.3)
+    RETURNS integer
+    AS 'MODULE_PATHNAME', 'train_xgboost_classifier'
+    LANGUAGE C STABLE;
+COMMENT ON FUNCTION train_xgboost_classifier IS 'Train XGBoost classifier: (table, feature_col, label_col, n_estimators, max_depth, learning_rate) returns model_id';
+
+CREATE FUNCTION train_xgboost_regressor(text, text, text, integer DEFAULT 100, integer DEFAULT 6, float8 DEFAULT 0.3)
+    RETURNS integer
+    AS 'MODULE_PATHNAME', 'train_xgboost_regressor'
+    LANGUAGE C STABLE;
+COMMENT ON FUNCTION train_xgboost_regressor IS 'Train XGBoost regressor: (table, feature_col, label_col, n_estimators, max_depth, learning_rate) returns model_id';
+
+-- ============================================================================
+-- CATBOOST FUNCTIONS
+-- ============================================================================
+
+CREATE FUNCTION train_catboost_classifier(text, text, text, integer DEFAULT 1000, float8 DEFAULT 0.03, integer DEFAULT 6)
+    RETURNS integer
+    AS 'MODULE_PATHNAME', 'train_catboost_classifier'
+    LANGUAGE C STABLE;
+COMMENT ON FUNCTION train_catboost_classifier IS 'Train CatBoost classifier: (table, feature_col, label_col, iterations, learning_rate, depth) returns model_id';
+
+CREATE FUNCTION train_catboost_regressor(text, text, text, integer DEFAULT 1000, float8 DEFAULT 0.03, integer DEFAULT 6)
+    RETURNS integer
+    AS 'MODULE_PATHNAME', 'train_catboost_regressor'
+    LANGUAGE C STABLE;
+COMMENT ON FUNCTION train_catboost_regressor IS 'Train CatBoost regressor: (table, feature_col, label_col, iterations, learning_rate, depth) returns model_id';
+
+-- ============================================================================
+-- LIGHTGBM FUNCTIONS
+-- ============================================================================
+
+CREATE FUNCTION train_lightgbm_classifier(text, text, text, integer DEFAULT 100, integer DEFAULT 31, float8 DEFAULT 0.1)
+    RETURNS integer
+    AS 'MODULE_PATHNAME', 'train_lightgbm_classifier'
+    LANGUAGE C STABLE;
+COMMENT ON FUNCTION train_lightgbm_classifier IS 'Train LightGBM classifier: (table, feature_col, label_col, n_estimators, num_leaves, learning_rate) returns model_id';
+
+CREATE FUNCTION train_lightgbm_regressor(text, text, text, integer DEFAULT 100)
+    RETURNS integer
+    AS 'MODULE_PATHNAME', 'train_lightgbm_regressor'
+    LANGUAGE C STABLE;
+COMMENT ON FUNCTION train_lightgbm_regressor IS 'Train LightGBM regressor: (table, feature_col, label_col, n_estimators) returns model_id';
+
+-- ============================================================================
+-- DIMENSIONALITY REDUCTION
+-- ============================================================================
+
+CREATE FUNCTION reduce_pca(text, text, integer)
+    RETURNS real[][]
+    AS 'MODULE_PATHNAME', 'reduce_pca'
+    LANGUAGE C STABLE;
+COMMENT ON FUNCTION reduce_pca IS 'PCA dimensionality reduction: (table, column, n_components) returns array of reduced vectors';
+
+-- ============================================================================
+-- TIME SERIES FUNCTIONS
+-- ============================================================================
+
+CREATE FUNCTION train_timeseries_cpu(text, text, text, integer, integer, integer)
+    RETURNS integer
+    AS 'MODULE_PATHNAME', 'train_timeseries_cpu'
+    LANGUAGE C STABLE;
+COMMENT ON FUNCTION train_timeseries_cpu IS 'Train time series model (ARIMA): (table, feature_col, label_col, p, d, q) returns model_id';
+
 -- TODO: Implement remaining analytics functions
 -- =============================================================================
 -- ML PROJECT MANAGEMENT API
@@ -1721,14 +1789,6 @@ CREATE FUNCTION train_arima(text, text, text, integer DEFAULT 1, integer DEFAULT
     AS 'MODULE_PATHNAME', 'train_arima'
     LANGUAGE C STABLE STRICT;
 COMMENT ON FUNCTION train_arima IS 'Train ARIMA time series model. Returns model_id.';
-
-CREATE FUNCTION train_timeseries_cpu(text, text, text, integer, integer, integer)
-    RETURNS integer
-    AS 'MODULE_PATHNAME', 'train_timeseries_cpu'
-    LANGUAGE C STRICT;
-
-COMMENT ON FUNCTION train_timeseries_cpu(text, text, text, integer, integer, integer) IS
-    'CPU training function for timeseries models via unified API: (table_name, feature_column, target_column, p, d, q)';
 
 CREATE FUNCTION forecast_arima(integer, integer)
     RETURNS float8
@@ -4867,9 +4927,12 @@ DECLARE
 	model_id_param integer;
 BEGIN
 	model_id_param := model_id;
+	IF model_id_param IS NULL THEN
+		RAISE EXCEPTION 'model_id cannot be NULL';
+	END IF;
 	SELECT m.algorithm INTO algo FROM neurondb.ml_models m WHERE m.model_id = model_id_param;
 	IF algo IS NULL THEN
-		RAISE EXCEPTION 'Model % not found', model_id;
+		RAISE EXCEPTION 'Model % not found', model_id_param;
 	END IF;
 	CASE algo
 		WHEN 'random_forest' THEN
