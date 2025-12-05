@@ -442,14 +442,16 @@ neural_network_init(int n_inputs,
 		output_layer->activations = output_activations;
 		output_layer->deltas = output_deltas;
 
-	for (j = 0; j < output_layer->n_outputs; j++)
-	{
-		NDB_DECLARE(float *, output_weight_row);
-		NDB_ALLOC(output_weight_row, float, output_layer->n_inputs + 1);
-		output_layer->weights[j] = output_weight_row;
-		for (k = 0; k <= output_layer->n_inputs; k++)
-			output_layer->weights[j][k] =
-				(float) (((double) rand() / (double) RAND_MAX)) * 0.1f - 0.05f;
+		for (j = 0; j < output_layer->n_outputs; j++)
+		{
+			float	   *output_weight_row;
+
+			NDB_ALLOC(output_weight_row, float, output_layer->n_inputs + 1);
+			output_layer->weights[j] = output_weight_row;
+			for (k = 0; k <= output_layer->n_inputs; k++)
+				output_layer->weights[j][k] =
+					(float) (((double) rand() / (double) RAND_MAX)) * 0.1f - 0.05f;
+		}
 	}
 
 	return net;
