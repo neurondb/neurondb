@@ -128,6 +128,7 @@ neurondb_text_classify(PG_FUNCTION_ARGS)
 		char	   *input_str;
 		char	   *tokens[MAX_TOKENS];
 		int			num_tokens = 0;
+
 		NDB_DECLARE(ClassifyResult *, results);
 		int			n_categories = 0;
 		int			ret;
@@ -137,6 +138,7 @@ neurondb_text_classify(PG_FUNCTION_ARGS)
 		int			i,
 					t,
 					r;
+
 		NDB_DECLARE(NdbSpiSession *, spi_session);
 
 		funcctx = SRF_FIRSTCALL_INIT();
@@ -225,7 +227,7 @@ neurondb_text_classify(PG_FUNCTION_ARGS)
 			char	   *word;
 
 			/* Safe access to SPI_tuptable - validate before access */
-			if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL || 
+			if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL ||
 				r >= (int) SPI_processed || SPI_tuptable->vals[r] == NULL)
 			{
 				continue;
@@ -241,7 +243,7 @@ neurondb_text_classify(PG_FUNCTION_ARGS)
 				continue;
 			cat = text_to_cstring(cat_text);
 			NDB_FREE(cat_text);
-			
+
 			/* Safe access for word - validate tupdesc has at least 2 columns */
 			if (tupdesc->natts < 2)
 			{
@@ -371,6 +373,7 @@ neurondb_sentiment_analysis(PG_FUNCTION_ARGS)
 	{
 		MemoryContext oldcontext;
 		char	   *input_str;
+
 		NDB_DECLARE(char *, model_name);
 		char	   *tokens[MAX_TOKENS];
 		int			num_tokens = 0;
@@ -382,6 +385,7 @@ neurondb_sentiment_analysis(PG_FUNCTION_ARGS)
 		char		qry[256];
 		int			t,
 					r;
+
 		NDB_DECLARE(NdbSpiSession *, spi_session);
 
 		funcctx = SRF_FIRSTCALL_INIT();
@@ -563,6 +567,7 @@ neurondb_named_entity_recognition(PG_FUNCTION_ARGS)
 		int			ret,
 					t,
 					r;
+
 		NDB_DECLARE(NdbSpiSession *, spi_session);
 
 		funcctx = SRF_FIRSTCALL_INIT();
@@ -762,6 +767,7 @@ neurondb_text_summarize(PG_FUNCTION_ARGS)
 	char		summary[MAX_SUMMARY];
 	int			i;
 	MemoryContext oldcontext;
+
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 
 	text_str = text_to_cstring(input_text);
@@ -1009,13 +1015,14 @@ text_model_deserialize_from_bytea(const bytea * data, int *vocab_size_out, int *
 }
 
 static bool
-text_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
+text_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **errstr)
 {
 	TextGpuModelState *state;
 	int			vocab_size = 1000;
 	int			feature_dim = 128;
 	char		task_type[32] = "classification";
 	int			nvec = 0;
+
 	NDB_DECLARE(bytea *, model_data);
 	NDB_DECLARE(Jsonb *, metrics);
 	StringInfoData metrics_json;
@@ -1104,7 +1111,7 @@ text_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 }
 
 static bool
-text_gpu_predict(const MLGpuModel * model, const float *input, int input_dim,
+text_gpu_predict(const MLGpuModel *model, const float *input, int input_dim,
 				 float *output, int output_dim, char **errstr)
 {
 	const		TextGpuModelState *state;
@@ -1163,8 +1170,8 @@ text_gpu_predict(const MLGpuModel * model, const float *input, int input_dim,
 }
 
 static bool
-text_gpu_evaluate(const MLGpuModel * model, const MLGpuEvalSpec * spec,
-				  MLGpuMetrics * out, char **errstr)
+text_gpu_evaluate(const MLGpuModel *model, const MLGpuEvalSpec *spec,
+				  MLGpuMetrics *out, char **errstr)
 {
 	const		TextGpuModelState *state;
 	Jsonb	   *metrics_json;
@@ -1203,7 +1210,7 @@ text_gpu_evaluate(const MLGpuModel * model, const MLGpuEvalSpec * spec,
 }
 
 static bool
-text_gpu_serialize(const MLGpuModel * model, bytea * *payload_out,
+text_gpu_serialize(const MLGpuModel *model, bytea * *payload_out,
 				   Jsonb * *metadata_out, char **errstr)
 {
 	const		TextGpuModelState *state;
@@ -1249,7 +1256,7 @@ text_gpu_serialize(const MLGpuModel * model, bytea * *payload_out,
 }
 
 static bool
-text_gpu_deserialize(MLGpuModel * model, const bytea * payload,
+text_gpu_deserialize(MLGpuModel *model, const bytea * payload,
 					 const Jsonb * metadata, char **errstr)
 {
 	TextGpuModelState *state;
@@ -1332,7 +1339,7 @@ text_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 }
 
 static void
-text_gpu_destroy(MLGpuModel * model)
+text_gpu_destroy(MLGpuModel *model)
 {
 	TextGpuModelState *state;
 

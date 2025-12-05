@@ -122,6 +122,7 @@ consistent_knn_search(PG_FUNCTION_ARGS)
 	if (SRF_IS_FIRSTCALL())
 	{
 		MemoryContext oldcontext;
+
 		NDB_DECLARE(NdbSpiSession *, session);
 
 		funcctx = SRF_FIRSTCALL_INIT();
@@ -157,8 +158,8 @@ consistent_knn_search(PG_FUNCTION_ARGS)
 		/*
 		 * Use index-backed search: this must reference the correct index
 		 * table in a complete implementation. This is a placeholder for
-		 * future implementation that will dynamically determine the index table.
-		 * For now, assumes "my_vectors(id, embedding)" exists.
+		 * future implementation that will dynamically determine the index
+		 * table. For now, assumes "my_vectors(id, embedding)" exists.
 		 *
 		 * Deterministic ordering: ORDER BY dist ASC, ctid ASC, id ASC
 		 */
@@ -185,7 +186,11 @@ consistent_knn_search(PG_FUNCTION_ARGS)
 		funcctx->max_calls = SPI_processed;
 
 		/* Save session and results for per-call access */
-		/* Store session pointer in user_fctx - we'll free it in SRF_RETURN_DONE */
+
+		/*
+		 * Store session pointer in user_fctx - we'll free it in
+		 * SRF_RETURN_DONE
+		 */
 		funcctx->user_fctx = session;
 
 		/*
@@ -284,6 +289,7 @@ build_hnsw_index(const char *table, const char *col, uint32 seed)
 	int			ret;
 	Oid			argtypes[4];
 	Datum		values[4];
+
 	NDB_DECLARE(NdbSpiSession *, session);
 
 	elog(DEBUG1,
@@ -449,6 +455,7 @@ vector_to_sql_literal(Vector *v)
 {
 	char	   *out;
 	int			n;
+
 	NDB_DECLARE(char *, quoted);
 
 	out = vector_out_internal(v);

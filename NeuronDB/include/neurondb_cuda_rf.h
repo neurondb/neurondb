@@ -159,3 +159,4 @@ extern int ndb_cuda_rf_evaluate_batch(const bytea *model_data,
 #endif
 
 #endif /* NEURONDB_CUDA_RF_H */
+

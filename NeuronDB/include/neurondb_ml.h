@@ -17,9 +17,9 @@
 #include "postgres.h"
 
 /* Utility functions */
-float **neurondb_fetch_vectors_from_table(const char *table,
-	const char *col,
-	int *out_count,
-	int *out_dim);
+float	  **neurondb_fetch_vectors_from_table(const char *table,
+											  const char *col,
+											  int *out_count,
+											  int *out_dim);
 
-#endif /* NEURONDB_ML_H */
+#endif							/* NEURONDB_ML_H */

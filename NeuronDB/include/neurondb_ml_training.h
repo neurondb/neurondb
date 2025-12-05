@@ -27,4 +27,4 @@ extern Datum neurondb_retrieve_context_c(PG_FUNCTION_ARGS);
 extern Datum neurondb_rerank_results_c(PG_FUNCTION_ARGS);
 extern Datum neurondb_generate_answer_c(PG_FUNCTION_ARGS);
 
-#endif /* NEURONDB_ML_TRAINING_H */
+#endif							/* NEURONDB_ML_TRAINING_H */

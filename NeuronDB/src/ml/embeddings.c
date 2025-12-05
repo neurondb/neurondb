@@ -61,6 +61,7 @@ parse_vector_from_text(const char *str)
 {
 	int			dim = 0;
 	int			i = 0;
+
 	NDB_DECLARE(char *, dup);
 	NDB_DECLARE(char *, token);
 	NDB_DECLARE(char *, saveptr);
@@ -68,6 +69,7 @@ parse_vector_from_text(const char *str)
 	NDB_DECLARE(Vector *, result);
 	NDB_DECLARE(float *, data);
 	bool		first = true;
+
 	NDB_DECLARE(char *, start);
 	NDB_DECLARE(char *, end);
 
@@ -157,6 +159,7 @@ parse_vector_from_text(const char *str)
 	/* Allocate Vector with variable-length data array */
 	{
 		size_t		vec_size = VARHDRSZ + sizeof(int16) * 2 + dim * sizeof(float4);
+
 		NDB_DECLARE(char *, vec_bytes);
 		NDB_ALLOC(vec_bytes, char, vec_size);
 		result = (Vector *) vec_bytes;
@@ -236,7 +239,10 @@ get_embedding_model_config_internal(const char *model_name)
 					 quoted_model_name);
 	sql_str = sql.data;
 
-	/* Free the quoted string after appending (appendStringInfo copies the content) */
+	/*
+	 * Free the quoted string after appending (appendStringInfo copies the
+	 * content)
+	 */
 	NDB_FREE(quoted_model_name);
 
 	spi_ret = ndb_spi_execute(spi_session, sql_str, true, 1);
@@ -258,7 +264,7 @@ get_embedding_model_config_internal(const char *model_name)
  *    Merges stored config with GUC defaults.
  */
 static void
-apply_embedding_model_config(NdbLLMConfig * cfg, const char *model_name)
+apply_embedding_model_config(NdbLLMConfig *cfg, const char *model_name)
 {
 	NDB_DECLARE(Jsonb *, config_jsonb);
 	NDB_DECLARE(JsonbIterator *, it);
@@ -346,6 +352,7 @@ embed_text(PG_FUNCTION_ARGS)
 	NDB_DECLARE(char *, model_str);
 	NdbLLMConfig cfg;
 	NdbLLMCallOptions call_opts;
+
 	NDB_DECLARE(float *, vec_data);
 	NDB_DECLARE(Vector *, result);
 	int			dim = 0;
@@ -402,7 +409,7 @@ embed_text(PG_FUNCTION_ARGS)
 					 errmsg("neurondb: embedding generation failed"),
 					 errhint("Configure neurondb.llm_api_key for Hugging Face API access, or set neurondb.llm_provider='onnx' for local models.")));
 		}
-		
+
 		/* Fallback: Generate deterministic embeddings from text hash */
 		{
 			unsigned int hash;
@@ -412,16 +419,19 @@ embed_text(PG_FUNCTION_ARGS)
 
 			dim = 384;
 			NDB_ALLOC(vec_data, float, dim);
-			
-			/* Generate deterministic pseudo-random vector using djb2-like hash */
+
+			/*
+			 * Generate deterministic pseudo-random vector using djb2-like
+			 * hash
+			 */
 			hash = 5381;
 			input_len = strlen(input_str);
 			model_len = model_str ? strlen(model_str) : 0;
-			
+
 			/* Hash input text */
 			for (j = 0; j < input_len; j++)
 				hash = ((hash << 5) + hash) ^ (unsigned char) input_str[j];
-			
+
 			/* Generate embedding values based on hash */
 			for (i = 0; i < dim; i++)
 			{
@@ -438,6 +448,7 @@ embed_text(PG_FUNCTION_ARGS)
 	/* Allocate Vector with variable-length data array */
 	{
 		size_t		vec_size = VARHDRSZ + sizeof(int16) * 2 + dim * sizeof(float4);
+
 		NDB_DECLARE(char *, vec_bytes);
 		NDB_ALLOC(vec_bytes, char, vec_size);
 		result = (Vector *) vec_bytes;
@@ -468,11 +479,13 @@ Datum
 embed_text_batch(PG_FUNCTION_ARGS)
 {
 	ArrayType  *input_array;
+
 	NDB_DECLARE(text *, model_text);
 	NDB_DECLARE(Datum *, text_datums);
 	NDB_DECLARE(bool *, text_nulls);
 	int			nitems = 0;
 	int			i;
+
 	NDB_DECLARE(Datum *, result_datums);
 	NDB_DECLARE(bool *, result_nulls);
 	NDB_DECLARE(ArrayType *, result);
@@ -505,6 +518,7 @@ embed_text_batch(PG_FUNCTION_ARGS)
 		NdbLLMConfig cfg;
 		NdbLLMCallOptions call_opts;
 		float	  **vecs = NULL;
+
 		NDB_DECLARE(int *, dims);
 		int			num_success = 0;
 		int			rc;
@@ -569,6 +583,7 @@ embed_text_batch(PG_FUNCTION_ARGS)
 				{
 					NDB_DECLARE(Vector *, result_vec);
 					size_t		vec_size = VARHDRSZ + sizeof(int16) * 2 + dims[i] * sizeof(float4);
+
 					NDB_DECLARE(char *, vec_bytes);
 					NDB_ALLOC(vec_bytes, char, vec_size);
 					result_vec = (Vector *) vec_bytes;
@@ -605,7 +620,7 @@ embed_text_batch(PG_FUNCTION_ARGS)
 			{
 				NDB_FREE(dims);
 			}
-			
+
 			/* Look up embed_text function OID - always use 2-argument version */
 			{
 				List	   *funcname;
@@ -643,7 +658,10 @@ embed_text_batch(PG_FUNCTION_ARGS)
 						Vector	   *vec_copy;
 						text	   *text_copy;
 
-						/* Copy text to current memory context before calling embed_text */
+						/*
+						 * Copy text to current memory context before calling
+						 * embed_text
+						 */
 						text_copy = (text *) PG_DETOAST_DATUM_COPY(text_datums[i]);
 						if (text_copy == NULL)
 						{
@@ -655,25 +673,30 @@ embed_text_batch(PG_FUNCTION_ARGS)
 
 						if (have_oid)
 						{
-							/* Call embed_text directly via its internal logic to avoid function lookup issues */
+							/*
+							 * Call embed_text directly via its internal logic
+							 * to avoid function lookup issues
+							 */
 							text	   *input_text_copy = (text *) text_copy;
 							char	   *input_str_copy;
+
 							NDB_DECLARE(char *, model_str_copy);
 							NdbLLMConfig cfg_copy;
 							NdbLLMCallOptions call_opts_copy;
+
 							NDB_DECLARE(float *, vec_data_copy);
 							int			dim_copy = 0;
 							int			k;
-							
+
 							/* Extract text string */
 							input_str_copy = text_to_cstring(input_text_copy);
-							
+
 							/* Setup model */
 							if (model_text != NULL)
 								model_str_copy = text_to_cstring(model_text);
 							else
 								model_str_copy = pstrdup("sentence-transformers/all-MiniLM-L6-v2");
-							
+
 							/* Setup config */
 							memset(&cfg_copy, 0, sizeof(cfg_copy));
 							cfg_copy.provider = (neurondb_llm_provider != NULL) ? neurondb_llm_provider : "huggingface";
@@ -709,6 +732,7 @@ embed_text_batch(PG_FUNCTION_ARGS)
 							/* Allocate Vector */
 							{
 								size_t		vec_size = VARHDRSZ + sizeof(int16) * 2 + dim_copy * sizeof(float4);
+
 								NDB_DECLARE(char *, vec_bytes);
 								NDB_DECLARE(Vector *, result_vec);
 								NDB_ALLOC(vec_bytes, char, vec_size);
@@ -727,7 +751,7 @@ embed_text_batch(PG_FUNCTION_ARGS)
 						else
 						{
 							elog(ERROR, "embed_text_batch: embed_text function not found");
-							embed_result = (Datum) 0; /* not reached */
+							embed_result = (Datum) 0;	/* not reached */
 						}
 
 						/* Copy Vector to current memory context */
@@ -804,11 +828,13 @@ Datum
 embed_image(PG_FUNCTION_ARGS)
 {
 	bytea	   *image_data;
+
 	NDB_DECLARE(text *, model_text);
 	NDB_DECLARE(Vector *, result);
 	NDB_DECLARE(float *, vec_data);
 	int			dim = 0;
 	int			i;
+
 	NDB_DECLARE(char *, model_str);
 	NdbLLMConfig cfg;
 
@@ -851,6 +877,7 @@ embed_image(PG_FUNCTION_ARGS)
 
 	{
 		NdbLLMCallOptions call_opts;
+
 		NDB_DECLARE(bytea *, detoasted_image);
 		size_t		image_size;
 		const unsigned char *image_bytes;
@@ -885,6 +912,7 @@ embed_image(PG_FUNCTION_ARGS)
 	/* Allocate Vector with variable-length data array */
 	{
 		size_t		vec_size = VARHDRSZ + sizeof(int16) * 2 + dim * sizeof(float4);
+
 		NDB_DECLARE(char *, vec_bytes);
 		NDB_ALLOC(vec_bytes, char, vec_size);
 		result = (Vector *) vec_bytes;
@@ -916,11 +944,13 @@ embed_multimodal(PG_FUNCTION_ARGS)
 {
 	text	   *input_text;
 	bytea	   *image_data;
+
 	NDB_DECLARE(text *, model_text);
 	NDB_DECLARE(Vector *, result);
 	NDB_DECLARE(float *, vec_data);
 	int			dim = 0;
 	int			i;
+
 	NDB_DECLARE(char *, input_str);
 	NDB_DECLARE(char *, model_str);
 #ifdef NDB_HAVE_MULTIMODAL_EMBED
@@ -951,6 +981,7 @@ embed_multimodal(PG_FUNCTION_ARGS)
 	{
 		NdbLLMConfig cfg;
 		NdbLLMCallOptions call_opts;
+
 		NDB_DECLARE(bytea *, detoasted_image);
 		size_t		image_size;
 		const unsigned char *image_bytes;
@@ -1032,6 +1063,7 @@ embed_multimodal(PG_FUNCTION_ARGS)
 	/* Allocate Vector with variable-length data array */
 	{
 		size_t		vec_size = VARHDRSZ + sizeof(int16) * 2 + dim * sizeof(float4);
+
 		NDB_DECLARE(char *, vec_bytes);
 		NDB_ALLOC(vec_bytes, char, vec_size);
 		result = (Vector *) vec_bytes;
@@ -1068,12 +1100,14 @@ embed_cached(PG_FUNCTION_ARGS)
 	NDB_DECLARE(char *, cache_key);
 	NDB_DECLARE(char *, cached_text);
 	int			max_age;
+
 	NDB_DECLARE(Vector *, result);
 	StringInfoData key_buf;
 
 	/* bool hit = false; */
 	const char *p;
 	uint32		hashval;
+
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext;
 
@@ -1170,6 +1204,7 @@ embed_cached(PG_FUNCTION_ARGS)
 		/* Allocate Vector with variable-length data array */
 		{
 			size_t		vec_size = VARHDRSZ + sizeof(int16) * 2 + dim * sizeof(float4);
+
 			NDB_DECLARE(char *, vec_bytes);
 			NDB_ALLOC(vec_bytes, char, vec_size);
 			result = (Vector *) vec_bytes;
@@ -1225,6 +1260,7 @@ configure_embedding_model(PG_FUNCTION_ARGS)
 	Oid			argtypes[2];
 	Datum		values[2];
 	char		nulls[2];
+
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext;
 
@@ -1445,6 +1481,7 @@ list_embedding_model_configs(PG_FUNCTION_ARGS)
 	StringInfoData sql;
 	int			spi_ret;
 	int			i;
+
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 	NDB_DECLARE(char *, sql_str);
 
@@ -1543,7 +1580,10 @@ list_embedding_model_configs(PG_FUNCTION_ARGS)
 				nulls[1] = true;
 			}
 
-			/* Columns 2-3: created_at, updated_at (timestamps) - safe access pattern */
+			/*
+			 * Columns 2-3: created_at, updated_at (timestamps) - safe access
+			 * pattern
+			 */
 			if (SPI_tuptable != NULL && SPI_tuptable->tupdesc != NULL && SPI_tuptable->vals != NULL && i < (int) SPI_processed)
 			{
 				/* Column 2: created_at */
@@ -1561,12 +1601,18 @@ list_embedding_model_configs(PG_FUNCTION_ARGS)
 					}
 					if (typbyval)
 					{
-						/* Pass-by-value type (like TIMESTAMPTZ) - no need to copy, just use directly */
+						/*
+						 * Pass-by-value type (like TIMESTAMPTZ) - no need to
+						 * copy, just use directly
+						 */
 						values[2] = created_at_datum;
 					}
 					else
 					{
-						/* Pass-by-reference type - need to copy to destination context */
+						/*
+						 * Pass-by-reference type - need to copy to
+						 * destination context
+						 */
 						MemoryContextSwitchTo(per_query_ctx);
 						values[2] = datumCopy(created_at_datum, typlen, typbyval);
 						MemoryContextSwitchTo(oldcontext);
@@ -1579,7 +1625,11 @@ list_embedding_model_configs(PG_FUNCTION_ARGS)
 				}
 
 				/* Column 3: updated_at */
-				/* Safe access for updated_at - validate tupdesc has at least 4 columns */
+
+				/*
+				 * Safe access for updated_at - validate tupdesc has at least
+				 * 4 columns
+				 */
 				if (SPI_tuptable->tupdesc->natts >= 4)
 				{
 					updated_at_datum = SPI_getbinval(SPI_tuptable->vals[i], SPI_tuptable->tupdesc, 4, &updated_at_isnull);
@@ -1596,12 +1646,18 @@ list_embedding_model_configs(PG_FUNCTION_ARGS)
 						}
 						if (typbyval)
 						{
-							/* Pass-by-value type (like TIMESTAMPTZ) - no need to copy, just use directly */
+							/*
+							 * Pass-by-value type (like TIMESTAMPTZ) - no need
+							 * to copy, just use directly
+							 */
 							values[3] = updated_at_datum;
 						}
 						else
 						{
-							/* Pass-by-reference type - need to copy to destination context */
+							/*
+							 * Pass-by-reference type - need to copy to
+							 * destination context
+							 */
 							MemoryContextSwitchTo(per_query_ctx);
 							values[3] = datumCopy(updated_at_datum, typlen, typbyval);
 							MemoryContextSwitchTo(oldcontext);
@@ -1650,6 +1706,7 @@ delete_embedding_model_config(PG_FUNCTION_ARGS)
 	Oid			argtypes[1];
 	Datum		values[1];
 	char		nulls[1];
+
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext;
 

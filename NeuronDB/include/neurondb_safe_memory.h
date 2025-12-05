@@ -43,5 +43,4 @@ extern void ndb_track_allocation(void *ptr, const char *alloc_func);
 extern void ndb_untrack_allocation(void *ptr);
 #endif
 
-#endif	/* NEURONDB_SAFE_MEMORY_H */
-
+#endif							/* NEURONDB_SAFE_MEMORY_H */

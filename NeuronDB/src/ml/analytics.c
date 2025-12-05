@@ -53,6 +53,7 @@ feedback_loop_integrate(PG_FUNCTION_ARGS)
 	StringInfoData sql;
 	const char *tbl_def;
 	int			ret;
+
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext;
 
@@ -213,6 +214,7 @@ reduce_pca(PG_FUNCTION_ARGS)
 				j,
 				c;
 	ArrayType  *result_array;
+
 	NDB_DECLARE(Datum *, result_datums);
 	NDB_DECLARE(float *, mean);
 
@@ -315,7 +317,10 @@ reduce_pca(PG_FUNCTION_ARGS)
 		}
 	}
 
-	/* Validate inputs before array construction - nvec should already be validated above */
+	/*
+	 * Validate inputs before array construction - nvec should already be
+	 * validated above
+	 */
 	/* n_components is validated at function entry, but double-check */
 	if (n_components <= 0)
 	{
@@ -371,6 +376,7 @@ reduce_pca(PG_FUNCTION_ARGS)
 	for (j = 0; j < nvec; j++)
 	{
 		ArrayType  *vec_array;
+
 		NDB_DECLARE(Datum *, vec_datums);
 		int16		typlen;
 		bool		typbyval;
@@ -384,7 +390,8 @@ reduce_pca(PG_FUNCTION_ARGS)
 			{
 				if (result_datums[i] != 0)
 				{
-					ArrayType *arr = DatumGetArrayTypeP(result_datums[i]);
+					ArrayType  *arr = DatumGetArrayTypeP(result_datums[i]);
+
 					if (arr != NULL)
 						NDB_FREE(arr);
 				}
@@ -421,7 +428,8 @@ reduce_pca(PG_FUNCTION_ARGS)
 			{
 				if (result_datums[i] != 0)
 				{
-					ArrayType *arr = DatumGetArrayTypeP(result_datums[i]);
+					ArrayType  *arr = DatumGetArrayTypeP(result_datums[i]);
+
 					if (arr != NULL)
 						NDB_FREE(arr);
 				}
@@ -461,9 +469,9 @@ reduce_pca(PG_FUNCTION_ARGS)
 				{
 					if (result_datums[i] != 0)
 					{
-						ArrayType *arr = DatumGetArrayTypeP(result_datums[i]);
-						if (arr != NULL)
-							pfree(arr);
+						ArrayType  *arr = DatumGetArrayTypeP(result_datums[i]);
+
+						NDB_FREE(arr);
 					}
 				}
 				NDB_FREE(result_datums);
@@ -493,7 +501,7 @@ reduce_pca(PG_FUNCTION_ARGS)
 		}
 
 		get_typlenbyvalalign(FLOAT4OID, &typlen, &typbyval, &typalign);
-		
+
 		/* Validate type information */
 		if (typlen <= 0)
 		{
@@ -503,7 +511,8 @@ reduce_pca(PG_FUNCTION_ARGS)
 			{
 				if (result_datums[i] != 0)
 				{
-					ArrayType *arr = DatumGetArrayTypeP(result_datums[i]);
+					ArrayType  *arr = DatumGetArrayTypeP(result_datums[i]);
+
 					if (arr != NULL)
 						NDB_FREE(arr);
 				}
@@ -538,7 +547,7 @@ reduce_pca(PG_FUNCTION_ARGS)
 									typlen,
 									typbyval,
 									typalign);
-		
+
 		/* Validate constructed array */
 		if (vec_array == NULL)
 		{
@@ -548,7 +557,8 @@ reduce_pca(PG_FUNCTION_ARGS)
 			{
 				if (result_datums[i] != 0)
 				{
-					ArrayType *arr = DatumGetArrayTypeP(result_datums[i]);
+					ArrayType  *arr = DatumGetArrayTypeP(result_datums[i]);
+
 					if (arr != NULL)
 						NDB_FREE(arr);
 				}
@@ -587,7 +597,8 @@ reduce_pca(PG_FUNCTION_ARGS)
 			{
 				if (result_datums[i] != 0)
 				{
-					ArrayType *arr = DatumGetArrayTypeP(result_datums[i]);
+					ArrayType  *arr = DatumGetArrayTypeP(result_datums[i]);
+
 					if (arr != NULL)
 						NDB_FREE(arr);
 				}
@@ -626,7 +637,7 @@ reduce_pca(PG_FUNCTION_ARGS)
 		char		typalign;
 
 		get_typlenbyvalalign(FLOAT4ARRAYOID, &typlen, &typbyval, &typalign);
-		
+
 		/* Validate type information for array of arrays */
 		/* Note: typlen = -1 is valid for variable-length types (arrays) */
 		if (typlen < -1)
@@ -636,9 +647,9 @@ reduce_pca(PG_FUNCTION_ARGS)
 			{
 				if (result_datums[j] != 0)
 				{
-					ArrayType *arr = DatumGetArrayTypeP(result_datums[j]);
-					if (arr != NULL)
-						pfree(arr);
+					ArrayType  *arr = DatumGetArrayTypeP(result_datums[j]);
+
+					NDB_FREE(arr);
 				}
 			}
 			NDB_FREE(result_datums);
@@ -671,7 +682,7 @@ reduce_pca(PG_FUNCTION_ARGS)
 									   typlen,
 									   typbyval,
 									   typalign);
-		
+
 		/* Validate final array */
 		if (result_array == NULL)
 		{
@@ -680,9 +691,9 @@ reduce_pca(PG_FUNCTION_ARGS)
 			{
 				if (result_datums[j] != 0)
 				{
-					ArrayType *arr = DatumGetArrayTypeP(result_datums[j]);
-					if (arr != NULL)
-						pfree(arr);
+					ArrayType  *arr = DatumGetArrayTypeP(result_datums[j]);
+
+					NDB_FREE(arr);
 				}
 			}
 			NDB_FREE(result_datums);
@@ -718,9 +729,9 @@ reduce_pca(PG_FUNCTION_ARGS)
 			{
 				if (result_datums[j] != 0)
 				{
-					ArrayType *arr = DatumGetArrayTypeP(result_datums[j]);
-					if (arr != NULL)
-						pfree(arr);
+					ArrayType  *arr = DatumGetArrayTypeP(result_datums[j]);
+
+					NDB_FREE(arr);
 				}
 			}
 			NDB_FREE(result_datums);
@@ -756,9 +767,9 @@ reduce_pca(PG_FUNCTION_ARGS)
 			{
 				if (result_datums[j] != 0)
 				{
-					ArrayType *arr = DatumGetArrayTypeP(result_datums[j]);
-					if (arr != NULL)
-						pfree(arr);
+					ArrayType  *arr = DatumGetArrayTypeP(result_datums[j]);
+
+					NDB_FREE(arr);
 				}
 			}
 			NDB_FREE(result_datums);
@@ -786,9 +797,20 @@ reduce_pca(PG_FUNCTION_ARGS)
 							FLOAT4ARRAYOID, ARR_ELEMTYPE(result_array))));
 		}
 
-		/* Validate nested array structure - check directly from result_datums before construction */
-		/* This validation happens after construction but validates the source arrays */
-		/* We validate a sample to ensure structure is correct without risking crashes */
+		/*
+		 * Validate nested array structure - check directly from result_datums
+		 * before construction
+		 */
+
+		/*
+		 * This validation happens after construction but validates the source
+		 * arrays
+		 */
+
+		/*
+		 * We validate a sample to ensure structure is correct without risking
+		 * crashes
+		 */
 		for (j = 0; j < nvec && j < 10; j++)
 		{
 			ArrayType  *nested_array;
@@ -801,9 +823,9 @@ reduce_pca(PG_FUNCTION_ARGS)
 				{
 					if (result_datums[i] != 0)
 					{
-						ArrayType *arr = DatumGetArrayTypeP(result_datums[i]);
-						if (arr != NULL)
-							pfree(arr);
+						ArrayType  *arr = DatumGetArrayTypeP(result_datums[i]);
+
+						NDB_FREE(arr);
 					}
 				}
 				NDB_FREE(result_datums);
@@ -839,9 +861,9 @@ reduce_pca(PG_FUNCTION_ARGS)
 				{
 					if (result_datums[i] != 0)
 					{
-						ArrayType *arr = DatumGetArrayTypeP(result_datums[i]);
-						if (arr != NULL)
-							pfree(arr);
+						ArrayType  *arr = DatumGetArrayTypeP(result_datums[i]);
+
+						NDB_FREE(arr);
 					}
 				}
 				NDB_FREE(result_datums);
@@ -877,9 +899,9 @@ reduce_pca(PG_FUNCTION_ARGS)
 				{
 					if (result_datums[i] != 0)
 					{
-						ArrayType *arr = DatumGetArrayTypeP(result_datums[i]);
-						if (arr != NULL)
-							pfree(arr);
+						ArrayType  *arr = DatumGetArrayTypeP(result_datums[i]);
+
+						NDB_FREE(arr);
 					}
 				}
 				NDB_FREE(result_datums);
@@ -916,9 +938,9 @@ reduce_pca(PG_FUNCTION_ARGS)
 				{
 					if (result_datums[i] != 0)
 					{
-						ArrayType *arr = DatumGetArrayTypeP(result_datums[i]);
-						if (arr != NULL)
-							pfree(arr);
+						ArrayType  *arr = DatumGetArrayTypeP(result_datums[i]);
+
+						NDB_FREE(arr);
 					}
 				}
 				NDB_FREE(result_datums);
@@ -1128,14 +1150,17 @@ detect_outliers(PG_FUNCTION_ARGS)
 	float	  **data;
 	int			nvec,
 				dim;
-	NDB_DECLARE(IsoTreeNode **, forest);
+
+	NDB_DECLARE(IsoTreeNode * *, forest);
 	NDB_DECLARE(double *, scores);
 	int			i,
 				t;
+
 	NDB_DECLARE(int *, indices);
 	int			max_depth;
 	double		avg_path_length_full;
 	ArrayType  *result_array;
+
 	NDB_DECLARE(Datum *, result_datums);
 	int16		typlen;
 	bool		typbyval;
@@ -1274,8 +1299,10 @@ build_knn_graph(PG_FUNCTION_ARGS)
 	int			i,
 				j,
 				n;
+
 	NDB_DECLARE(KNNEdge *, edges);
 	ArrayType  *result_array;
+
 	NDB_DECLARE(Datum *, result_datums);
 	int			result_count;
 	int16		typlen;
@@ -1407,16 +1434,20 @@ compute_embedding_quality(PG_FUNCTION_ARGS)
 	char	   *col_str;
 	char	   *cluster_col_str;
 	float	  **data;
+
 	NDB_DECLARE(int *, clusters);
 	int			nvec,
 				dim;
 	int			i,
 				j;
-	NDB_DECLARE(double *, a_scores);		/* Average distance to same cluster */
-	NDB_DECLARE(double *, b_scores);		/* Average distance to nearest other cluster */
+
+	NDB_DECLARE(double *, a_scores);	/* Average distance to same cluster */
+	NDB_DECLARE(double *, b_scores);	/* Average distance to nearest other
+										 * cluster */
 	double		silhouette;
 	StringInfoData sql;
 	int			ret;
+
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext;
 

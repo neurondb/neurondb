@@ -560,7 +560,7 @@ neurondb_tokenize_with_model(const char *text,
 			token_id = TOKEN_UNK_ID;
 		}
 		token_ids[output_idx++] = token_id;
-		NDB_FREE(tokens[i]); /* Free each token string */
+		NDB_FREE(tokens[i]);	/* Free each token string */
 	}
 	/* Free the tokens array itself */
 	NDB_FREE(tokens);

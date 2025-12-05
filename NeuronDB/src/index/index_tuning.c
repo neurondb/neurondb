@@ -60,6 +60,7 @@ index_tune_hnsw(PG_FUNCTION_ARGS)
 	int			recommended_ef_construction = 64;
 	StringInfoData json_buf;
 	Jsonb	   *result_jsonb;
+
 	NDB_DECLARE(NdbSpiSession *, session);
 
 	tbl_name = text_to_cstring(table_name);
@@ -223,6 +224,7 @@ index_tune_ivf(PG_FUNCTION_ARGS)
 	int			recommended_lists = 100;
 	StringInfoData json_buf;
 	Jsonb	   *result_jsonb;
+
 	NDB_DECLARE(NdbSpiSession *, session);
 
 	tbl_name = text_to_cstring(table_name);
@@ -335,6 +337,7 @@ index_recommend_type(PG_FUNCTION_ARGS)
 	Jsonb	   *result_jsonb;
 	Jsonb	   *hnsw_params;
 	Jsonb	   *ivf_params;
+
 	NDB_DECLARE(NdbSpiSession *, session);
 
 	tbl_name = text_to_cstring(table_name);
@@ -472,6 +475,7 @@ index_tune_query_params(PG_FUNCTION_ARGS)
 	char	   *index_type = "hnsw";
 	StringInfoData json_buf;
 	Jsonb	   *result_jsonb;
+
 	NDB_DECLARE(NdbSpiSession *, session);
 
 	idx_name = text_to_cstring(index_name);

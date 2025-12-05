@@ -100,12 +100,12 @@ static bool rf_select_split(const float *features,
 							int count,
 							int feature_dim,
 							int n_classes,
-							pg_prng_state * rng,
+							pg_prng_state *rng,
 							int *feature_order,
 							int *best_feature,
 							double *best_threshold,
 							double *best_impurity);
-static int	rf_build_branch_tree(GTree * tree,
+static int	rf_build_branch_tree(GTree *tree,
 								 const float *features,
 								 const double *labels,
 								 const double *feature_vars,
@@ -116,17 +116,17 @@ static int	rf_build_branch_tree(GTree * tree,
 								 int depth,
 								 int max_depth,
 								 int min_samples,
-								 pg_prng_state * rng,
+								 pg_prng_state *rng,
 								 int *feature_order,
 								 double *feature_importance,
 								 double *max_split_deviation);
-static double rf_tree_predict_row(const GTree * tree, const float *row, int dim);
-static void rf_serialize_tree(StringInfo buf, const GTree * tree);
-static GTree * rf_deserialize_tree(StringInfo buf);
-static bytea * rf_model_serialize(const RFModel * model, uint8 training_backend);
-static RFModel * rf_model_deserialize(const bytea * data, uint8 *training_backend_out);
-static void rf_free_deserialized_model(RFModel * model);
-static bool rf_load_model_from_catalog(int32 model_id, RFModel * *out);
+static double rf_tree_predict_row(const GTree *tree, const float *row, int dim);
+static void rf_serialize_tree(StringInfo buf, const GTree *tree);
+static GTree *rf_deserialize_tree(StringInfo buf);
+static bytea * rf_model_serialize(const RFModel *model, uint8 training_backend);
+static RFModel *rf_model_deserialize(const bytea * data, uint8 * training_backend_out);
+static void rf_free_deserialized_model(RFModel *model);
+static bool rf_load_model_from_catalog(int32 model_id, RFModel **out);
 static bool rf_metadata_is_gpu(Jsonb * metadata);
 static bool rf_try_gpu_predict_catalog(int32 model_id,
 									   const Vector *feature_vec,
@@ -186,7 +186,7 @@ rf_select_split(const float *features,
 				int count,
 				int feature_dim,
 				int n_classes,
-				pg_prng_state * rng,
+				pg_prng_state *rng,
 				int *feature_order,
 				int *best_feature,
 				double *best_threshold,
@@ -244,6 +244,7 @@ rf_select_split(const float *features,
 	{
 		int			feature_idx =
 			(feature_order != NULL) ? feature_order[f] : f;
+
 		NDB_DECLARE(RFSplitPair *, pairs);
 		NDB_DECLARE(int *, left_counts_tmp);
 		NDB_DECLARE(int *, right_counts_tmp);
@@ -267,6 +268,7 @@ rf_select_split(const float *features,
 			}
 			{
 				size_t		pair_count_tmp = pairs_size / sizeof(RFSplitPair);
+
 				NDB_ALLOC(pairs, RFSplitPair, pair_count_tmp);
 			}
 			if (pairs == NULL)
@@ -306,6 +308,7 @@ rf_select_split(const float *features,
 			{
 				float	   *gpu_features;
 				uint8_t    *gpu_labels;
+
 				NDB_ALLOC(gpu_features, float, pair_count);
 				NDB_CHECK_ALLOC(gpu_features, "gpu_features");
 				NDB_ALLOC(gpu_labels, uint8_t, pair_count);
@@ -457,7 +460,7 @@ rf_select_split(const float *features,
  * the leaf node.
  */
 static int
-rf_build_branch_tree(GTree * tree,
+rf_build_branch_tree(GTree *tree,
 					 const float *features,
 					 const double *labels,
 					 const double *feature_vars,
@@ -468,10 +471,10 @@ rf_build_branch_tree(GTree * tree,
 					 int depth,
 					 int max_depth,
 					 int min_samples,
-					 pg_prng_state * rng,
+					 pg_prng_state *rng,
 					 int *feature_order,
-				 double *feature_importance,
-				 double *max_split_deviation)
+					 double *feature_importance,
+					 double *max_split_deviation)
 {
 	NDB_DECLARE(int *, class_counts);
 	int			majority_idx = -1;
@@ -669,9 +672,9 @@ rf_build_branch_tree(GTree * tree,
 }
 
 static double
-rf_tree_predict_row(const GTree * tree, const float *row, int dim)
+rf_tree_predict_row(const GTree *tree, const float *row, int dim)
 {
-	const		GTreeNode *nodes;
+	const GTreeNode *nodes;
 	int			idx;
 
 	if (tree == NULL || row == NULL)
@@ -684,7 +687,7 @@ rf_tree_predict_row(const GTree * tree, const float *row, int dim)
 
 	while (idx >= 0 && idx < tree->count)
 	{
-		const		GTreeNode *node = &nodes[idx];
+		const GTreeNode *node = &nodes[idx];
 
 		if (node->is_leaf)
 			return node->value;
@@ -701,7 +704,7 @@ rf_tree_predict_row(const GTree * tree, const float *row, int dim)
 	return 0.0;
 }
 
-static RFModel * rf_models = NULL;
+static RFModel *rf_models = NULL;
 static int	rf_model_count = 0;
 static int32 rf_next_model_id = 1;
 
@@ -718,7 +721,7 @@ rf_store_model(int32 model_id,
 			   const double *feature_means,
 			   const double *feature_variances,
 			   const double *feature_importance,
-			   GTree * tree,
+			   GTree *tree,
 			   int split_feature,
 			   double split_threshold,
 			   double second_value,
@@ -733,7 +736,7 @@ rf_store_model(int32 model_id,
 			   const double *left_means,
 			   const double *right_means,
 			   int tree_count,
-			   GTree * const *trees,
+			   GTree *const *trees,
 			   const double *tree_majority,
 			   const double *tree_majority_fraction,
 			   const double *tree_second,
@@ -886,6 +889,7 @@ rf_store_model(int32 model_id,
 			NDB_DECLARE(int *, copy);
 			{
 				size_t		count = class_counts_size / sizeof(int);
+
 				NDB_ALLOC(copy, int, count);
 			}
 
@@ -915,6 +919,7 @@ rf_store_model(int32 model_id,
 			NDB_DECLARE(double *, means_copy);
 			{
 				size_t		count = means_size / sizeof(double);
+
 				NDB_ALLOC(means_copy, double, count);
 			}
 
@@ -945,6 +950,7 @@ rf_store_model(int32 model_id,
 			NDB_DECLARE(double *, vars_copy);
 			{
 				size_t		count = vars_size / sizeof(double);
+
 				NDB_ALLOC(vars_copy, double, count);
 			}
 
@@ -1008,6 +1014,7 @@ rf_store_model(int32 model_id,
 			NDB_DECLARE(double *, copy);
 			{
 				size_t		count = left_means_size / sizeof(double);
+
 				NDB_ALLOC(copy, double, count);
 			}
 
@@ -1036,6 +1043,7 @@ rf_store_model(int32 model_id,
 			NDB_DECLARE(double *, copy);
 			{
 				size_t		count = right_means_size / sizeof(double);
+
 				NDB_ALLOC(copy, double, count);
 			}
 
@@ -1066,6 +1074,7 @@ rf_store_model(int32 model_id,
 			NDB_DECLARE(GTree **, tree_copy);
 			{
 				size_t		count = trees_array_size / sizeof(GTree *);
+
 				NDB_ALLOC(tree_copy, GTree *, count);
 			}
 			if (tree_copy == NULL)
@@ -1091,6 +1100,7 @@ rf_store_model(int32 model_id,
 						NDB_DECLARE(double *, majority_copy);
 						{
 							size_t		count = tree_double_size / sizeof(double);
+
 							NDB_ALLOC(majority_copy, double, count);
 						}
 
@@ -1111,6 +1121,7 @@ rf_store_model(int32 model_id,
 						NDB_DECLARE(double *, fraction_copy);
 						{
 							size_t		count = tree_double_size / sizeof(double);
+
 							NDB_ALLOC(fraction_copy, double, count);
 						}
 
@@ -1131,6 +1142,7 @@ rf_store_model(int32 model_id,
 						NDB_DECLARE(double *, second_copy);
 						{
 							size_t		count = tree_double_size / sizeof(double);
+
 							NDB_ALLOC(second_copy, double, count);
 						}
 
@@ -1151,6 +1163,7 @@ rf_store_model(int32 model_id,
 						NDB_DECLARE(double *, second_fraction_copy);
 						{
 							size_t		count = tree_double_size / sizeof(double);
+
 							NDB_ALLOC(second_fraction_copy, double, count);
 						}
 
@@ -1171,6 +1184,7 @@ rf_store_model(int32 model_id,
 						NDB_DECLARE(double *, oob_copy);
 						{
 							size_t		count = tree_double_size / sizeof(double);
+
 							NDB_ALLOC(oob_copy, double, count);
 						}
 
@@ -1201,7 +1215,7 @@ rf_store_model(int32 model_id,
 }
 
 static bool
-rf_lookup_model(int32 model_id, RFModel * *out)
+rf_lookup_model(int32 model_id, RFModel **out)
 {
 	int			i;
 
@@ -1261,17 +1275,20 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 
 	StringInfoData query = {0};
 	MemoryContext oldcontext;
-	NDB_DECLARE (NdbSpiSession *, train_spi_session);
+
+	NDB_DECLARE(NdbSpiSession *, train_spi_session);
 
 	int			feature_dim = 0;
 	int			n_classes = 0;
 	int			majority_count = 0;
 	int			second_count = 0;
 	int			second_idx = -1;
+
 	NDB_DECLARE(int *, class_counts_tmp);
 	NDB_DECLARE(int *, counts);
 	int			feature_sum_count = 0;
 	int			split_feature = -1;
+
 	NDB_DECLARE(int *, left_counts);
 	NDB_DECLARE(int *, right_counts);
 	int			left_majority_idx = -1;
@@ -1281,11 +1298,13 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 	int			majority_idx = -1;
 	int			feature_limit = 0;
 	int			best_feature = -1;
+
 	NDB_DECLARE(int *, left_feature_counts_vec);
 	NDB_DECLARE(int *, right_feature_counts_vec);
 	int			n_samples = 0;
 	int			split_pair_count = 0;
 	int			sample_count = 0;
+
 	NDB_DECLARE(int *, bootstrap_indices);
 	NDB_DECLARE(int *, feature_order);
 	pg_prng_state rng;
@@ -1298,6 +1317,7 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 	double		gini_impurity = 0.0;
 	double		label_entropy = 0.0;
 	double		second_value = 0.0;
+
 	NDB_DECLARE(double *, feature_means_tmp);
 	NDB_DECLARE(double *, feature_vars_tmp);
 	NDB_DECLARE(double *, feature_importance_tmp);
@@ -1323,14 +1343,18 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 	double		max_split_deviation = 0.0;
 	double		split_threshold = 0.0;
 	double		second_fraction = 0.0;
+
 	NDB_DECLARE(double *, left_branch_means_vec);
 	NDB_DECLARE(double *, right_branch_means_vec);
 	double		forest_oob_accuracy = 0.0;
+
 	NDB_DECLARE(double *, tree_oob_accuracy);
 	int			oob_total_all = 0;
 	int			oob_correct_all = 0;
+
 	NDB_DECLARE(float *, stage_features);
 	GTree	  **trees = NULL;
+
 	NDB_DECLARE(double *, tree_majorities);
 	NDB_DECLARE(double *, tree_majority_fractions);
 	NDB_DECLARE(double *, tree_seconds);
@@ -1346,6 +1370,7 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 	bool		class_mean_threshold_valid = false;
 	bool		best_score_valid = false;
 	bool		best_split_valid = false;
+
 	NDB_DECLARE(GTree *, primary_tree);
 	NDB_DECLARE(RFSplitPair *, split_pairs);
 
@@ -1435,6 +1460,7 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 		if (gpu_class_count > 0)
 		{
 			StringInfoData hyperbuf;
+
 			NDB_DECLARE(Jsonb *, gpu_hyperparams);
 			NDB_DECLARE(char *, gpu_err);
 			const char *gpu_features[1];
@@ -1448,8 +1474,11 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 				NDB_DECLARE(JsonbParseState *, state);
 				JsonbValue	jkey;
 				JsonbValue	jval;
+
 				NDB_DECLARE(JsonbValue *, final_value);
-				Numeric		n_trees_num, max_depth_num, min_samples_split_num;
+				Numeric		n_trees_num,
+							max_depth_num,
+							min_samples_split_num;
 
 				PG_TRY();
 				{
@@ -1484,17 +1513,18 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 					(void) pushJsonbValue(&state, WJB_VALUE, &jval);
 
 					final_value = pushJsonbValue(&state, WJB_END_OBJECT, NULL);
-					
+
 					if (final_value == NULL)
 					{
 						elog(ERROR, "neurondb: train_random_forest: pushJsonbValue(WJB_END_OBJECT) returned NULL for hyperparameters");
 					}
-					
+
 					gpu_hyperparams = JsonbValueToJsonb(final_value);
 				}
 				PG_CATCH();
 				{
-					ErrorData *edata = CopyErrorData();
+					ErrorData  *edata = CopyErrorData();
+
 					elog(ERROR, "neurondb: train_random_forest: hyperparameters JSONB construction failed: %s", edata->message);
 					FlushErrorState();
 					gpu_hyperparams = NULL;
@@ -1563,7 +1593,11 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 				}
 
 				rf_dataset_free(&dataset);
-				/* Free query.data BEFORE ending SPI session (it's allocated in SPI context) */
+
+				/*
+				 * Free query.data BEFORE ending SPI session (it's allocated
+				 * in SPI context)
+				 */
 				if (query.data)
 				{
 					NDB_FREE(query.data);
@@ -1870,6 +1904,7 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 					{
 						size_t		sums_count = sums_size / sizeof(double);
 						size_t		counts_count = counts_size / sizeof(int);
+
 						NDB_ALLOC(class_feature_sums, double, sums_count);
 						NDB_ALLOC(class_feature_counts, int, counts_count);
 					}
@@ -2050,6 +2085,7 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 					NDB_DECLARE(int *, right_counts_tmp);
 					int			right_total_eval = 0;
 					int			left_total_eval = 0;
+
 					NDB_ALLOC(left_counts_tmp, int, n_classes);
 					NDB_ALLOC(right_counts_tmp, int, n_classes);
 
@@ -2480,10 +2516,12 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 				double		tree_second_value = second_value;
 				double		tree_majority_frac = majority_fraction;
 				double		tree_second_frac = second_fraction;
+
 				NDB_DECLARE(int *, tree_counts);
 				int			boot_samples = 0;
 				int			sample_target = n_samples;
 				int			j;
+
 				NDB_DECLARE(int *, tree_bootstrap);
 				NDB_DECLARE(RFSplitPair *, tree_pairs);
 				int			tree_pair_count = 0;
@@ -2493,6 +2531,7 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 				bool		tree_split_valid = false;
 				int			mtry = 0;
 				int			candidates = 0;
+
 				NDB_DECLARE(int *, left_tmp);
 				NDB_DECLARE(int *, right_tmp);
 				int			left_total_local = 0;
@@ -2505,9 +2544,11 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 				double		tree_right_value = right_leaf_value;
 				double		tree_left_fraction = left_branch_fraction;
 				double		tree_right_fraction = right_branch_fraction;
+
 				NDB_DECLARE(bool *, inbag);
 				int			oob_total_local = 0;
 				int			oob_correct_local = 0;
+
 				NDB_DECLARE(int *, left_indices_local);
 				NDB_DECLARE(int *, right_indices_local);
 				int			left_index_count = 0;
@@ -3257,6 +3298,7 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 		{
 			RFModel    *stored_model;
 			MLCatalogModelSpec spec;
+
 			NDB_DECLARE(bytea *, serialized);
 			NDB_DECLARE(Jsonb *, params_jsonb);
 			NDB_DECLARE(Jsonb *, metrics_jsonb);
@@ -3272,8 +3314,11 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 				NDB_DECLARE(JsonbParseState *, state);
 				JsonbValue	jkey;
 				JsonbValue	jval;
+
 				NDB_DECLARE(JsonbValue *, final_value);
-				Numeric		n_trees_num, max_depth_num, min_samples_split_num;
+				Numeric		n_trees_num,
+							max_depth_num,
+							min_samples_split_num;
 
 				PG_TRY();
 				{
@@ -3308,17 +3353,18 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 					(void) pushJsonbValue(&state, WJB_VALUE, &jval);
 
 					final_value = pushJsonbValue(&state, WJB_END_OBJECT, NULL);
-					
+
 					if (final_value == NULL)
 					{
 						elog(ERROR, "neurondb: train_random_forest: pushJsonbValue(WJB_END_OBJECT) returned NULL for parameters");
 					}
-					
+
 					params_jsonb = JsonbValueToJsonb(final_value);
 				}
 				PG_CATCH();
 				{
-					ErrorData *edata = CopyErrorData();
+					ErrorData  *edata = CopyErrorData();
+
 					elog(ERROR, "neurondb: train_random_forest: parameters JSONB construction failed: %s", edata->message);
 					FlushErrorState();
 					params_jsonb = NULL;
@@ -3331,8 +3377,11 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 				NDB_DECLARE(JsonbParseState *, state);
 				JsonbValue	jkey;
 				JsonbValue	jval;
+
 				NDB_DECLARE(JsonbValue *, final_value);
-				Numeric		oob_accuracy_num, gini_num, majority_fraction_num;
+				Numeric		oob_accuracy_num,
+							gini_num,
+							majority_fraction_num;
 
 				PG_TRY();
 				{
@@ -3367,17 +3416,18 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 					(void) pushJsonbValue(&state, WJB_VALUE, &jval);
 
 					final_value = pushJsonbValue(&state, WJB_END_OBJECT, NULL);
-					
+
 					if (final_value == NULL)
 					{
 						elog(ERROR, "neurondb: train_random_forest: pushJsonbValue(WJB_END_OBJECT) returned NULL for metrics");
 					}
-					
+
 					metrics_jsonb = JsonbValueToJsonb(final_value);
 				}
 				PG_CATCH();
 				{
-					ErrorData *edata = CopyErrorData();
+					ErrorData  *edata = CopyErrorData();
+
 					elog(ERROR, "neurondb: train_random_forest: metrics JSONB construction failed: %s", edata->message);
 					FlushErrorState();
 					metrics_jsonb = NULL;
@@ -3532,7 +3582,10 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 		rf_dataset_free(&dataset);
 	}
 
-	/* Free query.data BEFORE ending SPI session (it's allocated in SPI context) */
+	/*
+	 * Free query.data BEFORE ending SPI session (it's allocated in SPI
+	 * context)
+	 */
 	if (query.data)
 		NDB_FREE(query.data);
 	NDB_SPI_SESSION_END(train_spi_session);
@@ -3547,14 +3600,14 @@ train_random_forest_classifier(PG_FUNCTION_ARGS)
 }
 
 static double
-rf_tree_predict_single(const GTree * tree,
-					   const RFModel * model,
+rf_tree_predict_single(const GTree *tree,
+					   const RFModel *model,
 					   const Vector *vec,
 					   double *left_dist,
 					   double *right_dist,
 					   int *leaf_out)
 {
-	const		GTreeNode *nodes;
+	const GTreeNode *nodes;
 	int			idx;
 	int			steps = 0;
 	int			path_nodes[GTREE_MAX_DEPTH + 1];
@@ -3583,7 +3636,7 @@ rf_tree_predict_single(const GTree * tree,
 
 	while (idx >= 0 && idx < tree->count)
 	{
-		const		GTreeNode *node = &nodes[idx];
+		const GTreeNode *node = &nodes[idx];
 
 		if (path_len <= GTREE_MAX_DEPTH)
 			path_nodes[path_len] = idx;
@@ -3702,6 +3755,7 @@ predict_random_forest(PG_FUNCTION_ARGS)
 {
 	int32		model_id;
 	RFModel    *model;
+
 	NDB_DECLARE(Vector *, feature_vec);
 	double		result;
 	double		split_z = 0.0;
@@ -3718,6 +3772,7 @@ predict_random_forest(PG_FUNCTION_ARGS)
 	double		second_vote_fraction = 0.0;
 	double		vote_total_weight = 0.0;
 	int			i;
+
 	NDB_DECLARE(double *, vote_histogram);
 	int			vote_classes = 0;
 	double		fallback_value = 0.0;
@@ -3871,7 +3926,7 @@ predict_random_forest(PG_FUNCTION_ARGS)
 	{
 		for (i = 0; i < model->tree_count; i++)
 		{
-			const		GTree *tree = model->trees[i];
+			const GTree *tree = model->trees[i];
 			double		tree_left = -1.0;
 			double		tree_right = -1.0;
 			int			leaf_idx = -1;
@@ -4113,11 +4168,13 @@ evaluate_random_forest(PG_FUNCTION_ARGS)
 	Datum		result_datums[4];
 	ArrayType  *result_array;
 	int32		model_id;
+
 	NDB_DECLARE(RFModel *, model);
 	double		accuracy = 0.0;
 	double		error_rate = 0.0;
 	double		gini = 0.0;
 	int			n_classes = 0;
+
 	NDB_DECLARE(bytea *, payload);
 	NDB_DECLARE(Jsonb *, metrics);
 
@@ -4343,7 +4400,7 @@ evaluate_random_forest(PG_FUNCTION_ARGS)
  * Returns predictions array (double*) and updates confusion matrix.
  */
 static void
-rf_predict_batch(const RFModel * model,
+rf_predict_batch(const RFModel *model,
 				 const float *features,
 				 const double *labels,
 				 int n_samples,
@@ -4359,6 +4416,7 @@ rf_predict_batch(const RFModel * model,
 	int			fp = 0;
 	int			fn = 0;
 	int			n_classes = model->n_classes;
+
 	NDB_DECLARE(double *, vote_histogram);
 	int			vote_classes = n_classes;
 
@@ -4422,7 +4480,7 @@ rf_predict_batch(const RFModel * model,
 
 			for (t = 0; t < model->tree_count; t++)
 			{
-				const		GTree *tree = model->trees[t];
+				const GTree *tree = model->trees[t];
 				double		tree_result;
 				double		vote_weight = 1.0;
 
@@ -4507,7 +4565,7 @@ rf_predict_batch(const RFModel * model,
 				pred_class = 0;
 			else if (pred_class > 1)
 				pred_class = 1;
-			
+
 			if (true_class == 1 && pred_class == 1)
 				tp++;
 			else if (true_class == 0 && pred_class == 0)
@@ -4518,7 +4576,7 @@ rf_predict_batch(const RFModel * model,
 				fn++;
 			else
 			{
-				elog(DEBUG1, "rf_predict_batch: row %d: unexpected class combination (true_class=%d, pred_class=%d, n_classes=%d, prediction=%.6f)", 
+				elog(DEBUG1, "rf_predict_batch: row %d: unexpected class combination (true_class=%d, pred_class=%d, n_classes=%d, prediction=%.6f)",
 					 i, true_class, pred_class, n_classes, prediction);
 			}
 		}
@@ -4529,7 +4587,7 @@ rf_predict_batch(const RFModel * model,
 				pred_class = 0;
 			else if (pred_class >= n_classes)
 				pred_class = n_classes - 1;
-			
+
 			if (true_class == pred_class)
 				tp++;
 			else
@@ -4540,7 +4598,7 @@ rf_predict_batch(const RFModel * model,
 	if (vote_histogram != NULL)
 		NDB_FREE(vote_histogram);
 
-	elog(DEBUG1, "rf_predict_batch: final confusion matrix - tp=%d, tn=%d, fp=%d, fn=%d (n_samples=%d, n_classes=%d)", 
+	elog(DEBUG1, "rf_predict_batch: final confusion matrix - tp=%d, tn=%d, fp=%d, fn=%d (n_samples=%d, n_classes=%d)",
 		 tp, tn, fp, fn, n_samples, n_classes);
 
 	if (tp_out)
@@ -4570,6 +4628,7 @@ evaluate_random_forest_by_model_id(PG_FUNCTION_ARGS)
 	text	   *table_name;
 	text	   *feature_col;
 	text	   *label_col;
+
 	NDB_DECLARE(char *, tbl_str);
 	NDB_DECLARE(char *, feat_str);
 	NDB_DECLARE(char *, targ_str);
@@ -4588,8 +4647,10 @@ evaluate_random_forest_by_model_id(PG_FUNCTION_ARGS)
 	int			fp = 0;
 	int			fn = 0;
 	MemoryContext oldcontext;
-	NDB_DECLARE (NdbSpiSession *, eval_spi_session);
+
+	NDB_DECLARE(NdbSpiSession *, eval_spi_session);
 	StringInfoData query = {0};
+
 	NDB_DECLARE(RFModel *, model);
 	NDB_DECLARE(Jsonb *, result_jsonb);
 	NDB_DECLARE(bytea *, gpu_payload);
@@ -4738,7 +4799,8 @@ evaluate_random_forest_by_model_id(PG_FUNCTION_ARGS)
 	if (neurondb_gpu_is_available() && gpu_payload != NULL)
 	{
 #ifdef NDB_GPU_CUDA
-		const		NdbCudaRfModelHeader *gpu_hdr;
+		const NdbCudaRfModelHeader *gpu_hdr;
+
 		NDB_DECLARE(int *, h_labels);
 		NDB_DECLARE(float *, h_features);
 		int			feat_dim = 0;
@@ -4841,7 +4903,11 @@ evaluate_random_forest_by_model_id(PG_FUNCTION_ARGS)
 					continue;
 
 				feat_datum = SPI_getbinval(tuple, tupdesc, 1, &feat_null);
-				/* Safe access for target - validate tupdesc has at least 2 columns */
+
+				/*
+				 * Safe access for target - validate tupdesc has at least 2
+				 * columns
+				 */
 				if (tupdesc->natts < 2)
 				{
 					continue;
@@ -4970,6 +5036,7 @@ evaluate_random_forest_by_model_id(PG_FUNCTION_ARGS)
 		/* Use optimized GPU batch evaluation */
 		{
 			int			rc;
+
 			NDB_DECLARE(char *, gpu_errstr);
 			bool		cleanup_done = false;
 			bool		h_features_freed = false;
@@ -5025,18 +5092,30 @@ evaluate_random_forest_by_model_id(PG_FUNCTION_ARGS)
 				if (rc == 0)
 				{
 					elog(DEBUG1, "evaluate_random_forest_by_model_id: [DEBUG] GPU evaluation succeeded, building JSONB result");
-					/* End SPI session BEFORE creating JSONB to avoid context conflicts */
+
+					/*
+					 * End SPI session BEFORE creating JSONB to avoid context
+					 * conflicts
+					 */
 					ndb_spi_stringinfo_free(eval_spi_session, &query);
 					NDB_SPI_SESSION_END(eval_spi_session);
 
-					/* Switch to old context and build JSONB directly using JSONB API */
+					/*
+					 * Switch to old context and build JSONB directly using
+					 * JSONB API
+					 */
 					MemoryContextSwitchTo(oldcontext);
 					{
 						NDB_DECLARE(JsonbParseState *, state);
 						JsonbValue	jkey;
 						JsonbValue	jval;
+
 						NDB_DECLARE(JsonbValue *, final_value);
-						Numeric		accuracy_num, precision_num, recall_num, f1_score_num, n_samples_num;
+						Numeric		accuracy_num,
+									precision_num,
+									recall_num,
+									f1_score_num,
+									n_samples_num;
 
 						/* Suppress shadow warnings from nested PG_TRY blocks */
 #pragma GCC diagnostic push
@@ -5087,17 +5166,18 @@ evaluate_random_forest_by_model_id(PG_FUNCTION_ARGS)
 							(void) pushJsonbValue(&state, WJB_VALUE, &jval);
 
 							final_value = pushJsonbValue(&state, WJB_END_OBJECT, NULL);
-							
+
 							if (final_value == NULL)
 							{
 								elog(ERROR, "neurondb: evaluate_random_forest: pushJsonbValue(WJB_END_OBJECT) returned NULL");
 							}
-							
+
 							result_jsonb = JsonbValueToJsonb(final_value);
 						}
 						PG_CATCH();
 						{
-							ErrorData *edata = CopyErrorData();
+							ErrorData  *edata = CopyErrorData();
+
 							elog(ERROR, "neurondb: evaluate_random_forest: JSONB construction failed: %s", edata->message);
 							FlushErrorState();
 							result_jsonb = NULL;
@@ -5326,7 +5406,7 @@ cpu_evaluation_path:
 			feat_dim = model->n_features;
 		else if (is_gpu_model && gpu_payload != NULL)
 		{
-			const		NdbCudaRfModelHeader *gpu_hdr;
+			const NdbCudaRfModelHeader *gpu_hdr;
 
 			gpu_hdr = (const NdbCudaRfModelHeader *) VARDATA(gpu_payload);
 			feat_dim = gpu_hdr->feature_dim;
@@ -5372,7 +5452,7 @@ cpu_evaluation_path:
 				float	   *feat_row;
 
 				/* Safe access to SPI_tuptable - validate before access */
-				if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL || 
+				if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL ||
 					i >= SPI_processed || SPI_tuptable->vals[i] == NULL)
 				{
 					continue;
@@ -5384,7 +5464,11 @@ cpu_evaluation_path:
 				}
 
 				feat_datum = SPI_getbinval(tuple, tupdesc, 1, &feat_null);
-				/* Safe access for target - validate tupdesc has at least 2 columns */
+
+				/*
+				 * Safe access for target - validate tupdesc has at least 2
+				 * columns
+				 */
 				if (tupdesc->natts < 2)
 				{
 					continue;
@@ -5498,8 +5582,8 @@ cpu_evaluation_path:
 					 errhint("Add more data rows to the evaluation table.")));
 		}
 
-		elog(DEBUG1, "evaluate_random_forest_by_model_id: before GPU model check - is_gpu_model=%d, model=%p, valid_rows=%d", 
-			 is_gpu_model, (void *)model, valid_rows);
+		elog(DEBUG1, "evaluate_random_forest_by_model_id: before GPU model check - is_gpu_model=%d, model=%p, valid_rows=%d",
+			 is_gpu_model, (void *) model, valid_rows);
 
 		/* For GPU models, we need to load CPU model for evaluation */
 		if (is_gpu_model && model == NULL)
@@ -5508,7 +5592,7 @@ cpu_evaluation_path:
 			/* Extract model structure from GPU payload */
 			if (gpu_payload != NULL)
 			{
-				const		NdbCudaRfModelHeader *gpu_hdr;
+				const NdbCudaRfModelHeader *gpu_hdr;
 
 				gpu_hdr = (const NdbCudaRfModelHeader *) VARDATA(gpu_payload);
 				if (gpu_hdr != NULL)
@@ -5585,10 +5669,13 @@ cpu_evaluation_path:
 			}
 		}
 
-		elog(DEBUG1, "evaluate_random_forest_by_model_id: after GPU model check - is_gpu_model=%d, model=%p, valid_rows=%d", 
-			 is_gpu_model, (void *)model, valid_rows);
+		elog(DEBUG1, "evaluate_random_forest_by_model_id: after GPU model check - is_gpu_model=%d, model=%p, valid_rows=%d",
+			 is_gpu_model, (void *) model, valid_rows);
 
-		/* Use batch prediction helper - this should run for both GPU and CPU models */
+		/*
+		 * Use batch prediction helper - this should run for both GPU and CPU
+		 * models
+		 */
 		if (model == NULL)
 		{
 			elog(ERROR, "evaluate_random_forest_by_model_id: model is NULL before rf_predict_batch");
@@ -5599,14 +5686,14 @@ cpu_evaluation_path:
 		}
 		if (model->tree_count <= 0 || model->trees == NULL)
 		{
-			elog(WARNING, "evaluate_random_forest_by_model_id: model has no trees (tree_count=%d, trees=%p), predictions will use majority_value", 
-				 model->tree_count, (void *)model->trees);
+			elog(WARNING, "evaluate_random_forest_by_model_id: model has no trees (tree_count=%d, trees=%p), predictions will use majority_value",
+				 model->tree_count, (void *) model->trees);
 		}
 		if (valid_rows <= 0)
 		{
 			elog(ERROR, "evaluate_random_forest_by_model_id: valid_rows=%d is invalid", valid_rows);
 		}
-		elog(DEBUG1, "evaluate_random_forest_by_model_id: calling rf_predict_batch with valid_rows=%d, feat_dim=%d, model->n_classes=%d, model->tree_count=%d", 
+		elog(DEBUG1, "evaluate_random_forest_by_model_id: calling rf_predict_batch with valid_rows=%d, feat_dim=%d, model->n_classes=%d, model->tree_count=%d",
 			 valid_rows, feat_dim, model ? model->n_classes : -1, model ? model->tree_count : -1);
 		rf_predict_batch(model,
 						 h_features,
@@ -5663,105 +5750,91 @@ cpu_evaluation_path:
 		}
 	}
 
-		/* End SPI session BEFORE creating JSONB to avoid context conflicts */
-		ndb_spi_stringinfo_free(eval_spi_session, &query);
-		NDB_SPI_SESSION_END(eval_spi_session);
+	/* End SPI session BEFORE creating JSONB to avoid context conflicts */
+	ndb_spi_stringinfo_free(eval_spi_session, &query);
+	NDB_SPI_SESSION_END(eval_spi_session);
 
-		/* Switch to old context and build JSONB directly using JSONB API */
-		MemoryContextSwitchTo(oldcontext);
+	/* Switch to old context and build JSONB directly using JSONB API */
+	MemoryContextSwitchTo(oldcontext);
+	{
+		NDB_DECLARE(JsonbParseState *, state);
+		JsonbValue	jkey;
+		JsonbValue	jval;
+
+		NDB_DECLARE(JsonbValue *, final_value);
+		Numeric		accuracy_num,
+					precision_num,
+					recall_num,
+					f1_score_num,
+					n_samples_num;
+
+		PG_TRY();
 		{
-			NDB_DECLARE(JsonbParseState *, state);
-			JsonbValue	jkey;
-			JsonbValue	jval;
-			NDB_DECLARE(JsonbValue *, final_value);
-			Numeric		accuracy_num, precision_num, recall_num, f1_score_num, n_samples_num;
+			(void) pushJsonbValue(&state, WJB_BEGIN_OBJECT, NULL);
 
-			PG_TRY();
+			jkey.type = jbvString;
+			jkey.val.string.val = "accuracy";
+			jkey.val.string.len = strlen("accuracy");
+			(void) pushJsonbValue(&state, WJB_KEY, &jkey);
+			accuracy_num = DatumGetNumeric(DirectFunctionCall1(float8_numeric, Float8GetDatum(accuracy)));
+			jval.type = jbvNumeric;
+			jval.val.numeric = accuracy_num;
+			(void) pushJsonbValue(&state, WJB_VALUE, &jval);
+
+			jkey.val.string.val = "precision";
+			jkey.val.string.len = strlen("precision");
+			(void) pushJsonbValue(&state, WJB_KEY, &jkey);
+			precision_num = DatumGetNumeric(DirectFunctionCall1(float8_numeric, Float8GetDatum(precision)));
+			jval.type = jbvNumeric;
+			jval.val.numeric = precision_num;
+			(void) pushJsonbValue(&state, WJB_VALUE, &jval);
+
+			jkey.val.string.val = "recall";
+			jkey.val.string.len = strlen("recall");
+			(void) pushJsonbValue(&state, WJB_KEY, &jkey);
+			recall_num = DatumGetNumeric(DirectFunctionCall1(float8_numeric, Float8GetDatum(recall)));
+			jval.type = jbvNumeric;
+			jval.val.numeric = recall_num;
+			(void) pushJsonbValue(&state, WJB_VALUE, &jval);
+
+			jkey.val.string.val = "f1_score";
+			jkey.val.string.len = strlen("f1_score");
+			(void) pushJsonbValue(&state, WJB_KEY, &jkey);
+			f1_score_num = DatumGetNumeric(DirectFunctionCall1(float8_numeric, Float8GetDatum(f1_score)));
+			jval.type = jbvNumeric;
+			jval.val.numeric = f1_score_num;
+			(void) pushJsonbValue(&state, WJB_VALUE, &jval);
+
+			jkey.val.string.val = "n_samples";
+			jkey.val.string.len = strlen("n_samples");
+			(void) pushJsonbValue(&state, WJB_KEY, &jkey);
+			n_samples_num = DatumGetNumeric(DirectFunctionCall1(int4_numeric, Int32GetDatum(nvec)));
+			jval.type = jbvNumeric;
+			jval.val.numeric = n_samples_num;
+			(void) pushJsonbValue(&state, WJB_VALUE, &jval);
+
+			final_value = pushJsonbValue(&state, WJB_END_OBJECT, NULL);
+
+			if (final_value == NULL)
 			{
-				(void) pushJsonbValue(&state, WJB_BEGIN_OBJECT, NULL);
-
-				jkey.type = jbvString;
-				jkey.val.string.val = "accuracy";
-				jkey.val.string.len = strlen("accuracy");
-				(void) pushJsonbValue(&state, WJB_KEY, &jkey);
-				accuracy_num = DatumGetNumeric(DirectFunctionCall1(float8_numeric, Float8GetDatum(accuracy)));
-				jval.type = jbvNumeric;
-				jval.val.numeric = accuracy_num;
-				(void) pushJsonbValue(&state, WJB_VALUE, &jval);
-
-				jkey.val.string.val = "precision";
-				jkey.val.string.len = strlen("precision");
-				(void) pushJsonbValue(&state, WJB_KEY, &jkey);
-				precision_num = DatumGetNumeric(DirectFunctionCall1(float8_numeric, Float8GetDatum(precision)));
-				jval.type = jbvNumeric;
-				jval.val.numeric = precision_num;
-				(void) pushJsonbValue(&state, WJB_VALUE, &jval);
-
-				jkey.val.string.val = "recall";
-				jkey.val.string.len = strlen("recall");
-				(void) pushJsonbValue(&state, WJB_KEY, &jkey);
-				recall_num = DatumGetNumeric(DirectFunctionCall1(float8_numeric, Float8GetDatum(recall)));
-				jval.type = jbvNumeric;
-				jval.val.numeric = recall_num;
-				(void) pushJsonbValue(&state, WJB_VALUE, &jval);
-
-				jkey.val.string.val = "f1_score";
-				jkey.val.string.len = strlen("f1_score");
-				(void) pushJsonbValue(&state, WJB_KEY, &jkey);
-				f1_score_num = DatumGetNumeric(DirectFunctionCall1(float8_numeric, Float8GetDatum(f1_score)));
-				jval.type = jbvNumeric;
-				jval.val.numeric = f1_score_num;
-				(void) pushJsonbValue(&state, WJB_VALUE, &jval);
-
-				jkey.val.string.val = "n_samples";
-				jkey.val.string.len = strlen("n_samples");
-				(void) pushJsonbValue(&state, WJB_KEY, &jkey);
-				n_samples_num = DatumGetNumeric(DirectFunctionCall1(int4_numeric, Int32GetDatum(nvec)));
-				jval.type = jbvNumeric;
-				jval.val.numeric = n_samples_num;
-				(void) pushJsonbValue(&state, WJB_VALUE, &jval);
-
-				final_value = pushJsonbValue(&state, WJB_END_OBJECT, NULL);
-				
-				if (final_value == NULL)
-				{
-					elog(ERROR, "neurondb: evaluate_random_forest: pushJsonbValue(WJB_END_OBJECT) returned NULL");
-				}
-				
-				result_jsonb = JsonbValueToJsonb(final_value);
+				elog(ERROR, "neurondb: evaluate_random_forest: pushJsonbValue(WJB_END_OBJECT) returned NULL");
 			}
-			PG_CATCH();
-			{
-				ErrorData *edata = CopyErrorData();
-				elog(ERROR, "neurondb: evaluate_random_forest: JSONB construction failed: %s", edata->message);
-				FlushErrorState();
-				result_jsonb = NULL;
-			}
-			PG_END_TRY();
+
+			result_jsonb = JsonbValueToJsonb(final_value);
 		}
-
-		if (result_jsonb == NULL)
+		PG_CATCH();
 		{
-			if (tbl_str)
-			{
-				NDB_FREE(tbl_str);
-				tbl_str = NULL;
-			}
-			if (feat_str)
-			{
-				NDB_FREE(feat_str);
-				feat_str = NULL;
-			}
-			if (targ_str)
-			{
-				NDB_FREE(targ_str);
-				targ_str = NULL;
-			}
-			ereport(ERROR,
-					(errcode(ERRCODE_INTERNAL_ERROR),
-					 errmsg("neurondb: evaluate_random_forest_by_model_id: JSONB result is NULL")));
-		}
+			ErrorData  *edata = CopyErrorData();
 
+			elog(ERROR, "neurondb: evaluate_random_forest: JSONB construction failed: %s", edata->message);
+			FlushErrorState();
+			result_jsonb = NULL;
+		}
+		PG_END_TRY();
+	}
+
+	if (result_jsonb == NULL)
+	{
 		if (tbl_str)
 		{
 			NDB_FREE(tbl_str);
@@ -5777,14 +5850,34 @@ cpu_evaluation_path:
 			NDB_FREE(targ_str);
 			targ_str = NULL;
 		}
-
-		PG_RETURN_JSONB_P(result_jsonb);
+		ereport(ERROR,
+				(errcode(ERRCODE_INTERNAL_ERROR),
+				 errmsg("neurondb: evaluate_random_forest_by_model_id: JSONB result is NULL")));
 	}
 
+	if (tbl_str)
+	{
+		NDB_FREE(tbl_str);
+		tbl_str = NULL;
+	}
+	if (feat_str)
+	{
+		NDB_FREE(feat_str);
+		feat_str = NULL;
+	}
+	if (targ_str)
+	{
+		NDB_FREE(targ_str);
+		targ_str = NULL;
+	}
+
+	PG_RETURN_JSONB_P(result_jsonb);
+}
+
 static void
-rf_serialize_tree(StringInfo buf, const GTree * tree)
+rf_serialize_tree(StringInfo buf, const GTree *tree)
 {
-	const		GTreeNode *nodes;
+	const GTreeNode *nodes;
 	int			i;
 
 	if (tree == NULL)
@@ -5899,6 +5992,7 @@ rf_read_int_array(StringInfo buf, int expected_count)
 {
 	int			flag = pq_getmsgbyte(buf);
 	int			len;
+
 	NDB_DECLARE(int *, result);
 	int			i;
 	size_t		alloc_size;
@@ -5973,6 +6067,7 @@ rf_read_double_array(StringInfo buf, int expected_count)
 {
 	int			flag;
 	int			len;
+
 	NDB_DECLARE(double *, result);
 	int			i;
 	size_t		alloc_size;
@@ -6078,7 +6173,7 @@ rf_read_double_array(StringInfo buf, int expected_count)
 }
 
 static bytea *
-rf_model_serialize(const RFModel * model, uint8 training_backend)
+rf_model_serialize(const RFModel *model, uint8 training_backend)
 {
 	StringInfoData buf;
 	int			i;
@@ -6148,9 +6243,10 @@ rf_model_serialize(const RFModel * model, uint8 training_backend)
 }
 
 static RFModel *
-rf_model_deserialize(const bytea * data, uint8 *training_backend_out)
+rf_model_deserialize(const bytea * data, uint8 * training_backend_out)
 {
 	StringInfoData buf;
+
 	NDB_DECLARE(RFModel *, model);
 	int			i;
 	uint8		training_backend = 0;
@@ -6194,7 +6290,7 @@ rf_model_deserialize(const bytea * data, uint8 *training_backend_out)
 		else
 		{
 			elog(DEBUG1, "neurondb: rf_model_deserialize() allocated model at %p", (void *) model);
-			
+
 			/* Read training_backend first */
 			training_backend = (uint8) pq_getmsgbyte(&buf);
 			if (training_backend_out != NULL)
@@ -6578,7 +6674,7 @@ rf_model_deserialize(const bytea * data, uint8 *training_backend_out)
 }
 
 static void
-rf_free_deserialized_model(RFModel * model)
+rf_free_deserialized_model(RFModel *model)
 {
 	if (model == NULL)
 		return;
@@ -6672,7 +6768,7 @@ rf_dataset_load(const char *quoted_tbl,
 
 		NDB_CHECK_SPI_TUPTABLE();
 		/* Safe access for complex types - validate before access */
-		if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL || 
+		if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL ||
 			SPI_tuptable->vals[0] == NULL || SPI_tuptable->tupdesc == NULL)
 		{
 			/* Cannot determine feature dimension */
@@ -6730,7 +6826,7 @@ rf_dataset_load(const char *quoted_tbl,
 
 	{
 		int			ret = ndb_spi_execute_safe(query->data, true, 0);
-		
+
 		if (ret != SPI_OK_SELECT)
 		{
 			NDB_CHECK_SPI_TUPTABLE();
@@ -6874,7 +6970,7 @@ rf_dataset_load(const char *quoted_tbl,
 }
 
 static bool
-rf_load_model_from_catalog(int32 model_id, RFModel * *out)
+rf_load_model_from_catalog(int32 model_id, RFModel **out)
 {
 	NDB_DECLARE(bytea *, payload);
 	NDB_DECLARE(Jsonb *, metrics);
@@ -6945,7 +7041,8 @@ rf_load_model_from_catalog(int32 model_id, RFModel * *out)
 
 			/* Deserialize with error handling */
 			{
-				uint8 training_backend = 0;
+				uint8		training_backend = 0;
+
 				decoded = rf_model_deserialize(payload, &training_backend);
 			}
 
@@ -7084,7 +7181,7 @@ rf_metadata_is_gpu(Jsonb * metadata)
 		return false;
 
 	/* Check for training_backend integer in metrics */
-	it = JsonbIteratorInit((JsonbContainer *) &metadata->root);
+	it = JsonbIteratorInit((JsonbContainer *) & metadata->root);
 	while ((r = JsonbIteratorNext(&it, &v, true)) != WJB_DONE)
 	{
 		if (r == WJB_KEY && v.type == jbvString)
@@ -7097,6 +7194,7 @@ rf_metadata_is_gpu(Jsonb * metadata)
 				if (r == WJB_VALUE && v.type == jbvNumeric)
 				{
 					int			backend = DatumGetInt32(DirectFunctionCall1(numeric_int4, NumericGetDatum(v.val.numeric)));
+
 					is_gpu = (backend == 1);
 				}
 			}
@@ -7205,26 +7303,26 @@ rf_gpu_release_state(RFGpuModelState * state)
 }
 
 static bool
-rf_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
+rf_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **errstr)
 {
 	NDB_DECLARE(RFGpuModelState *, state);
 	bytea	   *payload;
 	Jsonb	   *metrics;
 	int			rc;
-	
+
 	ereport(DEBUG1,
 			(errmsg("rf_gpu_train: function entry"),
 			 errdetail("spec->sample_count=%d, spec->feature_dim=%d, spec->class_count=%d",
-					  spec ? spec->sample_count : 0,
-					  spec ? spec->feature_dim : 0,
-					  spec ? spec->class_count : 0)));
+					   spec ? spec->sample_count : 0,
+					   spec ? spec->feature_dim : 0,
+					   spec ? spec->class_count : 0)));
 
 	if (errstr != NULL)
 		*errstr = NULL;
-	
+
 	ereport(DEBUG1,
 			(errmsg("rf_gpu_train: validating parameters")));
-	
+
 	if (model == NULL || spec == NULL)
 	{
 		elog(DEBUG1, "neurondb: rf_gpu_train: model or spec is NULL");
@@ -7261,8 +7359,8 @@ rf_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 	ereport(DEBUG2,
 			(errmsg("rf_gpu_train: about to call ndb_gpu_rf_train"),
 			 errdetail("feature_matrix=%p, label_vector=%p, sample_count=%d, feature_dim=%d, class_count=%d",
-					  (void *)spec->feature_matrix, (void *)spec->label_vector,
-					  spec->sample_count, spec->feature_dim, spec->class_count)));
+					   (void *) spec->feature_matrix, (void *) spec->label_vector,
+					   spec->sample_count, spec->feature_dim, spec->class_count)));
 
 	rc = ndb_gpu_rf_train(spec->feature_matrix,
 						  spec->label_vector,
@@ -7273,10 +7371,10 @@ rf_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 						  &payload,
 						  &metrics,
 						  errstr);
-	
+
 	ereport(DEBUG2,
 			(errmsg("rf_gpu_train: ndb_gpu_rf_train returned"),
-			 errdetail("rc=%d, payload=%p, metrics=%p", rc, (void *)payload, (void *)metrics)));
+			 errdetail("rc=%d, payload=%p, metrics=%p", rc, (void *) payload, (void *) metrics)));
 	if (rc != 0 || payload == NULL)
 	{
 		if (payload != NULL)
@@ -7308,7 +7406,7 @@ rf_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 }
 
 static bool
-rf_gpu_predict(const MLGpuModel * model,
+rf_gpu_predict(const MLGpuModel *model,
 			   const float *input,
 			   int input_dim,
 			   float *output,
@@ -7346,9 +7444,9 @@ rf_gpu_predict(const MLGpuModel * model,
 }
 
 static bool
-rf_gpu_evaluate(const MLGpuModel * model,
-				const MLGpuEvalSpec * spec,
-				MLGpuMetrics * out,
+rf_gpu_evaluate(const MLGpuModel *model,
+				const MLGpuEvalSpec *spec,
+				MLGpuMetrics *out,
 				char **errstr)
 {
 	const		RFGpuModelState *state;
@@ -7394,7 +7492,7 @@ rf_gpu_evaluate(const MLGpuModel * model,
 }
 
 static bool
-rf_gpu_serialize(const MLGpuModel * model,
+rf_gpu_serialize(const MLGpuModel *model,
 				 bytea * *payload_out,
 				 Jsonb * *metadata_out,
 				 char **errstr)
@@ -7450,7 +7548,7 @@ rf_gpu_serialize(const MLGpuModel * model,
 }
 
 static bool
-rf_gpu_deserialize(MLGpuModel * model,
+rf_gpu_deserialize(MLGpuModel *model,
 				   const bytea * payload,
 				   const Jsonb * metadata,
 				   char **errstr)
@@ -7507,7 +7605,7 @@ rf_gpu_deserialize(MLGpuModel * model,
 }
 
 static void
-rf_gpu_destroy(MLGpuModel * model)
+rf_gpu_destroy(MLGpuModel *model)
 {
 	if (model == NULL)
 		return;

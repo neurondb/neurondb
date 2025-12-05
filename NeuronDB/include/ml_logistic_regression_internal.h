@@ -18,16 +18,16 @@
 
 typedef struct LRModel
 {
-	int32 model_id;
-	int n_features;
-	int n_samples;
-	double bias;
-	double *weights;
-	double learning_rate;
-	double lambda;
-	int max_iters;
-	double final_loss;
-	double accuracy;
+	int32		model_id;
+	int			n_features;
+	int			n_samples;
+	double		bias;
+	double	   *weights;
+	double		learning_rate;
+	double		lambda;
+	int			max_iters;
+	double		final_loss;
+	double		accuracy;
 } LRModel;
 
-#endif /* ML_LOGISTIC_REGRESSION_INTERNAL_H */
+#endif							/* ML_LOGISTIC_REGRESSION_INTERNAL_H */

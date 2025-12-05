@@ -50,4 +50,4 @@
 #define NDB_UINT64_CAST(x) ((unsigned long)(x))
 #endif
 
-#endif /* NEURONDB_COMPAT_H */
+#endif							/* NEURONDB_COMPAT_H */

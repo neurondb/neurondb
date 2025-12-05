@@ -792,7 +792,7 @@ class HTMLReportGenerator:
 		else:
 			html += """
 			<div style="text-align: center; padding: 60px; color: #666;">
-				<h2 style="color: #689f38;">✅ No Errors Found!</h2>
+				<h2 style="color: #689f38;">✓ No Errors Found!</h2>
 				<p style="margin-top: 10px;">Valgrind did not detect any memory errors or leaks.</p>
 			</div>
 """
@@ -896,7 +896,7 @@ class TextReportGenerator:
 								location = frame.get('raw', '')
 							lines.append(f"    → {function} ({location})")
 		else:
-			lines.append("✅ No errors found!")
+			lines.append("✓ No errors found!")
 			lines.append("")
 		
 		lines.append("=" * 80)
@@ -1193,7 +1193,7 @@ def main():
 	pg_config = pg_detector.find_pg_config()
 	
 	if not pg_config:
-		print("❌ Error: Could not find pg_config. Set PG_CONFIG environment variable.")
+		print("✗ Error: Could not find pg_config. Set PG_CONFIG environment variable.")
 		sys.exit(1)
 	
 	if args.verbose:
@@ -1203,7 +1203,7 @@ def main():
 	postgres_bin = args.postgres or pg_detector.find_postgres(pg_vars)
 	
 	if not postgres_bin:
-		print("❌ Error: Could not find postgres binary.")
+		print("✗ Error: Could not find postgres binary.")
 		sys.exit(1)
 	
 	if args.verbose:
@@ -1214,7 +1214,7 @@ def main():
 	
 	# Check Valgrind
 	if not runner.check_valgrind():
-		print("❌ Error: Valgrind is not installed or not in PATH")
+		print("✗ Error: Valgrind is not installed or not in PATH")
 		print("   Install with: sudo apt-get install valgrind")
 		sys.exit(1)
 	
@@ -1273,14 +1273,14 @@ def main():
 			print(f"\n⚠ Found {report.total_errors} error(s)")
 			sys.exit(1)
 		else:
-			print("\n✅ No errors found!")
+			print("\n✓ No errors found!")
 			sys.exit(0)
 	
 	except KeyboardInterrupt:
 		print("\n\n⚠ Interrupted by user")
 		sys.exit(130)
 	except Exception as e:
-		print(f"\n❌ Error: {e}")
+		print(f"\n✗ Error: {e}")
 		if args.verbose:
 			import traceback
 			traceback.print_exc()

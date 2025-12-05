@@ -60,7 +60,7 @@
 
 /*
  * Index access method API changes
- * 
+ *
  * PostgreSQL 16: Uses index_open() and index_close() from access/genam.h
  * PostgreSQL 17+: Uses relation_open() and relation_close() from utils/rel.h
  */
@@ -113,4 +113,4 @@ typedef struct IndexScanDescData *IndexScanDesc;
 #endif
 #endif
 
-#endif /* NEURONDB_PGCOMPAT_H */
+#endif							/* NEURONDB_PGCOMPAT_H */

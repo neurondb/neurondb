@@ -37,4 +37,4 @@ extern Datum vector_to_int8_gpu(PG_FUNCTION_ARGS);
 extern Datum vector_to_fp16_gpu(PG_FUNCTION_ARGS);
 extern Datum vector_to_binary_gpu(PG_FUNCTION_ARGS);
 
-#endif /* VECTOR_OPS_H */
+#endif							/* VECTOR_OPS_H */

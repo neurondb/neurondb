@@ -103,11 +103,12 @@ gcn_forward(float **features, float **adj_norm, float **weights, float *bias,
 				k;
 
 	/* Matrix multiplication: A_norm * H */
-	float	  **ah = (float **) palloc(sizeof(float *) * n_nodes);
+	NDB_DECLARE(float **, ah);
+	NDB_ALLOC(ah, float *, n_nodes);
 
 	for (i = 0; i < n_nodes; i++)
 	{
-		ah[i] = (float *) palloc0(sizeof(float) * input_dim);
+		NDB_ALLOC(ah[i], float, input_dim);
 		for (j = 0; j < n_nodes; j++)
 			for (k = 0; k < input_dim; k++)
 				ah[i][k] += adj_norm[i][j] * features[j][k];
@@ -233,30 +234,36 @@ gcn_train(PG_FUNCTION_ARGS)
 			for (i = 0; i < SPI_processed; i++)
 			{
 				/* Safe access to SPI_tuptable - validate before access */
-				if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL || 
+				if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL ||
 					i >= SPI_processed || SPI_tuptable->vals[i] == NULL)
 				{
 					continue;
 				}
 				HeapTuple	tuple = SPI_tuptable->vals[i];
 				TupleDesc	tupdesc = SPI_tuptable->tupdesc;
+
 				if (tupdesc == NULL)
 				{
 					continue;
 				}
 				/* Use safe function for int32 values */
-				int32		node_id_val, neighbor_id_val;
+				int32		node_id_val,
+							neighbor_id_val;
+
 				if (!ndb_spi_get_int32(spi_session, i, 1, &node_id_val))
 					continue;
 				if (!ndb_spi_get_int32(spi_session, i, 2, &neighbor_id_val))
 					continue;
 				int			node_id = node_id_val;
 				int			neighbor_id = neighbor_id_val;
+
 				/* For float4, need to use SPI_getbinval with safe access */
 				float		weight = 0.0f;
+
 				if (tupdesc->natts >= 3)
 				{
 					Datum		weight_datum = SPI_getbinval(tuple, tupdesc, 3, NULL);
+
 					weight = DatumGetFloat4(weight_datum);
 				}
 
@@ -298,27 +305,31 @@ gcn_train(PG_FUNCTION_ARGS)
 			for (i = 0; i < SPI_processed; i++)
 			{
 				/* Safe access to SPI_tuptable - validate before access */
-				if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL || 
+				if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL ||
 					i >= SPI_processed || SPI_tuptable->vals[i] == NULL)
 				{
 					continue;
 				}
 				HeapTuple	tuple = SPI_tuptable->vals[i];
 				TupleDesc	tupdesc = SPI_tuptable->tupdesc;
+
 				if (tupdesc == NULL)
 				{
 					continue;
 				}
 				/* Use safe function for int32 values */
 				int32		node_id_val;
+
 				if (!ndb_spi_get_int32(spi_session, i, 1, &node_id_val))
 					continue;
 				int			node_id = node_id_val;
+
 				/* For ArrayType, need to use SPI_getbinval with safe access */
 				NDB_DECLARE(ArrayType *, feat_array);
 				if (tupdesc->natts >= 2)
 				{
 					Datum		feat_datum = SPI_getbinval(tuple, tupdesc, 2, NULL);
+
 					feat_array = DatumGetArrayTypeP(feat_datum);
 				}
 				float	   *feat_data;
@@ -358,13 +369,15 @@ gcn_train(PG_FUNCTION_ARGS)
 			for (i = 0; i < SPI_processed; i++)
 			{
 				/* Safe access to SPI_tuptable - validate before access */
-				if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL || 
+				if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL ||
 					i >= SPI_processed || SPI_tuptable->vals[i] == NULL)
 				{
 					continue;
 				}
 				/* Use safe function to get int32 values */
-				int32		node_id_val, label_val;
+				int32		node_id_val,
+							label_val;
+
 				if (!ndb_spi_get_int32(spi_session, i, 1, &node_id_val))
 					continue;
 				if (!ndb_spi_get_int32(spi_session, i, 2, &label_val))
@@ -382,6 +395,7 @@ gcn_train(PG_FUNCTION_ARGS)
 	/* Initialize GCN layers */
 	GCNLayer	layer1,
 				layer2;
+
 	NDB_DECLARE(float **, w1);
 	NDB_DECLARE(float **, w2);
 	NDB_DECLARE(float *, b1);
@@ -397,7 +411,7 @@ gcn_train(PG_FUNCTION_ARGS)
 		w1[i] = w1_row;
 		for (j = 0; j < hidden_dim; j++)
 			w1[i][j] = ((float) rand() / (float) RAND_MAX - 0.5) * 0.1;
-		}
+	}
 	NDB_ALLOC(b1, float, hidden_dim);
 
 	/* Layer 2: hidden_dim -> output_dim */
@@ -409,7 +423,7 @@ gcn_train(PG_FUNCTION_ARGS)
 		w2[i] = w2_row;
 		for (j = 0; j < output_dim; j++)
 			w2[i][j] = ((float) rand() / (float) RAND_MAX - 0.5) * 0.1;
-		}
+	}
 	NDB_ALLOC(b2, float, output_dim);
 
 	/* Training loop (simplified - would need proper backprop) */
@@ -477,18 +491,19 @@ gcn_train(PG_FUNCTION_ARGS)
 					h2);
 
 		/*
-		 * Compute cross-entropy loss and output layer gradients using numerically
-		 * stable softmax computation. The softmax function exponentiates logits
-		 * which can cause numerical overflow when values are large. To prevent
-		 * this, we subtract the maximum logit value from all logits before
-		 * exponentiation, which shifts the values without changing the softmax
-		 * probabilities. This technique ensures that at least one exponentiated
-		 * value is exactly 1.0, preventing overflow while maintaining the
-		 * mathematical correctness of the softmax distribution. The cross-entropy
-		 * loss measures the difference between predicted and true class
-		 * distributions, and its gradient with respect to logits is simply the
-		 * softmax probabilities minus the one-hot target vector. This gradient
-		 * flows backward through the network to update weights during training.
+		 * Compute cross-entropy loss and output layer gradients using
+		 * numerically stable softmax computation. The softmax function
+		 * exponentiates logits which can cause numerical overflow when values
+		 * are large. To prevent this, we subtract the maximum logit value
+		 * from all logits before exponentiation, which shifts the values
+		 * without changing the softmax probabilities. This technique ensures
+		 * that at least one exponentiated value is exactly 1.0, preventing
+		 * overflow while maintaining the mathematical correctness of the
+		 * softmax distribution. The cross-entropy loss measures the
+		 * difference between predicted and true class distributions, and its
+		 * gradient with respect to logits is simply the softmax probabilities
+		 * minus the one-hot target vector. This gradient flows backward
+		 * through the network to update weights during training.
 		 */
 		for (node = 0; node < n_nodes; node++)
 		{
@@ -524,24 +539,26 @@ gcn_train(PG_FUNCTION_ARGS)
 		}
 
 		/*
-		 * Backpropagate gradients through the second graph convolutional layer.
-		 * In graph neural networks, gradients must flow through both the weight
-		 * matrix and the normalized adjacency matrix, which aggregates information
-		 * from neighboring nodes. The gradient with respect to hidden layer
-		 * activations is computed as the transpose of the adjacency matrix
-		 * multiplied by output gradients, then multiplied by the transpose of
-		 * the weight matrix. This transpose operation reverses the forward
-		 * propagation direction, allowing error signals to flow from output nodes
-		 * back through the graph structure to hidden layer nodes. The adjacency
-		 * matrix transpose ensures that gradients are distributed to neighboring
-		 * nodes in proportion to their connection strengths, maintaining the
-		 * graph structure's influence on the learning process.
+		 * Backpropagate gradients through the second graph convolutional
+		 * layer. In graph neural networks, gradients must flow through both
+		 * the weight matrix and the normalized adjacency matrix, which
+		 * aggregates information from neighboring nodes. The gradient with
+		 * respect to hidden layer activations is computed as the transpose of
+		 * the adjacency matrix multiplied by output gradients, then
+		 * multiplied by the transpose of the weight matrix. This transpose
+		 * operation reverses the forward propagation direction, allowing
+		 * error signals to flow from output nodes back through the graph
+		 * structure to hidden layer nodes. The adjacency matrix transpose
+		 * ensures that gradients are distributed to neighboring nodes in
+		 * proportion to their connection strengths, maintaining the graph
+		 * structure's influence on the learning process.
 		 */
 		{
-			float	  **grad_h2_w2 = (float **) palloc(sizeof(float *) * n_nodes);
+			NDB_DECLARE(float **, grad_h2_w2);
+			NDB_ALLOC(grad_h2_w2, float *, n_nodes);
 
 			for (i = 0; i < n_nodes; i++)
-				grad_h2_w2[i] = (float *) palloc0(sizeof(float) * hidden_dim);
+				NDB_ALLOC(grad_h2_w2[i], float, hidden_dim);
 
 			/* grad_h2_w2 = grad_h2 * w2^T */
 			for (i = 0; i < n_nodes; i++)
@@ -578,10 +595,11 @@ gcn_train(PG_FUNCTION_ARGS)
 		/* Compute weight gradients for layer 2 */
 		/* grad_w2 = h1^T * adj_norm * grad_h2 */
 		{
-			float	  **adj_grad_h2 = (float **) palloc(sizeof(float *) * n_nodes);
+			NDB_DECLARE(float **, adj_grad_h2);
+			NDB_ALLOC(adj_grad_h2, float *, n_nodes);
 
 			for (i = 0; i < n_nodes; i++)
-				adj_grad_h2[i] = (float *) palloc0(sizeof(float) * output_dim);
+				NDB_ALLOC(adj_grad_h2[i], float, output_dim);
 
 			/* adj_grad_h2 = adj_norm * grad_h2 */
 			for (i = 0; i < n_nodes; i++)
@@ -618,10 +636,11 @@ gcn_train(PG_FUNCTION_ARGS)
 		/* Backpropagate through layer 1 */
 		/* grad_features = adj_norm^T * grad_h1 * w1^T */
 		{
-			float	  **grad_h1_w1 = (float **) palloc(sizeof(float *) * n_nodes);
+			NDB_DECLARE(float **, grad_h1_w1);
+			NDB_ALLOC(grad_h1_w1, float *, n_nodes);
 
 			for (i = 0; i < n_nodes; i++)
-				grad_h1_w1[i] = (float *) palloc0(sizeof(float) * feature_dim);
+				NDB_ALLOC(grad_h1_w1[i], float, feature_dim);
 
 			/* grad_h1_w1 = grad_h1 * w1^T */
 			for (i = 0; i < n_nodes; i++)
@@ -645,10 +664,11 @@ gcn_train(PG_FUNCTION_ARGS)
 		/* Compute weight gradients for layer 1 */
 		/* grad_w1 = features^T * adj_norm * grad_h1 */
 		{
-			float	  **adj_grad_h1 = (float **) palloc(sizeof(float *) * n_nodes);
+			NDB_DECLARE(float **, adj_grad_h1);
+			NDB_ALLOC(adj_grad_h1, float *, n_nodes);
 
 			for (i = 0; i < n_nodes; i++)
-				adj_grad_h1[i] = (float *) palloc0(sizeof(float) * hidden_dim);
+				NDB_ALLOC(adj_grad_h1[i], float, hidden_dim);
 
 			/* adj_grad_h1 = adj_norm * grad_h1 */
 			for (i = 0; i < n_nodes; i++)
@@ -749,9 +769,11 @@ gcn_train(PG_FUNCTION_ARGS)
 	/* Serialize GCN model */
 	{
 		StringInfoData model_buf;
+
 		NDB_DECLARE(bytea *, serialized);
 		StringInfoData paramsbuf;
 		StringInfoData metricsbuf;
+
 		NDB_DECLARE(Jsonb *, params_jsonb);
 		NDB_DECLARE(Jsonb *, metrics_jsonb);
 		MLCatalogModelSpec spec;
@@ -918,9 +940,11 @@ graphsage_aggregate(PG_FUNCTION_ARGS)
 	{
 		StringInfoData query;
 		int			ret;
+
 		NDB_DECLARE(int *, neighbors);
 		int			neighbor_count = 0;
 		int			max_neighbors = n_samples * depth;
+
 		NDB_DECLARE(float **, neighbor_features);
 		int			sampled_count = 0;
 
@@ -999,14 +1023,18 @@ graphsage_aggregate(PG_FUNCTION_ARGS)
 					{
 						for (j = 0; j < SPI_processed && sampled < samples_needed && total_sampled < max_neighbors; j++)
 						{
-							/* Safe access to SPI_tuptable - validate before access */
-							if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL || 
+							/*
+							 * Safe access to SPI_tuptable - validate before
+							 * access
+							 */
+							if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL ||
 								j >= SPI_processed || SPI_tuptable->vals[j] == NULL)
 							{
 								continue;
 							}
 							/* Use safe function to get int32 neighbor_id */
 							int32		neighbor_id_val;
+
 							if (!ndb_spi_get_int32(spi_session, j, 1, &neighbor_id_val))
 								continue;
 							int			neighbor_id = neighbor_id_val;
@@ -1097,7 +1125,8 @@ graphsage_aggregate(PG_FUNCTION_ARGS)
 	}
 
 	/* Build result array */
-	result_datums = (Datum *) palloc(sizeof(Datum) * feature_dim);
+	NDB_DECLARE(Datum *, result_datums);
+	NDB_ALLOC(result_datums, Datum, feature_dim);
 	for (int i = 0; i < feature_dim; i++)
 		result_datums[i] = Float4GetDatum(aggregated[i]);
 

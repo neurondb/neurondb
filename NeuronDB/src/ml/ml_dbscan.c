@@ -171,7 +171,7 @@ cluster_dbscan(PG_FUNCTION_ARGS)
 	int16		typlen;
 	bool		typbyval;
 	char		typalign;
-	Datum	   *out_datums;
+	Datum	   *out_datums = NULL;
 
 	table_name = PG_GETARG_TEXT_PP(0);
 	column_name = PG_GETARG_TEXT_PP(1);
@@ -318,7 +318,7 @@ predict_dbscan(PG_FUNCTION_ARGS)
 
 	int			cluster_id = DBSCAN_NOISE;
 	int			n_elems = 0;
-	float	   *features;
+	float	   *features = NULL;
 
 	/* Extract features from array */
 	{
@@ -344,14 +344,14 @@ predict_dbscan(PG_FUNCTION_ARGS)
 	{
 		NDB_DECLARE(bytea *, model_payload);
 		NDB_DECLARE(Jsonb *, model_parameters);
-		float **cluster_centers = NULL;
-		int n_clusters = 0;
-		int dim = 0;
-		double eps = 0.0;
-		int min_pts = 0;
-		int i;
-		double min_distance = DBL_MAX;
-		int nearest_cluster = -1;
+		float	  **cluster_centers = NULL;
+		int			n_clusters = 0;
+		int			dim = 0;
+		double		eps = 0.0;
+		int			min_pts = 0;
+		int			i;
+		double		min_distance = DBL_MAX;
+		int			nearest_cluster = -1;
 
 		/* Load model from catalog */
 		if (ml_catalog_fetch_model_payload(model_id, &model_payload, &model_parameters, NULL))
@@ -368,8 +368,8 @@ predict_dbscan(PG_FUNCTION_ARGS)
 						/* Find nearest cluster center */
 						for (i = 0; i < n_clusters; i++)
 						{
-							double dist_sq = neurondb_l2_distance_squared(features, cluster_centers[i], dim);
-							double dist = sqrt(dist_sq);
+							double		dist_sq = neurondb_l2_distance_squared(features, cluster_centers[i], dim);
+							double		dist = sqrt(dist_sq);
 
 							if (dist < min_distance)
 							{
@@ -378,16 +378,26 @@ predict_dbscan(PG_FUNCTION_ARGS)
 							}
 						}
 
-						/* If point is within eps of a cluster center, assign to that cluster */
-						/* Note: In full DBSCAN, we'd also check if cluster has >= min_pts points,
-						 * but for prediction we use the cluster centers as representatives */
+						/*
+						 * If point is within eps of a cluster center, assign
+						 * to that cluster
+						 */
+
+						/*
+						 * Note: In full DBSCAN, we'd also check if cluster
+						 * has >= min_pts points, but for prediction we use
+						 * the cluster centers as representatives
+						 */
 						if (min_distance <= eps && nearest_cluster >= 0)
 						{
 							cluster_id = nearest_cluster;
 						}
 						else
 						{
-							/* Point is too far from any cluster center, classify as noise */
+							/*
+							 * Point is too far from any cluster center,
+							 * classify as noise
+							 */
 							cluster_id = DBSCAN_NOISE;
 						}
 					}
@@ -456,6 +466,7 @@ evaluate_dbscan_by_model_id(PG_FUNCTION_ARGS)
 	int			n_noise;
 	double		eps;
 	int			min_pts;
+
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext_spi;
 
@@ -704,6 +715,7 @@ dbscan_model_serialize_to_bytea(float **cluster_centers, int n_clusters, int dim
 	int			i,
 				j;
 	int			total_size;
+
 	NDB_DECLARE(char *, result_bytes);
 	bytea	   *result;
 
@@ -734,7 +746,7 @@ dbscan_model_deserialize_from_bytea(const bytea * data, float ***centers_out, in
 	int			offset = 0;
 	int			i,
 				j;
-	float	  **centers;
+	float	  **centers = NULL;
 
 	if (data == NULL || VARSIZE(data) < VARHDRSZ + sizeof(int) * 2 + sizeof(double) + sizeof(int))
 		return -1;
@@ -768,7 +780,7 @@ dbscan_model_deserialize_from_bytea(const bytea * data, float ***centers_out, in
 }
 
 static bool
-dbscan_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
+dbscan_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **errstr)
 {
 	float	  **data = NULL;
 	int		   *labels = NULL;
@@ -961,7 +973,7 @@ dbscan_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 }
 
 static bool
-dbscan_gpu_predict(const MLGpuModel * model, const float *input, int input_dim,
+dbscan_gpu_predict(const MLGpuModel *model, const float *input, int input_dim,
 				   float *output, int output_dim, char **errstr)
 {
 	const		DBSCANGpuModelState *state;
@@ -1049,8 +1061,8 @@ dbscan_gpu_predict(const MLGpuModel * model, const float *input, int input_dim,
 }
 
 static bool
-dbscan_gpu_evaluate(const MLGpuModel * model, const MLGpuEvalSpec * spec,
-					MLGpuMetrics * out, char **errstr)
+dbscan_gpu_evaluate(const MLGpuModel *model, const MLGpuEvalSpec *spec,
+					MLGpuMetrics *out, char **errstr)
 {
 	const		DBSCANGpuModelState *state;
 	Jsonb	   *metrics_json;
@@ -1090,13 +1102,13 @@ dbscan_gpu_evaluate(const MLGpuModel * model, const MLGpuEvalSpec * spec,
 }
 
 static bool
-dbscan_gpu_serialize(const MLGpuModel * model, bytea * *payload_out,
+dbscan_gpu_serialize(const MLGpuModel *model, bytea * *payload_out,
 					 Jsonb * *metadata_out, char **errstr)
 {
 	const		DBSCANGpuModelState *state;
 	bytea	   *payload_copy;
 	int			payload_size;
-	char	   *payload_bytes;
+	char	   *payload_bytes = NULL;
 
 	if (errstr != NULL)
 		*errstr = NULL;
@@ -1137,7 +1149,7 @@ dbscan_gpu_serialize(const MLGpuModel * model, bytea * *payload_out,
 }
 
 static bool
-dbscan_gpu_deserialize(MLGpuModel * model, const bytea * payload,
+dbscan_gpu_deserialize(MLGpuModel *model, const bytea * payload,
 					   const Jsonb * metadata, char **errstr)
 {
 	bytea	   *payload_copy;
@@ -1151,8 +1163,8 @@ dbscan_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 	JsonbValue	v;
 	int			r;
 	Jsonb	   *metadata_copy;
-	char	   *payload_bytes;
-	DBSCANGpuModelState *state;
+	char	   *payload_bytes = NULL;
+	DBSCANGpuModelState *state = NULL;
 
 	if (errstr != NULL)
 		*errstr = NULL;
@@ -1235,7 +1247,7 @@ dbscan_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 }
 
 static void
-dbscan_gpu_destroy(MLGpuModel * model)
+dbscan_gpu_destroy(MLGpuModel *model)
 {
 	DBSCANGpuModelState *state;
 

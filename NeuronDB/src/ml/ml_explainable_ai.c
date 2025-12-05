@@ -66,19 +66,19 @@ call_model_predict(int32 model_id, float *features, int n_features)
 
 	ret = ndb_spi_execute_safe(sql.data, true, 1);
 	if (ret == SPI_OK_SELECT && SPI_processed > 0)
-	/* Safe access for complex types - validate before access */
-	if (SPI_tuptable != NULL && SPI_tuptable->vals != NULL && 
-		SPI_processed > 0 && SPI_tuptable->vals[0] != NULL && SPI_tuptable->tupdesc != NULL)
-	{
-		bool		isnull = false;
-		Datum		result = SPI_getbinval(SPI_tuptable->vals[0],
-										   SPI_tuptable->tupdesc,
-										   1,
-										   &isnull);
+		/* Safe access for complex types - validate before access */
+		if (SPI_tuptable != NULL && SPI_tuptable->vals != NULL &&
+			SPI_processed > 0 && SPI_tuptable->vals[0] != NULL && SPI_tuptable->tupdesc != NULL)
+		{
+			bool		isnull = false;
+			Datum		result = SPI_getbinval(SPI_tuptable->vals[0],
+											   SPI_tuptable->tupdesc,
+											   1,
+											   &isnull);
 
-		if (!isnull)
-			prediction = DatumGetFloat8(result);
-	}
+			if (!isnull)
+				prediction = DatumGetFloat8(result);
+		}
 
 	NDB_FREE(sql.data);
 	NDB_FREE(features_str.data);
@@ -109,6 +109,7 @@ calculate_shap_values(PG_FUNCTION_ARGS)
 	int			n_samples;
 	float	   *features;
 	int			n_features;
+
 	NDB_DECLARE(double *, shap_values);
 	int			i,
 				j;
@@ -228,6 +229,7 @@ explain_with_lime(PG_FUNCTION_ARGS)
 	int			n_features;
 	float	   *features;
 	int			feature_dim;
+
 	NDB_DECLARE(float *, perturbed_features);
 	NDB_DECLARE(double *, predictions);
 	NDB_DECLARE(double *, weights);
@@ -418,10 +420,10 @@ feature_importance(PG_FUNCTION_ARGS)
 	}
 
 	n_samples = SPI_processed;
-	
+
 	/* Extract actual feature count from model metadata or data schema */
-	n_features = 10; /* Default fallback */
-	
+	n_features = 10;			/* Default fallback */
+
 	/* Try to get feature count from model metadata */
 	{
 		NDB_DECLARE(MLCatalogModelSpec *, model_spec);
@@ -499,30 +501,33 @@ feature_importance(PG_FUNCTION_ARGS)
 	for (i = 0; i < n_samples; i++)
 	{
 		/* Safe access to SPI_tuptable - validate before access */
-		if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL || 
+		if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL ||
 			i >= SPI_processed || SPI_tuptable->vals[i] == NULL)
 		{
 			continue;
 		}
 		HeapTuple	tuple = SPI_tuptable->vals[i];
 		TupleDesc	tupdesc = SPI_tuptable->tupdesc;
+
 		if (tupdesc == NULL)
 		{
 			continue;
 		}
 		NDB_DECLARE(ArrayType *, feat_array);
 		double		target = 0.0;
-		
+
 		/* Safe access for features - validate tupdesc has at least 1 column */
 		if (tupdesc->natts >= 1)
 		{
 			Datum		feat_datum = SPI_getbinval(tuple, tupdesc, 1, NULL);
+
 			feat_array = DatumGetArrayTypeP(feat_datum);
 		}
 		/* Safe access for target - validate tupdesc has at least 2 columns */
 		if (tupdesc->natts >= 2)
 		{
 			Datum		targ_datum = SPI_getbinval(tuple, tupdesc, 2, NULL);
+
 			target = DatumGetFloat8(targ_datum);
 		}
 

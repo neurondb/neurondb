@@ -29,21 +29,21 @@
  */
 typedef struct JobQueueEntry
 {
-	int64 job_id;
-	int32 priority; /* 0=urgent, 1=normal, 2=low */
+	int64		job_id;
+	int32		priority;		/* 0=urgent, 1=normal, 2=low */
 	TimestampTz created_at;
 	TimestampTz scheduled_at;
-	int32 retry_count;
-	int32 backoff_ms;
-	char job_type[32];
-	char payload_json[FLEXIBLE_ARRAY_MEMBER];
+	int32		retry_count;
+	int32		backoff_ms;
+	char		job_type[32];
+	char		payload_json[FLEXIBLE_ARRAY_MEMBER];
 } JobQueueEntry;
 
 typedef struct QueueRateLimit
 {
-	int32 max_jobs_per_second;
-	int32 max_concurrent;
-	int32 current_running;
+	int32		max_jobs_per_second;
+	int32		max_concurrent;
+	int32		current_running;
 	TimestampTz last_reset;
 } QueueRateLimit;
 
@@ -55,21 +55,21 @@ typedef struct QueueRateLimit
  */
 typedef struct AutoTunerConfig
 {
-	float4 target_latency_ms; /* SLO target */
-	float4 target_recall; /* Minimum recall */
-	int32 sample_period_sec; /* Sampling window */
-	bool enabled;
+	float4		target_latency_ms;	/* SLO target */
+	float4		target_recall;	/* Minimum recall */
+	int32		sample_period_sec;	/* Sampling window */
+	bool		enabled;
 } AutoTunerConfig;
 
 typedef struct AutoTunerMetrics
 {
 	TimestampTz window_start;
-	float4 avg_latency_ms;
-	float4 p95_latency_ms;
-	float4 avg_recall;
-	int32 queries_sampled;
-	int16 current_ef_search;
-	float4 current_hybrid_weight;
+	float4		avg_latency_ms;
+	float4		p95_latency_ms;
+	float4		avg_recall;
+	int32		queries_sampled;
+	int16		current_ef_search;
+	float4		current_hybrid_weight;
 } AutoTunerMetrics;
 
 /*
@@ -81,10 +81,10 @@ typedef struct AutoTunerMetrics
 typedef struct DefragStats
 {
 	TimestampTz last_run;
-	int64 edges_removed;
-	int64 nodes_rebalanced;
-	int64 tombstones_cleaned;
-	int32 defrag_duration_ms;
+	int64		edges_removed;
+	int64		nodes_rebalanced;
+	int64		tombstones_cleaned;
+	int32		defrag_duration_ms;
 } DefragStats;
 
-#endif /* NEURONDB_WORKERS_H */
+#endif							/* NEURONDB_WORKERS_H */

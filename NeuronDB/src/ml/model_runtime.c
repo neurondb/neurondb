@@ -245,6 +245,7 @@ mdl_llm(PG_FUNCTION_ARGS)
 	int32		tokens_out;
 	int32		estimated_cost_microcents;
 	StringInfoData result;
+
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext;
 
@@ -316,14 +317,14 @@ mdl_llm(PG_FUNCTION_ARGS)
 		values[3] = Int32GetDatum(estimated_cost_microcents);
 
 		ret = ndb_spi_execute_with_args(spi_session,
-									"INSERT INTO neurondb_llm_usage (model, tokens_in, "
-									"tokens_out, cost_microcents) VALUES ($1, $2, $3, $4)",
-									4,
-									argtypes,
-									values,
-									NULL,
-									false,
-									0);
+										"INSERT INTO neurondb_llm_usage (model, tokens_in, "
+										"tokens_out, cost_microcents) VALUES ($1, $2, $3, $4)",
+										4,
+										argtypes,
+										values,
+										NULL,
+										false,
+										0);
 		if (ret != SPI_OK_INSERT)
 		{
 			elog(WARNING,
@@ -357,6 +358,7 @@ mdl_cache(PG_FUNCTION_ARGS)
 	struct timeval tv;
 	time_t		expires_at;
 	bool		success = false;
+
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext;
 
@@ -379,18 +381,18 @@ mdl_cache(PG_FUNCTION_ARGS)
 		values[2] = Int64GetDatum((int64) expires_at);
 
 		ret = ndb_spi_execute_with_args(spi_session,
-									"INSERT INTO neurondb_cache (cache_key, cache_value, "
-									"expires_at, created_at) "
-									"VALUES ($1, $2, TO_TIMESTAMP($3), now()) "
-									"ON CONFLICT (cache_key) DO UPDATE "
-									"SET cache_value = $2, expires_at = TO_TIMESTAMP($3), "
-									"created_at = NOW()",
-									3,
-									argtypes,
-									values,
-									NULL,
-									false,
-									0);
+										"INSERT INTO neurondb_cache (cache_key, cache_value, "
+										"expires_at, created_at) "
+										"VALUES ($1, $2, TO_TIMESTAMP($3), now()) "
+										"ON CONFLICT (cache_key) DO UPDATE "
+										"SET cache_value = $2, expires_at = TO_TIMESTAMP($3), "
+										"created_at = NOW()",
+										3,
+										argtypes,
+										values,
+										NULL,
+										false,
+										0);
 
 		if (ret != SPI_OK_INSERT && ret != SPI_OK_UPDATE)
 		{
@@ -429,6 +431,7 @@ mdl_trace(PG_FUNCTION_ARGS)
 
 	Datum		values[3];
 	Oid			argtypes[3] = {TEXTOID, TEXTOID, TEXTOID};
+
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext;
 
@@ -449,14 +452,14 @@ mdl_trace(PG_FUNCTION_ARGS)
 		values[2] = CStringGetTextDatum(meta_str);
 
 		ret = ndb_spi_execute_with_args(spi_session,
-									"INSERT INTO neurondb_traces (trace_id, event, "
-									"metadata, created_at) VALUES ($1, $2, $3, now())",
-									3,
-									argtypes,
-									values,
-									NULL,
-									false,
-									0);
+										"INSERT INTO neurondb_traces (trace_id, event, "
+										"metadata, created_at) VALUES ($1, $2, $3, now())",
+										3,
+										argtypes,
+										values,
+										NULL,
+										false,
+										0);
 
 		if (ret != SPI_OK_INSERT)
 		{

@@ -97,13 +97,13 @@ static void lr_stream_process_chunk(const char *quoted_tbl,
 									int chunk_size,
 									int offset,
 									int *rows_processed);
-static bytea * lr_model_serialize(const LRModel * model, uint8 training_backend);
-static LRModel * lr_model_deserialize(const bytea * data, uint8 *training_backend_out);
+static bytea * lr_model_serialize(const LRModel *model, uint8 training_backend);
+static LRModel *lr_model_deserialize(const bytea * data, uint8 * training_backend_out);
 static bool lr_metadata_is_gpu(Jsonb * metadata);
 static bool lr_try_gpu_predict_catalog(int32 model_id,
 									   const Vector *feature_vec,
 									   double *result_out);
-static bool lr_load_model_from_catalog(int32 model_id, LRModel * *out);
+static bool lr_load_model_from_catalog(int32 model_id, LRModel **out);
 
 /*
  * Sigmoid function: 1 / (1 + exp(-z))
@@ -168,6 +168,7 @@ train_logistic_regression(PG_FUNCTION_ARGS)
 	char	   *targ_str;
 	int			nvec = 0;
 	int			dim = 0;
+
 	NDB_DECLARE(double *, weights);
 	double		bias = 0.0;
 	int			iter;
@@ -176,8 +177,9 @@ train_logistic_regression(PG_FUNCTION_ARGS)
 	const char *quoted_feat;
 	const char *quoted_label;
 	MLGpuTrainResult gpu_result;
-	NDB_DECLARE (char *, gpu_err);
-	NDB_DECLARE (Jsonb *, gpu_hyperparams);
+
+	NDB_DECLARE(char *, gpu_err);
+	NDB_DECLARE(Jsonb *, gpu_hyperparams);
 	StringInfoData hyperbuf = {0};
 	int32		model_id = 0;
 	double		final_loss = 0.0;
@@ -221,7 +223,8 @@ train_logistic_regression(PG_FUNCTION_ARGS)
 		StringInfoData count_query = {0};
 		int			ret;
 		Oid			feat_type_oid = InvalidOid;
-		NDB_DECLARE (NdbSpiSession *, check_spi_session);
+
+		NDB_DECLARE(NdbSpiSession *, check_spi_session);
 		MemoryContext oldcontext;
 
 		oldcontext = CurrentMemoryContext;
@@ -253,8 +256,11 @@ train_logistic_regression(PG_FUNCTION_ARGS)
 					 errhint("Verify the table exists and contains valid feature and target columns.")));
 		}
 
-		/* Safe access for complex types (arrays/vectors) - validate before access */
-		if (SPI_tuptable != NULL && SPI_tuptable->tupdesc != NULL && 
+		/*
+		 * Safe access for complex types (arrays/vectors) - validate before
+		 * access
+		 */
+		if (SPI_tuptable != NULL && SPI_tuptable->tupdesc != NULL &&
 			SPI_tuptable->vals != NULL && SPI_processed > 0 && SPI_tuptable->vals[0] != NULL)
 		{
 			HeapTuple	first_tuple = SPI_tuptable->vals[0];
@@ -308,7 +314,7 @@ train_logistic_regression(PG_FUNCTION_ARGS)
 		if (ret == SPI_OK_SELECT && SPI_processed > 0)
 		{
 			int32		count_val;
-			
+
 			/* Use safe function to get int32 count */
 			if (ndb_spi_get_int32(check_spi_session, 0, 1, &count_val))
 			{
@@ -466,7 +472,10 @@ train_logistic_regression(PG_FUNCTION_ARGS)
 											}
 											else
 											{
-												/* Parse hyperparams JSON string */
+												/*
+												 * Parse hyperparams JSON
+												 * string
+												 */
 												if (hyperbuf.data != NULL && hyperbuf.len > 0)
 												{
 													gpu_hyperparams = ndb_jsonb_in_cstring(hyperbuf.data);
@@ -475,10 +484,13 @@ train_logistic_regression(PG_FUNCTION_ARGS)
 												}
 												else
 												{
-													/* Create empty JSONB as fallback */
+													/*
+													 * Create empty JSONB as
+													 * fallback
+													 */
 													gpu_hyperparams = (Jsonb *) palloc(VARHDRSZ + sizeof(uint32));
 													SET_VARSIZE(gpu_hyperparams, VARHDRSZ + sizeof(uint32));
-													*((uint32 *) VARDATA(gpu_hyperparams)) = JB_CMASK; /* Empty object header */
+													*((uint32 *) VARDATA(gpu_hyperparams)) = JB_CMASK;	/* Empty object header */
 													if (hyperbuf.data != NULL)
 													{
 														NDB_FREE(hyperbuf.data);
@@ -544,24 +556,28 @@ train_logistic_regression(PG_FUNCTION_ARGS)
 															gpu_err = NULL;
 
 															gpu_training_succeeded = ndb_gpu_try_train_model(NDB_ALGO_LOGISTIC_REGRESSION,
-																												 NULL,
-																												 NULL,
-																												 tbl_str,
-																												 targ_str,
-																												 NULL,
-																												 0,
-																												 gpu_hyperparams,
-																												 dataset.features,
-																												 dataset.labels,
-																												 dataset.n_samples,
-																												 dataset.feature_dim,
-																												 2,
-																												 &gpu_result,
-																												 &gpu_err);
+																											 NULL,
+																											 NULL,
+																											 tbl_str,
+																											 targ_str,
+																											 NULL,
+																											 0,
+																											 gpu_hyperparams,
+																											 dataset.features,
+																											 dataset.labels,
+																											 dataset.n_samples,
+																											 dataset.feature_dim,
+																											 2,
+																											 &gpu_result,
+																											 &gpu_err);
 
 															if (gpu_training_succeeded && gpu_result.spec.model_data != NULL)
 															{
-																/* Validate model_data size */
+																/*
+																 * Validate
+																 * model_data
+																 * size
+																 */
 																size_t		model_size = VARSIZE(gpu_result.spec.model_data) - VARHDRSZ;
 
 																if (model_size == 0 || model_size > 100000000)
@@ -612,216 +628,231 @@ train_logistic_regression(PG_FUNCTION_ARGS)
 					if (gpu_result.spec.model_data != NULL)
 					{
 #ifdef NDB_GPU_CUDA
-					MLCatalogModelSpec spec;
-					LRModel		lr_model;
-					NDB_DECLARE(bytea *, unified_model_data);
-					NDB_DECLARE(Jsonb *, updated_metrics);
-					char	   *base;
-					NdbCudaLrModelHeader *hdr;
-					float	   *weights_src;
-					int			i;
-					double		accuracy = 0.0;
+						MLCatalogModelSpec spec;
+						LRModel		lr_model;
 
-					elog(DEBUG1,
-						 "neurondb: logistic_regression: GPU training succeeded, converting to unified format");
+						NDB_DECLARE(bytea *, unified_model_data);
+						NDB_DECLARE(Jsonb *, updated_metrics);
+						char	   *base;
+						NdbCudaLrModelHeader *hdr;
+						float	   *weights_src;
+						int			i;
+						double		accuracy = 0.0;
 
-					/* Convert GPU format to unified format */
-					base = VARDATA(gpu_result.spec.model_data);
-					hdr = (NdbCudaLrModelHeader *) base;
-					weights_src = (float *) (base + sizeof(NdbCudaLrModelHeader));
+						elog(DEBUG1,
+							 "neurondb: logistic_regression: GPU training succeeded, converting to unified format");
 
-					/* Extract final_loss and accuracy from metrics if available */
-					if (gpu_result.spec.metrics != NULL)
-					{
-						text	   *metrics_text = DatumGetTextP(DirectFunctionCall1(jsonb_out, PointerGetDatum(gpu_result.spec.metrics)));
-						char	   *metrics_str = text_to_cstring(metrics_text);
-						char	   *loss_ptr = strstr(metrics_str, "\"final_loss\":");
-						char	   *acc_ptr = strstr(metrics_str, "\"accuracy\":");
+						/* Convert GPU format to unified format */
+						base = VARDATA(gpu_result.spec.model_data);
+						hdr = (NdbCudaLrModelHeader *) base;
+						weights_src = (float *) (base + sizeof(NdbCudaLrModelHeader));
 
-						if (loss_ptr != NULL)
-							final_loss = strtod(loss_ptr + 13, NULL);
-						if (acc_ptr != NULL)
-							accuracy = strtod(acc_ptr + 12, NULL);
-
-						NDB_FREE(metrics_str);
-					}
-
-					/* Build LRModel structure */
-					memset(&lr_model, 0, sizeof(LRModel));
-					lr_model.n_features = hdr->feature_dim;
-					lr_model.n_samples = hdr->n_samples;
-					lr_model.bias = hdr->bias;
-					lr_model.learning_rate = hdr->learning_rate;
-					lr_model.lambda = hdr->lambda;
-					lr_model.max_iters = hdr->max_iters;
-					lr_model.final_loss = final_loss;
-					lr_model.accuracy = accuracy;
-
-					/* Convert float weights to double */
-					if (lr_model.n_features > 0)
-					{
-						NDB_ALLOC(lr_model.weights, double, lr_model.n_features);
-						for (i = 0; i < lr_model.n_features; i++)
-							lr_model.weights[i] = (double) weights_src[i];
-					}
-
-					/* Serialize using unified format with training_backend=1 (GPU) */
-					unified_model_data = lr_model_serialize(&lr_model, 1);
-
-					/* Cleanup LRModel weights */
-					if (lr_model.weights != NULL)
-					{
-						NDB_FREE(lr_model.weights);
-						lr_model.weights = NULL;
-					}
-
-					/* Build metrics JSON using JSONB API */
-					{
-						NDB_DECLARE(JsonbParseState *, state);
-						JsonbValue	jkey;
-						JsonbValue	jval;
-						NDB_DECLARE(JsonbValue *, final_value);
-						Numeric		n_features_num, n_samples_num, max_iters_num, learning_rate_num, lambda_num, final_loss_num, accuracy_num;
-
-						PG_TRY();
+						/*
+						 * Extract final_loss and accuracy from metrics if
+						 * available
+						 */
+						if (gpu_result.spec.metrics != NULL)
 						{
-							(void) pushJsonbValue(&state, WJB_BEGIN_OBJECT, NULL);
+							text	   *metrics_text = DatumGetTextP(DirectFunctionCall1(jsonb_out, PointerGetDatum(gpu_result.spec.metrics)));
+							char	   *metrics_str = text_to_cstring(metrics_text);
+							char	   *loss_ptr = strstr(metrics_str, "\"final_loss\":");
+							char	   *acc_ptr = strstr(metrics_str, "\"accuracy\":");
 
-							/* Add algorithm */
-							jkey.type = jbvString;
-							jkey.val.string.val = "algorithm";
-							jkey.val.string.len = strlen("algorithm");
-							(void) pushJsonbValue(&state, WJB_KEY, &jkey);
-							jval.type = jbvString;
-							jval.val.string.val = "logistic_regression";
-							jval.val.string.len = strlen("logistic_regression");
-							(void) pushJsonbValue(&state, WJB_VALUE, &jval);
+							if (loss_ptr != NULL)
+								final_loss = strtod(loss_ptr + 13, NULL);
+							if (acc_ptr != NULL)
+								accuracy = strtod(acc_ptr + 12, NULL);
 
-							/* Add training_backend */
-							jkey.val.string.val = "training_backend";
-							jkey.val.string.len = strlen("training_backend");
-							(void) pushJsonbValue(&state, WJB_KEY, &jkey);
-							jval.type = jbvNumeric;
-							jval.val.numeric = DatumGetNumeric(DirectFunctionCall1(int4_numeric, Int32GetDatum(1)));
-							(void) pushJsonbValue(&state, WJB_VALUE, &jval);
+							NDB_FREE(metrics_str);
+						}
 
-							/* Add n_features */
-							jkey.val.string.val = "n_features";
-							jkey.val.string.len = strlen("n_features");
-							(void) pushJsonbValue(&state, WJB_KEY, &jkey);
-							n_features_num = DatumGetNumeric(DirectFunctionCall1(int4_numeric, Int32GetDatum(lr_model.n_features > 0 ? lr_model.n_features : 0)));
-							jval.type = jbvNumeric;
-							jval.val.numeric = n_features_num;
-							(void) pushJsonbValue(&state, WJB_VALUE, &jval);
+						/* Build LRModel structure */
+						memset(&lr_model, 0, sizeof(LRModel));
+						lr_model.n_features = hdr->feature_dim;
+						lr_model.n_samples = hdr->n_samples;
+						lr_model.bias = hdr->bias;
+						lr_model.learning_rate = hdr->learning_rate;
+						lr_model.lambda = hdr->lambda;
+						lr_model.max_iters = hdr->max_iters;
+						lr_model.final_loss = final_loss;
+						lr_model.accuracy = accuracy;
 
-							/* Add n_samples */
-							jkey.val.string.val = "n_samples";
-							jkey.val.string.len = strlen("n_samples");
-							(void) pushJsonbValue(&state, WJB_KEY, &jkey);
-							n_samples_num = DatumGetNumeric(DirectFunctionCall1(int4_numeric, Int32GetDatum(lr_model.n_samples > 0 ? lr_model.n_samples : 0)));
-							jval.type = jbvNumeric;
-							jval.val.numeric = n_samples_num;
-							(void) pushJsonbValue(&state, WJB_VALUE, &jval);
+						/* Convert float weights to double */
+						if (lr_model.n_features > 0)
+						{
+							NDB_ALLOC(lr_model.weights, double, lr_model.n_features);
+							for (i = 0; i < lr_model.n_features; i++)
+								lr_model.weights[i] = (double) weights_src[i];
+						}
 
-							/* Add max_iters */
-							jkey.val.string.val = "max_iters";
-							jkey.val.string.len = strlen("max_iters");
-							(void) pushJsonbValue(&state, WJB_KEY, &jkey);
-							max_iters_num = DatumGetNumeric(DirectFunctionCall1(int4_numeric, Int32GetDatum(lr_model.max_iters)));
-							jval.type = jbvNumeric;
-							jval.val.numeric = max_iters_num;
-							(void) pushJsonbValue(&state, WJB_VALUE, &jval);
+						/*
+						 * Serialize using unified format with
+						 * training_backend=1 (GPU)
+						 */
+						unified_model_data = lr_model_serialize(&lr_model, 1);
 
-							/* Add learning_rate */
-							jkey.val.string.val = "learning_rate";
-							jkey.val.string.len = strlen("learning_rate");
-							(void) pushJsonbValue(&state, WJB_KEY, &jkey);
-							learning_rate_num = DatumGetNumeric(DirectFunctionCall1(float8_numeric, Float8GetDatum(lr_model.learning_rate)));
-							jval.type = jbvNumeric;
-							jval.val.numeric = learning_rate_num;
-							(void) pushJsonbValue(&state, WJB_VALUE, &jval);
+						/* Cleanup LRModel weights */
+						if (lr_model.weights != NULL)
+						{
+							NDB_FREE(lr_model.weights);
+							lr_model.weights = NULL;
+						}
 
-							/* Add lambda */
-							jkey.val.string.val = "lambda";
-							jkey.val.string.len = strlen("lambda");
-							(void) pushJsonbValue(&state, WJB_KEY, &jkey);
-							lambda_num = DatumGetNumeric(DirectFunctionCall1(float8_numeric, Float8GetDatum(lr_model.lambda)));
-							jval.type = jbvNumeric;
-							jval.val.numeric = lambda_num;
-							(void) pushJsonbValue(&state, WJB_VALUE, &jval);
+						/* Build metrics JSON using JSONB API */
+						{
+							NDB_DECLARE(JsonbParseState *, state);
+							JsonbValue	jkey;
+							JsonbValue	jval;
 
-							/* Add final_loss */
-							jkey.val.string.val = "final_loss";
-							jkey.val.string.len = strlen("final_loss");
-							(void) pushJsonbValue(&state, WJB_KEY, &jkey);
-							final_loss_num = DatumGetNumeric(DirectFunctionCall1(float8_numeric, Float8GetDatum(final_loss)));
-							jval.type = jbvNumeric;
-							jval.val.numeric = final_loss_num;
-							(void) pushJsonbValue(&state, WJB_VALUE, &jval);
+							NDB_DECLARE(JsonbValue *, final_value);
+							Numeric		n_features_num,
+										n_samples_num,
+										max_iters_num,
+										learning_rate_num,
+										lambda_num,
+										final_loss_num,
+										accuracy_num;
 
-							/* Add accuracy */
-							jkey.val.string.val = "accuracy";
-							jkey.val.string.len = strlen("accuracy");
-							(void) pushJsonbValue(&state, WJB_KEY, &jkey);
-							accuracy_num = DatumGetNumeric(DirectFunctionCall1(float8_numeric, Float8GetDatum(accuracy)));
-							jval.type = jbvNumeric;
-							jval.val.numeric = accuracy_num;
-							(void) pushJsonbValue(&state, WJB_VALUE, &jval);
-
-							final_value = pushJsonbValue(&state, WJB_END_OBJECT, NULL);
-							
-							if (final_value == NULL)
+							PG_TRY();
 							{
-								elog(ERROR, "neurondb: train_logistic_regression: pushJsonbValue(WJB_END_OBJECT) returned NULL for metrics");
+								(void) pushJsonbValue(&state, WJB_BEGIN_OBJECT, NULL);
+
+								/* Add algorithm */
+								jkey.type = jbvString;
+								jkey.val.string.val = "algorithm";
+								jkey.val.string.len = strlen("algorithm");
+								(void) pushJsonbValue(&state, WJB_KEY, &jkey);
+								jval.type = jbvString;
+								jval.val.string.val = "logistic_regression";
+								jval.val.string.len = strlen("logistic_regression");
+								(void) pushJsonbValue(&state, WJB_VALUE, &jval);
+
+								/* Add training_backend */
+								jkey.val.string.val = "training_backend";
+								jkey.val.string.len = strlen("training_backend");
+								(void) pushJsonbValue(&state, WJB_KEY, &jkey);
+								jval.type = jbvNumeric;
+								jval.val.numeric = DatumGetNumeric(DirectFunctionCall1(int4_numeric, Int32GetDatum(1)));
+								(void) pushJsonbValue(&state, WJB_VALUE, &jval);
+
+								/* Add n_features */
+								jkey.val.string.val = "n_features";
+								jkey.val.string.len = strlen("n_features");
+								(void) pushJsonbValue(&state, WJB_KEY, &jkey);
+								n_features_num = DatumGetNumeric(DirectFunctionCall1(int4_numeric, Int32GetDatum(lr_model.n_features > 0 ? lr_model.n_features : 0)));
+								jval.type = jbvNumeric;
+								jval.val.numeric = n_features_num;
+								(void) pushJsonbValue(&state, WJB_VALUE, &jval);
+
+								/* Add n_samples */
+								jkey.val.string.val = "n_samples";
+								jkey.val.string.len = strlen("n_samples");
+								(void) pushJsonbValue(&state, WJB_KEY, &jkey);
+								n_samples_num = DatumGetNumeric(DirectFunctionCall1(int4_numeric, Int32GetDatum(lr_model.n_samples > 0 ? lr_model.n_samples : 0)));
+								jval.type = jbvNumeric;
+								jval.val.numeric = n_samples_num;
+								(void) pushJsonbValue(&state, WJB_VALUE, &jval);
+
+								/* Add max_iters */
+								jkey.val.string.val = "max_iters";
+								jkey.val.string.len = strlen("max_iters");
+								(void) pushJsonbValue(&state, WJB_KEY, &jkey);
+								max_iters_num = DatumGetNumeric(DirectFunctionCall1(int4_numeric, Int32GetDatum(lr_model.max_iters)));
+								jval.type = jbvNumeric;
+								jval.val.numeric = max_iters_num;
+								(void) pushJsonbValue(&state, WJB_VALUE, &jval);
+
+								/* Add learning_rate */
+								jkey.val.string.val = "learning_rate";
+								jkey.val.string.len = strlen("learning_rate");
+								(void) pushJsonbValue(&state, WJB_KEY, &jkey);
+								learning_rate_num = DatumGetNumeric(DirectFunctionCall1(float8_numeric, Float8GetDatum(lr_model.learning_rate)));
+								jval.type = jbvNumeric;
+								jval.val.numeric = learning_rate_num;
+								(void) pushJsonbValue(&state, WJB_VALUE, &jval);
+
+								/* Add lambda */
+								jkey.val.string.val = "lambda";
+								jkey.val.string.len = strlen("lambda");
+								(void) pushJsonbValue(&state, WJB_KEY, &jkey);
+								lambda_num = DatumGetNumeric(DirectFunctionCall1(float8_numeric, Float8GetDatum(lr_model.lambda)));
+								jval.type = jbvNumeric;
+								jval.val.numeric = lambda_num;
+								(void) pushJsonbValue(&state, WJB_VALUE, &jval);
+
+								/* Add final_loss */
+								jkey.val.string.val = "final_loss";
+								jkey.val.string.len = strlen("final_loss");
+								(void) pushJsonbValue(&state, WJB_KEY, &jkey);
+								final_loss_num = DatumGetNumeric(DirectFunctionCall1(float8_numeric, Float8GetDatum(final_loss)));
+								jval.type = jbvNumeric;
+								jval.val.numeric = final_loss_num;
+								(void) pushJsonbValue(&state, WJB_VALUE, &jval);
+
+								/* Add accuracy */
+								jkey.val.string.val = "accuracy";
+								jkey.val.string.len = strlen("accuracy");
+								(void) pushJsonbValue(&state, WJB_KEY, &jkey);
+								accuracy_num = DatumGetNumeric(DirectFunctionCall1(float8_numeric, Float8GetDatum(accuracy)));
+								jval.type = jbvNumeric;
+								jval.val.numeric = accuracy_num;
+								(void) pushJsonbValue(&state, WJB_VALUE, &jval);
+
+								final_value = pushJsonbValue(&state, WJB_END_OBJECT, NULL);
+
+								if (final_value == NULL)
+								{
+									elog(ERROR, "neurondb: train_logistic_regression: pushJsonbValue(WJB_END_OBJECT) returned NULL for metrics");
+								}
+
+								updated_metrics = JsonbValueToJsonb(final_value);
 							}
-							
-							updated_metrics = JsonbValueToJsonb(final_value);
+							PG_CATCH();
+							{
+								ErrorData  *edata = CopyErrorData();
+
+								elog(ERROR, "neurondb: train_logistic_regression: metrics JSONB construction failed: %s", edata->message);
+								FlushErrorState();
+								updated_metrics = NULL;
+							}
+							PG_END_TRY();
 						}
-						PG_CATCH();
+
+						spec = gpu_result.spec;
+						spec.model_data = unified_model_data;	/* Use unified format */
+						spec.metrics = updated_metrics; /* Use updated metrics */
+
+						if (spec.training_table == NULL)
+							spec.training_table = tbl_str;
+						if (spec.training_column == NULL)
+							spec.training_column = targ_str;
+						if (spec.parameters == NULL)
 						{
-							ErrorData *edata = CopyErrorData();
-							elog(ERROR, "neurondb: train_logistic_regression: metrics JSONB construction failed: %s", edata->message);
-							FlushErrorState();
-							updated_metrics = NULL;
+							spec.parameters = gpu_hyperparams;
+							gpu_hyperparams = NULL;
 						}
-						PG_END_TRY();
-					}
 
-					spec = gpu_result.spec;
-					spec.model_data = unified_model_data;  /* Use unified format */
-					spec.metrics = updated_metrics;  /* Use updated metrics */
+						spec.algorithm = NDB_ALGO_LOGISTIC_REGRESSION;
+						spec.model_type = "classification";
 
-					if (spec.training_table == NULL)
-						spec.training_table = tbl_str;
-					if (spec.training_column == NULL)
-						spec.training_column = targ_str;
-					if (spec.parameters == NULL)
-					{
-						spec.parameters = gpu_hyperparams;
-						gpu_hyperparams = NULL;
-					}
+						model_id = ml_catalog_register_model(&spec);
 
-					spec.algorithm = NDB_ALGO_LOGISTIC_REGRESSION;
-					spec.model_type = "classification";
+						if (gpu_err != NULL)
+							NDB_FREE(gpu_err);
+						if (gpu_hyperparams != NULL)
+							NDB_FREE(gpu_hyperparams);
+						ndb_gpu_free_train_result(&gpu_result);
+						lr_dataset_free(&dataset);
+						if (hyperbuf.data != NULL)
+							NDB_FREE(hyperbuf.data);
+						NDB_FREE(tbl_str);
+						tbl_str = NULL;
+						NDB_FREE(feat_str);
+						feat_str = NULL;
+						NDB_FREE(targ_str);
+						targ_str = NULL;
 
-					model_id = ml_catalog_register_model(&spec);
-
-					if (gpu_err != NULL)
-						NDB_FREE(gpu_err);
-					if (gpu_hyperparams != NULL)
-						NDB_FREE(gpu_hyperparams);
-					ndb_gpu_free_train_result(&gpu_result);
-					lr_dataset_free(&dataset);
-					if (hyperbuf.data != NULL)
-						NDB_FREE(hyperbuf.data);
-					NDB_FREE(tbl_str);
-					tbl_str = NULL;
-					NDB_FREE(feat_str);
-					feat_str = NULL;
-					NDB_FREE(targ_str);
-					targ_str = NULL;
-
-					PG_RETURN_INT32(model_id);
+						PG_RETURN_INT32(model_id);
 #endif
 					}
 					else
@@ -831,7 +862,7 @@ train_logistic_regression(PG_FUNCTION_ARGS)
 				else
 				{
 				}
-				
+
 				if (!gpu_training_succeeded)
 				{
 					/* GPU training failed - cleanup and fall back to CPU */
@@ -849,9 +880,16 @@ train_logistic_regression(PG_FUNCTION_ARGS)
 							 "neurondb: logistic_regression: GPU training failed, falling back to CPU");
 					}
 
-					/* Only call ndb_gpu_free_train_result if gpu_result was actually used (has non-NULL pointers) */
-					/* Since we took the forced CPU path, gpu_result should be zeroed, but check to be safe */
-					if (gpu_result.spec.model_data != NULL || gpu_result.spec.metrics != NULL || 
+					/*
+					 * Only call ndb_gpu_free_train_result if gpu_result was
+					 * actually used (has non-NULL pointers)
+					 */
+
+					/*
+					 * Since we took the forced CPU path, gpu_result should be
+					 * zeroed, but check to be safe
+					 */
+					if (gpu_result.spec.model_data != NULL || gpu_result.spec.metrics != NULL ||
 						gpu_result.spec.algorithm != NULL || gpu_result.spec.training_table != NULL ||
 						gpu_result.spec.training_column != NULL || gpu_result.payload != NULL)
 					{
@@ -925,91 +963,91 @@ train_logistic_regression(PG_FUNCTION_ARGS)
 		 chunk_size);
 
 	{
-		NDB_DECLARE (NdbSpiSession *, stream_spi_session);
+		NDB_DECLARE(NdbSpiSession *, stream_spi_session);
 		MemoryContext stream_oldcontext;
 
 		stream_oldcontext = CurrentMemoryContext;
 		Assert(stream_oldcontext != NULL);
 		NDB_SPI_SESSION_BEGIN(stream_spi_session, stream_oldcontext);
 
-	/* Gradient descent with chunked processing */
-	for (iter = 0; iter < max_iters; iter++)
-	{
-		/* Reset accumulator for this iteration */
-		lr_stream_accum_reset(&stream_accum);
-
-		/* Process all data in chunks */
-		offset = 0;
-		total_rows_processed = 0;
-		while (offset < nvec)
+		/* Gradient descent with chunked processing */
+		for (iter = 0; iter < max_iters; iter++)
 		{
-			lr_stream_process_chunk(quoted_tbl,
-									quoted_feat,
-									quoted_label,
-									&stream_accum,
-									weights,
-									bias,
-									chunk_size,
-									offset,
-									&rows_in_chunk);
+			/* Reset accumulator for this iteration */
+			lr_stream_accum_reset(&stream_accum);
 
-			if (rows_in_chunk == 0)
-				break;
+			/* Process all data in chunks */
+			offset = 0;
+			total_rows_processed = 0;
+			while (offset < nvec)
+			{
+				lr_stream_process_chunk(quoted_tbl,
+										quoted_feat,
+										quoted_label,
+										&stream_accum,
+										weights,
+										bias,
+										chunk_size,
+										offset,
+										&rows_in_chunk);
 
-			offset += rows_in_chunk;
-			total_rows_processed += rows_in_chunk;
+				if (rows_in_chunk == 0)
+					break;
 
-			/* Log progress for large datasets */
-			if (offset % 100000 == 0 || offset >= nvec)
+				offset += rows_in_chunk;
+				total_rows_processed += rows_in_chunk;
+
+				/* Log progress for large datasets */
+				if (offset % 100000 == 0 || offset >= nvec)
+				{
+					elog(DEBUG1,
+						 "neurondb: logistic_regression: iteration %d, processed %d/%d rows (%.1f%%)",
+						 iter,
+						 offset,
+						 nvec,
+						 (offset * 100.0) / nvec);
+				}
+			}
+
+			if (total_rows_processed == 0)
+			{
+				NDB_SPI_SESSION_END(stream_spi_session);
+				lr_stream_accum_free(&stream_accum);
+				NDB_FREE(weights);
+				NDB_FREE(tbl_str);
+				NDB_FREE(feat_str);
+				NDB_FREE(targ_str);
+				ereport(ERROR,
+						(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+						 errmsg(NDB_ERR_MSG("train_logistic_regression: no rows processed in iteration %d"),
+								iter),
+						 errdetail("Iteration %d processed 0 rows, training cannot proceed", iter),
+						 errhint("Verify the training table contains valid data and is accessible.")));
+			}
+
+			/* Average gradients and add L2 regularization */
+			stream_accum.grad_b /= total_rows_processed;
+			for (j = 0; j < dim; j++)
+			{
+				stream_accum.grad_w[j] = stream_accum.grad_w[j] / total_rows_processed + lambda * weights[j];
+			}
+
+			/* Update weights and bias */
+			bias -= learning_rate * stream_accum.grad_b;
+			for (j = 0; j < dim; j++)
+				weights[j] -= learning_rate * stream_accum.grad_w[j];
+
+			/* Log progress every 100 iterations */
+			if (iter % 100 == 0)
 			{
 				elog(DEBUG1,
-					 "neurondb: logistic_regression: iteration %d, processed %d/%d rows (%.1f%%)",
+					 "neurondb: logistic_regression: iteration %d/%d completed",
 					 iter,
-					 offset,
-					 nvec,
-					 (offset * 100.0) / nvec);
+					 max_iters);
 			}
 		}
 
-		if (total_rows_processed == 0)
-		{
-			NDB_SPI_SESSION_END(stream_spi_session);
-			lr_stream_accum_free(&stream_accum);
-			NDB_FREE(weights);
-			NDB_FREE(tbl_str);
-			NDB_FREE(feat_str);
-			NDB_FREE(targ_str);
-			ereport(ERROR,
-					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-					 errmsg(NDB_ERR_MSG("train_logistic_regression: no rows processed in iteration %d"),
-							iter),
-					 errdetail("Iteration %d processed 0 rows, training cannot proceed", iter),
-					 errhint("Verify the training table contains valid data and is accessible.")));
-		}
-
-		/* Average gradients and add L2 regularization */
-		stream_accum.grad_b /= total_rows_processed;
-		for (j = 0; j < dim; j++)
-		{
-			stream_accum.grad_w[j] = stream_accum.grad_w[j] / total_rows_processed + lambda * weights[j];
-		}
-
-		/* Update weights and bias */
-		bias -= learning_rate * stream_accum.grad_b;
-		for (j = 0; j < dim; j++)
-			weights[j] -= learning_rate * stream_accum.grad_w[j];
-
-		/* Log progress every 100 iterations */
-		if (iter % 100 == 0)
-		{
-			elog(DEBUG1,
-				 "neurondb: logistic_regression: iteration %d/%d completed",
-				 iter,
-				 max_iters);
-			}
-		}
-
-	NDB_SPI_SESSION_END(stream_spi_session);
+		NDB_SPI_SESSION_END(stream_spi_session);
 	}
 
 	/* Compute final metrics by processing data in chunks */
@@ -1017,192 +1055,193 @@ train_logistic_regression(PG_FUNCTION_ARGS)
 	correct = 0;
 	final_loss = 0.0;
 	{
-		NDB_DECLARE (NdbSpiSession *, metrics_spi_session);
+		NDB_DECLARE(NdbSpiSession *, metrics_spi_session);
 		MemoryContext metrics_oldcontext;
 
 		metrics_oldcontext = CurrentMemoryContext;
 		Assert(metrics_oldcontext != NULL);
 		NDB_SPI_SESSION_BEGIN(metrics_spi_session, metrics_oldcontext);
 
-	/* Process chunks for final metrics (limit to reasonable size) */
-	{
-		int			max_samples_for_metrics = (nvec > 100000) ? 100000 : nvec;
-		int			metrics_chunk_size = (max_samples_for_metrics > 10000) ? 10000 : max_samples_for_metrics;
-		int			metrics_offset = 0;
-		int			metrics_rows = 0;
-		double		loss_sum = 0.0;
-		int			metrics_n = 0;
-
-		while (metrics_offset < max_samples_for_metrics && metrics_n < max_samples_for_metrics)
+		/* Process chunks for final metrics (limit to reasonable size) */
 		{
-			StringInfoData metrics_query = {0};
-			int			ret;
-			int			metrics_i;
-			int			metrics_j;
-			Oid			feat_type_oid = InvalidOid;
-			bool		feat_is_array = false;
-			TupleDesc	metrics_tupdesc;
-			NDB_DECLARE (float *, row_buffer);
+			int			max_samples_for_metrics = (nvec > 100000) ? 100000 : nvec;
+			int			metrics_chunk_size = (max_samples_for_metrics > 10000) ? 10000 : max_samples_for_metrics;
+			int			metrics_offset = 0;
+			int			metrics_rows = 0;
+			double		loss_sum = 0.0;
+			int			metrics_n = 0;
 
-			initStringInfo(&metrics_query);
-			appendStringInfo(&metrics_query,
-							 "SELECT %s, %s FROM %s WHERE %s IS NOT NULL AND %s IS NOT NULL "
-							 "LIMIT %d OFFSET %d",
-							 quoted_feat,
-							 quoted_label,
-							 quoted_tbl,
-							 quoted_feat,
-							 quoted_label,
-							 metrics_chunk_size,
-							 metrics_offset);
-
-			ret = ndb_spi_execute(metrics_spi_session, metrics_query.data, true, 0);
-			NDB_FREE(metrics_query.data);
-			metrics_query.data = NULL;
-			if (ret != SPI_OK_SELECT)
+			while (metrics_offset < max_samples_for_metrics && metrics_n < max_samples_for_metrics)
 			{
-				break;
-			}
+				StringInfoData metrics_query = {0};
+				int			ret;
+				int			metrics_i;
+				int			metrics_j;
+				Oid			feat_type_oid = InvalidOid;
+				bool		feat_is_array = false;
+				TupleDesc	metrics_tupdesc;
 
-			metrics_rows = SPI_processed;
-			if (metrics_rows == 0)
-			{
-				break;
-			}
+				NDB_DECLARE(float *, row_buffer);
 
-			/* Determine feature type */
-			if (SPI_tuptable != NULL && SPI_tuptable->tupdesc != NULL)
-			{
-				metrics_tupdesc = SPI_tuptable->tupdesc;
-				feat_type_oid = SPI_gettypeid(metrics_tupdesc, 1);
-				if (feat_type_oid == FLOAT8ARRAYOID || feat_type_oid == FLOAT4ARRAYOID)
-					feat_is_array = true;
-			}
+				initStringInfo(&metrics_query);
+				appendStringInfo(&metrics_query,
+								 "SELECT %s, %s FROM %s WHERE %s IS NOT NULL AND %s IS NOT NULL "
+								 "LIMIT %d OFFSET %d",
+								 quoted_feat,
+								 quoted_label,
+								 quoted_tbl,
+								 quoted_feat,
+								 quoted_label,
+								 metrics_chunk_size,
+								 metrics_offset);
 
-			NDB_ALLOC(row_buffer, float, dim);
-
-			for (metrics_i = 0; metrics_i < metrics_rows && metrics_n < max_samples_for_metrics; metrics_i++)
-			{
-				HeapTuple	tuple;
-				TupleDesc	metrics_row_tupdesc;
-				Datum		feat_datum;
-				Datum		targ_datum;
-				bool		feat_null;
-				bool		targ_null;
-				Vector	   *vec;
-				ArrayType  *arr;
-				double		y_true;
-				double		z;
-				double		prediction;
-				double		clipped_pred;
-				
-				/* Safe access for complex types - validate before access */
-				if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL || 
-					metrics_i >= SPI_processed || SPI_tuptable->vals[metrics_i] == NULL)
+				ret = ndb_spi_execute(metrics_spi_session, metrics_query.data, true, 0);
+				NDB_FREE(metrics_query.data);
+				metrics_query.data = NULL;
+				if (ret != SPI_OK_SELECT)
 				{
-					continue;
+					break;
 				}
-				tuple = SPI_tuptable->vals[metrics_i];
-				metrics_row_tupdesc = SPI_tuptable->tupdesc;
 
-				if (metrics_row_tupdesc == NULL)
+				metrics_rows = SPI_processed;
+				if (metrics_rows == 0)
 				{
-					continue;
+					break;
 				}
-				feat_datum = SPI_getbinval(tuple, metrics_row_tupdesc, 1, &feat_null);
-				if (metrics_row_tupdesc->natts < 2)
+
+				/* Determine feature type */
+				if (SPI_tuptable != NULL && SPI_tuptable->tupdesc != NULL)
 				{
-					continue;
+					metrics_tupdesc = SPI_tuptable->tupdesc;
+					feat_type_oid = SPI_gettypeid(metrics_tupdesc, 1);
+					if (feat_type_oid == FLOAT8ARRAYOID || feat_type_oid == FLOAT4ARRAYOID)
+						feat_is_array = true;
 				}
-				targ_datum = SPI_getbinval(tuple, metrics_row_tupdesc, 2, &targ_null);
 
-				if (feat_null || targ_null)
-					continue;
+				NDB_ALLOC(row_buffer, float, dim);
 
-				/* Extract feature vector */
-				if (feat_is_array)
+				for (metrics_i = 0; metrics_i < metrics_rows && metrics_n < max_samples_for_metrics; metrics_i++)
 				{
-					arr = DatumGetArrayTypeP(feat_datum);
-					if (ARR_NDIM(arr) != 1 || ARR_DIMS(arr)[0] != dim)
-						continue;
-					if (feat_type_oid == FLOAT8ARRAYOID)
+					HeapTuple	tuple;
+					TupleDesc	metrics_row_tupdesc;
+					Datum		feat_datum;
+					Datum		targ_datum;
+					bool		feat_null;
+					bool		targ_null;
+					Vector	   *vec;
+					ArrayType  *arr;
+					double		y_true;
+					double		z;
+					double		prediction;
+					double		clipped_pred;
+
+					/* Safe access for complex types - validate before access */
+					if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL ||
+						metrics_i >= SPI_processed || SPI_tuptable->vals[metrics_i] == NULL)
 					{
-						float8	   *data = (float8 *) ARR_DATA_PTR(arr);
+						continue;
+					}
+					tuple = SPI_tuptable->vals[metrics_i];
+					metrics_row_tupdesc = SPI_tuptable->tupdesc;
 
-						for (metrics_j = 0; metrics_j < dim; metrics_j++)
-							row_buffer[metrics_j] = (float) data[metrics_j];
+					if (metrics_row_tupdesc == NULL)
+					{
+						continue;
+					}
+					feat_datum = SPI_getbinval(tuple, metrics_row_tupdesc, 1, &feat_null);
+					if (metrics_row_tupdesc->natts < 2)
+					{
+						continue;
+					}
+					targ_datum = SPI_getbinval(tuple, metrics_row_tupdesc, 2, &targ_null);
+
+					if (feat_null || targ_null)
+						continue;
+
+					/* Extract feature vector */
+					if (feat_is_array)
+					{
+						arr = DatumGetArrayTypeP(feat_datum);
+						if (ARR_NDIM(arr) != 1 || ARR_DIMS(arr)[0] != dim)
+							continue;
+						if (feat_type_oid == FLOAT8ARRAYOID)
+						{
+							float8	   *data = (float8 *) ARR_DATA_PTR(arr);
+
+							for (metrics_j = 0; metrics_j < dim; metrics_j++)
+								row_buffer[metrics_j] = (float) data[metrics_j];
+						}
+						else
+						{
+							float4	   *data = (float4 *) ARR_DATA_PTR(arr);
+
+							memcpy(row_buffer, data, sizeof(float) * dim);
+						}
 					}
 					else
 					{
-						float4	   *data = (float4 *) ARR_DATA_PTR(arr);
-
-						memcpy(row_buffer, data, sizeof(float) * dim);
+						vec = DatumGetVector(feat_datum);
+						if (vec->dim != dim)
+							continue;
+						memcpy(row_buffer, vec->data, sizeof(float) * dim);
 					}
-				}
-				else
-				{
-					vec = DatumGetVector(feat_datum);
-					if (vec->dim != dim)
+
+					/* Extract target */
+					{
+						Oid			targ_type = SPI_gettypeid(metrics_row_tupdesc, 2);
+
+						if (targ_type == INT2OID || targ_type == INT4OID
+							|| targ_type == INT8OID)
+							y_true = (double) DatumGetInt32(targ_datum);
+						else
+							y_true = DatumGetFloat8(targ_datum);
+					}
+
+					if (y_true != 0.0 && y_true != 1.0)
 						continue;
-					memcpy(row_buffer, vec->data, sizeof(float) * dim);
-				}
 
-				/* Extract target */
-				{
-					Oid			targ_type = SPI_gettypeid(metrics_row_tupdesc, 2);
+					/* Compute prediction */
+					z = bias;
+					for (metrics_j = 0; metrics_j < dim; metrics_j++)
+						z += weights[metrics_j] * row_buffer[metrics_j];
+					prediction = sigmoid(z);
 
-					if (targ_type == INT2OID || targ_type == INT4OID
-						|| targ_type == INT8OID)
-						y_true = (double) DatumGetInt32(targ_datum);
+					/* Compute loss */
+					clipped_pred = fmax(1e-15, fmin(1.0 - 1e-15, prediction));
+					if (y_true > 0.5)
+						loss_sum -= log(clipped_pred);
 					else
-						y_true = DatumGetFloat8(targ_datum);
+						loss_sum -= log(1.0 - clipped_pred);
+
+					/* Count correct predictions */
+					if ((prediction >= 0.5 && y_true > 0.5)
+						|| (prediction < 0.5 && y_true <= 0.5))
+						correct++;
+
+					metrics_n++;
 				}
 
-				if (y_true != 0.0 && y_true != 1.0)
-					continue;
-
-				/* Compute prediction */
-				z = bias;
-				for (metrics_j = 0; metrics_j < dim; metrics_j++)
-					z += weights[metrics_j] * row_buffer[metrics_j];
-				prediction = sigmoid(z);
-
-				/* Compute loss */
-				clipped_pred = fmax(1e-15, fmin(1.0 - 1e-15, prediction));
-				if (y_true > 0.5)
-					loss_sum -= log(clipped_pred);
-				else
-					loss_sum -= log(1.0 - clipped_pred);
-
-				/* Count correct predictions */
-				if ((prediction >= 0.5 && y_true > 0.5)
-					|| (prediction < 0.5 && y_true <= 0.5))
-					correct++;
-
-				metrics_n++;
+				NDB_FREE(row_buffer);
+				row_buffer = NULL;
+				NDB_FREE(metrics_query.data);
+				metrics_query.data = NULL;
+				metrics_offset += metrics_rows;
 			}
 
-			NDB_FREE(row_buffer);
-			row_buffer = NULL;
-			NDB_FREE(metrics_query.data);
-			metrics_query.data = NULL;
-			metrics_offset += metrics_rows;
+			if (metrics_n > 0)
+			{
+				final_loss = loss_sum / metrics_n;
+				/* Scale correct count to full dataset */
+				correct = (int) ((double) correct * (double) nvec / (double) metrics_n);
+			}
+			else
+			{
+				final_loss = 0.0;
+				correct = 0;
+			}
 		}
 
-		if (metrics_n > 0)
-		{
-			final_loss = loss_sum / metrics_n;
-			/* Scale correct count to full dataset */
-			correct = (int) ((double) correct * (double) nvec / (double) metrics_n);
-		}
-		else
-		{
-			final_loss = 0.0;
-			correct = 0;
-		}
-	}
-
-	NDB_SPI_SESSION_END(metrics_spi_session);
+		NDB_SPI_SESSION_END(metrics_spi_session);
 	}
 
 	lr_stream_accum_free(&stream_accum);
@@ -1273,8 +1312,8 @@ train_logistic_regression(PG_FUNCTION_ARGS)
 		spec.model_type = "classification";
 		spec.training_table = tbl_str;
 		spec.training_column = targ_str;
-		spec.parameters = NULL;  /* NULL parameters */
-		spec.metrics = NULL;     /* NULL metrics */
+		spec.parameters = NULL; /* NULL parameters */
+		spec.metrics = NULL;	/* NULL metrics */
 		spec.model_data = serialized;
 		spec.training_time_ms = -1;
 		spec.num_samples = nvec;
@@ -1366,6 +1405,7 @@ predict_logistic_regression_model_id(PG_FUNCTION_ARGS)
 {
 	int32		model_id;
 	Vector	   *features;
+
 	NDB_DECLARE(LRModel *, model);
 	double		probability;
 	double		z;
@@ -1402,7 +1442,10 @@ predict_logistic_regression_model_id(PG_FUNCTION_ARGS)
 			 "logistic_regression: GPU prediction failed or not available, trying CPU");
 	}
 
-	/* Load model from catalog - unified format supports both CPU and GPU models */
+	/*
+	 * Load model from catalog - unified format supports both CPU and GPU
+	 * models
+	 */
 	if (!lr_load_model_from_catalog(model_id, &model))
 	{
 		ereport(ERROR,
@@ -1416,8 +1459,8 @@ predict_logistic_regression_model_id(PG_FUNCTION_ARGS)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg(NDB_ERR_MSG("logistic_regression: feature dimension mismatch (expected %d, got %d)"),
-					model->n_features,
-					features->dim)));
+						model->n_features,
+						features->dim)));
 
 	/* Compute z = bias + w1*x1 + w2*x2 + ... */
 	z = model->bias;
@@ -1476,10 +1519,12 @@ evaluate_logistic_regression(PG_FUNCTION_ARGS)
 				f1_score;
 	int			i,
 				j;
+
 	NDB_DECLARE(Datum *, result_datums);
 	ArrayType  *result_array;
 	MemoryContext oldcontext;
-	NDB_DECLARE (NdbSpiSession *, eval_spi_session);
+
+	NDB_DECLARE(NdbSpiSession *, eval_spi_session);
 
 	table_name = PG_GETARG_TEXT_PP(0);
 	feature_col = PG_GETARG_TEXT_PP(1);
@@ -1545,9 +1590,9 @@ evaluate_logistic_regression(PG_FUNCTION_ARGS)
 		double		z;
 		double		probability;
 		int			y_pred;
-		
+
 		/* Safe access to SPI_tuptable - validate before access */
-		if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL || 
+		if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL ||
 			i >= SPI_processed || SPI_tuptable->vals[i] == NULL)
 		{
 			continue;
@@ -1679,9 +1724,11 @@ evaluate_logistic_regression_by_model_id(PG_FUNCTION_ARGS)
 	bool		feat_is_array = false;
 	Jsonb	   *result_jsonb;
 	StringInfoData jsonbuf;
+
 	NDB_DECLARE(bytea *, gpu_payload);
 	NDB_DECLARE(Jsonb *, gpu_metrics);
 	bool		is_gpu_model = false;
+
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext;
 
@@ -1782,7 +1829,8 @@ evaluate_logistic_regression_by_model_id(PG_FUNCTION_ARGS)
 	if (is_gpu_model && neurondb_gpu_is_available())
 	{
 #ifdef NDB_GPU_CUDA
-		const		NdbCudaLrModelHeader *gpu_hdr;
+		const NdbCudaLrModelHeader *gpu_hdr;
+
 		NDB_DECLARE(double *, h_labels);
 		NDB_DECLARE(float *, h_features);
 		int			feat_dim = 0;
@@ -1977,6 +2025,7 @@ evaluate_logistic_regression_by_model_id(PG_FUNCTION_ARGS)
 		/* Use optimized GPU batch evaluation */
 		{
 			int			rc;
+
 			NDB_DECLARE(char *, gpu_errstr);
 
 			/* Defensive checks before GPU call */
@@ -2011,7 +2060,7 @@ evaluate_logistic_regression_by_model_id(PG_FUNCTION_ARGS)
 				{
 					/* Success - build result and return */
 					nvec = valid_rows;
-					
+
 					/* Free arrays and cleanup before ending SPI */
 					NDB_FREE(h_features);
 					h_features = NULL;
@@ -2039,13 +2088,13 @@ evaluate_logistic_regression_by_model_id(PG_FUNCTION_ARGS)
 					NDB_FREE(targ_str);
 					targ_str = NULL;
 					ndb_spi_stringinfo_free(spi_session, &query);
-					
+
 					/* End SPI session BEFORE creating JSONB */
 					NDB_SPI_SESSION_END(spi_session);
-					
+
 					/* Switch to oldcontext to create JSONB */
 					MemoryContextSwitchTo(oldcontext);
-					
+
 					/* Build result JSON string */
 					initStringInfo(&jsonbuf);
 					appendStringInfo(&jsonbuf,
@@ -2061,14 +2110,14 @@ evaluate_logistic_regression_by_model_id(PG_FUNCTION_ARGS)
 					result_jsonb = ndb_jsonb_in_cstring(jsonbuf.data);
 					NDB_FREE(jsonbuf.data);
 					jsonbuf.data = NULL;
-					
+
 					if (result_jsonb == NULL)
 					{
 						ereport(ERROR,
 								(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
 								 errmsg("neurondb: evaluate_logistic_regression_by_model_id: failed to parse metrics JSON")));
 					}
-					
+
 					PG_RETURN_JSONB_P(result_jsonb);
 				}
 				else
@@ -2140,7 +2189,10 @@ cpu_evaluation_path:
 			if (ml_catalog_fetch_model_payload(model_id, &gpu_model_payload, NULL, &gpu_model_metrics))
 			{
 				/* Unified format: any model can be evaluated on CPU or GPU */
-				/* training_backend flag is informational only, doesn't restrict evaluation */
+				/*
+				 * training_backend flag is informational only, doesn't
+				 * restrict evaluation
+				 */
 				if (gpu_model_payload)
 				{
 					NDB_FREE(gpu_model_payload);
@@ -2398,7 +2450,10 @@ cpu_evaluation_path:
 						 "{\"accuracy\":%.6f,\"precision\":%.6f,\"recall\":%.6f,\"f1_score\":%.6f,\"log_loss\":%.6f,\"n_samples\":%d,\"tp\":%d,\"tn\":%d,\"fp\":%d,\"fn\":%d}",
 						 accuracy, precision, recall, f1_score, log_loss, total_predictions, tp, tn, fp, fn);
 
-		/* Use ndb_jsonb_in_cstring which handles errors properly and returns JSONB in current context */
+		/*
+		 * Use ndb_jsonb_in_cstring which handles errors properly and returns
+		 * JSONB in current context
+		 */
 		result_jsonb = ndb_jsonb_in_cstring(jsonbuf.data);
 		if (result_jsonb == NULL)
 		{
@@ -2429,14 +2484,14 @@ lr_dataset_free(LRDataset * dataset)
 	{
 		return;
 	}
-	
+
 	if (dataset->features != NULL)
 	{
 	}
 	else
 	{
 	}
-	
+
 	if (dataset->labels != NULL)
 	{
 		NDB_FREE(dataset->labels);
@@ -2444,7 +2499,7 @@ lr_dataset_free(LRDataset * dataset)
 	else
 	{
 	}
-	
+
 	lr_dataset_init(dataset);
 }
 
@@ -2468,7 +2523,8 @@ lr_dataset_load_limited(const char *quoted_tbl,
 	int			i;
 	Oid			feat_type_oid = InvalidOid;
 	bool		feat_is_array = false;
-	NDB_DECLARE (NdbSpiSession *, load_spi_session);
+
+	NDB_DECLARE(NdbSpiSession *, load_spi_session);
 
 	if (dataset == NULL)
 		ereport(ERROR,
@@ -2485,7 +2541,10 @@ lr_dataset_load_limited(const char *quoted_tbl,
 
 	NDB_SPI_SESSION_BEGIN(load_spi_session, oldcontext);
 
-	/* Initialize query - use ndb_spi_stringinfo_init for proper context handling */
+	/*
+	 * Initialize query - use ndb_spi_stringinfo_init for proper context
+	 * handling
+	 */
 	ndb_spi_stringinfo_init(load_spi_session, &query);
 	appendStringInfo(&query,
 					 "SELECT %s, %s FROM %s WHERE %s IS NOT NULL AND %s IS NOT NULL LIMIT %d",
@@ -2589,7 +2648,7 @@ lr_dataset_load_limited(const char *quoted_tbl,
 		if (feat_is_array)
 		{
 			arr = DatumGetArrayTypeP(feat_datum);
-				if (ARR_NDIM(arr) != 1 || ARR_DIMS(arr)[0] != feature_dim)
+			if (ARR_NDIM(arr) != 1 || ARR_DIMS(arr)[0] != feature_dim)
 			{
 				ndb_spi_stringinfo_free(load_spi_session, &query);
 				NDB_SPI_SESSION_END(load_spi_session);
@@ -2763,7 +2822,8 @@ lr_stream_process_chunk(const char *quoted_tbl,
 	int			n_rows;
 	Oid			feat_type_oid = InvalidOid;
 	bool		feat_is_array = false;
-	NDB_DECLARE (float *, row_buffer);
+
+	NDB_DECLARE(float *, row_buffer);
 
 	if (quoted_tbl == NULL || quoted_feat == NULL || quoted_label == NULL)
 		ereport(ERROR,
@@ -2855,9 +2915,9 @@ lr_stream_process_chunk(const char *quoted_tbl,
 		double		z;
 		double		prediction;
 		double		error;
-		
+
 		/* Safe access to SPI_tuptable - validate before access */
-		if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL || 
+		if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL ||
 			i >= SPI_processed || SPI_tuptable->vals[i] == NULL)
 		{
 			continue;
@@ -2973,7 +3033,7 @@ lr_gpu_release_state(LRGpuModelState * state)
 }
 
 static bool
-lr_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
+lr_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **errstr)
 {
 	LRGpuModelState *state;
 	bytea	   *payload;
@@ -3054,7 +3114,7 @@ lr_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 }
 
 static bool
-lr_gpu_predict(const MLGpuModel * model,
+lr_gpu_predict(const MLGpuModel *model,
 			   const float *input,
 			   int input_dim,
 			   float *output,
@@ -3094,9 +3154,9 @@ lr_gpu_predict(const MLGpuModel * model,
 }
 
 static bool
-lr_gpu_evaluate(const MLGpuModel * model,
-				const MLGpuEvalSpec * spec,
-				MLGpuMetrics * out,
+lr_gpu_evaluate(const MLGpuModel *model,
+				const MLGpuEvalSpec *spec,
+				MLGpuMetrics *out,
 				char **errstr)
 {
 	const		LRGpuModelState *state;
@@ -3142,12 +3202,13 @@ lr_gpu_evaluate(const MLGpuModel * model,
 }
 
 static bool
-lr_gpu_serialize(const MLGpuModel * model,
+lr_gpu_serialize(const MLGpuModel *model,
 				 bytea * *payload_out,
 				 Jsonb * *metadata_out,
 				 char **errstr)
 {
 	const		LRGpuModelState *state;
+
 	NDB_DECLARE(bytea *, unified_payload);
 
 	if (errstr != NULL)
@@ -3283,7 +3344,7 @@ lr_gpu_serialize(const MLGpuModel * model,
 }
 
 static bool
-lr_gpu_deserialize(MLGpuModel * model,
+lr_gpu_deserialize(MLGpuModel *model,
 				   const bytea * payload,
 				   const Jsonb * metadata,
 				   char **errstr)
@@ -3374,7 +3435,7 @@ lr_gpu_deserialize(MLGpuModel * model,
 }
 
 static void
-lr_gpu_destroy(MLGpuModel * model)
+lr_gpu_destroy(MLGpuModel *model)
 {
 	if (model == NULL)
 		return;
@@ -3396,7 +3457,7 @@ static const MLGpuModelOps lr_gpu_model_ops = {
 };
 
 static bytea *
-lr_model_serialize(const LRModel * model, uint8 training_backend)
+lr_model_serialize(const LRModel *model, uint8 training_backend)
 {
 	StringInfoData buf;
 	int			i;
@@ -3446,7 +3507,7 @@ lr_model_serialize(const LRModel * model, uint8 training_backend)
 }
 
 static LRModel *
-lr_model_deserialize(const bytea * data, uint8 *training_backend_out)
+lr_model_deserialize(const bytea * data, uint8 * training_backend_out)
 {
 	LRModel    *model;
 	StringInfoData buf;
@@ -3527,7 +3588,7 @@ lr_metadata_is_gpu(Jsonb * metadata)
 		return false;
 
 	/* Check for training_backend integer in metrics */
-	it = JsonbIteratorInit((JsonbContainer *) &metadata->root);
+	it = JsonbIteratorInit((JsonbContainer *) & metadata->root);
 	while ((r = JsonbIteratorNext(&it, &v, true)) != WJB_DONE)
 	{
 		if (r == WJB_KEY && v.type == jbvString)
@@ -3540,6 +3601,7 @@ lr_metadata_is_gpu(Jsonb * metadata)
 				if (r == WJB_VALUE && v.type == jbvNumeric)
 				{
 					int			backend = DatumGetInt32(DirectFunctionCall1(numeric_int4, NumericGetDatum(v.val.numeric)));
+
 					is_gpu = (backend == 1);
 				}
 			}
@@ -3597,8 +3659,15 @@ lr_try_gpu_predict_catalog(int32 model_id,
 		goto cleanup;
 	}
 
-	/* Unified format: any model can be used for GPU prediction if payload exists */
-	/* training_backend flag is informational only, doesn't restrict prediction */
+	/*
+	 * Unified format: any model can be used for GPU prediction if payload
+	 * exists
+	 */
+
+	/*
+	 * training_backend flag is informational only, doesn't restrict
+	 * prediction
+	 */
 	elog(DEBUG1,
 		 "lr_try_gpu_predict_catalog: attempting GPU prediction for model %d, payload size=%d",
 		 model_id,
@@ -3609,6 +3678,7 @@ lr_try_gpu_predict_catalog(int32 model_id,
 	{
 		NDB_DECLARE(LRModel *, lr_model);
 		uint8		training_backend = 0;
+
 		NDB_DECLARE(bytea *, gpu_payload);
 		char	   *base;
 		NdbCudaLrModelHeader *hdr;
@@ -3739,7 +3809,7 @@ cleanup:
  * Returns true on success, false on failure.
  */
 static bool
-lr_load_model_from_catalog(int32 model_id, LRModel * *out)
+lr_load_model_from_catalog(int32 model_id, LRModel **out)
 {
 	NDB_DECLARE(bytea *, payload);
 	NDB_DECLARE(Jsonb *, metrics);

@@ -52,7 +52,7 @@ neurondb_gpu_matmul(const float *A,
 
 	if (use_gpu && neurondb_gpu_is_available())
 	{
-		const		ndb_gpu_backend *backend = ndb_gpu_get_active_backend();
+		const ndb_gpu_backend *backend = ndb_gpu_get_active_backend();
 		void	   *d_A = NULL;
 		void	   *d_B = NULL;
 		void	   *d_C = NULL;
@@ -130,7 +130,7 @@ neurondb_gpu_vector_add(const float *a,
 
 	if (use_gpu && neurondb_gpu_is_available())
 	{
-		const		ndb_gpu_backend *backend = ndb_gpu_get_active_backend();
+		const ndb_gpu_backend *backend = ndb_gpu_get_active_backend();
 		void	   *d_a = NULL;
 		void	   *d_b = NULL;
 		void	   *d_result = NULL;
@@ -196,7 +196,7 @@ neurondb_gpu_activation_relu(const float *input,
 
 	if (use_gpu && neurondb_gpu_is_available())
 	{
-		const		ndb_gpu_backend *backend = ndb_gpu_get_active_backend();
+		const ndb_gpu_backend *backend = ndb_gpu_get_active_backend();
 		void	   *d_input = NULL;
 		void	   *d_output = NULL;
 		size_t		vec_size = n * sizeof(float);
@@ -267,7 +267,7 @@ neurondb_gpu_kmeans_update(const float *data,
 
 	if (use_gpu && neurondb_gpu_is_available())
 	{
-		const		ndb_gpu_backend *backend = ndb_gpu_get_active_backend();
+		const ndb_gpu_backend *backend = ndb_gpu_get_active_backend();
 		ndb_stream_t stream = NULL;
 
 		if (backend && backend->launch_kmeans_update)
@@ -363,7 +363,7 @@ neurondb_gpu_compute_gradient(const float *weights,
 
 	if (use_gpu && neurondb_gpu_is_available())
 	{
-		const		ndb_gpu_backend *backend = ndb_gpu_get_active_backend();
+		const ndb_gpu_backend *backend = ndb_gpu_get_active_backend();
 		void	   *d_weights = NULL;
 		void	   *d_X = NULL;
 		void	   *d_y = NULL;
@@ -449,7 +449,7 @@ neurondb_gpu_softmax(const float *input, float *output, int n, bool use_gpu)
 
 	if (use_gpu && neurondb_gpu_is_available())
 	{
-		const		ndb_gpu_backend *backend = ndb_gpu_get_active_backend();
+		const ndb_gpu_backend *backend = ndb_gpu_get_active_backend();
 		void	   *d_input = NULL;
 		void	   *d_output = NULL;
 		size_t		vec_size = n * sizeof(float);

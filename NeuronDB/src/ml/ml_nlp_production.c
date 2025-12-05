@@ -50,8 +50,8 @@ generate_text_embedding(PG_FUNCTION_ARGS)
 	char	   *model_str =
 		model_name ? text_to_cstring(model_name) : pstrdup("default");
 	ArrayType  *result_array;
-	float	   *embedding;
-	Datum	   *elems;
+	NDB_DECLARE(float *, embedding);
+	NDB_DECLARE(Datum *, elems);
 	int			i;
 	int			text_len = strlen(text_str);
 
@@ -66,7 +66,7 @@ generate_text_embedding(PG_FUNCTION_ARGS)
 	 * Generate embedding (simplified - production would use transformer
 	 * models)
 	 */
-	embedding = (float *) palloc(embedding_dim * sizeof(float));
+	NDB_ALLOC(embedding, float, embedding_dim);
 
 	/* Simple deterministic embedding based on text content */
 	for (i = 0; i < embedding_dim; i++)
@@ -84,7 +84,7 @@ generate_text_embedding(PG_FUNCTION_ARGS)
 	}
 
 	/* Build result array */
-	elems = (Datum *) palloc(embedding_dim * sizeof(Datum));
+	NDB_ALLOC(elems, Datum, embedding_dim);
 	for (i = 0; i < embedding_dim; i++)
 		elems[i] = Float4GetDatum(embedding[i]);
 
@@ -117,7 +117,7 @@ classify_text_production(PG_FUNCTION_ARGS)
 	int			best_label_idx = 0;
 	float		best_score = 0.0f;
 	ArrayType  *result_array;
-	Datum	   *result_elems;
+	NDB_DECLARE(Datum *, result_elems);
 	int			i;
 
 	/* Get number of labels */
@@ -144,7 +144,7 @@ classify_text_production(PG_FUNCTION_ARGS)
 	}
 
 	/* Return label index and confidence as array */
-	result_elems = (Datum *) palloc(2 * sizeof(Datum));
+	NDB_ALLOC(result_elems, Datum, 2);
 	result_elems[0] = Int32GetDatum(best_label_idx);
 	result_elems[1] = Float8GetDatum(best_score);
 
@@ -169,7 +169,7 @@ analyze_sentiment_advanced(PG_FUNCTION_ARGS)
 	bool		return_aspects = PG_ARGISNULL(1) ? false : PG_GETARG_BOOL(1);
 
 	char	   *text_str = text_to_cstring(input_text);
-	char	   *lower_text;
+	NDB_DECLARE(char *, lower_text);
 	int			text_len = strlen(text_str);
 	float		sentiment_score = 0.0f;
 	int			positive_words = 0;
@@ -177,7 +177,7 @@ analyze_sentiment_advanced(PG_FUNCTION_ARGS)
 	StringInfoData result;
 	int			i;
 
-	lower_text = (char *) palloc(text_len + 1);
+	NDB_ALLOC(lower_text, char, text_len + 1);
 	for (i = 0; i < text_len; i++)
 		lower_text[i] = tolower((unsigned char) text_str[i]);
 	lower_text[text_len] = '\0';
@@ -267,7 +267,7 @@ summarize_text(PG_FUNCTION_ARGS)
 
 	char	   *text_str = text_to_cstring(input_text);
 	int			text_len = strlen(text_str);
-	char	   *summary;
+	NDB_DECLARE(char *, summary);
 
 	if (max_length <= 0 || max_length > 10000)
 		ereport(ERROR,
@@ -285,7 +285,7 @@ summarize_text(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		summary = (char *) palloc(max_length + 4);
+		NDB_ALLOC(summary, char, max_length + 4);
 		memcpy(summary, text_str, max_length);
 		strncpy(summary + max_length, "...", 4);
 		summary[max_length + 3] = '\0';
@@ -428,7 +428,8 @@ nlp_production_model_serialize_to_bytea(int vocab_size, int embedding_dim, int m
 {
 	StringInfoData buf;
 	int			total_size;
-	bytea	   *result;
+	NDB_DECLARE(bytea *, result);
+	NDB_DECLARE(char *, result_raw);
 	int			model_type_len;
 
 	initStringInfo(&buf);
@@ -440,7 +441,8 @@ nlp_production_model_serialize_to_bytea(int vocab_size, int embedding_dim, int m
 	appendBinaryStringInfo(&buf, model_type, model_type_len);
 
 	total_size = VARHDRSZ + buf.len;
-	result = (bytea *) palloc(total_size);
+	NDB_ALLOC(result_raw, char, total_size);
+	result = (bytea *) result_raw;
 	SET_VARSIZE(result, total_size);
 	memcpy(VARDATA(result), buf.data, buf.len);
 	NDB_FREE(buf.data);
@@ -477,7 +479,7 @@ nlp_production_model_deserialize_from_bytea(const bytea * data, int *vocab_size_
 }
 
 static bool
-nlp_production_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
+nlp_production_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **errstr)
 {
 	NLPProductionGpuModelState *state;
 	int			vocab_size = 30000;
@@ -485,6 +487,7 @@ nlp_production_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char *
 	int			max_seq_len = 512;
 	char		model_type[32] = "bert";
 	int			nvec = 0;
+
 	NDB_DECLARE(bytea *, model_data);
 	NDB_DECLARE(Jsonb *, metrics);
 	StringInfoData metrics_json;
@@ -578,7 +581,7 @@ nlp_production_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char *
 }
 
 static bool
-nlp_production_gpu_predict(const MLGpuModel * model, const float *input, int input_dim,
+nlp_production_gpu_predict(const MLGpuModel *model, const float *input, int input_dim,
 						   float *output, int output_dim, char **errstr)
 {
 	const		NLPProductionGpuModelState *state;
@@ -623,8 +626,8 @@ nlp_production_gpu_predict(const MLGpuModel * model, const float *input, int inp
 }
 
 static bool
-nlp_production_gpu_evaluate(const MLGpuModel * model, const MLGpuEvalSpec * spec,
-							MLGpuMetrics * out, char **errstr)
+nlp_production_gpu_evaluate(const MLGpuModel *model, const MLGpuEvalSpec *spec,
+							MLGpuMetrics *out, char **errstr)
 {
 	const		NLPProductionGpuModelState *state;
 	Jsonb	   *metrics_json;
@@ -664,11 +667,12 @@ nlp_production_gpu_evaluate(const MLGpuModel * model, const MLGpuEvalSpec * spec
 }
 
 static bool
-nlp_production_gpu_serialize(const MLGpuModel * model, bytea * *payload_out,
+nlp_production_gpu_serialize(const MLGpuModel *model, bytea * *payload_out,
 							 Jsonb * *metadata_out, char **errstr)
 {
 	const		NLPProductionGpuModelState *state;
-	bytea	   *payload_copy;
+	NDB_DECLARE(bytea *, payload_copy);
+	NDB_DECLARE(char *, payload_copy_raw);
 	int			payload_size;
 
 	if (errstr != NULL)
@@ -693,7 +697,8 @@ nlp_production_gpu_serialize(const MLGpuModel * model, bytea * *payload_out,
 	}
 
 	payload_size = VARSIZE(state->model_blob);
-	payload_copy = (bytea *) palloc(payload_size);
+	NDB_ALLOC(payload_copy_raw, char, payload_size);
+	payload_copy = (bytea *) payload_copy_raw;
 	memcpy(payload_copy, state->model_blob, payload_size);
 
 	if (payload_out != NULL)
@@ -709,11 +714,12 @@ nlp_production_gpu_serialize(const MLGpuModel * model, bytea * *payload_out,
 }
 
 static bool
-nlp_production_gpu_deserialize(MLGpuModel * model, const bytea * payload,
+nlp_production_gpu_deserialize(MLGpuModel *model, const bytea * payload,
 							   const Jsonb * metadata, char **errstr)
 {
 	NLPProductionGpuModelState *state;
-	bytea	   *payload_copy;
+	NDB_DECLARE(bytea *, payload_copy);
+	NDB_DECLARE(char *, payload_copy_raw);
 	int			payload_size;
 	int			vocab_size = 0;
 	int			embedding_dim = 0;
@@ -733,7 +739,8 @@ nlp_production_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 	}
 
 	payload_size = VARSIZE(payload);
-	payload_copy = (bytea *) palloc(payload_size);
+	NDB_ALLOC(payload_copy_raw, char, payload_size);
+	payload_copy = (bytea *) payload_copy_raw;
 	memcpy(payload_copy, payload, payload_size);
 
 	if (nlp_production_model_deserialize_from_bytea(payload_copy, &vocab_size, &embedding_dim, &max_seq_len, model_type, sizeof(model_type)) != 0)
@@ -755,7 +762,10 @@ nlp_production_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 	if (metadata != NULL)
 	{
 		int			metadata_size = VARSIZE(metadata);
-		Jsonb	   *metadata_copy = (Jsonb *) palloc(metadata_size);
+		NDB_DECLARE(Jsonb *, metadata_copy);
+		NDB_DECLARE(char *, metadata_copy_raw);
+		NDB_ALLOC(metadata_copy_raw, char, metadata_size);
+		metadata_copy = (Jsonb *) metadata_copy_raw;
 
 		memcpy(metadata_copy, metadata, metadata_size);
 		state->metrics = metadata_copy;
@@ -791,7 +801,7 @@ nlp_production_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 }
 
 static void
-nlp_production_gpu_destroy(MLGpuModel * model)
+nlp_production_gpu_destroy(MLGpuModel *model)
 {
 	NLPProductionGpuModelState *state;
 

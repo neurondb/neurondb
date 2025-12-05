@@ -83,14 +83,14 @@ mmr_rerank(PG_FUNCTION_ARGS)
 	int			top_k;
 	float	   *query;
 	int			query_dim;
-	float	  **candidates;
+	NDB_DECLARE(float **, candidates);
 	int			n_candidates;
 	int			dim;
-	bool	   *selected;
-	int		   *result_indices;
-	double	   *query_scores;
+	NDB_DECLARE(bool *, selected);
+	NDB_DECLARE(int *, result_indices);
+	NDB_DECLARE(double *, query_scores);
 	ArrayType  *result;
-	Datum	   *result_datums;
+	NDB_DECLARE(Datum *, result_datums);
 	int			selected_count;
 	int			i,
 				j;
@@ -141,7 +141,7 @@ mmr_rerank(PG_FUNCTION_ARGS)
 		top_k = n_candidates;
 
 	/* Parse candidate vectors */
-	candidates = (float **) palloc(sizeof(float *) * n_candidates);
+	NDB_ALLOC(candidates, float *, n_candidates);
 	{
 		float	   *data = (float *) ARR_DATA_PTR(candidates_array);
 
@@ -150,13 +150,13 @@ mmr_rerank(PG_FUNCTION_ARGS)
 	}
 
 	/* Compute query-candidate similarities */
-	query_scores = (double *) palloc(sizeof(double) * n_candidates);
+	NDB_ALLOC(query_scores, double, n_candidates);
 	for (i = 0; i < n_candidates; i++)
 		query_scores[i] = cosine_similarity(query, candidates[i], dim);
 
 	/* MMR algorithm */
-	selected = (bool *) palloc0(sizeof(bool) * n_candidates);
-	result_indices = (int *) palloc(sizeof(int) * top_k);
+	NDB_ALLOC(selected, bool, n_candidates);
+	NDB_ALLOC(result_indices, int, top_k);
 	selected_count = 0;
 
 	while (selected_count < top_k)
@@ -206,7 +206,7 @@ mmr_rerank(PG_FUNCTION_ARGS)
 	}
 
 	/* Build result array (1-based indices) */
-	result_datums = (Datum *) palloc(sizeof(Datum) * selected_count);
+	NDB_ALLOC(result_datums, Datum, selected_count);
 	for (i = 0; i < selected_count; i++)
 		result_datums[i] = Int32GetDatum(result_indices[i] + 1);
 
@@ -244,15 +244,15 @@ mmr_rerank_with_scores(PG_FUNCTION_ARGS)
 	int			top_k;
 	float	   *query;
 	int			query_dim;
-	float	  **candidates;
+	NDB_DECLARE(float **, candidates);
 	int			n_candidates;
 	int			dim;
-	bool	   *selected;
-	int		   *result_indices;
-	double	   *result_scores;
-	double	   *query_scores;
+	NDB_DECLARE(bool *, selected);
+	NDB_DECLARE(int *, result_indices);
+	NDB_DECLARE(double *, result_scores);
+	NDB_DECLARE(double *, query_scores);
 	ArrayType  *result;
-	Datum	   *result_datums;
+	NDB_DECLARE(Datum *, result_datums);
 	int			selected_count;
 	int			i,
 				j;
@@ -288,7 +288,7 @@ mmr_rerank_with_scores(PG_FUNCTION_ARGS)
 	if (top_k < 1 || top_k > n_candidates)
 		top_k = n_candidates;
 
-	candidates = (float **) palloc(sizeof(float *) * n_candidates);
+	NDB_ALLOC(candidates, float *, n_candidates);
 	{
 		float	   *data = (float *) ARR_DATA_PTR(candidates_array);
 
@@ -296,13 +296,13 @@ mmr_rerank_with_scores(PG_FUNCTION_ARGS)
 			candidates[i] = &data[i * dim];
 	}
 
-	query_scores = (double *) palloc(sizeof(double) * n_candidates);
+	NDB_ALLOC(query_scores, double, n_candidates);
 	for (i = 0; i < n_candidates; i++)
 		query_scores[i] = cosine_similarity(query, candidates[i], dim);
 
-	selected = (bool *) palloc0(sizeof(bool) * n_candidates);
-	result_indices = (int *) palloc(sizeof(int) * top_k);
-	result_scores = (double *) palloc(sizeof(double) * top_k);
+	NDB_ALLOC(selected, bool, n_candidates);
+	NDB_ALLOC(result_indices, int, top_k);
+	NDB_ALLOC(result_scores, double, top_k);
 	selected_count = 0;
 
 	/* MMR algorithm with score tracking */
@@ -351,7 +351,7 @@ mmr_rerank_with_scores(PG_FUNCTION_ARGS)
 	}
 
 	/* Build result array: flat array [idx1, score1, idx2, score2, ...] */
-	result_datums = (Datum *) palloc(sizeof(Datum) * selected_count * 2);
+	NDB_ALLOC(result_datums, Datum, selected_count * 2);
 	for (i = 0; i < selected_count; i++)
 	{
 		result_datums[i * 2] = Int32GetDatum(result_indices[i] + 1);

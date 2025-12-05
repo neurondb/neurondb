@@ -158,16 +158,16 @@ pg_stat_neurondb(PG_FUNCTION_ARGS)
 	values[4] = Int64GetDatum(g_stats.avg_latency_ms);
 	values[5] = Int64GetDatum(g_stats.max_latency_ms);
 	values[6] = Float8GetDatum(
-								   (double) g_stats.recall_at_1 / 100.0);
+							   (double) g_stats.recall_at_1 / 100.0);
 	values[7] = Float8GetDatum((double) g_stats.recall_at_10
-								   / 100.0);
+							   / 100.0);
 	values[8] = Float8GetDatum((double) g_stats.recall_at_100
-								   / 100.0);
+							   / 100.0);
 	values[9] = Int64GetDatum(g_stats.cache_hits);
 	values[10] = Int64GetDatum(g_stats.cache_misses);
 	values[11] = Int64GetDatum(g_stats.index_rebuilds);
 	values[12] = TimestampTzGetDatum(
-										 g_stats.last_reset);
+									 g_stats.last_reset);
 
 	/*
 	 * Materialize the constructed row to the tuplestore.

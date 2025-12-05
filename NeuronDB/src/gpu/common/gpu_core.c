@@ -169,7 +169,7 @@ int
 ndb_gpu_runtime_init(int *device_id)
 {
 	const char *requested = NULL;
-	const		ndb_gpu_backend *backend;
+	const ndb_gpu_backend *backend;
 
 	/* Ignore SIGPIPE to prevent crashes when writing to broken pipes */
 	/* This is especially important during error reporting in GPU init */
@@ -187,7 +187,7 @@ ndb_gpu_runtime_init(int *device_id)
 	{
 		/* Use enum-based backend type */
 		requested = ndb_gpu_backend_type_to_name(neurondb_gpu_backend_type);
-		
+
 		/* Default to "auto" if enum is invalid */
 		if (requested == NULL || requested[0] == '\0')
 		{
@@ -288,7 +288,7 @@ ndb_gpu_init_if_needed(void)
 		gpu_disabled = true;
 		current_backend = GPU_BACKEND_NONE;
 		active_backend = NULL;
-		
+
 		/* GPU mode: error on failure */
 		if (NDB_COMPUTE_MODE_IS_GPU())
 		{
@@ -361,15 +361,18 @@ neurondb_gpu_is_available(void)
 	/* CPU mode: GPU never available */
 	if (NDB_COMPUTE_MODE_IS_CPU())
 		return false;
-	
+
 	/* GPU mode: only return true if GPU is ready and initialized */
 	if (NDB_COMPUTE_MODE_IS_GPU())
 		return gpu_ready && !gpu_disabled;
-	
-	/* AUTO mode: return true if GPU is ready, false otherwise (allows CPU fallback) */
+
+	/*
+	 * AUTO mode: return true if GPU is ready, false otherwise (allows CPU
+	 * fallback)
+	 */
 	if (NDB_COMPUTE_MODE_IS_AUTO())
 		return gpu_ready && !gpu_disabled;
-	
+
 	/* Should not reach here - all modes handled above */
 	return false;
 }
@@ -501,11 +504,11 @@ neurondb_gpu_rf_predict(const void *rf_hdr,
 
 	if (errstr)
 		*errstr = NULL;
-	
+
 	/* CPU mode: never attempt GPU prediction */
 	if (NDB_COMPUTE_MODE_IS_CPU())
 		goto out;
-	
+
 	if (!neurondb_gpu_is_available())
 		goto out;
 	if (!ndb_gpu_kernel_enabled("rf_predict"))
@@ -814,7 +817,7 @@ neurondb_gpu_hf_embed(const char *model_name,
 					  int *dim_out,
 					  char **errstr)
 {
-	const		ndb_gpu_backend *backend;
+	const ndb_gpu_backend *backend;
 	bool		used_gpu = false;
 	TimestampTz t0 = GetCurrentTimestamp();
 	TimestampTz t1;
@@ -858,7 +861,7 @@ neurondb_gpu_hf_complete(const char *model_name,
 						 char **text_out,
 						 char **errstr)
 {
-	const		ndb_gpu_backend *backend;
+	const ndb_gpu_backend *backend;
 	bool		used_gpu = false;
 	TimestampTz t0 = GetCurrentTimestamp();
 	TimestampTz t1;
@@ -904,7 +907,7 @@ neurondb_gpu_hf_rerank(const char *model_name,
 					   float **scores_out,
 					   char **errstr)
 {
-	const		ndb_gpu_backend *backend;
+	const ndb_gpu_backend *backend;
 	bool		used_gpu = false;
 	TimestampTz t0 = GetCurrentTimestamp();
 	TimestampTz t1;
@@ -948,7 +951,7 @@ neurondb_gpu_hf_complete_batch(const char *model_name,
 							   const char **prompts,
 							   int num_prompts,
 							   const char *params_json,
-							   NdbCudaHfBatchResult * results,
+							   NdbCudaHfBatchResult *results,
 							   char **errstr)
 {
 	bool		used_gpu = false;

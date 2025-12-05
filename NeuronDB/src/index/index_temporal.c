@@ -79,6 +79,7 @@ temporal_index_create(PG_FUNCTION_ARGS)
 	char	   *idx_tbl;
 	StringInfoData sql;
 	int			ret;
+
 	NDB_DECLARE(NdbSpiSession *, session);
 
 	tbl_str = text_to_cstring(table_name);
@@ -177,6 +178,7 @@ temporal_knn_search(PG_FUNCTION_ARGS)
 	FuncCallContext *funcctx;
 	TupleDesc	tupdesc;
 	MemoryContext oldcontext;
+
 	NDB_DECLARE(NdbSpiSession *, session2);
 
 	if (SRF_IS_FIRSTCALL())
@@ -267,7 +269,8 @@ temporal_knn_search(PG_FUNCTION_ARGS)
 		call_cntr = funcctx->call_cntr;
 		max_calls = funcctx->max_calls;
 		session2_local = (NdbSpiSession *) funcctx->user_fctx;
-		tuptable = SPI_tuptable;  /* Access via global SPI_tuptable while session is active */
+		tuptable = SPI_tuptable;	/* Access via global SPI_tuptable while
+									 * session is active */
 
 		if (call_cntr < max_calls)
 		{

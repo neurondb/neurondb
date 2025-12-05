@@ -120,13 +120,10 @@ ndb_rocm_gmm_pack_model(const struct GMMModel *model,
 		return -1;
 	}
 
-	blob = (bytea *) palloc(VARHDRSZ + payload_bytes);
-	if (blob == NULL)
-	{
-		if (errstr)
-			*errstr = pstrdup("HIP GMM pack: memory allocation failed");
-		return -1;
-	}
+	NDB_DECLARE(bytea *, blob);
+	NDB_DECLARE(char *, blob_raw);
+	NDB_ALLOC(blob_raw, char, VARHDRSZ + payload_bytes);
+	blob = (bytea *) blob_raw;
 
 	SET_VARSIZE(blob, VARHDRSZ + payload_bytes);
 	base = VARDATA(blob);
@@ -300,12 +297,12 @@ ndb_rocm_gmm_train(const float *features,
 {
 	int			max_iters = 100;
 	double		tolerance = 1e-6;
-	double	   *mixing_coeffs = NULL;
-	double	   *means = NULL;
-	double	   *variances = NULL;
-	double	  **means_2d = NULL;
-	double	  **variances_2d = NULL;
-	double	   *responsibilities = NULL;
+	NDB_DECLARE(double *, mixing_coeffs);
+	NDB_DECLARE(double *, means);
+	NDB_DECLARE(double *, variances);
+	NDB_DECLARE(double **, means_2d);
+	NDB_DECLARE(double **, variances_2d);
+	NDB_DECLARE(double *, responsibilities);
 	double		log_likelihood = 0.0;
 	double		prev_log_likelihood = -DBL_MAX;
 	struct GMMModel model;
@@ -443,13 +440,7 @@ ndb_rocm_gmm_train(const float *features,
 	}
 
 	/* Allocate host memory with overflow checks */
-	mixing_coeffs = (double *) palloc(sizeof(double) * n_components);
-	if (mixing_coeffs == NULL)
-	{
-		if (errstr)
-			*errstr = pstrdup("HIP GMM train: failed to allocate mixing_coeffs array");
-		return -1;
-	}
+	NDB_ALLOC(mixing_coeffs, double, n_components);
 
 	if (feature_dim > 0 && (size_t) n_components > MaxAllocSize / sizeof(double) / (size_t) feature_dim)
 	{
@@ -457,37 +448,10 @@ ndb_rocm_gmm_train(const float *features,
 			*errstr = pstrdup("HIP GMM train: means array size exceeds MaxAllocSize");
 		goto cleanup;
 	}
-	means = (double *) palloc0(sizeof(double) * (size_t) n_components * (size_t) feature_dim);
-	if (means == NULL)
-	{
-		if (errstr)
-			*errstr = pstrdup("HIP GMM train: failed to allocate means array");
-		goto cleanup;
-	}
-
-	variances = (double *) palloc0(sizeof(double) * (size_t) n_components * (size_t) feature_dim);
-	if (variances == NULL)
-	{
-		if (errstr)
-			*errstr = pstrdup("HIP GMM train: failed to allocate variances array");
-		goto cleanup;
-	}
-
-	means_2d = (double **) palloc(sizeof(double *) * n_components);
-	if (means_2d == NULL)
-	{
-		if (errstr)
-			*errstr = pstrdup("HIP GMM train: failed to allocate means_2d array");
-		goto cleanup;
-	}
-
-	variances_2d = (double **) palloc(sizeof(double *) * n_components);
-	if (variances_2d == NULL)
-	{
-		if (errstr)
-			*errstr = pstrdup("HIP GMM train: failed to allocate variances_2d array");
-		goto cleanup;
-	}
+	NDB_ALLOC(means, double, n_components * feature_dim);
+	NDB_ALLOC(variances, double, n_components * feature_dim);
+	NDB_ALLOC(means_2d, double *, n_components);
+	NDB_ALLOC(variances_2d, double *, n_components);
 
 	if ((size_t) n_samples > MaxAllocSize / sizeof(double) / (size_t) n_components)
 	{
@@ -495,13 +459,7 @@ ndb_rocm_gmm_train(const float *features,
 			*errstr = pstrdup("HIP GMM train: responsibilities array size exceeds MaxAllocSize");
 		goto cleanup;
 	}
-	responsibilities = (double *) palloc(sizeof(double) * (size_t) n_samples * (size_t) n_components);
-	if (responsibilities == NULL)
-	{
-		if (errstr)
-			*errstr = pstrdup("HIP GMM train: failed to allocate responsibilities array");
-		goto cleanup;
-	}
+	NDB_ALLOC(responsibilities, double, n_samples * n_components);
 
 	/* Initialize means with random data points (K-means++ style) */
 	if (n_components <= 0)
@@ -804,13 +762,8 @@ ndb_rocm_gmm_predict(const bytea * model_data,
 		return -1;
 	}
 
-	component_probs = (double *) palloc(sizeof(double) * hdr->n_components);
-	if (component_probs == NULL)
-	{
-		if (errstr)
-			*errstr = pstrdup("HIP GMM predict: failed to allocate component_probs array");
-		return -1;
-	}
+	NDB_DECLARE(double *, component_probs);
+	NDB_ALLOC(component_probs, double, hdr->n_components);
 
 	/* Compute probability for each component */
 	for (i = 0; i < hdr->n_components; i++)

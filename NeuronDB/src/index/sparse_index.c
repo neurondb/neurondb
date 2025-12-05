@@ -79,6 +79,7 @@ sparse_index_create(PG_FUNCTION_ARGS)
 	char	   *idx_str = text_to_cstring(index_name);
 	StringInfoData sql;
 	int			ret;
+
 	NDB_DECLARE(NdbSpiSession *, session);
 
 	elog(INFO,
@@ -159,6 +160,7 @@ sparse_index_search(PG_FUNCTION_ARGS)
 	Tuplestorestate *tupstore;
 	MemoryContext per_query_ctx;
 	MemoryContext oldcontext;
+
 	NDB_DECLARE(NdbSpiSession *, session2);
 
 	PG_GETARG_TEXT_PP(0);		/* index_name - reserved for future use */

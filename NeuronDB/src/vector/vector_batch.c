@@ -108,12 +108,15 @@ vector_l2_distance_batch(PG_FUNCTION_ARGS)
 	NDB_ALLOC(elems, Datum, nvec);
 	NDB_ALLOC(nulls, bool, nvec);
 
-	/* Get the lower bound of the input array (typically 1 for PostgreSQL arrays) */
+	/*
+	 * Get the lower bound of the input array (typically 1 for PostgreSQL
+	 * arrays)
+	 */
 	lb = ARR_LBOUND(vec_array)[0];
 
 	for (i = 0; i < nvec; i++)
 	{
-		idx = lb + i;	/* Convert 0-based loop index to array index */
+		idx = lb + i;			/* Convert 0-based loop index to array index */
 
 		vec_datum = array_ref(vec_array,
 							  1,
@@ -236,12 +239,15 @@ vector_cosine_distance_batch(PG_FUNCTION_ARGS)
 	NDB_ALLOC(elems, Datum, nvec);
 	NDB_ALLOC(nulls, bool, nvec);
 
-	/* Get the lower bound of the input array (typically 1 for PostgreSQL arrays) */
+	/*
+	 * Get the lower bound of the input array (typically 1 for PostgreSQL
+	 * arrays)
+	 */
 	lb = ARR_LBOUND(vec_array)[0];
 
 	for (i = 0; i < nvec; i++)
 	{
-		idx = lb + i;	/* Convert 0-based loop index to array index */
+		idx = lb + i;			/* Convert 0-based loop index to array index */
 
 		vec_datum = array_ref(vec_array,
 							  1,
@@ -364,12 +370,15 @@ vector_inner_product_batch(PG_FUNCTION_ARGS)
 	NDB_ALLOC(elems, Datum, nvec);
 	NDB_ALLOC(nulls, bool, nvec);
 
-	/* Get the lower bound of the input array (typically 1 for PostgreSQL arrays) */
+	/*
+	 * Get the lower bound of the input array (typically 1 for PostgreSQL
+	 * arrays)
+	 */
 	lb = ARR_LBOUND(vec_array)[0];
 
 	for (i = 0; i < nvec; i++)
 	{
-		idx = lb + i;	/* Convert 0-based loop index to array index */
+		idx = lb + i;			/* Convert 0-based loop index to array index */
 
 		vec_datum = array_ref(vec_array,
 							  1,
@@ -484,12 +493,15 @@ vector_normalize_batch(PG_FUNCTION_ARGS)
 	NDB_ALLOC(elems, Datum, nvec);
 	NDB_ALLOC(nulls, bool, nvec);
 
-	/* Get the lower bound of the input array (typically 1 for PostgreSQL arrays) */
+	/*
+	 * Get the lower bound of the input array (typically 1 for PostgreSQL
+	 * arrays)
+	 */
 	lb = ARR_LBOUND(vec_array)[0];
 
 	for (i = 0; i < nvec; i++)
 	{
-		idx = lb + i;	/* Convert 0-based loop index to array index */
+		idx = lb + i;			/* Convert 0-based loop index to array index */
 
 		vec_datum = array_ref(vec_array,
 							  1,
@@ -602,12 +614,15 @@ vector_sum_batch(PG_FUNCTION_ARGS)
 
 	get_typlenbyvalalign(vector_oid, &typlen, &typbyval, &typalign);
 
-	/* Get the lower bound of the input array (typically 1 for PostgreSQL arrays) */
+	/*
+	 * Get the lower bound of the input array (typically 1 for PostgreSQL
+	 * arrays)
+	 */
 	lb = ARR_LBOUND(vec_array)[0];
 
 	for (i = 0; i < nvec; i++)
 	{
-		idx = lb + i;	/* Convert 0-based loop index to array index */
+		idx = lb + i;			/* Convert 0-based loop index to array index */
 
 		vec_datum = array_ref(vec_array,
 							  1,
@@ -709,12 +724,15 @@ vector_avg_batch(PG_FUNCTION_ARGS)
 
 	get_typlenbyvalalign(vector_oid, &typlen, &typbyval, &typalign);
 
-	/* Get the lower bound of the input array (typically 1 for PostgreSQL arrays) */
+	/*
+	 * Get the lower bound of the input array (typically 1 for PostgreSQL
+	 * arrays)
+	 */
 	lb = ARR_LBOUND(vec_array)[0];
 
 	for (i = 0; i < nvec; i++)
 	{
-		idx = lb + i;	/* Convert 0-based loop index to array index */
+		idx = lb + i;			/* Convert 0-based loop index to array index */
 
 		vec_datum = array_ref(vec_array,
 							  1,

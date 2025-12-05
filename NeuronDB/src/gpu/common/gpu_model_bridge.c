@@ -44,7 +44,7 @@ extern int	ndb_gpu_ridge_train(const float *features,
 								const Jsonb * hyperparams,
 								bytea * *model_data,
 								Jsonb * *metrics,
-							 char **errstr);
+								char **errstr);
 extern int	ndb_gpu_lasso_train(const float *features,
 								const double *targets,
 								int n_samples,
@@ -92,7 +92,7 @@ ndb_gpu_try_train_model(const char *algorithm,
 						MLGpuTrainResult *result,
 						char **errstr)
 {
-	const		MLGpuModelOps *ops;
+	const MLGpuModelOps *ops;
 	MLGpuModel	model;
 	MLGpuTrainSpec spec;
 	MLGpuContext ctx;
@@ -118,7 +118,11 @@ ndb_gpu_try_train_model(const char *algorithm,
 	}
 
 	/* Early return if feature_matrix is NULL - data needs to be loaded first */
-	/* The caller (neurondb_train) will load data and call again, or fall back to CPU */
+
+	/*
+	 * The caller (neurondb_train) will load data and call again, or fall back
+	 * to CPU
+	 */
 	if (feature_matrix == NULL || label_vector == NULL || sample_count <= 0 || feature_dim <= 0)
 	{
 		return false;
@@ -141,14 +145,14 @@ ndb_gpu_try_train_model(const char *algorithm,
 	{
 		return false;
 	}
-	
+
 	ereport(DEBUG1,
 			(errmsg("ndb_gpu_try_train_model: active backend obtained"),
 			 errdetail("backend_name=%s", ctx.backend->name ? ctx.backend->name : "NULL")));
 	ereport(DEBUG1,
 			(errmsg("ndb_gpu_try_train_model: setting up context"),
 			 errdetail("backend_name=%s, device_id=%d", ctx.backend->name ? ctx.backend->name : "NULL", neurondb_gpu_device)));
-	
+
 	ctx.backend_name = (ctx.backend->name) ? ctx.backend->name : "unknown";
 	ctx.device_id = neurondb_gpu_device;
 	ctx.stream_handle = NULL;
@@ -192,24 +196,28 @@ ndb_gpu_try_train_model(const char *algorithm,
 	spec.sample_count = sample_count;
 	spec.feature_dim = feature_dim;
 	spec.class_count = class_count;
-	
+
 	ereport(DEBUG2,
 			(errmsg("ndb_gpu_try_train_model: training spec initialized"),
 			 errdetail("spec.feature_matrix=%p, spec.label_vector=%p, spec.sample_count=%d, spec.feature_dim=%d",
-					  (void *)spec.feature_matrix, (void *)spec.label_vector, spec.sample_count, spec.feature_dim)));
+					   (void *) spec.feature_matrix, (void *) spec.label_vector, spec.sample_count, spec.feature_dim)));
 
 	/* Skip ops->train path for linear_regression - use direct path instead */
 	/* Also skip if feature_matrix is NULL - data needs to be loaded first */
-	/* The direct algorithm-specific paths below will handle loading data from table */
+
+	/*
+	 * The direct algorithm-specific paths below will handle loading data from
+	 * table
+	 */
 	ereport(DEBUG2,
 			(errmsg("ndb_gpu_try_train_model: checking if should use ops->train path"),
 			 errdetail("ops=%p, ops->train=%p, ops->serialize=%p, algorithm=%s, feature_matrix=%p",
-					  (void *)ops,
-					  ops ? (void *)ops->train : NULL,
-					  ops ? (void *)ops->serialize : NULL,
-					  algorithm ? algorithm : "NULL",
-					  (void *)feature_matrix)));
-	
+					   (void *) ops,
+					   ops ? (void *) ops->train : NULL,
+					   ops ? (void *) ops->serialize : NULL,
+					   algorithm ? algorithm : "NULL",
+					   (void *) feature_matrix)));
+
 	if (ops != NULL && ops->train != NULL && ops->serialize != NULL
 		&& feature_matrix != NULL && label_vector != NULL
 		&& sample_count > 0 && feature_dim > 0
@@ -222,11 +230,11 @@ ndb_gpu_try_train_model(const char *algorithm,
 		long		secs;
 		int			usecs = 0;
 		double		elapsed_ms;
-		
+
 		ereport(DEBUG1,
 				(errmsg("ndb_gpu_try_train_model: using ops->train path"),
 				 errdetail("algorithm=%s", algorithm ? algorithm : "NULL")));
-		
+
 		train_start = GetCurrentTimestamp();
 		ops_trained = false;
 		ops_serialized = false;
@@ -234,25 +242,25 @@ ndb_gpu_try_train_model(const char *algorithm,
 
 		ereport(DEBUG2,
 				(errmsg("ndb_gpu_try_train_model: about to call ops->train"),
-				 errdetail("model=%p, spec=%p, model.ops=%p", (void *)&model, (void *)&spec, (void *)model.ops)));
+				 errdetail("model=%p, spec=%p, model.ops=%p", (void *) &model, (void *) &spec, (void *) model.ops)));
 
 		/* Defensive: Wrap ops->train call in error handling */
 		PG_TRY();
 		{
 			ereport(DEBUG2,
 					(errmsg("ndb_gpu_try_train_model: inside PG_TRY, calling ops->train")));
-			
+
 			if (ops->train(&model, &spec, errstr))
 			{
 				ereport(DEBUG1,
 						(errmsg("ndb_gpu_try_train_model: ops->train returned true")));
-				
+
 				model.gpu_ready = true;
 				ops_trained = true;
-				
+
 				ereport(DEBUG1,
 						(errmsg("ndb_gpu_try_train_model: about to call ops->serialize")));
-				
+
 				if (ops->serialize(&model, &payload, &metadata, errstr))
 				{
 					ops_serialized = true;
@@ -407,7 +415,7 @@ ndb_gpu_try_train_model(const char *algorithm,
 	{
 		TimestampTz train_start = GetCurrentTimestamp();
 		TimestampTz train_end;
-		const		ndb_gpu_backend *backend = ndb_gpu_get_active_backend();
+		const ndb_gpu_backend *backend = ndb_gpu_get_active_backend();
 		int			gpu_rc;
 		long		secs = 0;
 		int			usecs = 0;
@@ -594,7 +602,7 @@ lr_fallback:;
 	{
 		TimestampTz train_start = GetCurrentTimestamp();
 		TimestampTz train_end;
-		const		ndb_gpu_backend *backend = ndb_gpu_get_active_backend();
+		const ndb_gpu_backend *backend = ndb_gpu_get_active_backend();
 		int			gpu_rc;
 		long		secs = 0;
 		int			usecs = 0;
@@ -603,13 +611,13 @@ lr_fallback:;
 		ereport(DEBUG2,
 				(errmsg("linear_regression: attempting direct GPU training"),
 				 errdetail("backend=%s, linreg_train=%p, samples=%d, dim=%d, feature_matrix=%p, label_vector=%p",
-						  backend ? (backend->name ? backend->name : "unknown")
-						  : "NULL",
-						  backend ? (void *) backend->linreg_train : NULL,
-						  sample_count,
-						  feature_dim,
-						  (void *) feature_matrix,
-						  (void *) label_vector)));
+						   backend ? (backend->name ? backend->name : "unknown")
+						   : "NULL",
+						   backend ? (void *) backend->linreg_train : NULL,
+						   sample_count,
+						   feature_dim,
+						   (void *) feature_matrix,
+						   (void *) label_vector)));
 
 		if (backend == NULL || backend->linreg_train == NULL)
 		{
@@ -664,16 +672,16 @@ lr_fallback:;
 		ereport(DEBUG2,
 				(errmsg("linear_regression: about to call ndb_gpu_linreg_train"),
 				 errdetail("feature_matrix=%p, label_vector=%p, sample_count=%d, feature_dim=%d",
-						  (void *) feature_matrix,
-						  (void *) label_vector,
-						  sample_count,
-						  feature_dim)));
-		
+						   (void *) feature_matrix,
+						   (void *) label_vector,
+						   sample_count,
+						   feature_dim)));
+
 		PG_TRY();
 		{
 			ereport(DEBUG2,
 					(errmsg("linear_regression: inside PG_TRY, calling ndb_gpu_linreg_train")));
-			
+
 			gpu_rc = ndb_gpu_linreg_train(feature_matrix,
 										  label_vector,
 										  sample_count,
@@ -682,13 +690,13 @@ lr_fallback:;
 										  &payload,
 										  &metadata,
 										  errstr);
-			
+
 			ereport(DEBUG2,
 					(errmsg("linear_regression: ndb_gpu_linreg_train returned"),
 					 errdetail("gpu_rc=%d, payload=%p, metadata=%p",
-							  gpu_rc,
-							  (void *) payload,
-							  (void *) metadata)));
+							   gpu_rc,
+							   (void *) payload,
+							   (void *) metadata)));
 		}
 		PG_CATCH();
 		{
@@ -757,19 +765,22 @@ lr_fallback:;
 
 			trained = true;
 			ndb_gpu_stats_record(true, elapsed_ms, 0.0, false);
-			
+
 			/* Populate result structure with payload and metadata */
 			if (result != NULL)
 			{
 				result->spec.model_data = payload;
-				payload = NULL;		/* Transfer ownership to result */
-				
+				payload = NULL; /* Transfer ownership to result */
+
 				if (metadata != NULL)
 				{
-					/* Skip metrics copying to avoid DirectFunctionCall1 issues */
+					/*
+					 * Skip metrics copying to avoid DirectFunctionCall1
+					 * issues
+					 */
 					result->spec.metrics = NULL;
 					result->metadata = NULL;
-					
+
 					meta_txt = DatumGetCString(
 											   DirectFunctionCall1(jsonb_out,
 																   JsonbPGetDatum(metadata)));
@@ -802,7 +813,7 @@ lr_fallback:;
 					metadata = NULL;
 				}
 			}
-			
+
 			ereport(INFO,
 					(errmsg("linear_regression: GPU training "
 							"succeeded (direct)"),
@@ -1084,7 +1095,7 @@ linreg_fallback:;
 				 "set result->spec.metrics!");
 		}
 
-		ereport(DEBUG2, (errmsg("gpu_model_bridge: about to set model_data, result->spec.model_data=%p, payload=%p", (void*)result->spec.model_data, (void*)payload)));
+		ereport(DEBUG2, (errmsg("gpu_model_bridge: about to set model_data, result->spec.model_data=%p, payload=%p", (void *) result->spec.model_data, (void *) payload)));
 		/* Only set model_data if it's not already set (e.g., by direct path) */
 		if (result->spec.model_data == NULL)
 		{
@@ -1110,7 +1121,7 @@ linreg_fallback:;
 		ereport(DEBUG2, (errmsg("gpu_model_bridge: model_data assignment completed")));
 	}
 
-	ereport(DEBUG2, (errmsg("gpu_model_bridge: about to check ops->destroy, ops=%p", (void*)ops)));
+	ereport(DEBUG2, (errmsg("gpu_model_bridge: about to check ops->destroy, ops=%p", (void *) ops)));
 	if (ops != NULL && ops->destroy != NULL)
 	{
 		ereport(DEBUG2, (errmsg("gpu_model_bridge: calling ops->destroy")));
@@ -1142,18 +1153,21 @@ linreg_fallback:;
 	}
 
 	ereport(DEBUG2, (errmsg("gpu_model_bridge: about to return, trained=%d", trained)));
-	ereport(DEBUG2, (errmsg("gpu_model_bridge: CurrentMemoryContext=%p", (void*)CurrentMemoryContext)));
-	ereport(DEBUG2, (errmsg("gpu_model_bridge: result=%p, result->spec.model_data=%p", (void*)result, result ? (void*)result->spec.model_data : NULL)));
-	
-	/* Store return value in volatile to ensure it's properly stored before return */
+	ereport(DEBUG2, (errmsg("gpu_model_bridge: CurrentMemoryContext=%p", (void *) CurrentMemoryContext)));
+	ereport(DEBUG2, (errmsg("gpu_model_bridge: result=%p, result->spec.model_data=%p", (void *) result, result ? (void *) result->spec.model_data : NULL)));
+
+	/*
+	 * Store return value in volatile to ensure it's properly stored before
+	 * return
+	 */
 	retval = trained;
 	ereport(DEBUG2, (errmsg("gpu_model_bridge: retval=%d, about to execute return", retval)));
-	
+
 	/* Force compiler to not optimize away the return value */
-	__asm__ __volatile__("" ::: "memory");
+__asm__ __volatile__("":::"memory");
 	ereport(DEBUG2, (errmsg("gpu_model_bridge: memory barrier complete, executing return")));
-	
-	return (bool)retval;
+
+	return (bool) retval;
 }
 
 void
@@ -1162,11 +1176,16 @@ ndb_gpu_free_train_result(MLGpuTrainResult *result)
 	if (result == NULL)
 		return;
 
-	pfree((void *) result->spec.algorithm);
-	pfree((void *) result->spec.training_table);
-	pfree((void *) result->spec.training_column);
-	pfree((void *) result->spec.project_name);
-	pfree((void *) result->spec.model_name);
+	if (result->spec.algorithm)
+		NDB_FREE(result->spec.algorithm);
+	if (result->spec.training_table)
+		NDB_FREE(result->spec.training_table);
+	if (result->spec.training_column)
+		NDB_FREE(result->spec.training_column);
+	if (result->spec.project_name)
+		NDB_FREE(result->spec.project_name);
+	if (result->spec.model_name)
+		NDB_FREE(result->spec.model_name);
 	NDB_FREE(result->spec.model_data);
 	NDB_FREE(result->spec.metrics);
 	if (result->metadata && result->metadata != result->spec.metrics)

@@ -110,15 +110,15 @@ ltr_rerank_pointwise(PG_FUNCTION_ARGS)
 	float8	   *weights;
 	int			num_docs;
 	int			num_features;
-	DocLTRScore *doc_scores;
+	NDB_DECLARE(DocLTRScore *, doc_scores);
 	int			i,
 				f;
 #if defined(NEURONDB_HAS_AVX2) || defined(NEURONDB_HAS_NEON)
-	float	   *features_f;
-	float	   *weights_f;
+	NDB_DECLARE(float *, features_f);
+	NDB_DECLARE(float *, weights_f);
 #endif
 	ArrayType  *result;
-	Datum	   *result_datums;
+	NDB_DECLARE(Datum *, result_datums);
 	int16		typlen;
 	bool		typbyval;
 	char		typalign;
@@ -171,11 +171,11 @@ ltr_rerank_pointwise(PG_FUNCTION_ARGS)
 		 num_features);
 
 	/* Compute LTR scores using SIMD-optimized dot product */
-	doc_scores = (DocLTRScore *) palloc(sizeof(DocLTRScore) * num_docs);
+	NDB_ALLOC(doc_scores, DocLTRScore, num_docs);
 
 #if defined(NEURONDB_HAS_AVX2) || defined(NEURONDB_HAS_NEON)
-	features_f = (float *) palloc(sizeof(float) * num_features);
-	weights_f = (float *) palloc(sizeof(float) * num_features);
+	NDB_ALLOC(features_f, float, num_features);
+	NDB_ALLOC(weights_f, float, num_features);
 
 	/* Convert weights once */
 	for (f = 0; f < num_features; f++)
@@ -215,7 +215,7 @@ ltr_rerank_pointwise(PG_FUNCTION_ARGS)
 	qsort(doc_scores, num_docs, sizeof(DocLTRScore), doc_ltr_score_cmp);
 
 	/* Build result array */
-	result_datums = (Datum *) palloc(sizeof(Datum) * num_docs);
+	NDB_ALLOC(result_datums, Datum, num_docs);
 	for (i = 0; i < num_docs; i++)
 		result_datums[i] = Int32GetDatum(doc_scores[i].doc_id);
 
@@ -248,11 +248,11 @@ ltr_score_features(PG_FUNCTION_ARGS)
 	float8	   *weights;
 	int			num_docs;
 	int			num_features;
-	double	   *scores;
+	NDB_DECLARE(double *, scores);
 	int			i,
 				f;
 	ArrayType  *result;
-	Datum	   *result_datums;
+	NDB_DECLARE(Datum *, result_datums);
 
 	feature_matrix_array = PG_GETARG_ARRAYTYPE_P(0);
 	weights_array = PG_GETARG_ARRAYTYPE_P(1);
@@ -275,7 +275,7 @@ ltr_score_features(PG_FUNCTION_ARGS)
 	feature_matrix = (float8 *) ARR_DATA_PTR(feature_matrix_array);
 	weights = (float8 *) ARR_DATA_PTR(weights_array);
 
-	scores = (double *) palloc(sizeof(double) * num_docs);
+	NDB_ALLOC(scores, double, num_docs);
 
 	/* Compute scores */
 	for (i = 0; i < num_docs; i++)
@@ -286,7 +286,7 @@ ltr_score_features(PG_FUNCTION_ARGS)
 				* weights[f];
 	}
 
-	result_datums = (Datum *) palloc(sizeof(Datum) * num_docs);
+	NDB_ALLOC(result_datums, Datum, num_docs);
 	for (i = 0; i < num_docs; i++)
 		result_datums[i] = Float8GetDatum(scores[i]);
 

@@ -56,17 +56,17 @@
  */
 
 /* Cached function OIDs and FmgrInfo structures */
-static Oid	jsonb_object_field_oid = InvalidOid;
-static Oid	jsonb_array_element_oid = InvalidOid;
-static Oid	jsonb_extract_path_oid = InvalidOid;
-static Oid	jsonb_extract_path_text_oid = InvalidOid;
-static Oid	jsonb_typeof_oid = InvalidOid;
+static Oid jsonb_object_field_oid = InvalidOid;
+static Oid jsonb_array_element_oid = InvalidOid;
+static Oid jsonb_extract_path_oid = InvalidOid;
+static Oid jsonb_extract_path_text_oid = InvalidOid;
+static Oid jsonb_typeof_oid = InvalidOid;
 
-static FmgrInfo	jsonb_object_field_flinfo;
-static FmgrInfo	jsonb_array_element_flinfo;
-static FmgrInfo	jsonb_extract_path_flinfo;
-static FmgrInfo	jsonb_extract_path_text_flinfo;
-static FmgrInfo	jsonb_typeof_flinfo;
+static FmgrInfo jsonb_object_field_flinfo;
+static FmgrInfo jsonb_array_element_flinfo;
+static FmgrInfo jsonb_extract_path_flinfo;
+static FmgrInfo jsonb_extract_path_text_flinfo;
+static FmgrInfo jsonb_typeof_flinfo;
 
 /* Flag to track if OIDs have been initialized */
 static bool jsonb_oids_initialized = false;
@@ -149,13 +149,15 @@ ndb_jsonb_init_oids(void)
  * Wrapper for DirectFunctionCall1(jsonb_in, cstring_datum)
  */
 Jsonb *
-ndb_jsonb_in(text *json_text)
+ndb_jsonb_in(text * json_text)
 {
 	char	   *cstr;
 	Datum		result_datum;
-	Jsonb	   *result = NULL;
 
-	if (json_text == NULL) {
+	NDB_DECLARE(Jsonb *, result);
+
+	if (json_text == NULL)
+	{
 		return NULL;
 	}
 
@@ -173,12 +175,12 @@ ndb_jsonb_in(text *json_text)
 	PG_CATCH();
 	{
 		FlushErrorState();
-		pfree(cstr);
+		NDB_FREE(cstr);
 		return NULL;
 	}
 	PG_END_TRY();
 
-	pfree(cstr);
+	NDB_FREE(cstr);
 	return result;
 }
 
@@ -190,15 +192,17 @@ Jsonb *
 ndb_jsonb_in_cstring(const char *json_str)
 {
 	text	   *json_text;
-	Jsonb	   *result = NULL;
 
-	if (json_str == NULL) {
+	NDB_DECLARE(Jsonb *, result);
+
+	if (json_str == NULL)
+	{
 		return NULL;
 	}
 
 	json_text = cstring_to_text(json_str);
 	result = ndb_jsonb_in(json_text);
-	pfree(json_text);
+	NDB_FREE(json_text);
 
 	return result;
 }
@@ -209,12 +213,13 @@ ndb_jsonb_in_cstring(const char *json_str)
  * jsonb_out returns cstring, which we convert to text
  */
 text *
-ndb_jsonb_out(Jsonb *jsonb)
+ndb_jsonb_out(Jsonb * jsonb)
 {
 	Datum		jsonb_datum;
 	Datum		result_datum;
 	char	   *cstr;
-	text	   *result = NULL;
+
+	NDB_DECLARE(text *, result);
 
 	if (jsonb == NULL)
 		return NULL;
@@ -242,10 +247,11 @@ ndb_jsonb_out(Jsonb *jsonb)
  * Convenience wrapper that returns C string
  */
 char *
-ndb_jsonb_out_cstring(Jsonb *jsonb)
+ndb_jsonb_out_cstring(Jsonb * jsonb)
 {
 	text	   *json_text;
-	char	   *result = NULL;
+
+	NDB_DECLARE(char *, result);
 
 	if (jsonb == NULL)
 		return NULL;
@@ -254,7 +260,7 @@ ndb_jsonb_out_cstring(Jsonb *jsonb)
 	if (json_text != NULL)
 	{
 		result = text_to_cstring(json_text);
-		pfree(json_text);
+		NDB_FREE(json_text);
 	}
 
 	return result;
@@ -265,13 +271,14 @@ ndb_jsonb_out_cstring(Jsonb *jsonb)
  * Wrapper for DirectFunctionCall2(jsonb_object_field, jsonb_datum, text_datum)
  */
 Jsonb *
-ndb_jsonb_object_field(Jsonb *jsonb, const char *field_name)
+ndb_jsonb_object_field(Jsonb * jsonb, const char *field_name)
 {
 	Datum		jsonb_datum;
 	Datum		text_datum;
 	Datum		result_datum;
 	text	   *field_text;
-	Jsonb	   *result = NULL;
+
+	NDB_DECLARE(Jsonb *, result);
 
 	if (jsonb == NULL || field_name == NULL)
 		return NULL;
@@ -315,12 +322,13 @@ ndb_jsonb_object_field(Jsonb *jsonb, const char *field_name)
  * Wrapper for DirectFunctionCall2(jsonb_array_element, jsonb_datum, int_datum)
  */
 Jsonb *
-ndb_jsonb_array_element(Jsonb *jsonb, int index)
+ndb_jsonb_array_element(Jsonb * jsonb, int index)
 {
 	Datum		jsonb_datum;
 	Datum		int_datum;
 	Datum		result_datum;
-	Jsonb	   *result = NULL;
+
+	NDB_DECLARE(Jsonb *, result);
 
 	if (jsonb == NULL || index < 0)
 		return NULL;
@@ -361,15 +369,15 @@ ndb_jsonb_array_element(Jsonb *jsonb, int index)
  * Wrapper for DirectFunctionCall2(jsonb_extract_path, jsonb_datum, text_array_datum)
  */
 Jsonb *
-ndb_jsonb_extract_path(Jsonb *jsonb, const char **path, int path_len)
+ndb_jsonb_extract_path(Jsonb * jsonb, const char **path, int path_len)
 {
 	Datum		jsonb_datum;
 	Datum		array_datum;
 	Datum		result_datum;
 	ArrayType  *path_array;
-	text	  **path_texts;
 	int			i;
-	Jsonb	   *result = NULL;
+
+	NDB_DECLARE(Jsonb *, result);
 
 	if (jsonb == NULL || path == NULL || path_len <= 0)
 		return NULL;
@@ -379,7 +387,8 @@ ndb_jsonb_extract_path(Jsonb *jsonb, const char **path, int path_len)
 		ndb_jsonb_init_oids();
 
 	/* Build text array from path strings */
-	path_texts = (text **) palloc(sizeof(text *) * path_len);
+	NDB_DECLARE(text * *, path_texts);
+	NDB_ALLOC(path_texts, text *, path_len);
 	for (i = 0; i < path_len; i++)
 	{
 		path_texts[i] = cstring_to_text(path[i]);
@@ -391,9 +400,9 @@ ndb_jsonb_extract_path(Jsonb *jsonb, const char **path, int path_len)
 	/* Free individual text elements */
 	for (i = 0; i < path_len; i++)
 	{
-		pfree(path_texts[i]);
+		NDB_FREE(path_texts[i]);
 	}
-	pfree(path_texts);
+	NDB_FREE(path_texts);
 
 	jsonb_datum = PointerGetDatum(jsonb);
 	array_datum = PointerGetDatum(path_array);
@@ -401,7 +410,7 @@ ndb_jsonb_extract_path(Jsonb *jsonb, const char **path, int path_len)
 	PG_TRY();
 	{
 		result_datum = FunctionCall2(&jsonb_extract_path_flinfo,
-									  jsonb_datum, array_datum);
+									 jsonb_datum, array_datum);
 		if (!DatumGetPointer(result_datum))
 		{
 			result = NULL;
@@ -418,7 +427,7 @@ ndb_jsonb_extract_path(Jsonb *jsonb, const char **path, int path_len)
 	}
 	PG_END_TRY();
 
-	pfree(path_array);
+	NDB_FREE(path_array);
 
 	return result;
 }
@@ -428,15 +437,15 @@ ndb_jsonb_extract_path(Jsonb *jsonb, const char **path, int path_len)
  * Wrapper for DirectFunctionCall2(jsonb_extract_path_text, jsonb_datum, text_array_datum)
  */
 text *
-ndb_jsonb_extract_path_text(Jsonb *jsonb, const char **path, int path_len)
+ndb_jsonb_extract_path_text(Jsonb * jsonb, const char **path, int path_len)
 {
 	Datum		jsonb_datum;
 	Datum		array_datum;
 	Datum		result_datum;
 	ArrayType  *path_array;
-	text	  **path_texts;
 	int			i;
-	text	   *result = NULL;
+
+	NDB_DECLARE(text *, result);
 
 	if (jsonb == NULL || path == NULL || path_len <= 0)
 		return NULL;
@@ -446,7 +455,8 @@ ndb_jsonb_extract_path_text(Jsonb *jsonb, const char **path, int path_len)
 		ndb_jsonb_init_oids();
 
 	/* Build text array from path strings */
-	path_texts = (text **) palloc(sizeof(text *) * path_len);
+	NDB_DECLARE(text * *, path_texts);
+	NDB_ALLOC(path_texts, text *, path_len);
 	for (i = 0; i < path_len; i++)
 	{
 		path_texts[i] = cstring_to_text(path[i]);
@@ -458,9 +468,9 @@ ndb_jsonb_extract_path_text(Jsonb *jsonb, const char **path, int path_len)
 	/* Free individual text elements */
 	for (i = 0; i < path_len; i++)
 	{
-		pfree(path_texts[i]);
+		NDB_FREE(path_texts[i]);
 	}
-	pfree(path_texts);
+	NDB_FREE(path_texts);
 
 	jsonb_datum = PointerGetDatum(jsonb);
 	array_datum = PointerGetDatum(path_array);
@@ -468,7 +478,7 @@ ndb_jsonb_extract_path_text(Jsonb *jsonb, const char **path, int path_len)
 	PG_TRY();
 	{
 		result_datum = FunctionCall2(&jsonb_extract_path_text_flinfo,
-									  jsonb_datum, array_datum);
+									 jsonb_datum, array_datum);
 		if (!DatumGetPointer(result_datum))
 		{
 			result = NULL;
@@ -485,7 +495,7 @@ ndb_jsonb_extract_path_text(Jsonb *jsonb, const char **path, int path_len)
 	}
 	PG_END_TRY();
 
-	pfree(path_array);
+	NDB_FREE(path_array);
 
 	return result;
 }
@@ -495,10 +505,11 @@ ndb_jsonb_extract_path_text(Jsonb *jsonb, const char **path, int path_len)
  * Convenience wrapper that returns C string
  */
 char *
-ndb_jsonb_extract_path_cstring(Jsonb *jsonb, const char **path, int path_len)
+ndb_jsonb_extract_path_cstring(Jsonb * jsonb, const char **path, int path_len)
 {
 	text	   *path_text;
-	char	   *result = NULL;
+
+	NDB_DECLARE(char *, result);
 
 	if (jsonb == NULL || path == NULL || path_len <= 0)
 		return NULL;
@@ -507,7 +518,7 @@ ndb_jsonb_extract_path_cstring(Jsonb *jsonb, const char **path, int path_len)
 	if (path_text != NULL)
 	{
 		result = text_to_cstring(path_text);
-		pfree(path_text);
+		NDB_FREE(path_text);
 	}
 
 	return result;
@@ -518,11 +529,12 @@ ndb_jsonb_extract_path_cstring(Jsonb *jsonb, const char **path, int path_len)
  * Wrapper for DirectFunctionCall1(jsonb_typeof, jsonb_datum)
  */
 text *
-ndb_jsonb_typeof(Jsonb *jsonb)
+ndb_jsonb_typeof(Jsonb * jsonb)
 {
 	Datum		jsonb_datum;
 	Datum		result_datum;
-	text	   *result = NULL;
+
+	NDB_DECLARE(text *, result);
 
 	if (jsonb == NULL)
 		return NULL;
@@ -553,10 +565,11 @@ ndb_jsonb_typeof(Jsonb *jsonb)
  * Convenience wrapper that returns C string
  */
 char *
-ndb_jsonb_typeof_cstring(Jsonb *jsonb)
+ndb_jsonb_typeof_cstring(Jsonb * jsonb)
 {
 	text	   *type_text;
-	char	   *result = NULL;
+
+	NDB_DECLARE(char *, result);
 
 	if (jsonb == NULL)
 		return NULL;
@@ -565,7 +578,7 @@ ndb_jsonb_typeof_cstring(Jsonb *jsonb)
 	if (type_text != NULL)
 	{
 		result = text_to_cstring(type_text);
-		pfree(type_text);
+		NDB_FREE(type_text);
 	}
 
 	return result;
@@ -575,7 +588,7 @@ ndb_jsonb_typeof_cstring(Jsonb *jsonb)
  * ndb_jsonb_to_text - Convert JSONB to text (alias for jsonb_out)
  */
 text *
-ndb_jsonb_to_text(Jsonb *jsonb)
+ndb_jsonb_to_text(Jsonb * jsonb)
 {
 	return ndb_jsonb_out(jsonb);
 }
@@ -717,8 +730,9 @@ ndb_json_unescape_string(const char *json_str)
 	const char *p;
 	const char *q;
 	size_t		len;
-	char	   *result = NULL;
-	char	   *unescaped = NULL;
+
+	NDB_DECLARE(char *, result);
+	NDB_DECLARE(char *, unescaped);
 	int			escape_next = 0;
 
 	if (!json_str || json_str[0] == '\0')
@@ -763,7 +777,7 @@ ndb_json_unescape_string(const char *json_str)
 		return pstrdup("");
 
 	/* Allocate and copy string */
-	result = (char *) palloc(len + 1);
+	NDB_ALLOC(result, char, len + 1);
 	unescaped = result;
 	q = p;
 
@@ -848,11 +862,14 @@ ndb_json_unescape_string(const char *json_str)
 									*unescaped++ = (char) (0x80 | ((full_code >> 12) & 0x3F));
 									*unescaped++ = (char) (0x80 | ((full_code >> 6) & 0x3F));
 									*unescaped++ = (char) (0x80 | (full_code & 0x3F));
-									q += 6;	/* Skip second \uXXXX */
+									q += 6; /* Skip second \uXXXX */
 								}
 								else
 								{
-									/* Invalid surrogate pair - use replacement character */
+									/*
+									 * Invalid surrogate pair - use
+									 * replacement character
+									 */
 									*unescaped++ = 0xEF;
 									*unescaped++ = 0xBF;
 									*unescaped++ = 0xBD;
@@ -860,7 +877,10 @@ ndb_json_unescape_string(const char *json_str)
 							}
 							else
 							{
-								/* Invalid surrogate - use replacement character */
+								/*
+								 * Invalid surrogate - use replacement
+								 * character
+								 */
 								*unescaped++ = 0xEF;
 								*unescaped++ = 0xBF;
 								*unescaped++ = 0xBD;
@@ -903,9 +923,11 @@ ndb_json_unescape_string(const char *json_str)
 char *
 ndb_json_find_key(const char *json_str, const char *key)
 {
-	volatile Jsonb *jsonb = NULL;
+	volatile	Jsonb *jsonb = NULL;
+
 	NDB_DECLARE(Jsonb *, field);
 	volatile char *result = NULL;
+
 	NDB_DECLARE(text *, field_text);
 
 	if (json_str == NULL || key == NULL)
@@ -917,7 +939,7 @@ ndb_json_find_key(const char *json_str, const char *key)
 		jsonb = ndb_jsonb_in_cstring(json_str);
 		if (jsonb != NULL)
 		{
-			field = ndb_jsonb_object_field((Jsonb *)jsonb, key);
+			field = ndb_jsonb_object_field((Jsonb *) jsonb, key);
 			if (field != NULL)
 			{
 				field_text = ndb_jsonb_out(field);
@@ -929,9 +951,10 @@ ndb_json_find_key(const char *json_str, const char *key)
 				NDB_FREE(field);
 			}
 			if (jsonb != NULL)
-				{
-				Jsonb *jsonb_ptr = (Jsonb *) jsonb;
-				pfree(jsonb_ptr);
+			{
+				Jsonb	   *jsonb_ptr = (Jsonb *) jsonb;
+
+				NDB_FREE(jsonb_ptr);
 				jsonb = NULL;
 			}
 		}
@@ -940,11 +963,12 @@ ndb_json_find_key(const char *json_str, const char *key)
 	{
 		FlushErrorState();
 		if (jsonb != NULL)
-			{
-				Jsonb *jsonb_ptr = (Jsonb *) jsonb;
-				pfree(jsonb_ptr);
-				jsonb = NULL;
-			}
+		{
+			Jsonb	   *jsonb_ptr = (Jsonb *) jsonb;
+
+			NDB_FREE(jsonb_ptr);
+			jsonb = NULL;
+		}
 		/* Fall back to string-based search */
 	}
 	PG_END_TRY();
@@ -952,17 +976,19 @@ ndb_json_find_key(const char *json_str, const char *key)
 	/* Fallback to simple string search if JSONB parsing failed */
 	if (result == NULL)
 	{
-		char	   *key_pattern;
 		const char *p;
 		const char *value_start;
 		const char *value_end;
 		size_t		key_len;
 
-		/* Build key pattern: "key":
-		 * Note: key must not contain quotes for this simple pattern to work.
-		 * For keys with quotes, use JSONB parsing path instead. */
+		/*
+		 * Build key pattern: "key": Note: key must not contain quotes for
+		 * this simple pattern to work. For keys with quotes, use JSONB
+		 * parsing path instead.
+		 */
 		key_len = strlen(key);
-		key_pattern = (char *) palloc(key_len + 4);
+		NDB_DECLARE(char *, key_pattern);
+		NDB_ALLOC(key_pattern, char, key_len + 4);
 		snprintf(key_pattern, key_len + 4, "\"%s\":", key);
 
 		p = strstr(json_str, key_pattern);
@@ -986,14 +1012,19 @@ ndb_json_find_key(const char *json_str, const char *key)
 				}
 				if (*value_end == '"')
 				{
-					result = pnstrdup(value_start, value_end - value_start);
-					/* Unescape if needed */
-					if (strchr((char *) result, '\\') != NULL)
-					{
-						char	   *unescaped = ndb_json_unescape_string((char *) result);
+					char	   *temp_result = pnstrdup(value_start, value_end - value_start);
 
-						pfree((char *) result);
+					/* Unescape if needed */
+					if (strchr(temp_result, '\\') != NULL)
+					{
+						char	   *unescaped = ndb_json_unescape_string(temp_result);
+
+						NDB_FREE(temp_result);
 						result = (volatile char *) unescaped;
+					}
+					else
+					{
+						result = (volatile char *) temp_result;
 					}
 				}
 			}
@@ -1165,16 +1196,16 @@ ndb_json_extract_float(const char *json_str, const char *key, bool *found)
  */
 int
 ndb_json_parse_gen_params(const char *params_json,
-						   NdbGenParams *gen_params,
-						   char **errstr)
+						  NdbGenParams *gen_params,
+						  char **errstr)
 {
-	char	   *json_copy = NULL;
-	char	   *p = NULL;
-	char	   *key = NULL;
+	NDB_DECLARE(char *, json_copy);
+	NDB_DECLARE(char *, p);
+	NDB_DECLARE(char *, key);
 	char	   *endptr = NULL;
 	float		float_val;
 	int			int_val;
-	volatile Jsonb *jsonb = NULL;
+	volatile	Jsonb *jsonb = NULL;
 
 	if (errstr)
 		*errstr = NULL;
@@ -1219,7 +1250,7 @@ ndb_json_parse_gen_params(const char *params_json,
 			char	   *value_str;
 
 			/* temperature */
-			field = ndb_jsonb_object_field((Jsonb *)jsonb, "temperature");
+			field = ndb_jsonb_object_field((Jsonb *) jsonb, "temperature");
 			if (field != NULL)
 			{
 				field_text = ndb_jsonb_out(field);
@@ -1236,7 +1267,7 @@ ndb_json_parse_gen_params(const char *params_json,
 			}
 
 			/* top_p */
-			field = ndb_jsonb_object_field((Jsonb *)jsonb, "top_p");
+			field = ndb_jsonb_object_field((Jsonb *) jsonb, "top_p");
 			if (field != NULL)
 			{
 				field_text = ndb_jsonb_out(field);
@@ -1253,7 +1284,7 @@ ndb_json_parse_gen_params(const char *params_json,
 			}
 
 			/* top_k */
-			field = ndb_jsonb_object_field((Jsonb *)jsonb, "top_k");
+			field = ndb_jsonb_object_field((Jsonb *) jsonb, "top_k");
 			if (field != NULL)
 			{
 				field_text = ndb_jsonb_out(field);
@@ -1270,9 +1301,9 @@ ndb_json_parse_gen_params(const char *params_json,
 			}
 
 			/* max_tokens / max_length */
-			field = ndb_jsonb_object_field((Jsonb *)jsonb, "max_tokens");
+			field = ndb_jsonb_object_field((Jsonb *) jsonb, "max_tokens");
 			if (field == NULL)
-				field = ndb_jsonb_object_field((Jsonb *)jsonb, "max_length");
+				field = ndb_jsonb_object_field((Jsonb *) jsonb, "max_length");
 			if (field != NULL)
 			{
 				field_text = ndb_jsonb_out(field);
@@ -1289,9 +1320,9 @@ ndb_json_parse_gen_params(const char *params_json,
 			}
 
 			/* min_tokens / min_length */
-			field = ndb_jsonb_object_field((Jsonb *)jsonb, "min_tokens");
+			field = ndb_jsonb_object_field((Jsonb *) jsonb, "min_tokens");
 			if (field == NULL)
-				field = ndb_jsonb_object_field((Jsonb *)jsonb, "min_length");
+				field = ndb_jsonb_object_field((Jsonb *) jsonb, "min_length");
 			if (field != NULL)
 			{
 				field_text = ndb_jsonb_out(field);
@@ -1308,7 +1339,7 @@ ndb_json_parse_gen_params(const char *params_json,
 			}
 
 			/* repetition_penalty */
-			field = ndb_jsonb_object_field((Jsonb *)jsonb, "repetition_penalty");
+			field = ndb_jsonb_object_field((Jsonb *) jsonb, "repetition_penalty");
 			if (field != NULL)
 			{
 				field_text = ndb_jsonb_out(field);
@@ -1325,7 +1356,7 @@ ndb_json_parse_gen_params(const char *params_json,
 			}
 
 			/* do_sample */
-			field = ndb_jsonb_object_field((Jsonb *)jsonb, "do_sample");
+			field = ndb_jsonb_object_field((Jsonb *) jsonb, "do_sample");
 			if (field != NULL)
 			{
 				field_text = ndb_jsonb_out(field);
@@ -1343,7 +1374,7 @@ ndb_json_parse_gen_params(const char *params_json,
 			}
 
 			/* return_prompt */
-			field = ndb_jsonb_object_field((Jsonb *)jsonb, "return_prompt");
+			field = ndb_jsonb_object_field((Jsonb *) jsonb, "return_prompt");
 			if (field != NULL)
 			{
 				field_text = ndb_jsonb_out(field);
@@ -1361,7 +1392,7 @@ ndb_json_parse_gen_params(const char *params_json,
 			}
 
 			/* seed */
-			field = ndb_jsonb_object_field((Jsonb *)jsonb, "seed");
+			field = ndb_jsonb_object_field((Jsonb *) jsonb, "seed");
 			if (field != NULL)
 			{
 				field_text = ndb_jsonb_out(field);
@@ -1378,9 +1409,9 @@ ndb_json_parse_gen_params(const char *params_json,
 			}
 
 			/* streaming / stream */
-			field = ndb_jsonb_object_field((Jsonb *)jsonb, "streaming");
+			field = ndb_jsonb_object_field((Jsonb *) jsonb, "streaming");
 			if (field == NULL)
-				field = ndb_jsonb_object_field((Jsonb *)jsonb, "stream");
+				field = ndb_jsonb_object_field((Jsonb *) jsonb, "stream");
 			if (field != NULL)
 			{
 				field_text = ndb_jsonb_out(field);
@@ -1398,7 +1429,7 @@ ndb_json_parse_gen_params(const char *params_json,
 			}
 
 			/* stop_sequences - array of strings */
-			field = ndb_jsonb_object_field((Jsonb *)jsonb, "stop_sequences");
+			field = ndb_jsonb_object_field((Jsonb *) jsonb, "stop_sequences");
 			if (field != NULL)
 			{
 				NDB_DECLARE(char *, tmp);
@@ -1420,22 +1451,23 @@ ndb_json_parse_gen_params(const char *params_json,
 			}
 
 			/* logit_bias - object mapping token IDs to bias values */
-			field = ndb_jsonb_object_field((Jsonb *)jsonb, "logit_bias");
+			field = ndb_jsonb_object_field((Jsonb *) jsonb, "logit_bias");
 			if (field == NULL)
-				field = ndb_jsonb_object_field((Jsonb *)jsonb, "bias");
+				field = ndb_jsonb_object_field((Jsonb *) jsonb, "bias");
 			if (field != NULL)
 			{
 				/* Parse logit bias object */
 				JsonbIterator *it;
 				JsonbValue	v;
 				JsonbIteratorToken type;
-				int32	   *tokens = NULL;
-				float	   *biases = NULL;
+
+				NDB_DECLARE(int32 *, tokens);
+				NDB_DECLARE(float *, biases);
 				int			capacity = 16;
 				int			count = 0;
 
-				tokens = (int32 *) palloc(sizeof(int32) * capacity);
-				biases = (float *) palloc(sizeof(float) * capacity);
+				NDB_ALLOC(tokens, int32, capacity);
+				NDB_ALLOC(biases, float, capacity);
 
 				it = JsonbIteratorInit(&field->root);
 				while ((type = JsonbIteratorNext(&it, &v, true)) != WJB_DONE)
@@ -1492,11 +1524,12 @@ ndb_json_parse_gen_params(const char *params_json,
 		}
 		/* Free jsonb after use */
 		if (jsonb != NULL)
-			{
-				Jsonb *jsonb_ptr = (Jsonb *) jsonb;
-				pfree(jsonb_ptr);
-				jsonb = NULL;
-			}
+		{
+			Jsonb	   *jsonb_ptr = (Jsonb *) jsonb;
+
+			NDB_FREE(jsonb_ptr);
+			jsonb = NULL;
+		}
 	}
 	PG_CATCH();
 	{
@@ -1504,8 +1537,9 @@ ndb_json_parse_gen_params(const char *params_json,
 		/* Free jsonb if it was allocated */
 		if (jsonb != NULL)
 		{
-			Jsonb *jsonb_ptr = (Jsonb *) jsonb;
-			pfree(jsonb_ptr);
+			Jsonb	   *jsonb_ptr = (Jsonb *) jsonb;
+
+			NDB_FREE(jsonb_ptr);
 			jsonb = NULL;
 		}
 		/* Fall back to string-based parsing */
@@ -1541,7 +1575,7 @@ ndb_json_parse_gen_params(const char *params_json,
 					*errstr = pstrdup("invalid JSON format: expected key");
 				return -1;
 			}
-			p++;					/* Skip opening quote */
+			p++;				/* Skip opening quote */
 			key = p;
 			while (*p && *p != '"')
 				p++;
@@ -1552,8 +1586,8 @@ ndb_json_parse_gen_params(const char *params_json,
 					*errstr = pstrdup("invalid JSON format: unterminated key");
 				return -1;
 			}
-			*p = '\0';				/* Null-terminate key */
-			p++;					/* Skip closing quote */
+			*p = '\0';			/* Null-terminate key */
+			p++;				/* Skip closing quote */
 
 			/* Skip colon */
 			while (*p && (isspace((unsigned char) *p) || *p == ':'))
@@ -1638,7 +1672,8 @@ ndb_json_parse_gen_params(const char *params_json,
 				else if (*p == '[')
 				{
 					/* Skip array */
-					int depth = 1;
+					int			depth = 1;
+
 					p++;
 					while (*p && depth > 0)
 					{
@@ -1652,7 +1687,8 @@ ndb_json_parse_gen_params(const char *params_json,
 				else if (*p == '{')
 				{
 					/* Skip object */
-					int depth = 1;
+					int			depth = 1;
+
 					p++;
 					while (*p && depth > 0)
 					{
@@ -1719,9 +1755,10 @@ ndb_json_parse_gen_params_free(NdbGenParams *gen_params)
  */
 int
 ndb_json_extract_openai_response(const char *json_str,
-								  NdbOpenAIResponse *response)
+								 NdbOpenAIResponse *response)
 {
-	volatile Jsonb *jsonb = NULL;
+	volatile	Jsonb *jsonb = NULL;
+
 	NDB_DECLARE(Jsonb *, choices);
 	NDB_DECLARE(Jsonb *, first_choice);
 	NDB_DECLARE(Jsonb *, message);
@@ -1780,9 +1817,10 @@ ndb_json_extract_openai_response(const char *json_str,
 				NDB_FREE(error_field);
 			}
 			if (jsonb != NULL)
-				{
-				Jsonb *jsonb_ptr = (Jsonb *) jsonb;
-				pfree(jsonb_ptr);
+			{
+				Jsonb	   *jsonb_ptr = (Jsonb *) jsonb;
+
+				NDB_FREE(jsonb_ptr);
 				jsonb = NULL;
 			}
 		}
@@ -1886,22 +1924,24 @@ ndb_json_extract_openai_response(const char *json_str,
 		}
 		/* Free jsonb after use */
 		if (jsonb != NULL)
-			{
-				Jsonb *jsonb_ptr = (Jsonb *) jsonb;
-				pfree(jsonb_ptr);
-				jsonb = NULL;
-			}
+		{
+			Jsonb	   *jsonb_ptr = (Jsonb *) jsonb;
+
+			NDB_FREE(jsonb_ptr);
+			jsonb = NULL;
+		}
 	}
 	PG_CATCH();
 	{
 		FlushErrorState();
 		/* Free jsonb if it was allocated */
 		if (jsonb != NULL)
-			{
-				Jsonb *jsonb_ptr = (Jsonb *) jsonb;
-				pfree(jsonb_ptr);
-				jsonb = NULL;
-			}
+		{
+			Jsonb	   *jsonb_ptr = (Jsonb *) jsonb;
+
+			NDB_FREE(jsonb_ptr);
+			jsonb = NULL;
+		}
 		/* Fall back to string-based extraction */
 	}
 	PG_END_TRY();
@@ -1912,11 +1952,15 @@ ndb_json_extract_openai_response(const char *json_str,
 		const char *p;
 		const char *q;
 		size_t		len;
-		char	   *result = NULL;
-		char	   *unescaped = NULL;
+
+		NDB_DECLARE(char *, result);
+		NDB_DECLARE(char *, unescaped);
 		int			escape_next = 0;
 
-		/* Look for "content" field - handle nested structure: choices[0].message.content */
+		/*
+		 * Look for "content" field - handle nested structure:
+		 * choices[0].message.content
+		 */
 		p = strstr(json_str, "\"choices\"");
 		if (p != NULL)
 		{
@@ -1955,12 +1999,18 @@ ndb_json_extract_openai_response(const char *json_str,
 									while (*p && isspace((unsigned char) *p))
 										p++;
 
-									/* Check if value is a string (starts with quote) */
+									/*
+									 * Check if value is a string (starts with
+									 * quote)
+									 */
 									if (*p == '"')
 									{
 										p++;	/* Skip opening quote */
 
-										/* Extract string value, handling escaped characters */
+										/*
+										 * Extract string value, handling
+										 * escaped characters
+										 */
 										q = p;
 										len = 0;
 										while (*q)
@@ -1981,7 +2031,10 @@ ndb_json_extract_openai_response(const char *json_str,
 											}
 											if (*q == '"')
 											{
-												/* Found closing quote (not escaped) */
+												/*
+												 * Found closing quote (not
+												 * escaped)
+												 */
 												break;
 											}
 											len++;
@@ -1991,7 +2044,7 @@ ndb_json_extract_openai_response(const char *json_str,
 										if (len > 0)
 										{
 											/* Allocate and copy string */
-											result = (char *) palloc(len + 1);
+											NDB_ALLOC(result, char, len + 1);
 											unescaped = result;
 											q = p;
 
@@ -2027,7 +2080,12 @@ ndb_json_extract_openai_response(const char *json_str,
 															q += 2;
 															break;
 														case 'u':
-															/* Unicode escape - full UTF-8 encoding */
+
+															/*
+															 * Unicode escape
+															 * - full UTF-8
+															 * encoding
+															 */
 															if (q + 5 < p + len && isxdigit((unsigned char) q[2]) &&
 																isxdigit((unsigned char) q[3]) &&
 																isxdigit((unsigned char) q[4]) &&
@@ -2038,25 +2096,46 @@ ndb_json_extract_openai_response(const char *json_str,
 																sscanf(q + 2, "%4x", &code);
 																if (code < 0x80)
 																{
-																	/* ASCII: single byte */
+																	/*
+																	 * ASCII:
+																	 * single
+																	 * byte
+																	 */
 																	*unescaped++ = (char) code;
 																}
 																else if (code < 0x800)
 																{
-																	/* 2-byte UTF-8 */
+																	/*
+																	 * 2-byte
+																	 * UTF-8
+																	 */
 																	*unescaped++ = (char) (0xC0 | (code >> 6));
 																	*unescaped++ = (char) (0x80 | (code & 0x3F));
 																}
 																else if (code < 0xD800 || code >= 0xE000)
 																{
-																	/* 3-byte UTF-8 (excluding surrogates) */
+																	/*
+																	 * 3-byte
+																	 * UTF-8
+																	 * (excluding
+																	 *
+																	 * surrogates)
+																	 */
 																	*unescaped++ = (char) (0xE0 | (code >> 12));
 																	*unescaped++ = (char) (0x80 | ((code >> 6) & 0x3F));
 																	*unescaped++ = (char) (0x80 | (code & 0x3F));
 																}
 																else
 																{
-																	/* Surrogate pair - check for second part */
+																	/*
+																	 *
+																	 * Surrogate
+																	 * pair -
+																	 * check
+																	 * for
+																	 * second
+																	 * part
+																	 */
 																	if (code >= 0xD800 && code < 0xDC00 && q + 11 < p + len &&
 																		q[6] == '\\' && q[7] == 'u' &&
 																		isxdigit((unsigned char) q[8]) &&
@@ -2069,18 +2148,46 @@ ndb_json_extract_openai_response(const char *json_str,
 																		sscanf(q + 8, "%4x", &code2);
 																		if (code2 >= 0xDC00 && code2 < 0xE000)
 																		{
-																			/* Valid surrogate pair - 4-byte UTF-8 */
+																			/*
+																			 *
+																			 * Valid
+																			 *
+																			 * surrogate
+																			 *
+																			 * pair
+																			 *
+																			 * -
+																			 *
+																			 * 4-byte
+																			 *
+																			 * UTF-8
+																			 */
 																			unsigned int full_code = 0x10000 + ((code - 0xD800) << 10) + (code2 - 0xDC00);
 
 																			*unescaped++ = (char) (0xF0 | (full_code >> 18));
 																			*unescaped++ = (char) (0x80 | ((full_code >> 12) & 0x3F));
 																			*unescaped++ = (char) (0x80 | ((full_code >> 6) & 0x3F));
 																			*unescaped++ = (char) (0x80 | (full_code & 0x3F));
-																			q += 6;	/* Skip second \uXXXX */
+																			q += 6; /* Skip second \uXXXX */
 																		}
 																		else
 																		{
-																			/* Invalid surrogate pair - use replacement character */
+																			/*
+																			 *
+																			 * Invalid
+																			 *
+																			 * surrogate
+																			 *
+																			 * pair
+																			 *
+																			 * -
+																			 *
+																			 * use
+																			 *
+																			 * replacement
+																			 *
+																			 * character
+																			 */
 																			*unescaped++ = 0xEF;
 																			*unescaped++ = 0xBF;
 																			*unescaped++ = 0xBD;
@@ -2088,7 +2195,17 @@ ndb_json_extract_openai_response(const char *json_str,
 																	}
 																	else
 																	{
-																		/* Invalid surrogate - use replacement character */
+																		/*
+																		 *
+																		 * Invalid
+																		 *
+																		 * surrogate
+																		 * -
+																		 * use
+																		 * replacement
+																		 *
+																		 * character
+																		 */
 																		*unescaped++ = 0xEF;
 																		*unescaped++ = 0xBF;
 																		*unescaped++ = 0xBD;
@@ -2184,17 +2301,18 @@ ndb_json_extract_openai_response_free(NdbOpenAIResponse *response)
  */
 int
 ndb_json_parse_openai_embedding(const char *json_str,
-								 float **vec_out,
-								 int *dim_out)
+								float **vec_out,
+								int *dim_out)
 {
-	volatile Jsonb *jsonb = NULL;
+	volatile	Jsonb *jsonb = NULL;
+
 	NDB_DECLARE(Jsonb *, data);
 	NDB_DECLARE(Jsonb *, first_item);
 	NDB_DECLARE(Jsonb *, embedding);
 	volatile float *vec = NULL;
-	volatile int	n = 0;
-	volatile int	cap = 256;
-	volatile int	status = -1;
+	volatile int n = 0;
+	volatile int cap = 256;
+	volatile int status = -1;
 
 	if (json_str == NULL || vec_out == NULL || dim_out == NULL)
 		return -1;
@@ -2209,7 +2327,7 @@ ndb_json_parse_openai_embedding(const char *json_str,
 		if (jsonb != NULL)
 		{
 			/* Extract data array */
-			data = ndb_jsonb_object_field((Jsonb *)jsonb, "data");
+			data = ndb_jsonb_object_field((Jsonb *) jsonb, "data");
 			if (data != NULL)
 			{
 				/* Get first item from data array */
@@ -2225,7 +2343,8 @@ ndb_json_parse_openai_embedding(const char *json_str,
 						JsonbValue	v;
 						JsonbIteratorToken type;
 
-						vec = (float *) palloc(sizeof(float) * (int) cap);
+						NDB_DECLARE(float *, vec);
+						NDB_ALLOC(vec, float, (int) cap);
 
 						it = JsonbIteratorInit(&embedding->root);
 						while ((type = JsonbIteratorNext(&it, &v, true)) != WJB_DONE)
@@ -2267,8 +2386,9 @@ ndb_json_parse_openai_embedding(const char *json_str,
 						{
 							if (vec != NULL)
 							{
-								float *vec_ptr = (float *) vec;
-								pfree(vec_ptr);
+								float	   *vec_ptr = (float *) vec;
+
+								NDB_FREE(vec_ptr);
 								vec = NULL;
 							}
 						}
@@ -2286,22 +2406,24 @@ ndb_json_parse_openai_embedding(const char *json_str,
 		status = -1;
 		if (vec != NULL)
 		{
-								{
-									float *vec_ptr = (float *) vec;
-									pfree(vec_ptr);
-									vec = NULL;
-								}
+			{
+				float	   *vec_ptr = (float *) vec;
+
+				NDB_FREE(vec_ptr);
+				vec = NULL;
+			}
 			vec = NULL;
 		}
 	}
 	PG_END_TRY();
 
 	if (jsonb != NULL)
-				{
-					Jsonb *jsonb_ptr = (Jsonb *) jsonb;
-					pfree(jsonb_ptr);
-					jsonb = NULL;
-				}
+	{
+		Jsonb	   *jsonb_ptr = (Jsonb *) jsonb;
+
+		NDB_FREE(jsonb_ptr);
+		jsonb = NULL;
+	}
 
 	if ((int) status == 0)
 		return 0;
@@ -2348,7 +2470,8 @@ ndb_json_parse_openai_embedding(const char *json_str,
 				in_array = true;
 
 				/* Allocate initial vector */
-				vec = (float *) palloc(sizeof(float) * cap);
+				NDB_DECLARE(float *, vec);
+				NDB_ALLOC(vec, float, cap);
 
 				/* Parse array of floats */
 				while (*p && in_array)
@@ -2432,17 +2555,18 @@ ndb_json_parse_openai_embedding(const char *json_str,
  */
 int
 ndb_json_parse_sparse_vector(const char *json_str,
-							  NdbSparseVectorParse *result,
-							  char **errstr)
+							 NdbSparseVectorParse *result,
+							 char **errstr)
 {
-	volatile Jsonb *jsonb = NULL;
+	volatile	Jsonb *jsonb = NULL;
+
 	NDB_DECLARE(Jsonb *, field);
 	NDB_DECLARE(text *, field_text);
 	NDB_DECLARE(char *, value_str);
-	volatile int32 *token_ids = NULL;
-	volatile float4 *weights = NULL;
+	volatile	int32 *token_ids = NULL;
+	volatile	float4 *weights = NULL;
 	int			capacity = 16;
-	volatile int	nnz = 0;
+	volatile int nnz = 0;
 	int			i;
 
 	if (errstr)
@@ -2456,7 +2580,7 @@ ndb_json_parse_sparse_vector(const char *json_str,
 
 	/* Initialize result structure */
 	memset(result, 0, sizeof(NdbSparseVectorParse));
-	result->vocab_size = 30522;	/* Default BERT vocab size */
+	result->vocab_size = 30522; /* Default BERT vocab size */
 	result->model_type = 1;		/* Default to SPLADE */
 	result->nnz = 0;
 	result->token_ids = NULL;
@@ -2469,7 +2593,7 @@ ndb_json_parse_sparse_vector(const char *json_str,
 		if (jsonb != NULL)
 		{
 			/* Extract vocab_size */
-			field = ndb_jsonb_object_field((Jsonb *)jsonb, "vocab_size");
+			field = ndb_jsonb_object_field((Jsonb *) jsonb, "vocab_size");
 			if (field != NULL)
 			{
 				field_text = ndb_jsonb_out(field);
@@ -2484,7 +2608,7 @@ ndb_json_parse_sparse_vector(const char *json_str,
 			}
 
 			/* Extract model type */
-			field = ndb_jsonb_object_field((Jsonb *)jsonb, "model");
+			field = ndb_jsonb_object_field((Jsonb *) jsonb, "model");
 			if (field != NULL)
 			{
 				field_text = ndb_jsonb_out(field);
@@ -2514,11 +2638,11 @@ ndb_json_parse_sparse_vector(const char *json_str,
 			}
 
 			/* Extract tokens array */
-			field = ndb_jsonb_object_field((Jsonb *)jsonb, "tokens");
+			field = ndb_jsonb_object_field((Jsonb *) jsonb, "tokens");
 			if (field != NULL)
 			{
 				NDB_DECLARE(char *, tmp);
-				int			*temp_tokens = NULL;
+				int		   *temp_tokens = NULL;
 				int			count = 0;
 
 				tmp = ndb_jsonb_out_cstring(field);
@@ -2528,7 +2652,8 @@ ndb_json_parse_sparse_vector(const char *json_str,
 					NDB_FREE(tmp);
 					if (temp_tokens != NULL && count > 0)
 					{
-						token_ids = (int32 *) palloc(sizeof(int32) * count);
+						NDB_DECLARE(int32 *, token_ids);
+						NDB_ALLOC(token_ids, int32, count);
 						for (i = 0; i < count; i++)
 							((int32 *) token_ids)[i] = (int32) temp_tokens[i];
 						nnz = count;
@@ -2539,7 +2664,7 @@ ndb_json_parse_sparse_vector(const char *json_str,
 			}
 
 			/* Extract weights array */
-			field = ndb_jsonb_object_field((Jsonb *)jsonb, "weights");
+			field = ndb_jsonb_object_field((Jsonb *) jsonb, "weights");
 			if (field != NULL)
 			{
 				NDB_DECLARE(char *, tmp);
@@ -2553,7 +2678,8 @@ ndb_json_parse_sparse_vector(const char *json_str,
 					NDB_FREE(tmp);
 					if (temp_weights != NULL && count > 0)
 					{
-						weights = (float4 *) palloc(sizeof(float4) * count);
+						NDB_DECLARE(float4 *, weights);
+						NDB_ALLOC(weights, float4, count);
 						for (i = 0; i < count && i < (int) nnz; i++)
 							((float4 *) weights)[i] = (float4) temp_weights[i];
 						NDB_FREE(temp_weights);
@@ -2564,22 +2690,24 @@ ndb_json_parse_sparse_vector(const char *json_str,
 		}
 		/* Free jsonb after use */
 		if (jsonb != NULL)
-			{
-				Jsonb *jsonb_ptr = (Jsonb *) jsonb;
-				pfree(jsonb_ptr);
-				jsonb = NULL;
-			}
+		{
+			Jsonb	   *jsonb_ptr = (Jsonb *) jsonb;
+
+			NDB_FREE(jsonb_ptr);
+			jsonb = NULL;
+		}
 	}
 	PG_CATCH();
 	{
 		FlushErrorState();
 		/* Free jsonb if it was allocated */
 		if (jsonb != NULL)
-			{
-				Jsonb *jsonb_ptr = (Jsonb *) jsonb;
-				pfree(jsonb_ptr);
-				jsonb = NULL;
-			}
+		{
+			Jsonb	   *jsonb_ptr = (Jsonb *) jsonb;
+
+			NDB_FREE(jsonb_ptr);
+			jsonb = NULL;
+		}
 		/* Fall back to string-based parsing */
 	}
 	PG_END_TRY();
@@ -2604,6 +2732,7 @@ ndb_json_parse_sparse_vector(const char *json_str,
 		if (strstr(ptr, "\"vocab_size\":") != NULL || strstr(ptr, "vocab_size:") != NULL)
 		{
 			const char *vs_ptr = strstr(ptr, "\"vocab_size\":");
+
 			if (vs_ptr == NULL)
 				vs_ptr = strstr(ptr, "vocab_size:");
 			if (vs_ptr != NULL)
@@ -2628,8 +2757,10 @@ ndb_json_parse_sparse_vector(const char *json_str,
 			result->model_type = 2;
 
 		/* Allocate temporary arrays (zero-initialized) */
-		token_ids = (int32 *) palloc0(sizeof(int32) * capacity);
-		weights = (float4 *) palloc0(sizeof(float4) * capacity);
+		NDB_DECLARE(int32 *, token_ids);
+		NDB_DECLARE(float4 *, weights);
+		NDB_ALLOC(token_ids, int32, capacity);
+		NDB_ALLOC(weights, float4, capacity);
 
 		/* Parse tokens array */
 		tokens_start = strstr(ptr, "\"tokens\":[");
@@ -2648,12 +2779,12 @@ ndb_json_parse_sparse_vector(const char *json_str,
 
 					while (tok_ptr < tokens_end && *tok_ptr)
 					{
-					if (nnz >= capacity)
-					{
-						capacity *= 2;
-						token_ids = (volatile int32 *) repalloc((void *) token_ids, sizeof(int32) * capacity);
-						weights = (volatile float4 *) repalloc((void *) weights, sizeof(float4) * capacity);
-					}
+						if (nnz >= capacity)
+						{
+							capacity *= 2;
+							token_ids = (volatile int32 *) repalloc((void *) token_ids, sizeof(int32) * capacity);
+							weights = (volatile float4 *) repalloc((void *) weights, sizeof(float4) * capacity);
+						}
 
 						while (*tok_ptr == ' ' || *tok_ptr == ',')
 							tok_ptr++;
@@ -2700,7 +2831,10 @@ ndb_json_parse_sparse_vector(const char *json_str,
 						idx++;
 					}
 
-					/* Zero-fill any remaining weights if fewer values than tokens */
+					/*
+					 * Zero-fill any remaining weights if fewer values than
+					 * tokens
+					 */
 					for (; idx < nnz; idx++)
 						weights[idx] = 0.0f;
 				}
@@ -2712,14 +2846,16 @@ ndb_json_parse_sparse_vector(const char *json_str,
 	{
 		if (token_ids != NULL)
 		{
-			int32 *token_ids_ptr = (int32 *) token_ids;
-			pfree(token_ids_ptr);
+			int32	   *token_ids_ptr = (int32 *) token_ids;
+
+			NDB_FREE(token_ids_ptr);
 			token_ids = NULL;
 		}
 		if (weights != NULL)
 		{
-			float4 *weights_ptr = (float4 *) weights;
-			pfree(weights_ptr);
+			float4	   *weights_ptr = (float4 *) weights;
+
+			NDB_FREE(weights_ptr);
 			weights = NULL;
 		}
 		if (errstr)
@@ -2728,12 +2864,13 @@ ndb_json_parse_sparse_vector(const char *json_str,
 	}
 
 	if (result->vocab_size == 0)
-		result->vocab_size = 30522;	/* Default BERT vocab size */
+		result->vocab_size = 30522; /* Default BERT vocab size */
 
 	/* Ensure weights array matches tokens array */
 	if (weights == NULL && (int) nnz > 0)
 	{
-		weights = (float4 *) palloc0(sizeof(float4) * (int) nnz);
+		NDB_DECLARE(float4 *, weights);
+		NDB_ALLOC(weights, float4, (int) nnz);
 	}
 
 	result->nnz = (int32) nnz;
@@ -2778,7 +2915,7 @@ ndb_json_parse_sparse_vector_free(NdbSparseVectorParse *result)
  * Caller must pfree or NDB_FREE the returned string.
  */
 char *
-ndb_json_build_object(const char *key1, const char *value1, ...)
+ndb_json_build_object(const char *key1, const char *value1,...)
 {
 	StringInfoData buf;
 	va_list		args;
@@ -2821,7 +2958,7 @@ ndb_json_build_object(const char *key1, const char *value1, ...)
  * Appends JSON object to existing buffer
  */
 void
-ndb_json_build_object_buf(StringInfo buf, const char *key1, const char *value1, ...)
+ndb_json_build_object_buf(StringInfo buf, const char *key1, const char *value1,...)
 {
 	va_list		args;
 	const char *key;
@@ -2864,7 +3001,7 @@ ndb_json_build_object_buf(StringInfo buf, const char *key1, const char *value1, 
  * Caller must pfree or NDB_FREE the returned string.
  */
 char *
-ndb_json_build_array(const char *value1, ...)
+ndb_json_build_array(const char *value1,...)
 {
 	StringInfoData buf;
 	va_list		args;
@@ -2901,7 +3038,7 @@ ndb_json_build_array(const char *value1, ...)
  * Appends JSON array to existing buffer
  */
 void
-ndb_json_build_array_buf(StringInfo buf, const char *value1, ...)
+ndb_json_build_array_buf(StringInfo buf, const char *value1,...)
 {
 	va_list		args;
 	const char *value;
@@ -2940,8 +3077,8 @@ ndb_json_build_array_buf(StringInfo buf, const char *value1, ...)
 char *
 ndb_json_merge_objects(const char *json1, const char *json2)
 {
-	volatile Jsonb *jsonb1 = NULL;
-	volatile Jsonb *jsonb2 = NULL;
+	volatile	Jsonb *jsonb1 = NULL;
+	volatile	Jsonb *jsonb2 = NULL;
 	char	   *result = NULL;
 
 	if (json1 == NULL && json2 == NULL)
@@ -2959,7 +3096,10 @@ ndb_json_merge_objects(const char *json1, const char *json2)
 		if (jsonb1 != NULL && jsonb2 != NULL)
 		{
 			/* Merge using JSONB concatenation */
-			/* For now, simple approach: convert both to strings and merge manually */
+			/*
+			 * For now, simple approach: convert both to strings and merge
+			 * manually
+			 */
 			char	   *str1 = ndb_jsonb_out_cstring((Jsonb *) jsonb1);
 			char	   *str2 = ndb_jsonb_out_cstring((Jsonb *) jsonb2);
 
@@ -2993,14 +3133,16 @@ ndb_json_merge_objects(const char *json1, const char *json2)
 		}
 		if (jsonb1 != NULL)
 		{
-			Jsonb *jsonb1_ptr = (Jsonb *) jsonb1;
-			pfree(jsonb1_ptr);
+			Jsonb	   *jsonb1_ptr = (Jsonb *) jsonb1;
+
+			NDB_FREE(jsonb1_ptr);
 			jsonb1 = NULL;
 		}
 		if (jsonb2 != NULL)
 		{
-			Jsonb *jsonb2_ptr = (Jsonb *) jsonb2;
-			pfree(jsonb2_ptr);
+			Jsonb	   *jsonb2_ptr = (Jsonb *) jsonb2;
+
+			NDB_FREE(jsonb2_ptr);
 			jsonb2 = NULL;
 		}
 	}
@@ -3011,14 +3153,16 @@ ndb_json_merge_objects(const char *json1, const char *json2)
 		FlushErrorState();
 		if (jsonb1 != NULL)
 		{
-			Jsonb *jsonb1_ptr = (Jsonb *) jsonb1;
-			pfree(jsonb1_ptr);
+			Jsonb	   *jsonb1_ptr = (Jsonb *) jsonb1;
+
+			NDB_FREE(jsonb1_ptr);
 			jsonb1 = NULL;
 		}
 		if (jsonb2 != NULL)
 		{
-			Jsonb *jsonb2_ptr = (Jsonb *) jsonb2;
-			pfree(jsonb2_ptr);
+			Jsonb	   *jsonb2_ptr = (Jsonb *) jsonb2;
+
+			NDB_FREE(jsonb2_ptr);
 			jsonb2 = NULL;
 		}
 		/* Simple string concatenation fallback */
@@ -3050,7 +3194,7 @@ ndb_json_merge_objects(const char *json1, const char *json2)
  * ndb_json_parse_array - Parse JSON array into string array
  * Returns array of strings and count
  */
-char **
+char	  **
 ndb_json_parse_array(const char *json_str, int *count)
 {
 	NDB_DECLARE(Jsonb *, jsonb);
@@ -3079,7 +3223,8 @@ ndb_json_parse_array(const char *json_str, int *count)
 				JsonbValue	v;
 				JsonbIteratorToken type;
 
-				result = (char **) palloc(sizeof(char *) * (int) capacity);
+				NDB_DECLARE(char **, local_result);
+				NDB_ALLOC(local_result, char *, (int) capacity);
 
 				it = JsonbIteratorInit(&array_field->root);
 				while ((type = JsonbIteratorNext(&it, &v, true)) != WJB_DONE)
@@ -3089,12 +3234,12 @@ ndb_json_parse_array(const char *json_str, int *count)
 						if ((int) n >= capacity)
 						{
 							capacity *= 2;
-							result = (char **) repalloc((char **) result, sizeof(char *) * capacity);
+							local_result = (char **) repalloc((char **) local_result, sizeof(char *) * capacity);
 						}
 
 						if (v.type == jbvString)
 						{
-							((char **) result)[(int) n] = pnstrdup(v.val.string.val, v.val.string.len);
+							local_result[(int) n] = pnstrdup(v.val.string.val, v.val.string.len);
 							n++;
 						}
 						else
@@ -3110,7 +3255,7 @@ ndb_json_parse_array(const char *json_str, int *count)
 								if (elem_text != NULL)
 								{
 									elem_str = text_to_cstring(elem_text);
-									((char **) result)[(int) n] = elem_str;
+									local_result[(int) n] = elem_str;
 									n++;
 									NDB_FREE(elem_text);
 								}
@@ -3118,33 +3263,37 @@ ndb_json_parse_array(const char *json_str, int *count)
 							}
 						}
 					}
+					result = local_result;
 				}
 			}
 		}
 		/* Free jsonb after use */
 		if (jsonb != NULL)
-			{
-				Jsonb *jsonb_ptr = (Jsonb *) jsonb;
-				pfree(jsonb_ptr);
-				jsonb = NULL;
-			}
+		{
+			Jsonb	   *jsonb_ptr = (Jsonb *) jsonb;
+
+			NDB_FREE(jsonb_ptr);
+			jsonb = NULL;
+		}
 	}
 	PG_CATCH();
 	{
 		FlushErrorState();
 		/* Free jsonb if it was allocated */
 		if (jsonb != NULL)
-			{
-				Jsonb *jsonb_ptr = (Jsonb *) jsonb;
-				pfree(jsonb_ptr);
-				jsonb = NULL;
-			}
+		{
+			Jsonb	   *jsonb_ptr = (Jsonb *) jsonb;
+
+			NDB_FREE(jsonb_ptr);
+			jsonb = NULL;
+		}
 		/* Fall back to string-based parsing */
 		if (result != NULL)
 		{
 			{
-				char **result_ptr = (char **) result;
-				pfree(result_ptr);
+				char	  **result_ptr = (char **) result;
+
+				NDB_FREE(result_ptr);
 				result = NULL;
 			}
 			result = NULL;
@@ -3163,8 +3312,9 @@ ndb_json_parse_array(const char *json_str, int *count)
 		if (result != NULL)
 		{
 			{
-				char **result_ptr = (char **) result;
-				pfree(result_ptr);
+				char	  **result_ptr = (char **) result;
+
+				NDB_FREE(result_ptr);
 				result = NULL;
 			}
 			result = NULL;
@@ -3176,7 +3326,8 @@ ndb_json_parse_array(const char *json_str, int *count)
 		if (*p == '[')
 		{
 			p++;
-			result = (char **) palloc(sizeof(char *) * capacity);
+			NDB_DECLARE(char **, local_result);
+			NDB_ALLOC(local_result, char *, capacity);
 
 			while (*p && *p != ']')
 			{
@@ -3232,11 +3383,12 @@ ndb_json_parse_array(const char *json_str, int *count)
 				if (n >= capacity)
 				{
 					capacity *= 2;
-					result = repalloc(result, sizeof(char *) * capacity);
+					local_result = repalloc(local_result, sizeof(char *) * capacity);
 				}
 
-				result[n++] = value;
+				local_result[n++] = value;
 			}
+			result = local_result;
 		}
 	}
 
@@ -3280,10 +3432,11 @@ float *
 ndb_json_parse_float_array(const char *json_str, int *count)
 {
 	char	  **str_array = NULL;
-	float	   *result = NULL;
 	int			str_count = 0;
 	int			i;
 	char	   *endptr;
+
+	NDB_DECLARE(float *, result);
 
 	if (json_str == NULL || count == NULL)
 		return NULL;
@@ -3294,7 +3447,7 @@ ndb_json_parse_float_array(const char *json_str, int *count)
 	if (str_array == NULL || str_count == 0)
 		return NULL;
 
-	result = (float *) palloc(sizeof(float) * str_count);
+	NDB_ALLOC(result, float, str_count);
 
 	for (i = 0; i < str_count; i++)
 	{
@@ -3321,10 +3474,11 @@ int *
 ndb_json_parse_int_array(const char *json_str, int *count)
 {
 	char	  **str_array = NULL;
-	int		   *result = NULL;
 	int			str_count = 0;
 	int			i;
 	char	   *endptr;
+
+	NDB_DECLARE(int *, result);
 
 	if (json_str == NULL || count == NULL)
 		return NULL;
@@ -3335,7 +3489,7 @@ ndb_json_parse_int_array(const char *json_str, int *count)
 	if (str_array == NULL || str_count == 0)
 		return NULL;
 
-	result = (int *) palloc(sizeof(int) * str_count);
+	NDB_ALLOC(result, int, str_count);
 
 	for (i = 0; i < str_count; i++)
 	{
@@ -3366,8 +3520,8 @@ ndb_json_parse_int_array(const char *json_str, int *count)
 bool
 ndb_json_validate(const char *json_str)
 {
-	volatile Jsonb *jsonb = NULL;
-	volatile bool	result = false;
+	volatile	Jsonb *jsonb = NULL;
+	volatile bool result = false;
 
 	if (json_str == NULL || json_str[0] == '\0')
 		return false;
@@ -3379,9 +3533,10 @@ ndb_json_validate(const char *json_str)
 		{
 			result = true;
 			if (jsonb != NULL)
-				{
-				Jsonb *jsonb_ptr = (Jsonb *) jsonb;
-				pfree(jsonb_ptr);
+			{
+				Jsonb	   *jsonb_ptr = (Jsonb *) jsonb;
+
+				NDB_FREE(jsonb_ptr);
 				jsonb = NULL;
 			}
 		}
@@ -3390,11 +3545,12 @@ ndb_json_validate(const char *json_str)
 	{
 		FlushErrorState();
 		if (jsonb != NULL)
-			{
-				Jsonb *jsonb_ptr = (Jsonb *) jsonb;
-				pfree(jsonb_ptr);
-				jsonb = NULL;
-			}
+		{
+			Jsonb	   *jsonb_ptr = (Jsonb *) jsonb;
+
+			NDB_FREE(jsonb_ptr);
+			jsonb = NULL;
+		}
 		result = false;
 	}
 	PG_END_TRY();
@@ -3456,7 +3612,7 @@ ndb_json_is_empty(const char *json_str)
 char *
 ndb_json_strip_whitespace(const char *json_str)
 {
-	volatile Jsonb *jsonb = NULL;
+	volatile	Jsonb *jsonb = NULL;
 	char	   *result = NULL;
 
 	if (json_str == NULL)
@@ -3470,9 +3626,10 @@ ndb_json_strip_whitespace(const char *json_str)
 		{
 			result = ndb_jsonb_out_cstring((Jsonb *) jsonb);
 			if (jsonb != NULL)
-				{
-				Jsonb *jsonb_ptr = (Jsonb *) jsonb;
-				pfree(jsonb_ptr);
+			{
+				Jsonb	   *jsonb_ptr = (Jsonb *) jsonb;
+
+				NDB_FREE(jsonb_ptr);
 				jsonb = NULL;
 			}
 		}
@@ -3481,11 +3638,12 @@ ndb_json_strip_whitespace(const char *json_str)
 	{
 		FlushErrorState();
 		if (jsonb != NULL)
-			{
-				Jsonb *jsonb_ptr = (Jsonb *) jsonb;
-				pfree(jsonb_ptr);
-				jsonb = NULL;
-			}
+		{
+			Jsonb	   *jsonb_ptr = (Jsonb *) jsonb;
+
+			NDB_FREE(jsonb_ptr);
+			jsonb = NULL;
+		}
 		/* Return original string if parsing fails */
 		result = pstrdup(json_str);
 	}
@@ -3501,9 +3659,9 @@ ndb_json_strip_whitespace(const char *json_str)
 NdbJsonParseResult *
 ndb_json_parse_object(const char *json_str, int *count)
 {
-	volatile Jsonb *jsonb = NULL;
+	volatile	Jsonb *jsonb = NULL;
 	volatile NdbJsonParseResult *result = NULL;
-	volatile int	n = 0;
+	volatile int n = 0;
 	int			capacity = 16;
 
 	if (json_str == NULL || count == NULL)
@@ -3522,9 +3680,10 @@ ndb_json_parse_object(const char *json_str, int *count)
 			JsonbIteratorToken type;
 			char	   *current_key = NULL;
 
-			result = (NdbJsonParseResult *) palloc(sizeof(NdbJsonParseResult) * capacity);
+			NDB_DECLARE(NdbJsonParseResult *, result);
+			NDB_ALLOC(result, NdbJsonParseResult, capacity);
 
-			it = JsonbIteratorInit(&((Jsonb *)jsonb)->root);
+			it = JsonbIteratorInit(&((Jsonb *) jsonb)->root);
 			while ((type = JsonbIteratorNext(&it, &v, true)) != WJB_DONE)
 			{
 				if (type == WJB_KEY && v.type == jbvString)
@@ -3601,22 +3760,24 @@ ndb_json_parse_object(const char *json_str, int *count)
 		}
 		/* Free jsonb after use */
 		if (jsonb != NULL)
-			{
-				Jsonb *jsonb_ptr = (Jsonb *) jsonb;
-				pfree(jsonb_ptr);
-				jsonb = NULL;
-			}
+		{
+			Jsonb	   *jsonb_ptr = (Jsonb *) jsonb;
+
+			NDB_FREE(jsonb_ptr);
+			jsonb = NULL;
+		}
 	}
 	PG_CATCH();
 	{
 		FlushErrorState();
 		/* Free jsonb if it was allocated */
 		if (jsonb != NULL)
-			{
-				Jsonb *jsonb_ptr = (Jsonb *) jsonb;
-				pfree(jsonb_ptr);
-				jsonb = NULL;
-			}
+		{
+			Jsonb	   *jsonb_ptr = (Jsonb *) jsonb;
+
+			NDB_FREE(jsonb_ptr);
+			jsonb = NULL;
+		}
 		/* Free result if partially allocated */
 		if (result != NULL)
 		{
@@ -3631,7 +3792,8 @@ ndb_json_parse_object(const char *json_str, int *count)
 			}
 			{
 				NdbJsonParseResult *result_ptr = (NdbJsonParseResult *) result;
-				pfree(result_ptr);
+
+				NDB_FREE(result_ptr);
 				result = NULL;
 			}
 			result = NULL;
@@ -3648,6 +3810,7 @@ ndb_json_parse_object(const char *json_str, int *count)
 	if (result != NULL)
 	{
 		NdbJsonParseResult *result_ptr = (NdbJsonParseResult *) result;
+
 		NDB_FREE(result_ptr);
 	}
 
@@ -3682,7 +3845,7 @@ ndb_json_parse_object_free(NdbJsonParseResult *arr, int count)
  * Note: This is a simplified implementation using string building
  */
 Jsonb *
-ndb_jsonb_build_object(const char *key1, const char *value1, ...)
+ndb_jsonb_build_object(const char *key1, const char *value1,...)
 {
 	StringInfoData buf;
 	va_list		args;
@@ -3736,7 +3899,7 @@ ndb_jsonb_build_object(const char *key1, const char *value1, ...)
  * Note: This is a simplified implementation using string building
  */
 Jsonb *
-ndb_jsonb_build_array(const char *value1, ...)
+ndb_jsonb_build_array(const char *value1,...)
 {
 	StringInfoData buf;
 	va_list		args;

@@ -458,7 +458,11 @@ vector_to_halfvec(PG_FUNCTION_ARGS)
 						v->dim)));
 
 	size = offsetof(VectorF16, data) + sizeof(uint16) * v->dim;
-	/* Variable-length type requires custom size - use palloc0 but ensure proper cleanup */
+
+	/*
+	 * Variable-length type requires custom size - use palloc0 but ensure
+	 * proper cleanup
+	 */
 	/* Note: For variable-length PostgreSQL types, palloc0 is standard */
 	result = (VectorF16 *) palloc0(size);
 	SET_VARSIZE(result, size);

@@ -78,6 +78,7 @@ discover_topics_simple(PG_FUNCTION_ARGS)
 	float	  **data;
 	int			nvec,
 				dim;
+
 	NDB_DECLARE(int *, assignments);
 	NDB_DECLARE(double **, centroids);
 	NDB_DECLARE(int *, cluster_sizes);
@@ -87,6 +88,7 @@ discover_topics_simple(PG_FUNCTION_ARGS)
 				k,
 				d;
 	ArrayType  *result;
+
 	NDB_DECLARE(Datum *, result_datums);
 	int16		typlen;
 	bool		typbyval;
@@ -281,6 +283,7 @@ topic_discovery_model_serialize_to_bytea(float **topic_word_dist, int n_topics, 
 {
 	StringInfoData buf;
 	int			total_size;
+
 	NDB_DECLARE(char *, result_bytes);
 	bytea	   *result;
 	int			t,
@@ -313,6 +316,7 @@ topic_discovery_model_deserialize_from_bytea(const bytea * data, float ***topic_
 	int			offset = 0;
 	int			t,
 				w;
+
 	NDB_DECLARE(float **, topic_word_dist);
 
 	if (data == NULL || VARSIZE(data) < VARHDRSZ + sizeof(int) * 2 + sizeof(float) * 2)
@@ -361,7 +365,7 @@ topic_discovery_model_free(float **topic_word_dist, int n_topics)
 }
 
 static bool
-topic_discovery_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
+topic_discovery_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **errstr)
 {
 	NDB_DECLARE(TopicDiscoveryGpuModelState *, state);
 	float	  **data = NULL;
@@ -375,6 +379,7 @@ topic_discovery_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char 
 	int			t,
 				w,
 				i;
+
 	NDB_DECLARE(bytea *, model_data);
 	NDB_DECLARE(Jsonb *, metrics);
 	StringInfoData metrics_json;
@@ -505,7 +510,7 @@ topic_discovery_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char 
 }
 
 static bool
-topic_discovery_gpu_predict(const MLGpuModel * model, const float *input, int input_dim,
+topic_discovery_gpu_predict(const MLGpuModel *model, const float *input, int input_dim,
 							float *output, int output_dim, char **errstr)
 {
 	const		TopicDiscoveryGpuModelState *state;
@@ -516,6 +521,7 @@ topic_discovery_gpu_predict(const MLGpuModel * model, const float *input, int in
 	float		beta = 0.0f;
 	int			t,
 				w;
+
 	NDB_DECLARE(float *, topic_probs);
 	float		sum = 0.0f;
 
@@ -600,8 +606,8 @@ topic_discovery_gpu_predict(const MLGpuModel * model, const float *input, int in
 }
 
 static bool
-topic_discovery_gpu_evaluate(const MLGpuModel * model, const MLGpuEvalSpec * spec,
-							 MLGpuMetrics * out, char **errstr)
+topic_discovery_gpu_evaluate(const MLGpuModel *model, const MLGpuEvalSpec *spec,
+							 MLGpuMetrics *out, char **errstr)
 {
 	const		TopicDiscoveryGpuModelState *state;
 	Jsonb	   *metrics_json;
@@ -641,12 +647,13 @@ topic_discovery_gpu_evaluate(const MLGpuModel * model, const MLGpuEvalSpec * spe
 }
 
 static bool
-topic_discovery_gpu_serialize(const MLGpuModel * model, bytea * *payload_out,
+topic_discovery_gpu_serialize(const MLGpuModel *model, bytea * *payload_out,
 							  Jsonb * *metadata_out, char **errstr)
 {
 	const		TopicDiscoveryGpuModelState *state;
 	bytea	   *payload_copy;
 	int			payload_size;
+
 	NDB_DECLARE(char *, payload_bytes);
 
 	if (errstr != NULL)
@@ -688,7 +695,7 @@ topic_discovery_gpu_serialize(const MLGpuModel * model, bytea * *payload_out,
 }
 
 static bool
-topic_discovery_gpu_deserialize(MLGpuModel * model, const bytea * payload,
+topic_discovery_gpu_deserialize(MLGpuModel *model, const bytea * payload,
 								const Jsonb * metadata, char **errstr)
 {
 	NDB_DECLARE(TopicDiscoveryGpuModelState *, state);
@@ -702,6 +709,7 @@ topic_discovery_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 	JsonbIterator *it;
 	JsonbValue	v;
 	int			r;
+
 	NDB_DECLARE(char *, payload_bytes);
 	NDB_DECLARE(char *, metadata_bytes);
 	Jsonb	   *metadata_copy;
@@ -741,6 +749,7 @@ topic_discovery_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 	if (metadata != NULL)
 	{
 		int			metadata_size = VARSIZE(metadata);
+
 		NDB_ALLOC(metadata_bytes, char, metadata_size);
 		metadata_copy = (Jsonb *) metadata_bytes;
 
@@ -778,7 +787,7 @@ topic_discovery_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 }
 
 static void
-topic_discovery_gpu_destroy(MLGpuModel * model)
+topic_discovery_gpu_destroy(MLGpuModel *model)
 {
 	TopicDiscoveryGpuModelState *state;
 

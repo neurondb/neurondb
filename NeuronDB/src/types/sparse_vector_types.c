@@ -247,7 +247,10 @@ sparse_vector_dot_product(PG_FUNCTION_ARGS)
 	int			i,
 				j;
 
-	/* Get and detoast the arguments (STRICT function, so NULLs already handled) */
+	/*
+	 * Get and detoast the arguments (STRICT function, so NULLs already
+	 * handled)
+	 */
 	a = PG_GETARG_SPARSE_VECTOR_P(0);
 	b = PG_GETARG_SPARSE_VECTOR_P(1);
 

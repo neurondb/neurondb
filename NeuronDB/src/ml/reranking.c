@@ -105,10 +105,12 @@ rerank_cross_encoder(PG_FUNCTION_ARGS)
 		ArrayType  *candidates_array;
 		text	   *model_text;
 		int			top_k;
+
 		NDB_DECLARE(char *, query_str);
 		Datum	   *candidate_datums;
 		bool	   *candidate_nulls;
 		int			ncandidates;
+
 		NDB_DECLARE(float *, scores);
 
 		/*-- Prepare multi-call context --*/
@@ -159,6 +161,7 @@ rerank_cross_encoder(PG_FUNCTION_ARGS)
 			NdbLLMConfig cfg;
 			NdbLLMCallOptions call_opts;
 			int			i;
+
 			NDB_DECLARE(const char **, docs);
 			int			api_result;
 
@@ -232,7 +235,7 @@ rerank_cross_encoder(PG_FUNCTION_ARGS)
 				for (i = 0; i < ncandidates; i++)
 				{
 					if (docs[i] && docs[i][0] != '\0')
-						pfree((char *)docs[i]);
+						pfree((char *) docs[i]);
 				}
 				NDB_FREE(docs);
 				NDB_FREE(query_str);
@@ -247,7 +250,7 @@ rerank_cross_encoder(PG_FUNCTION_ARGS)
 			{
 				if (docs[i][0] != '\0')
 				{
-					pfree((char *)docs[i]);
+					pfree((char *) docs[i]);
 				}
 			}
 			NDB_FREE(docs);
@@ -340,6 +343,7 @@ rerank_llm(PG_FUNCTION_ARGS)
 		text	   *prompt_template_text;
 		int			top_k;
 		float4		temperature;
+
 		NDB_DECLARE(char *, query_str);
 		NDB_DECLARE(char *, model_str);
 		NDB_DECLARE(char *, prompt_template);
@@ -353,6 +357,7 @@ rerank_llm(PG_FUNCTION_ARGS)
 		NdbLLMConfig cfg;
 		NdbLLMCallOptions call_opts;
 		NdbLLMResp	resp;
+
 		NDB_DECLARE(char *, llm_response);
 		int			api_result;
 
@@ -611,14 +616,18 @@ rerank_cohere(PG_FUNCTION_ARGS)
 		ArrayType  *candidates_array;
 		text	   *model_text;
 		int			top_k;
+
 		NDB_DECLARE(char *, query_str);
 		Datum	   *candidate_datums;
 		bool	   *candidate_nulls;
 		int			ncandidates;
+
 		NDB_DECLARE(float *, scores);
 		int			i;
+
 		NDB_DECLARE(const char **, docs);
 		int			api_result;
+
 		NDB_DECLARE(char *, model_str);
 		NdbLLMConfig cfg;
 		NdbLLMCallOptions call_opts;
@@ -697,7 +706,7 @@ rerank_cohere(PG_FUNCTION_ARGS)
 		{
 			if (docs[i][0] != '\0')
 			{
-				pfree((char *)docs[i]);
+				pfree((char *) docs[i]);
 			}
 		}
 		NDB_FREE(docs);
@@ -765,15 +774,20 @@ rerank_colbert(PG_FUNCTION_ARGS)
 		ArrayType  *candidates_array;
 		text	   *model_text;
 		int			top_k;
+
 		NDB_DECLARE(char *, query_str);
 		Datum	   *candidate_datums;
 		bool	   *candidate_nulls;
 		int			ncandidates;
-		int			i, j;
+		int			i,
+					j;
+
 		NDB_DECLARE(char *, model_str);
 		NdbLLMConfig cfg;
+
 		NDB_DECLARE(float *, query_embedding);
 		int			query_dim = 0;
+
 		NDB_DECLARE(float *, doc_embeddings);
 
 		funcctx = SRF_FIRSTCALL_INIT();
@@ -830,6 +844,7 @@ rerank_colbert(PG_FUNCTION_ARGS)
 			for (i = 0; i < ncandidates; i++)
 			{
 				char	   *doc_str;
+
 				NDB_DECLARE(float *, doc_emb);
 				int			temp_dim = 0;
 
@@ -850,7 +865,8 @@ rerank_colbert(PG_FUNCTION_ARGS)
 			for (i = 0; i < ncandidates; i++)
 			{
 				float		maxsim_score = 0.0f;
-				int			num_query_tokens = query_dim / 128; /* Approximate token count */
+				int			num_query_tokens = query_dim / 128; /* Approximate token
+																 * count */
 
 				if (num_query_tokens < 1)
 					num_query_tokens = 1;
@@ -864,6 +880,7 @@ rerank_colbert(PG_FUNCTION_ARGS)
 					for (k = 0; k < query_dim && k < 128; k++)
 					{
 						float		sim = query_embedding[j] * doc_embeddings[i * query_dim + k];
+
 						if (sim > max_sim)
 							max_sim = sim;
 					}
@@ -952,13 +969,16 @@ rerank_ltr(PG_FUNCTION_ARGS)
 		ArrayType  *candidates_array;
 		text	   *model_text;
 		int			top_k;
+
 		NDB_DECLARE(char *, query_str);
 		Datum	   *candidate_datums;
 		bool	   *candidate_nulls;
 		int			ncandidates;
 		int			i;
+
 		NDB_DECLARE(char *, model_str);
 		NdbLLMConfig cfg;
+
 		NDB_DECLARE(float *, query_embedding);
 		int			query_dim = 0;
 
@@ -989,7 +1009,10 @@ rerank_ltr(PG_FUNCTION_ARGS)
 		state->indices = (int *) palloc0(ncandidates * sizeof(int));
 		state->ncandidates = ncandidates;
 
-		/* LTR uses feature-based scoring (simplified: cosine similarity + features) */
+		/*
+		 * LTR uses feature-based scoring (simplified: cosine similarity +
+		 * features)
+		 */
 		model_str = model_text ? text_to_cstring(model_text) : NULL;
 		cfg.provider = neurondb_llm_provider ? neurondb_llm_provider : "huggingface";
 		cfg.endpoint = neurondb_llm_endpoint ? neurondb_llm_endpoint : "https://router.huggingface.co";
@@ -1007,6 +1030,7 @@ rerank_ltr(PG_FUNCTION_ARGS)
 			for (i = 0; i < ncandidates; i++)
 			{
 				char	   *doc_str;
+
 				NDB_DECLARE(float *, doc_emb);
 				int			doc_dim = 0;
 				float		cosine_sim = 0.0f;
@@ -1037,7 +1061,11 @@ rerank_ltr(PG_FUNCTION_ARGS)
 							cosine_sim = dot_product / (query_length * doc_length);
 
 						/* LTR score: combination of similarity and features */
-						/* Simplified: use cosine similarity as base, add document length feature */
+
+						/*
+						 * Simplified: use cosine similarity as base, add
+						 * document length feature
+						 */
 						state->scores[i] = cosine_sim * 0.8f + (doc_length / (doc_length + 100.0f)) * 0.2f;
 
 						NDB_FREE(doc_emb);
@@ -1128,6 +1156,7 @@ rerank_ensemble(PG_FUNCTION_ARGS)
 		ArrayType  *candidates_array;
 		ArrayType  *methods_array;
 		int			top_k;
+
 		NDB_DECLARE(char *, query_str);
 		Datum	   *candidate_datums;
 		bool	   *candidate_nulls;
@@ -1135,8 +1164,10 @@ rerank_ensemble(PG_FUNCTION_ARGS)
 		Datum	   *method_datums;
 		bool	   *method_nulls;
 		int			nmethods;
-		float	   **method_scores;
-		int			i, j;
+		float	  **method_scores;
+		int			i,
+					j;
+
 		NDB_DECLARE(float *, weights);
 
 		funcctx = SRF_FIRSTCALL_INIT();
@@ -1185,10 +1216,12 @@ rerank_ensemble(PG_FUNCTION_ARGS)
 		for (i = 0; i < nmethods; i++)
 		{
 			char	   *method_str;
+
 			NDB_DECLARE(float *, temp_scores);
 			int			api_result;
 			NdbLLMConfig cfg;
 			NdbLLMCallOptions call_opts;
+
 			NDB_DECLARE(const char **, docs);
 
 			if (method_nulls[i] || !DatumGetPointer(method_datums[i]))
@@ -1237,7 +1270,7 @@ rerank_ensemble(PG_FUNCTION_ARGS)
 			{
 				if (docs[j][0] != '\0')
 				{
-					pfree((char *)docs[j]);
+					pfree((char *) docs[j]);
 				}
 			}
 			NDB_FREE(docs);

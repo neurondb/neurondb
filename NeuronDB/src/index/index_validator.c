@@ -1076,6 +1076,7 @@ neurondb_rebuild_index(PG_FUNCTION_ARGS)
 		char	   *indexName = NULL;
 		StringInfoData sql;
 		TimestampTz rebuildTime;
+
 		NDB_DECLARE(NdbSpiSession *, session2);
 
 		/* Get heap relation OID from index */
@@ -1115,6 +1116,7 @@ neurondb_rebuild_index(PG_FUNCTION_ARGS)
 			char	   *inner_indexName;
 			char	   *rebuildCmd;
 			StringInfoData cmd;
+
 			NDB_DECLARE(NdbSpiSession *, session);
 
 			inner_indexName = pstrdup(RelationGetRelationName(indexRel));

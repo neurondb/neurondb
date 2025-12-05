@@ -147,6 +147,7 @@ rerank_long_context(PG_FUNCTION_ARGS)
 		int			ncandidates;
 		char	   *query_str;
 		int			i;
+
 		NDB_DECLARE(float *, scores);
 		const char **docs = NULL;
 		NdbLLMConfig cfg;
@@ -167,7 +168,7 @@ rerank_long_context(PG_FUNCTION_ARGS)
 		if (ncandidates <= 0)
 			ereport(ERROR, (errmsg("candidate array cannot be empty")));
 		if (max_tokens < 1)
-			max_tokens = 8192; /* Default to 8K tokens */
+			max_tokens = 8192;	/* Default to 8K tokens */
 
 		/* Configure for Flash Attention reranking */
 		cfg.provider = neurondb_llm_provider ? neurondb_llm_provider : "huggingface";
@@ -190,8 +191,10 @@ rerank_long_context(PG_FUNCTION_ARGS)
 			if (!candidate_nulls[i] && DatumGetPointer(candidate_datums[i]))
 			{
 				char	   *doc_str = text_to_cstring(DatumGetTextPP(candidate_datums[i]));
+
 				/* Truncate if exceeds max_tokens (simplified check) */
-				if (strlen(doc_str) > max_tokens * 4) /* Approximate: 4 chars per token */
+				if (strlen(doc_str) > max_tokens * 4)	/* Approximate: 4 chars
+														 * per token */
 				{
 					doc_str[max_tokens * 4] = '\0';
 				}
@@ -253,8 +256,9 @@ rerank_long_context(PG_FUNCTION_ARGS)
 				{
 					if (state->scores[j] > state->scores[i])
 					{
-						float	tmp_s = state->scores[i];
-						int		tmp_i = state->indices[i];
+						float		tmp_s = state->scores[i];
+						int			tmp_i = state->indices[i];
+
 						state->scores[i] = state->scores[j];
 						state->indices[i] = state->indices[j];
 						state->scores[j] = tmp_s;
@@ -299,8 +303,8 @@ rerank_long_context(PG_FUNCTION_ARGS)
 	funcctx = SRF_PERCALL_SETUP();
 	{
 		RerankState *state = (RerankState *) funcctx->user_fctx;
-		uint32 call_cntr = funcctx->call_cntr;
-		uint32 max_calls = funcctx->max_calls;
+		uint32		call_cntr = funcctx->call_cntr;
+		uint32		max_calls = funcctx->max_calls;
 
 		if (call_cntr < max_calls)
 		{

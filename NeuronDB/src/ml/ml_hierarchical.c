@@ -163,6 +163,7 @@ cluster_hierarchical(PG_FUNCTION_ARGS)
 	float	  **data;
 	int			nvec;
 	int			dim;
+
 	NDB_DECLARE(ClusterNode *, clusters);
 	NDB_DECLARE(int *, cluster_assignments);
 	int			n_active_clusters;
@@ -172,6 +173,7 @@ cluster_hierarchical(PG_FUNCTION_ARGS)
 				k,
 				d;
 	ArrayType  *result;
+
 	NDB_DECLARE(Datum *, result_datums);
 	int16		typlen;
 	bool		typbyval;
@@ -224,10 +226,10 @@ cluster_hierarchical(PG_FUNCTION_ARGS)
 		/* Free data array and rows if data is not NULL */
 		if (data != NULL)
 		{
-			for (int i = 0; i < nvec; i++)
+			for (int idx = 0; idx < nvec; idx++)
 			{
-				if (data[i] != NULL)
-					NDB_FREE(data[i]);
+				if (data[idx] != NULL)
+					NDB_FREE(data[idx]);
 			}
 			NDB_FREE(data);
 		}
@@ -361,6 +363,7 @@ cluster_hierarchical(PG_FUNCTION_ARGS)
 
 		{
 			int			new_size;
+
 			NDB_DECLARE(int *, new_members);
 
 			new_size = clusters[merge_i].size + clusters[merge_j].size;
@@ -454,6 +457,7 @@ predict_hierarchical_cluster(PG_FUNCTION_ARGS)
 	ArrayType  *features_array;
 	int			n_features;
 	int			cluster_id = -1;
+
 	NDB_DECLARE(float *, features);
 
 	model_id = PG_GETARG_INT32(0);
@@ -596,6 +600,7 @@ evaluate_hierarchical_by_model_id(PG_FUNCTION_ARGS)
 	double		silhouette_score;
 	double		calinski_harabasz;
 	int			n_clusters_found;
+
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext_spi;
 
@@ -1050,7 +1055,7 @@ hierarchical_model_deserialize_from_bytea(const bytea * data, float ***centers_o
 }
 
 static bool
-hierarchical_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
+hierarchical_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **errstr)
 {
 	NDB_DECLARE(HierarchicalGpuModelState *, state);
 	NDB_DECLARE(float **, data);
@@ -1064,11 +1069,13 @@ hierarchical_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **e
 	int			i,
 				c,
 				d;
+
 	NDB_DECLARE(ClusterNode *, clusters);
 	int			n_active_clusters = 0;
 	int			iter,
 				j,
 				k;
+
 	NDB_DECLARE(bytea *, model_data);
 	NDB_DECLARE(Jsonb *, metrics);
 	StringInfoData metrics_json;
@@ -1209,6 +1216,7 @@ hierarchical_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **e
 
 		{
 			int			new_size = clusters[merge_i].size + clusters[merge_j].size;
+
 			NDB_DECLARE(int *, new_members);
 			NDB_ALLOC(new_members, int, new_size);
 
@@ -1307,7 +1315,7 @@ hierarchical_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **e
 }
 
 static bool
-hierarchical_gpu_predict(const MLGpuModel * model, const float *input, int input_dim,
+hierarchical_gpu_predict(const MLGpuModel *model, const float *input, int input_dim,
 						 float *output, int output_dim, char **errstr)
 {
 	const		HierarchicalGpuModelState *state;
@@ -1389,8 +1397,8 @@ hierarchical_gpu_predict(const MLGpuModel * model, const float *input, int input
 }
 
 static bool
-hierarchical_gpu_evaluate(const MLGpuModel * model, const MLGpuEvalSpec * spec,
-						  MLGpuMetrics * out, char **errstr)
+hierarchical_gpu_evaluate(const MLGpuModel *model, const MLGpuEvalSpec *spec,
+						  MLGpuMetrics *out, char **errstr)
 {
 	const		HierarchicalGpuModelState *state;
 	Jsonb	   *metrics_json;
@@ -1429,10 +1437,11 @@ hierarchical_gpu_evaluate(const MLGpuModel * model, const MLGpuEvalSpec * spec,
 }
 
 static bool
-hierarchical_gpu_serialize(const MLGpuModel * model, bytea * *payload_out,
+hierarchical_gpu_serialize(const MLGpuModel *model, bytea * *payload_out,
 						   Jsonb * *metadata_out, char **errstr)
 {
 	const		HierarchicalGpuModelState *state;
+
 	NDB_DECLARE(bytea *, payload_copy);
 	int			payload_size;
 
@@ -1478,12 +1487,13 @@ hierarchical_gpu_serialize(const MLGpuModel * model, bytea * *payload_out,
 }
 
 static bool
-hierarchical_gpu_deserialize(MLGpuModel * model, const bytea * payload,
+hierarchical_gpu_deserialize(MLGpuModel *model, const bytea * payload,
 							 const Jsonb * metadata, char **errstr)
 {
 	NDB_DECLARE(HierarchicalGpuModelState *, state);
 	NDB_DECLARE(bytea *, payload_copy);
 	int			payload_size;
+
 	NDB_DECLARE(float **, centers);
 	int			n_clusters = 0;
 	int			dim = 0;
@@ -1532,6 +1542,7 @@ hierarchical_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 	if (metadata != NULL)
 	{
 		int			metadata_size;
+
 		NDB_DECLARE(char *, metadata_bytes);
 		Jsonb	   *metadata_copy;
 
@@ -1573,7 +1584,7 @@ hierarchical_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 }
 
 static void
-hierarchical_gpu_destroy(MLGpuModel * model)
+hierarchical_gpu_destroy(MLGpuModel *model)
 {
 	HierarchicalGpuModelState *state;
 

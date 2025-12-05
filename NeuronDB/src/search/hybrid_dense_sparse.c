@@ -54,6 +54,7 @@ hybrid_dense_sparse_search(PG_FUNCTION_ARGS)
 	Tuplestorestate *tupstore;
 	MemoryContext per_query_ctx;
 	MemoryContext oldcontext;
+
 	NDB_DECLARE(NdbSpiSession *, session);
 	StringInfoData sql;
 	int			ret;

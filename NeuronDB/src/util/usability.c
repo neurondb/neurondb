@@ -35,6 +35,7 @@ create_model(PG_FUNCTION_ARGS)
 	char	   *name_str;
 	char	   *type_str;
 	char	   *config_str;
+
 	NDB_DECLARE(NdbSpiSession *, session);
 
 	name_str = text_to_cstring(model_name);
@@ -71,6 +72,7 @@ drop_model(PG_FUNCTION_ARGS)
 {
 	text	   *model_name = PG_GETARG_TEXT_PP(0);
 	char	   *name_str;
+
 	NDB_DECLARE(NdbSpiSession *, session2);
 
 	name_str = text_to_cstring(model_name);

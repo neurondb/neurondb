@@ -190,9 +190,9 @@ rf_split_gini(const int *left_counts,
 }
 
 void
-rf_tree_iterate_nodes(const GTree * tree, rf_node_iter_fn iter, void *arg)
+rf_tree_iterate_nodes(const GTree *tree, rf_node_iter_fn iter, void *arg)
 {
-	const		GTreeNode *nodes;
+	const GTreeNode *nodes;
 	int			i;
 
 	if (tree == NULL || iter == NULL)
@@ -207,7 +207,7 @@ rf_tree_iterate_nodes(const GTree * tree, rf_node_iter_fn iter, void *arg)
 }
 
 Jsonb *
-rf_build_metrics_json(const RFMetricsSpec * spec)
+rf_build_metrics_json(const RFMetricsSpec *spec)
 {
 	StringInfoData buf;
 	bool		first = true;
@@ -316,13 +316,13 @@ rf_build_metrics_json(const RFMetricsSpec * spec)
 
 	ereport(DEBUG2,
 			(errmsg("rf_build_metrics_json: about to append closing brace"),
-			 errdetail("buf.data=%p, buf.len=%d", (void *)buf.data, buf.len)));
+			 errdetail("buf.data=%p, buf.len=%d", (void *) buf.data, buf.len)));
 
 	appendStringInfoChar(&buf, '}');
 
 	ereport(DEBUG2,
 			(errmsg("rf_build_metrics_json: closing brace appended"),
-			 errdetail("buf.data=%p, buf.len=%d", (void *)buf.data, buf.len)));
+			 errdetail("buf.data=%p, buf.len=%d", (void *) buf.data, buf.len)));
 
 	if (buf.data == NULL)
 	{
@@ -333,27 +333,27 @@ rf_build_metrics_json(const RFMetricsSpec * spec)
 	ereport(DEBUG2,
 			(errmsg("rf_build_metrics_json: about to call DirectFunctionCall1(jsonb_in)"),
 			 errdetail("buf.data=%s, buf.len=%d, CurrentMemoryContext=%p",
-					  buf.data ? buf.data : "NULL", buf.len, (void *)CurrentMemoryContext)));
+					   buf.data ? buf.data : "NULL", buf.len, (void *) CurrentMemoryContext)));
 
 	ereport(DEBUG2,
 			(errmsg("rf_build_metrics_json: about to call CStringGetTextDatum"),
-			 errdetail("buf.data=%p", (void *)buf.data)));
+			 errdetail("buf.data=%p", (void *) buf.data)));
 
 	jsonb_datum = CStringGetTextDatum(buf.data);
 
 	ereport(DEBUG2,
 			(errmsg("rf_build_metrics_json: CStringGetTextDatum returned"),
-			 errdetail("jsonb_datum=%lu", (unsigned long)jsonb_datum)));
+			 errdetail("jsonb_datum=%lu", (unsigned long) jsonb_datum)));
 
 	ereport(DEBUG2,
 			(errmsg("rf_build_metrics_json: about to call DirectFunctionCall1"),
-			 errdetail("jsonb_datum=%lu", (unsigned long)jsonb_datum)));
+			 errdetail("jsonb_datum=%lu", (unsigned long) jsonb_datum)));
 
 	result = DatumGetJsonbP(DirectFunctionCall1(jsonb_in, jsonb_datum));
 
 	ereport(DEBUG2,
 			(errmsg("rf_build_metrics_json: DirectFunctionCall1 returned"),
-			 errdetail("result=%p", (void *)result)));
+			 errdetail("result=%p", (void *) result)));
 
 	if (buf.data != NULL)
 	{

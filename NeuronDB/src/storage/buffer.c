@@ -39,6 +39,7 @@ rebuild_hnsw_safe(PG_FUNCTION_ARGS)
 	char	   *idx_str;
 	int64		vectors_processed = 0;
 	int64		checkpoint_id = 0;
+
 	NDB_DECLARE(NdbSpiSession *, session);
 
 	idx_str = text_to_cstring(index_name);
@@ -64,9 +65,9 @@ rebuild_hnsw_safe(PG_FUNCTION_ARGS)
 		if (session2 != NULL)
 		{
 			int			ret = ndb_spi_execute(session2, "SELECT checkpoint_location FROM "
-												   "pg_control_checkpoint()",
-												   true,
-												   1);
+											  "pg_control_checkpoint()",
+											  true,
+											  1);
 
 			if (ret == SPI_OK_SELECT && SPI_processed > 0)
 			{
@@ -192,6 +193,7 @@ save_rebuild_checkpoint(PG_FUNCTION_ARGS)
 	text	   *state_json = PG_GETARG_TEXT_PP(2);
 	char	   *idx_str;
 	char	   *state_str;
+
 	NDB_DECLARE(NdbSpiSession *, session2);
 
 	idx_str = text_to_cstring(index_name);
@@ -226,6 +228,7 @@ load_rebuild_checkpoint(PG_FUNCTION_ARGS)
 	text	   *index_name = PG_GETARG_TEXT_PP(0);
 	text	   *checkpoint_data;
 	char	   *idx_str;
+
 	NDB_DECLARE(NdbSpiSession *, session3);
 
 	idx_str = text_to_cstring(index_name);

@@ -42,13 +42,13 @@ power_iteration_whitening(double **matrix,
 						  double *eigenvector,
 						  int max_iter)
 {
-	double	   *v_new;
+	NDB_DECLARE(double *, v_new);
 	double		eigenvalue;
 	int			iter,
 				i,
 				j;
 
-	v_new = (double *) palloc(sizeof(double) * dim);
+	NDB_ALLOC(v_new, double, dim);
 
 	/* Initialize with random vector */
 	for (i = 0; i < dim; i++)
@@ -174,18 +174,18 @@ whiten_embeddings(PG_FUNCTION_ARGS)
 	float	  **vectors;
 	int			nvec,
 				dim;
-	double	   *mean;
-	double	  **covariance;
-	double	  **eigenvectors;
-	double	   *eigenvalues;
-	double	  **whitening_matrix;
-	float	  **whitened_vectors;
+	NDB_DECLARE(double *, mean);
+	NDB_DECLARE(double **, covariance);
+	NDB_DECLARE(double **, eigenvectors);
+	NDB_DECLARE(double *, eigenvalues);
+	NDB_DECLARE(double **, whitening_matrix);
+	NDB_DECLARE(float **, whitened_vectors);
 	int			i,
 				j,
 				k,
 				c;
 	ArrayType  *result;
-	Datum	   *result_datums;
+	NDB_DECLARE(Datum *, result_datums);
 	int			dims[2];
 	int			lbs[2];
 
@@ -226,10 +226,10 @@ whiten_embeddings(PG_FUNCTION_ARGS)
 		/* Free vectors array and rows if vectors is not NULL */
 		if (vectors != NULL)
 		{
-			for (int i = 0; i < nvec; i++)
+			for (int idx = 0; idx < nvec; idx++)
 			{
-				if (vectors[i] != NULL)
-					NDB_FREE(vectors[i]);
+				if (vectors[idx] != NULL)
+					NDB_FREE(vectors[idx]);
 			}
 			NDB_FREE(vectors);
 		}
@@ -252,7 +252,7 @@ whiten_embeddings(PG_FUNCTION_ARGS)
 	}
 
 	/* Step 1: Center data (compute mean and subtract) */
-	mean = (double *) palloc0(sizeof(double) * dim);
+	NDB_ALLOC(mean, double, dim);
 	for (i = 0; i < nvec; i++)
 		for (j = 0; j < dim; j++)
 			mean[j] += (double) vectors[i][j];
@@ -266,9 +266,9 @@ whiten_embeddings(PG_FUNCTION_ARGS)
 			vectors[i][j] -= (float) mean[j];
 
 	/* Step 2: Compute covariance matrix Σ = XᵀX / n */
-	covariance = (double **) palloc(sizeof(double *) * dim);
+	NDB_ALLOC(covariance, double *, dim);
 	for (i = 0; i < dim; i++)
-		covariance[i] = (double *) palloc0(sizeof(double) * dim);
+		NDB_ALLOC(covariance[i], double, dim);
 
 	for (i = 0; i < dim; i++)
 	{
@@ -286,11 +286,11 @@ whiten_embeddings(PG_FUNCTION_ARGS)
 	}
 
 	/* Step 3: Eigen decomposition using power iteration */
-	eigenvectors = (double **) palloc(sizeof(double *) * dim);
-	eigenvalues = (double *) palloc(sizeof(double) * dim);
+	NDB_ALLOC(eigenvectors, double *, dim);
+	NDB_ALLOC(eigenvalues, double, dim);
 
 	for (c = 0; c < dim; c++)
-		eigenvectors[c] = (double *) palloc(sizeof(double) * dim);
+		NDB_ALLOC(eigenvectors[c], double, dim);
 
 	/* Compute all eigenvectors/eigenvalues */
 	for (c = 0; c < dim; c++)
@@ -315,9 +315,9 @@ whiten_embeddings(PG_FUNCTION_ARGS)
 	}
 
 	/* Step 4: Compute whitening matrix W = UΛ^(-1/2)Uᵀ */
-	whitening_matrix = (double **) palloc(sizeof(double *) * dim);
+	NDB_ALLOC(whitening_matrix, double *, dim);
 	for (i = 0; i < dim; i++)
-		whitening_matrix[i] = (double *) palloc0(sizeof(double) * dim);
+		NDB_ALLOC(whitening_matrix[i], double, dim);
 
 	/*
 	 * W = Σ_c eigenvector_c * eigenvector_cᵀ / sqrt(eigenvalue_c +
@@ -334,10 +334,10 @@ whiten_embeddings(PG_FUNCTION_ARGS)
 	}
 
 	/* Step 5: Apply whitening transform */
-	whitened_vectors = (float **) palloc(sizeof(float *) * nvec);
+	NDB_ALLOC(whitened_vectors, float *, nvec);
 	for (i = 0; i < nvec; i++)
 	{
-		whitened_vectors[i] = (float *) palloc(sizeof(float) * dim);
+		NDB_ALLOC(whitened_vectors[i], float, dim);
 
 		for (j = 0; j < dim; j++)
 		{
@@ -352,7 +352,7 @@ whiten_embeddings(PG_FUNCTION_ARGS)
 	}
 
 	/* Build 2D result array */
-	result_datums = (Datum *) palloc(sizeof(Datum) * nvec * dim);
+	NDB_ALLOC(result_datums, Datum, nvec * dim);
 	for (i = 0; i < nvec; i++)
 		for (j = 0; j < dim; j++)
 			result_datums[i * dim + j] =

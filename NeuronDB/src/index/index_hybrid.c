@@ -49,6 +49,7 @@ hybrid_index_create(PG_FUNCTION_ARGS)
 	char	   *txt_str;
 	StringInfoData sql;
 	int			ret;
+
 	NDB_DECLARE(NdbSpiSession *, session);
 
 	tbl_str = text_to_cstring(table_name);
@@ -167,6 +168,7 @@ hybrid_index_search(PG_FUNCTION_ARGS)
 	char	   *origin_table;
 	char	   *vec_col;
 	char	   *txt_col;
+
 	NDB_DECLARE(NdbSpiSession *, session2);
 
 	if (SRF_IS_FIRSTCALL())
@@ -267,7 +269,8 @@ hybrid_index_search(PG_FUNCTION_ARGS)
 		if (call_cntr < max_calls)
 		{
 			session2 = (NdbSpiSession *) funcctx->user_fctx;
-			tuptable = SPI_tuptable;  /* Access via global SPI_tuptable while session is active */
+			tuptable = SPI_tuptable;	/* Access via global SPI_tuptable
+										 * while session is active */
 			spi_tuple = tuptable->vals[call_cntr];
 
 			/* id, fused_score, ts_rank, vector_dist */

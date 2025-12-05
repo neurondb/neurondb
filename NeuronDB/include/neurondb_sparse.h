@@ -24,11 +24,11 @@
  */
 typedef struct SparseVector
 {
-	int32 vl_len_; /* varlena header */
-	int32 vocab_size; /* Vocabulary size */
-	int32 nnz; /* Number of non-zero entries */
-	uint16 model_type; /* 0=BM25, 1=SPLADE, 2=ColBERTv2 */
-	uint16 flags; /* Reserved */
+	int32		vl_len_;		/* varlena header */
+	int32		vocab_size;		/* Vocabulary size */
+	int32		nnz;			/* Number of non-zero entries */
+	uint16		model_type;		/* 0=BM25, 1=SPLADE, 2=ColBERTv2 */
+	uint16		flags;			/* Reserved */
 	/* Followed by: int32 token_ids[nnz], float4 weights[nnz] */
 } SparseVector;
 
@@ -46,5 +46,4 @@ typedef struct SparseVector
 #define PG_GETARG_SPARSE_VECTOR_P(x) DatumGetSparseVector(PG_GETARG_DATUM(x))
 #define PG_RETURN_SPARSE_VECTOR_P(x) PG_RETURN_POINTER(x)
 
-#endif /* NEURONDB_SPARSE_H */
-
+#endif							/* NEURONDB_SPARSE_H */

@@ -70,23 +70,39 @@ typedef HnswNodeData * HnswNode;
 #define HnswGetVector(node) \
 	((float4 *)((char *)(node) + MAXALIGN(sizeof(HnswNodeData))))
 
+/*
+ * HnswGetNeighborsSafe - Get neighbors array pointer for a specific level
+ * 
+ * CRITICAL: This function uses meta->m, not HNSW_DEFAULT_M. The node layout
+ * on disk is determined by the m value stored in the meta page when the
+ * node was created. All nodes in an index must use the same m value.
+ */
+static inline BlockNumber *
+HnswGetNeighborsSafe(HnswNode node, int level, int m)
+{
+	return (BlockNumber *)((char *)node + MAXALIGN(sizeof(HnswNodeData)) +
+						   node->dim * sizeof(float4) +
+						   level * m * 2 * sizeof(BlockNumber));
+}
+
+/* Legacy macro - DO NOT USE, use HnswGetNeighborsSafe instead */
 #define HnswGetNeighbors(node, lev) \
-	((BlockNumber *)((char *)(node) + MAXALIGN(sizeof(HnswNodeData)) \
-		+ (node)->dim * sizeof(float4) \
-		+ (lev) * HNSW_DEFAULT_M * 2 * sizeof(BlockNumber)))
+	HnswGetNeighborsSafe(node, lev, HNSW_DEFAULT_M)
 
 /* Forward declarations */
 static BlockNumber hnswSearchLayerGreedy(Relation index,
 										 BlockNumber entryPoint,
 										 const float4 * query,
 										 int dim,
-										 int layer);
+										 int layer,
+										 int m);
 static void hnswSearchLayer0(Relation index,
 							 BlockNumber entryPoint,
 							 const float4 * query,
 							 int dim,
 							 int efSearch,
 							 int k,
+							 int m,
 							 BlockNumber * *results,
 							 float4 * *distances,
 							 int *resultCount);
@@ -147,9 +163,12 @@ typedef struct HnswSearchState
 static HnswSearchState *
 hnswInitSearchState(const float4 * query, int dim, int efSearch, int k)
 {
-	HnswSearchState *state;
+	HnswSearchState *state = NULL;
+	HnswSearchElement *candidates = NULL;
+	HnswSearchElement *visited = NULL;
+	HnswSearchElement *results = NULL;
 
-	state = (HnswSearchState *) palloc0(sizeof(HnswSearchState));
+	NDB_ALLOC(state, HnswSearchState, 1);
 	NDB_CHECK_ALLOC(state, "state");
 	state->query = query;
 	state->dim = dim;
@@ -157,19 +176,19 @@ hnswInitSearchState(const float4 * query, int dim, int efSearch, int k)
 	state->k = k;
 
 	state->candidateCapacity = efSearch * 2;
-	state->candidates = (HnswSearchElement *) palloc(
-													 state->candidateCapacity * sizeof(HnswSearchElement));
+	NDB_ALLOC(candidates, HnswSearchElement, state->candidateCapacity);
+	state->candidates = candidates;
 	NDB_CHECK_ALLOC(state->candidates, "state->candidates");
 	state->candidateCount = 0;
 
 	state->visitedCapacity = efSearch * 4;
-	state->visited = (HnswSearchElement *) palloc(
-												  state->visitedCapacity * sizeof(HnswSearchElement));
+	NDB_ALLOC(visited, HnswSearchElement, state->visitedCapacity);
+	state->visited = visited;
 	NDB_CHECK_ALLOC(state->visited, "state->visited");
 	state->visitedCount = 0;
 
-	state->results =
-		(HnswSearchElement *) palloc(k * sizeof(HnswSearchElement));
+	NDB_ALLOC(results, HnswSearchElement, k);
+	state->results = results;
 	NDB_CHECK_ALLOC(state->results, "state->results");
 	state->resultCount = 0;
 
@@ -423,27 +442,44 @@ hnsw_search_layer(Relation index,
 		UnlockReleaseBuffer(metaBuffer);
 	}
 
-	/* Step 1: Greedy search through upper layers */
-	while (currentLevel > 0)
+	/* Get m from meta page */
 	{
-		currentEntry = hnswSearchLayerGreedy(index,
-											 currentEntry,
-											 query,
-											 dim,
-											 currentLevel);
-		currentLevel--;
-	}
+		Buffer		metaBuf;
+		Page		metaPg;
+		HnswMetaPage metaData;
+		int			m;
 
-	/* Step 2: Search at layer 0 with ef_search */
-	hnswSearchLayer0(index,
-					 currentEntry,
-					 query,
-					 dim,
-					 efSearch,
-					 k,
-					 results,
-					 distances,
-					 resultCount);
+		metaBuf = ReadBuffer(index, 0);
+		LockBuffer(metaBuf, BUFFER_LOCK_SHARE);
+		metaPg = BufferGetPage(metaBuf);
+		metaData = (HnswMetaPage) PageGetContents(metaPg);
+		m = metaData->m;
+		UnlockReleaseBuffer(metaBuf);
+
+		/* Step 1: Greedy search through upper layers */
+		while (currentLevel > 0)
+		{
+			currentEntry = hnswSearchLayerGreedy(index,
+												 currentEntry,
+												 query,
+												 dim,
+												 currentLevel,
+												 m);
+			currentLevel--;
+		}
+
+		/* Step 2: Search at layer 0 with ef_search */
+		hnswSearchLayer0(index,
+						 currentEntry,
+						 query,
+						 dim,
+						 efSearch,
+						 k,
+						 m,
+						 results,
+						 distances,
+						 resultCount);
+	}
 
 	elog(DEBUG1,
 		 "neurondb: HNSW search_layer completed: entry=%u, level=%d, results=%d",
@@ -462,7 +498,8 @@ hnswSearchLayerGreedy(Relation index,
 					  BlockNumber entryPoint,
 					  const float4 * query,
 					  int dim,
-					  int layer)
+					  int layer,
+					  int m)
 {
 	BlockNumber best = entryPoint;
 	bool		changed = true;
@@ -500,9 +537,39 @@ hnswSearchLayerGreedy(Relation index,
 
 		node = (HnswNode) PageGetItem(page,
 									  PageGetItemId(page, FirstOffsetNumber));
+		if (node == NULL)
+		{
+			UnlockReleaseBuffer(buf);
+			break;
+		}
+
+		/* Validate node level */
+		if (node->level < 0 || node->level >= HNSW_MAX_LEVEL)
+		{
+			elog(WARNING, "hnsw: invalid node level %d in greedy search, breaking", node->level);
+			UnlockReleaseBuffer(buf);
+			break;
+		}
+
 		nodeVector = HnswGetVector(node);
-		neighbors = HnswGetNeighbors(node, layer);
+		if (nodeVector == NULL)
+		{
+			UnlockReleaseBuffer(buf);
+			break;
+		}
+
+		neighbors = HnswGetNeighborsSafe(node, layer, m);
 		neighborCount = node->neighborCount[layer];
+
+		/* Validate and clamp neighborCount */
+		if (neighborCount < 0)
+			neighborCount = 0;
+		if (neighborCount > m * 2)
+		{
+			elog(WARNING, "hnsw: neighborCount %d exceeds maximum, clamping to %d", neighborCount, m * 2);
+			neighborCount = m * 2;
+		}
+
 		bestDist = compute_l2_distance(query, nodeVector, dim);
 
 		/* Check each neighbor before releasing buffer */
@@ -510,6 +577,13 @@ hnswSearchLayerGreedy(Relation index,
 		{
 			if (neighbors[i] == InvalidBlockNumber)
 				continue;
+
+			/* Validate block number */
+			if (neighbors[i] >= RelationGetNumberOfBlocks(index))
+			{
+				elog(WARNING, "hnsw: invalid neighbor block %u in greedy search", neighbors[i]);
+				continue;
+			}
 
 			/* Read neighbor node */
 			{
@@ -522,9 +596,8 @@ hnswSearchLayerGreedy(Relation index,
 				neighborBuf = ReadBuffer(index, neighbors[i]);
 				if (!BufferIsValid(neighborBuf))
 				{
-					ereport(ERROR,
-							(errcode(ERRCODE_INTERNAL_ERROR),
-							 errmsg("neurondb: ReadBuffer failed for buffer")));
+					elog(WARNING, "hnsw: ReadBuffer failed for neighbor block %u", neighbors[i]);
+					continue;
 				}
 				LockBuffer(neighborBuf, BUFFER_LOCK_SHARE);
 				neighborPage = BufferGetPage(neighborBuf);
@@ -537,7 +610,19 @@ hnswSearchLayerGreedy(Relation index,
 
 				neighborNode = (HnswNode) PageGetItem(neighborPage,
 													  PageGetItemId(neighborPage, FirstOffsetNumber));
+				if (neighborNode == NULL)
+				{
+					UnlockReleaseBuffer(neighborBuf);
+					continue;
+				}
+
 				neighborVector = HnswGetVector(neighborNode);
+				if (neighborVector == NULL)
+				{
+					UnlockReleaseBuffer(neighborBuf);
+					continue;
+				}
+
 				neighborDist = compute_l2_distance(query, neighborVector, dim);
 
 				UnlockReleaseBuffer(neighborBuf);
@@ -568,13 +653,14 @@ hnswSearchLayerGreedy(Relation index,
  * This is the main search that returns k results using the ef parameter
  * for exploration.
  */
-void
+static void
 hnswSearchLayer0(Relation index,
 				 BlockNumber entryPoint,
 				 const float4 * query,
 				 int dim,
 				 int efSearch,
 				 int k,
+				 int m,
 				 BlockNumber * *results,
 				 float4 * *distances,
 				 int *resultCount)
@@ -629,9 +715,38 @@ hnswSearchLayer0(Relation index,
 
 		node = (HnswNode) PageGetItem(page,
 									  PageGetItemId(page, FirstOffsetNumber));
+		if (node == NULL)
+		{
+			UnlockReleaseBuffer(buf);
+			continue;
+		}
+
+		/* Validate node level */
+		if (node->level < 0 || node->level >= HNSW_MAX_LEVEL)
+		{
+			elog(WARNING, "hnsw: invalid node level %d in layer 0 search, skipping", node->level);
+			UnlockReleaseBuffer(buf);
+			continue;
+		}
+
 		nodeVector = HnswGetVector(node);
-		neighbors = HnswGetNeighbors(node, 0);
+		if (nodeVector == NULL)
+		{
+			UnlockReleaseBuffer(buf);
+			continue;
+		}
+
+		neighbors = HnswGetNeighborsSafe(node, 0, m);
 		neighborCount = node->neighborCount[0];
+
+		/* Validate and clamp neighborCount */
+		if (neighborCount < 0)
+			neighborCount = 0;
+		if (neighborCount > m * 2)
+		{
+			elog(WARNING, "hnsw: neighborCount %d exceeds maximum, clamping to %d", neighborCount, m * 2);
+			neighborCount = m * 2;
+		}
 
 		/* Compute distance to query for current node */
 		distance = compute_l2_distance(query, nodeVector, dim);
@@ -649,6 +764,13 @@ hnswSearchLayer0(Relation index,
 			if (neighbors[j] == InvalidBlockNumber)
 				continue;
 
+			/* Validate block number */
+			if (neighbors[j] >= RelationGetNumberOfBlocks(index))
+			{
+				elog(WARNING, "hnsw: invalid neighbor block %u in layer 0 search", neighbors[j]);
+				continue;
+			}
+
 			/* Skip if already visited */
 			if (hnswIsVisited(state, neighbors[j]))
 				continue;
@@ -657,9 +779,8 @@ hnswSearchLayer0(Relation index,
 			buf = ReadBuffer(index, neighbors[j]);
 			if (!BufferIsValid(buf))
 			{
-				ereport(ERROR,
-						(errcode(ERRCODE_INTERNAL_ERROR),
-						 errmsg("neurondb: ReadBuffer failed for buffer")));
+				elog(WARNING, "hnsw: ReadBuffer failed for neighbor block %u", neighbors[j]);
+				continue;
 			}
 			LockBuffer(buf, BUFFER_LOCK_SHARE);
 			page = BufferGetPage(buf);
@@ -672,7 +793,19 @@ hnswSearchLayer0(Relation index,
 
 			node = (HnswNode) PageGetItem(page,
 										  PageGetItemId(page, FirstOffsetNumber));
+			if (node == NULL)
+			{
+				UnlockReleaseBuffer(buf);
+				continue;
+			}
+
 			nodeVector = HnswGetVector(node);
+			if (nodeVector == NULL)
+			{
+				UnlockReleaseBuffer(buf);
+				continue;
+			}
+
 			neighborDist = compute_l2_distance(query, nodeVector, dim);
 
 			UnlockReleaseBuffer(buf);
@@ -694,10 +827,13 @@ hnswSearchLayer0(Relation index,
 	*resultCount = state->resultCount;
 	if (*resultCount > 0)
 	{
-		*results = (BlockNumber *) palloc(
-										  *resultCount * sizeof(BlockNumber));
+		NDB_DECLARE(BlockNumber *, results_ptr);
+		NDB_DECLARE(float4 *, distances_ptr);
+		NDB_ALLOC(results_ptr, BlockNumber, *resultCount);
+		NDB_ALLOC(distances_ptr, float4, *resultCount);
+		*results = results_ptr;
+		*distances = distances_ptr;
 		NDB_CHECK_ALLOC(*results, "*results");
-		*distances = (float4 *) palloc(*resultCount * sizeof(float4));
 		NDB_CHECK_ALLOC(*distances, "*distances");
 
 		for (i = 0; i < *resultCount; i++)

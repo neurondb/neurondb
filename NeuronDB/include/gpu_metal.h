@@ -23,24 +23,24 @@ extern const char *neurondb_gpu_metal_device_name(void);
 
 /* Metal distance operations */
 extern float
-neurondb_gpu_metal_l2_distance(const float *a, const float *b, int dim);
+			neurondb_gpu_metal_l2_distance(const float *a, const float *b, int dim);
 extern float
-neurondb_gpu_metal_cosine_distance(const float *a, const float *b, int dim);
+			neurondb_gpu_metal_cosine_distance(const float *a, const float *b, int dim);
 extern float
-neurondb_gpu_metal_inner_product(const float *a, const float *b, int dim);
+			neurondb_gpu_metal_inner_product(const float *a, const float *b, int dim);
 
 /* Metal batch operations */
 extern void neurondb_gpu_metal_batch_l2(const float *queries,
-	const float *targets,
-	int num_queries,
-	int num_targets,
-	int dim,
-	float *distances);
+										const float *targets,
+										int num_queries,
+										int num_targets,
+										int dim,
+										float *distances);
 
 /* Metal device information */
 extern void neurondb_gpu_metal_device_info(char *name,
-	size_t name_len,
-	uint64_t *total_memory,
-	uint64_t *free_memory);
+										   size_t name_len,
+										   uint64_t * total_memory,
+										   uint64_t * free_memory);
 
-#endif /* NEURONDB_GPU_METAL_H */
+#endif							/* NEURONDB_GPU_METAL_H */

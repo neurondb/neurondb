@@ -39,12 +39,12 @@ extern PGDLLIMPORT int neurondb_onnx_cache_size;
  */
 typedef enum
 {
-	ONNX_MODEL_EMBEDDING, /* Text/image embeddings */
-	ONNX_MODEL_CLASSIFICATION, /* Text classification */
-	ONNX_MODEL_NER, /* Named Entity Recognition */
-	ONNX_MODEL_QA, /* Question Answering */
-	ONNX_MODEL_GENERATION, /* Text generation */
-	ONNX_MODEL_CUSTOM /* Custom models */
+	ONNX_MODEL_EMBEDDING,		/* Text/image embeddings */
+	ONNX_MODEL_CLASSIFICATION,	/* Text classification */
+	ONNX_MODEL_NER,				/* Named Entity Recognition */
+	ONNX_MODEL_QA,				/* Question Answering */
+	ONNX_MODEL_GENERATION,		/* Text generation */
+	ONNX_MODEL_CUSTOM			/* Custom models */
 } ONNXModelType;
 
 /*
@@ -67,19 +67,19 @@ typedef struct ONNXModelSession
 {
 #ifdef HAVE_ONNX_RUNTIME
 	OrtSession *session;
-	OrtEnv *env;
+	OrtEnv	   *env;
 	OrtSessionOptions *session_options;
 #else
-	void *session;
-	void *env;
-	void *session_options;
+	void	   *session;
+	void	   *env;
+	void	   *session_options;
 #endif
-	char *model_path;
+	char	   *model_path;
 	ONNXModelType model_type;
 	ONNXProvider provider;
-	int32 input_dim;
-	int32 output_dim;
-	bool is_loaded;
+	int32		input_dim;
+	int32		output_dim;
+	bool		is_loaded;
 } ONNXModelSession;
 
 /*
@@ -88,10 +88,10 @@ typedef struct ONNXModelSession
  */
 typedef struct ONNXTensor
 {
-	float *data;
-	int64 *shape;
-	int32 ndim;
-	size_t size;
+	float	   *data;
+	int64	   *shape;
+	int32		ndim;
+	size_t		size;
 } ONNXTensor;
 
 /*
@@ -108,15 +108,15 @@ extern void neurondb_onnx_cleanup(void);
 
 /* Load ONNX model from file */
 extern ONNXModelSession *neurondb_onnx_load_model(const char *model_path,
-	ONNXModelType model_type,
-	ONNXProvider provider);
+												  ONNXModelType model_type,
+												  ONNXProvider provider);
 
 /* Unload ONNX model */
 extern void neurondb_onnx_unload_model(ONNXModelSession *session);
 
 /* Run inference on ONNX model */
 extern ONNXTensor *neurondb_onnx_run_inference(ONNXModelSession *session,
-	ONNXTensor *input);
+											   ONNXTensor *input);
 
 /* Free ONNX tensor */
 extern void neurondb_onnx_free_tensor(ONNXTensor *tensor);
@@ -126,39 +126,39 @@ extern void neurondb_onnx_free_tensor(ONNXTensor *tensor);
  */
 
 /* C-callable ONNX inference functions (for LLM router integration) */
-extern int ndb_onnx_hf_embed(const char *model_name,
-	const char *text,
-	float **vec_out,
-	int *dim_out,
-	char **errstr);
+extern int	ndb_onnx_hf_embed(const char *model_name,
+							  const char *text,
+							  float **vec_out,
+							  int *dim_out,
+							  char **errstr);
 
-extern int ndb_onnx_hf_complete(const char *model_name,
-	const char *prompt,
-	const char *params_json,
-	char **text_out,
-	char **errstr);
+extern int	ndb_onnx_hf_complete(const char *model_name,
+								 const char *prompt,
+								 const char *params_json,
+								 char **text_out,
+								 char **errstr);
 
-extern int ndb_onnx_hf_rerank(const char *model_name,
-	const char *query,
-	const char **docs,
-	int ndocs,
-	float **scores_out,
-	char **errstr);
+extern int	ndb_onnx_hf_rerank(const char *model_name,
+							   const char *query,
+							   const char **docs,
+							   int ndocs,
+							   float **scores_out,
+							   char **errstr);
 
-extern int ndb_onnx_hf_image_embed(const char *model_name,
-	const unsigned char *image_data,
-	size_t image_size,
-	float **vec_out,
-	int *dim_out,
-	char **errstr);
+extern int	ndb_onnx_hf_image_embed(const char *model_name,
+									const unsigned char *image_data,
+									size_t image_size,
+									float **vec_out,
+									int *dim_out,
+									char **errstr);
 
-extern int ndb_onnx_hf_multimodal_embed(const char *model_name,
-	const char *text,
-	const unsigned char *image_data,
-	size_t image_size,
-	float **vec_out,
-	int *dim_out,
-	char **errstr);
+extern int	ndb_onnx_hf_multimodal_embed(const char *model_name,
+										 const char *text,
+										 const unsigned char *image_data,
+										 size_t image_size,
+										 float **vec_out,
+										 int *dim_out,
+										 char **errstr);
 
 /* SQL-callable functions */
 extern Datum neurondb_hf_embedding(PG_FUNCTION_ARGS);
@@ -189,11 +189,10 @@ extern const char *neurondb_onnx_model_type_name(ONNXModelType type);
 
 /* Get or load model from cache */
 extern ONNXModelSession *neurondb_onnx_get_or_load_model(const char *model_name,
-	ONNXModelType model_type);
+														 ONNXModelType model_type);
 
 /* Create ONNX tensor from float array */
-extern ONNXTensor *
-neurondb_onnx_create_tensor(float *data, int64 *shape, int32 ndim);
+extern ONNXTensor *neurondb_onnx_create_tensor(float *data, int64 * shape, int32 ndim);
 
 /*
  * Tokenizer Functions
@@ -201,20 +200,20 @@ neurondb_onnx_create_tensor(float *data, int64 *shape, int32 ndim);
 
 /* Tokenize text to token IDs */
 extern int32 *
-neurondb_tokenize(const char *text, int32 max_length, int32 *output_length);
+neurondb_tokenize(const char *text, int32 max_length, int32 * output_length);
 
 /* Tokenize text with model-specific tokenizer */
-extern int32 *neurondb_tokenize_with_model(const char *text,
-	int32 max_length,
-	int32 *output_length,
-	const char *model_name);
+extern int32 * neurondb_tokenize_with_model(const char *text,
+											int32 max_length,
+											int32 * output_length,
+											const char *model_name);
 
 /* Detokenize token IDs back to text */
-extern char *neurondb_detokenize(const int32 *token_ids,
-	int32 length,
-	const char *model_name);
+extern char *neurondb_detokenize(const int32 * token_ids,
+								 int32 length,
+								 const char *model_name);
 
 /* Create attention mask from token IDs */
-extern int32 *neurondb_create_attention_mask(int32 *token_ids, int32 length);
+extern int32 * neurondb_create_attention_mask(int32 * token_ids, int32 length);
 
-#endif /* NEURONDB_ONNX_H */
+#endif							/* NEURONDB_ONNX_H */

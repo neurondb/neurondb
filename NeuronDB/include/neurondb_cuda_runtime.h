@@ -19,4 +19,4 @@
 typedef void *cudaStream_t;
 #endif
 
-#endif /* NEURONDB_CUDA_RUNTIME_H */
+#endif							/* NEURONDB_CUDA_RUNTIME_H */

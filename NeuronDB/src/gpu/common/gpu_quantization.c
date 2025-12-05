@@ -69,7 +69,7 @@ quantize_int8_value(float value, float scale)
 void
 neurondb_gpu_quantize_fp16(const float *input, void *output, int count)
 {
-	const		ndb_gpu_backend *backend;
+	const ndb_gpu_backend *backend;
 
 	if (input == NULL || output == NULL || count <= 0)
 		return;
@@ -101,7 +101,7 @@ neurondb_gpu_quantize_fp16(const float *input, void *output, int count)
 void
 neurondb_gpu_quantize_int4(const float *input, unsigned char *output, int count)
 {
-	const		ndb_gpu_backend *backend;
+	const ndb_gpu_backend *backend;
 	float		max_abs = 0.0f;
 	float		scale;
 	int			i;
@@ -178,7 +178,7 @@ neurondb_gpu_quantize_int4(const float *input, unsigned char *output, int count)
 void
 neurondb_gpu_quantize_fp8_e4m3(const float *input, unsigned char *output, int count)
 {
-	const		ndb_gpu_backend *backend;
+	const ndb_gpu_backend *backend;
 
 	if (input == NULL || output == NULL || count <= 0)
 		return;
@@ -228,7 +228,7 @@ neurondb_gpu_quantize_fp8_e4m3(const float *input, unsigned char *output, int co
 void
 neurondb_gpu_quantize_fp8_e5m2(const float *input, unsigned char *output, int count)
 {
-	const		ndb_gpu_backend *backend;
+	const ndb_gpu_backend *backend;
 
 	if (input == NULL || output == NULL || count <= 0)
 		return;
@@ -278,7 +278,7 @@ neurondb_gpu_quantize_fp8_e5m2(const float *input, unsigned char *output, int co
 void
 neurondb_gpu_quantize_int8(const float *input, int8 * output, int count)
 {
-	const		ndb_gpu_backend *backend;
+	const ndb_gpu_backend *backend;
 	float		max_abs = 0.0f;
 	float		scale;
 	int			i;
@@ -317,7 +317,7 @@ neurondb_gpu_quantize_int8(const float *input, int8 * output, int count)
 void
 neurondb_gpu_quantize_binary(const float *input, uint8 * output, int count)
 {
-	const		ndb_gpu_backend *backend;
+	const ndb_gpu_backend *backend;
 
 	if (input == NULL || output == NULL || count <= 0)
 		return;

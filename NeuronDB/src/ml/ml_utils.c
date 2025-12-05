@@ -57,10 +57,12 @@ neurondb_fetch_vectors_from_table(const char *table,
 	int			ret;
 	int			i,
 				d;
+
 	NDB_DECLARE(float **, result);
 	MemoryContext oldcontext;
 	MemoryContext caller_context;
 	MemoryContext oldcontext_spi;
+
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 
 	caller_context = CurrentMemoryContext;
@@ -109,7 +111,7 @@ neurondb_fetch_vectors_from_table(const char *table,
 		Datum		first_datum;
 		Vector	   *first_vec;
 
-		if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL || 
+		if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL ||
 			SPI_processed == 0 || SPI_tuptable->vals[0] == NULL || SPI_tuptable->tupdesc == NULL)
 		{
 			NDB_FREE(sql.data);
@@ -170,10 +172,11 @@ neurondb_fetch_vectors_from_table(const char *table,
 		bool		isnull;
 		Datum		vec_datum;
 		Vector	   *vec;
+
 		NDB_DECLARE(float *, vec_data);
 
 		/* Safe access to SPI_tuptable - validate before access */
-		if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL || 
+		if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL ||
 			i >= SPI_processed || SPI_tuptable->vals[i] == NULL)
 		{
 			/* Free already allocated vectors */

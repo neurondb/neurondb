@@ -199,12 +199,14 @@ vector_to_int8_gpu(PG_FUNCTION_ARGS)
 	Vector	   *v;
 	int			count;
 	bytea	   *out;
+	char	   *out_raw = NULL;
 
 	v = PG_GETARG_VECTOR_P(0);
 	NDB_CHECK_VECTOR_VALID(v);
 	count = v->dim;
 
-	out = (bytea *) palloc(VARHDRSZ + count);
+	NDB_ALLOC(out_raw, char, VARHDRSZ + count);
+	out = (bytea *) out_raw;
 	SET_VARSIZE(out, VARHDRSZ + count);
 
 	if (ndb_gpu_can_run("quantize"))
@@ -258,13 +260,15 @@ vector_to_fp16_gpu(PG_FUNCTION_ARGS)
 	int			count;
 	int			out_bytes;
 	bytea	   *out;
+	char	   *out_raw = NULL;
 
 	v = PG_GETARG_VECTOR_P(0);
 	NDB_CHECK_VECTOR_VALID(v);
 	count = v->dim;
 	out_bytes = count * 2;		/* 2 bytes per fp16 */
 
-	out = (bytea *) palloc(VARHDRSZ + out_bytes);
+	NDB_ALLOC(out_raw, char, VARHDRSZ + out_bytes);
+	out = (bytea *) out_raw;
 	SET_VARSIZE(out, VARHDRSZ + out_bytes);
 
 	if (ndb_gpu_can_run("quantize"))
@@ -389,13 +393,15 @@ vector_to_binary_gpu(PG_FUNCTION_ARGS)
 	int			count;
 	int			out_bytes;
 	bytea	   *out;
+	char	   *out_raw = NULL;
 
 	v = PG_GETARG_VECTOR_P(0);
 	NDB_CHECK_VECTOR_VALID(v);
 	count = v->dim;
 	out_bytes = (count + 7) / 8;
 
-	out = (bytea *) palloc(VARHDRSZ + out_bytes);
+	NDB_ALLOC(out_raw, char, VARHDRSZ + out_bytes);
+	out = (bytea *) out_raw;
 	SET_VARSIZE(out, VARHDRSZ + out_bytes);
 
 	/* Clear all bits (avoid garbage bits in final bytes). */
@@ -529,7 +535,7 @@ hnsw_knn_search_gpu(PG_FUNCTION_ARGS)
 	Vector	   *query;
 	int32		k;
 	int32		ef_search;
-	const		ndb_gpu_backend *backend;
+	const ndb_gpu_backend *backend;
 	Relation	indexRel = NULL;
 	Oid			index_oid;
 	Buffer		metaBuffer;
@@ -679,8 +685,8 @@ hnsw_knn_search_gpu(PG_FUNCTION_ARGS)
 						j;
 			extern float4 l2_distance(Vector *a, Vector *b);
 
-			candidates = (BlockNumber *) palloc(sizeof(BlockNumber) * maxCandidates);
-			candidateDists = (float4 *) palloc(sizeof(float4) * maxCandidates);
+			NDB_ALLOC(candidates, BlockNumber, maxCandidates);
+			NDB_ALLOC(candidateDists, float4, maxCandidates);
 			visited = (bool *) palloc0(sizeof(bool) * visitedSize);
 
 			/* Start from entry point */
@@ -691,6 +697,7 @@ hnsw_knn_search_gpu(PG_FUNCTION_ARGS)
 				float4	   *nodeVector;
 				Vector	   *nodeVec;
 				float4		dist;
+				char	   *nodeVec_raw = NULL;
 
 				nodeBuf = ReadBuffer(indexRel, current);
 				LockBuffer(nodeBuf, BUFFER_LOCK_SHARE);
@@ -701,7 +708,8 @@ hnsw_knn_search_gpu(PG_FUNCTION_ARGS)
 												  PageGetItemId(nodePage, FirstOffsetNumber));
 					nodeVector = (float4 *) ((char *) (node) + MAXALIGN(sizeof(HnswNodeData)));
 
-					nodeVec = (Vector *) palloc(VARHDRSZ + sizeof(int16) * 2 + sizeof(float4) * node->dim);
+					NDB_ALLOC(nodeVec_raw, char, VARHDRSZ + sizeof(int16) * 2 + sizeof(float4) * node->dim);
+					nodeVec = (Vector *) nodeVec_raw;
 					SET_VARSIZE(nodeVec, VARHDRSZ + sizeof(int16) * 2 + sizeof(float4) * node->dim);
 					nodeVec->dim = node->dim;
 					nodeVec->unused = 0;
@@ -751,6 +759,7 @@ hnsw_knn_search_gpu(PG_FUNCTION_ARGS)
 							float4	   *neighborVector;
 							Vector	   *neighborVec;
 							float4		dist;
+							char	   *neighborVec_raw = NULL;
 
 							neighborBuf = ReadBuffer(indexRel, neighbors[j]);
 							LockBuffer(neighborBuf, BUFFER_LOCK_SHARE);
@@ -761,7 +770,8 @@ hnsw_knn_search_gpu(PG_FUNCTION_ARGS)
 																  PageGetItemId(neighborPage, FirstOffsetNumber));
 								neighborVector = (float4 *) ((char *) (neighbor) + MAXALIGN(sizeof(HnswNodeData)));
 
-								neighborVec = (Vector *) palloc(VARHDRSZ + sizeof(int16) * 2 + sizeof(float4) * neighbor->dim);
+								NDB_ALLOC(neighborVec_raw, char, VARHDRSZ + sizeof(int16) * 2 + sizeof(float4) * neighbor->dim);
+								neighborVec = (Vector *) neighborVec_raw;
 								SET_VARSIZE(neighborVec, VARHDRSZ + sizeof(int16) * 2 + sizeof(float4) * neighbor->dim);
 								neighborVec->dim = neighbor->dim;
 								neighborVec->unused = 0;
@@ -786,12 +796,15 @@ hnsw_knn_search_gpu(PG_FUNCTION_ARGS)
 			if (candidateCount > 0)
 			{
 				/* Simple selection sort for top-k */
-				int		   *topKIndices = (int *) palloc(sizeof(int) * k);
+				int		   *topKIndices = NULL;
 				int			topKCount = candidateCount < k ? candidateCount : k;
 				int			l,
 							m,
 							minIdx;
 				float4		minDist;
+				ItemPointerData *results_local = NULL;
+				float4	   *distances_local = NULL;
+				NDB_ALLOC(topKIndices, int, k);
 
 				for (l = 0; l < topKCount; l++)
 				{
@@ -820,8 +833,10 @@ hnsw_knn_search_gpu(PG_FUNCTION_ARGS)
 
 				/* Convert to results */
 				resultCount = topKCount;
-				results = (ItemPointerData *) palloc(sizeof(ItemPointerData) * resultCount);
-				distances = (float4 *) palloc(sizeof(float4) * resultCount);
+				NDB_ALLOC(results_local, ItemPointerData, resultCount);
+				NDB_ALLOC(distances_local, float4, resultCount);
+				results = results_local;
+				distances = distances_local;
 
 				for (i = 0; i < resultCount; i++)
 				{
@@ -873,12 +888,12 @@ hnsw_knn_search_gpu(PG_FUNCTION_ARGS)
 				float4	   *distances;
 				int			count;
 			}			HnswSearchResults;
-			HnswSearchResults *searchResults;
+			HnswSearchResults *searchResults = NULL;
 
 			funcctx->max_calls = resultCount;
 			if (resultCount > 0)
 			{
-				searchResults = (HnswSearchResults *) palloc(sizeof(HnswSearchResults));
+				NDB_ALLOC(searchResults, HnswSearchResults, 1);
 				searchResults->results = results;
 				searchResults->distances = distances;
 				searchResults->count = resultCount;
@@ -957,7 +972,7 @@ ivf_knn_search_gpu(PG_FUNCTION_ARGS)
 		Vector	   *query;
 		int32		k;
 		int32		nprobe;
-		const		ndb_gpu_backend *backend;
+		const ndb_gpu_backend *backend;
 		Relation	indexRel = NULL;
 		Oid			index_oid;
 		Buffer		metaBuffer = InvalidBuffer;
@@ -1078,8 +1093,11 @@ ivf_knn_search_gpu(PG_FUNCTION_ARGS)
 			float4	   *candidate_vectors = NULL;
 			ItemPointerData *candidate_tids = NULL;
 			int			candidate_count = 0;
-			int			i, j;
-			int			max_candidates = k * nprobe * 10; /* Collect more candidates than needed */
+			int			i,
+						j;
+			int			max_candidates = k * nprobe * 10;	/* Collect more
+															 * candidates than
+															 * needed */
 
 			/* Step 1: Load centroids to GPU memory */
 			centroidsBuf = ReadBuffer(indexRel, meta->centroidsBlock);
@@ -1096,9 +1114,9 @@ ivf_knn_search_gpu(PG_FUNCTION_ARGS)
 			maxoff = PageGetMaxOffsetNumber(centroidsPage);
 
 			/* Allocate centroids array */
-			centroids = (float4 *) palloc(meta->nlists * query->dim * sizeof(float4));
-			centroid_distances = (float4 *) palloc(meta->nlists * sizeof(float4));
-			selected_clusters = (int *) palloc(nprobe * sizeof(int));
+			NDB_ALLOC(centroids, float4, meta->nlists * query->dim);
+			NDB_ALLOC(centroid_distances, float4, meta->nlists);
+			NDB_ALLOC(selected_clusters, int, nprobe);
 
 			/* Extract centroids from page */
 			for (i = 0; i < meta->nlists && i < maxoff; i++)
@@ -1129,11 +1147,11 @@ ivf_knn_search_gpu(PG_FUNCTION_ARGS)
 					int			rc;
 
 					rc = backend->launch_l2_distance(query->data,
-													  centroids + i * query->dim,
-													  &dist,
-													  1,
-													  query->dim,
-													  NULL);
+													 centroids + i * query->dim,
+													 &dist,
+													 1,
+													 query->dim,
+													 NULL);
 					if (rc == 0)
 						centroid_distances[i] = dist;
 					else
@@ -1151,6 +1169,7 @@ ivf_knn_search_gpu(PG_FUNCTION_ARGS)
 					for (d = 0; d < query->dim; d++)
 					{
 						float		diff = query->data[d] - centroids[i * query->dim + d];
+
 						sum += diff * diff;
 					}
 					centroid_distances[i] = sqrtf(sum);
@@ -1194,8 +1213,8 @@ ivf_knn_search_gpu(PG_FUNCTION_ARGS)
 			centroidsPage = BufferGetPage(centroidsBuf);
 			maxoff = PageGetMaxOffsetNumber(centroidsPage);
 
-			candidate_vectors = (float4 *) palloc(max_candidates * query->dim * sizeof(float4));
-			candidate_tids = (ItemPointerData *) palloc(max_candidates * sizeof(ItemPointerData));
+			NDB_ALLOC(candidate_vectors, float4, max_candidates * query->dim);
+			NDB_ALLOC(candidate_tids, ItemPointerData, max_candidates);
 
 			/* Collect candidates from selected clusters */
 			for (i = 0; i < nprobe && candidate_count < max_candidates; i++)
@@ -1275,9 +1294,11 @@ ivf_knn_search_gpu(PG_FUNCTION_ARGS)
 				float4	   *candidate_distances = NULL;
 				int		   *indices = NULL;
 				int			j_local;
+				ItemPointerData *results_local = NULL;
+				float4	   *distances_local = NULL;
 
-				candidate_distances = (float4 *) palloc(candidate_count * sizeof(float4));
-				indices = (int *) palloc(candidate_count * sizeof(int));
+				NDB_ALLOC(candidate_distances, float4, candidate_count);
+				NDB_ALLOC(indices, int, candidate_count);
 
 				if (backend && backend->launch_l2_distance)
 				{
@@ -1288,11 +1309,11 @@ ivf_knn_search_gpu(PG_FUNCTION_ARGS)
 						int			rc;
 
 						rc = backend->launch_l2_distance(query->data,
-														  candidate_vectors + i * query->dim,
-														  &dist,
-														  1,
-														  query->dim,
-														  NULL);
+														 candidate_vectors + i * query->dim,
+														 &dist,
+														 1,
+														 query->dim,
+														 NULL);
 						if (rc == 0)
 							candidate_distances[i] = dist;
 						else
@@ -1310,6 +1331,7 @@ ivf_knn_search_gpu(PG_FUNCTION_ARGS)
 						for (d = 0; d < query->dim; d++)
 						{
 							float		diff = query->data[d] - candidate_vectors[i * query->dim + d];
+
 							sum += diff * diff;
 						}
 						candidate_distances[i] = sqrtf(sum);
@@ -1339,6 +1361,7 @@ ivf_knn_search_gpu(PG_FUNCTION_ARGS)
 					if (best_idx != i)
 					{
 						int			tmp = indices[i];
+
 						indices[i] = indices[best_idx];
 						indices[best_idx] = tmp;
 					}
@@ -1346,8 +1369,10 @@ ivf_knn_search_gpu(PG_FUNCTION_ARGS)
 
 				/* Allocate result arrays */
 				resultCount = (k < candidate_count) ? k : candidate_count;
-				results = (ItemPointerData *) palloc(resultCount * sizeof(ItemPointerData));
-				distances = (float4 *) palloc(resultCount * sizeof(float4));
+				NDB_ALLOC(results_local, ItemPointerData, resultCount);
+				NDB_ALLOC(distances_local, float4, resultCount);
+				results = results_local;
+				distances = distances_local;
 
 				for (i = 0; i < resultCount; i++)
 				{
@@ -1398,12 +1423,12 @@ ivf_knn_search_gpu(PG_FUNCTION_ARGS)
 				float4	   *distances;
 				int			count;
 			}			IvfSearchResults;
-			IvfSearchResults *searchResults;
+			IvfSearchResults *searchResults = NULL;
 
 			funcctx->max_calls = resultCount;
 			if (resultCount > 0)
 			{
-				searchResults = (IvfSearchResults *) palloc(sizeof(IvfSearchResults));
+				NDB_ALLOC(searchResults, IvfSearchResults, 1);
 				searchResults->results = results;
 				searchResults->distances = distances;
 				searchResults->count = resultCount;

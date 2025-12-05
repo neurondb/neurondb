@@ -74,6 +74,7 @@ neurondb_create_ml_project(PG_FUNCTION_ARGS)
 	int			ret;
 	int32		project_id_val;
 	int			project_id;
+
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext;
 
@@ -183,6 +184,7 @@ neurondb_list_ml_projects(PG_FUNCTION_ARGS)
 	MemoryContext oldcontext;
 	int			ret;
 	int			i;
+
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext_spi;
 
@@ -290,6 +292,7 @@ neurondb_delete_ml_project(PG_FUNCTION_ARGS)
 	char	   *project_name = text_to_cstring(project_name_text);
 	StringInfoData sql;
 	int			ret;
+
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext = CurrentMemoryContext;
 
@@ -334,6 +337,7 @@ neurondb_get_project_info(PG_FUNCTION_ARGS)
 	int			ret;
 	Datum		result;
 	Jsonb	   *jsonb_result;
+
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext = CurrentMemoryContext;
 
@@ -372,7 +376,11 @@ neurondb_get_project_info(PG_FUNCTION_ARGS)
 	result = PointerGetDatum(jsonb_result);
 
 	/* Copy result to upper memory context - Jsonb is pass-by-reference */
-	/* Note: ndb_spi_get_jsonb already copies to oldcontext, but we copy again to be safe */
+
+	/*
+	 * Note: ndb_spi_get_jsonb already copies to oldcontext, but we copy again
+	 * to be safe
+	 */
 	if (SPI_tuptable != NULL && SPI_tuptable->tupdesc != NULL)
 	{
 		Oid			jsonb_type_oid = SPI_gettypeid(SPI_tuptable->tupdesc, 1);
@@ -383,7 +391,11 @@ neurondb_get_project_info(PG_FUNCTION_ARGS)
 		get_typlenbyvalalign(jsonb_type_oid, &typlen, &typbyval, &typalign);
 		result = datumCopy(result, typlen, typbyval);
 	}
-	/* If SPI_tuptable is not available, result is already in correct context from ndb_spi_get_jsonb */
+
+	/*
+	 * If SPI_tuptable is not available, result is already in correct context
+	 * from ndb_spi_get_jsonb
+	 */
 
 	ndb_spi_stringinfo_free(spi_session, &sql);
 	NDB_SPI_SESSION_END(spi_session);
@@ -427,6 +439,7 @@ neurondb_train_kmeans_project(PG_FUNCTION_ARGS)
 	int64		start_time;
 	int64		end_time;
 	int			training_time_ms;
+
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 	NDB_DECLARE(NdbSpiSession *, spi_session2);
 	MemoryContext oldcontext;
@@ -597,6 +610,7 @@ kmeans_model_deserialize_from_bytea(const bytea * data, float ***centers_out, in
 	int			offset = 0;
 	int			i,
 				j;
+
 	NDB_DECLARE(float **, centers);
 
 	if (data == NULL || VARSIZE(data) < VARHDRSZ + sizeof(int) * 2)
@@ -661,12 +675,14 @@ predict_kmeans_project(PG_FUNCTION_ARGS)
 {
 	int32		model_id = PG_GETARG_INT32(0);
 	ArrayType  *features_array = PG_GETARG_ARRAYTYPE_P(1);
+
 	NDB_DECLARE(bytea *, model_data);
 	NDB_DECLARE(Jsonb *, parameters);
 	NDB_DECLARE(Jsonb *, metrics);
 	float	  **centers = NULL;
 	int			n_clusters = 0;
 	int			dim = 0;
+
 	NDB_DECLARE(float *, features);
 	int			n_features = 0;
 	int			cluster_id = 0;
@@ -778,6 +794,7 @@ evaluate_kmeans_project_by_model_id(PG_FUNCTION_ARGS)
 	MemoryContext oldcontext;
 	double		inertia;
 	int			n_clusters;
+
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext_spi;
 
@@ -858,6 +875,7 @@ evaluate_kmeans_project_by_model_id(PG_FUNCTION_ARGS)
 		int			model_dim = 0;
 		int			i,
 					c;
+
 		NDB_DECLARE(int *, assignments);
 
 		/* Load model from catalog */
@@ -1014,6 +1032,7 @@ neurondb_deploy_model(PG_FUNCTION_ARGS)
 	char	   *project_name = text_to_cstring(project_name_text);
 	StringInfoData sql;
 	int			ret;
+
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext = CurrentMemoryContext;
 
@@ -1095,6 +1114,7 @@ neurondb_get_deployed_model(PG_FUNCTION_ARGS)
 	int			ret;
 	int32		model_id_val;
 	int			model_id;
+
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext = CurrentMemoryContext;
 
@@ -1156,6 +1176,7 @@ neurondb_list_project_models(PG_FUNCTION_ARGS)
 	StringInfoData sql;
 	int			ret;
 	int			i;
+
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext_spi;
 

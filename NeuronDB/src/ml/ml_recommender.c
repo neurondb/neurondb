@@ -121,16 +121,19 @@ train_collaborative_filter(PG_FUNCTION_ARGS)
 	char	   *rating_col_str = text_to_cstring(rating_col);
 
 	int			ret;
-	NDB_DECLARE (NdbSpiSession *, train_als_spi_session);
+
+	NDB_DECLARE(NdbSpiSession *, train_als_spi_session);
 	MemoryContext oldcontext = NULL,
 				model_mcxt = NULL;
 	int			n_row,
 				i,
 				max_user_id = 0,
 				max_item_id = 0;
+
 	NDB_DECLARE(int *, user_ids);
 	NDB_DECLARE(int *, item_ids);
 	int			n_ratings = 0;
+
 	NDB_DECLARE(float *, ratings);
 	NDB_DECLARE(float **, P);
 	NDB_DECLARE(float **, Q);
@@ -194,8 +197,9 @@ train_collaborative_filter(PG_FUNCTION_ARGS)
 		HeapTuple	tuple;
 		TupleDesc	tupdesc;
 		bool		isnull[3] = {false, false, false};
+
 		/* Safe access to SPI_tuptable - validate before access */
-		if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL || 
+		if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL ||
 			i >= SPI_processed || SPI_tuptable->vals[i] == NULL)
 		{
 			continue;
@@ -213,33 +217,36 @@ train_collaborative_filter(PG_FUNCTION_ARGS)
 
 			/* Use safe function for int32 values */
 			if (!ndb_spi_get_int32(train_als_spi_session, i, 1, &user))
-		{
-			isnull[0] = true;
-		}
-		if (!ndb_spi_get_int32(train_als_spi_session, i, 2, &item))
-		{
-			isnull[1] = true;
-		}
-
-		if (isnull[0] || isnull[1])
-		{
-			NDB_FREE(sql.data);
-			NDB_FREE(user_ids);
-			NDB_FREE(item_ids);
-			NDB_FREE(ratings);
-			NDB_SPI_SESSION_END(train_als_spi_session);
-			ereport(ERROR,
-					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-					 errmsg("neurondb: train_collaborative_filter: user_col or item_col contains NULL"),
-					 errdetail("Row %d contains NULL values in user or item columns", i + 1),
-					 errhint("Remove NULL values from the user and item columns.")));
+			{
+				isnull[0] = true;
+			}
+			if (!ndb_spi_get_int32(train_als_spi_session, i, 2, &item))
+			{
+				isnull[1] = true;
 			}
 
-			/* Safe access for rating - validate tupdesc has at least 3 columns */
+			if (isnull[0] || isnull[1])
+			{
+				NDB_FREE(sql.data);
+				NDB_FREE(user_ids);
+				NDB_FREE(item_ids);
+				NDB_FREE(ratings);
+				NDB_SPI_SESSION_END(train_als_spi_session);
+				ereport(ERROR,
+						(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+						 errmsg("neurondb: train_collaborative_filter: user_col or item_col contains NULL"),
+						 errdetail("Row %d contains NULL values in user or item columns", i + 1),
+						 errhint("Remove NULL values from the user and item columns.")));
+			}
+
+			/*
+			 * Safe access for rating - validate tupdesc has at least 3
+			 * columns
+			 */
 			if (tupdesc->natts >= 3)
 			{
 				Datum		rating_datum;
-				
+
 				rating_datum = SPI_getbinval(tuple, tupdesc, 3, &isnull[2]);
 				if (!isnull[2])
 				{
@@ -375,7 +382,11 @@ train_collaborative_filter(PG_FUNCTION_ARGS)
 						 "CREATE TABLE IF NOT EXISTS neurondb_cf_user_factors "
 						 "(model_id integer, user_id int, factors float4[])");
 		ndb_spi_execute_safe(sql.data, false, 0);
-		/* CREATE TABLE doesn't return a result set, so don't check SPI_tuptable */
+
+		/*
+		 * CREATE TABLE doesn't return a result set, so don't check
+		 * SPI_tuptable
+		 */
 		/* Use safe free/reinit to handle potential memory context changes */
 		NDB_FREE(sql.data);
 		initStringInfo(&sql);
@@ -383,7 +394,11 @@ train_collaborative_filter(PG_FUNCTION_ARGS)
 						 "CREATE TABLE IF NOT EXISTS neurondb_cf_item_factors "
 						 "(model_id integer, item_id int, factors float4[])");
 		ndb_spi_execute_safe(sql.data, false, 0);
-		/* CREATE TABLE doesn't return a result set, so don't check SPI_tuptable */
+
+		/*
+		 * CREATE TABLE doesn't return a result set, so don't check
+		 * SPI_tuptable
+		 */
 
 		/* Use safe free/reinit to handle potential memory context changes */
 		NDB_FREE(sql.data);
@@ -406,6 +421,7 @@ train_collaborative_filter(PG_FUNCTION_ARGS)
 			Oid			arg_types[3] = {INT4OID, INT4OID, 1021};
 			Datum		values[3];
 			char		nulls[3] = {false, false, false};
+
 			NDB_DECLARE(ArrayType *, array);
 			int			j;
 
@@ -455,6 +471,7 @@ train_collaborative_filter(PG_FUNCTION_ARGS)
 			Oid			arg_types[3] = {INT4OID, INT4OID, 1021};
 			Datum		values[3];
 			char		nulls[3] = {false, false, false};
+
 			NDB_DECLARE(ArrayType *, array);
 			int			j;
 
@@ -532,7 +549,8 @@ static bool
 als_load_user_factors(int32 model_id, int32 user_id, float **factors, int *n_factors)
 {
 	StringInfoData query = {0};
-	NDB_DECLARE (NdbSpiSession *, load_user_factors_spi_session);
+
+	NDB_DECLARE(NdbSpiSession *, load_user_factors_spi_session);
 	MemoryContext oldcontext;
 	int			ret;
 	int			n_rows;
@@ -620,7 +638,8 @@ static bool
 als_load_item_factors(int32 model_id, int32 item_id, float ***factors, int *n_items_total, int *n_factors)
 {
 	StringInfoData query = {0};
-	NDB_DECLARE (NdbSpiSession *, load_item_factors_spi_session);
+
+	NDB_DECLARE(NdbSpiSession *, load_item_factors_spi_session);
 	MemoryContext oldcontext;
 	int			ret;
 	int			n_rows;
@@ -652,7 +671,7 @@ als_load_item_factors(int32 model_id, int32 item_id, float ***factors, int *n_it
 	}
 
 	/* Extract factors array - safe access for complex types */
-	if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL || 
+	if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL ||
 		SPI_processed == 0 || SPI_tuptable->vals[0] == NULL || SPI_tuptable->tupdesc == NULL)
 	{
 		NDB_FREE(query.data);
@@ -759,7 +778,7 @@ predict_collaborative_filter(PG_FUNCTION_ARGS)
 
 	/* Check for NaN/Inf and return default value (mean rating) if invalid */
 	if (isnan(prediction) || isinf(prediction))
-		prediction = 3.0;  /* Default to middle of 1-5 scale */
+		prediction = 3.0;		/* Default to middle of 1-5 scale */
 
 	/* Clamp prediction to valid rating range (assuming 1-5 scale) */
 	if (prediction < 1.0)
@@ -834,7 +853,8 @@ evaluate_collaborative_filter_by_model_id(PG_FUNCTION_ARGS)
 
 	{
 		MemoryContext oldcontext_local = CurrentMemoryContext;
-		NDB_DECLARE (NdbSpiSession *, eval_cf_spi_session);
+
+		NDB_DECLARE(NdbSpiSession *, eval_cf_spi_session);
 
 		Assert(oldcontext_local != NULL);
 		NDB_SPI_SESSION_BEGIN(eval_cf_spi_session, oldcontext_local);
@@ -883,9 +903,11 @@ evaluate_collaborative_filter_by_model_id(PG_FUNCTION_ARGS)
 		{
 			HeapTuple	tuple;
 			TupleDesc	tupdesc;
-			int32		user_id_val = 0, item_id_val = 0;
+			int32		user_id_val = 0,
+						item_id_val = 0;
+
 			/* Safe access to SPI_tuptable - validate before access */
-			if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL || 
+			if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL ||
 				i >= SPI_processed || SPI_tuptable->vals[i] == NULL)
 			{
 				continue;
@@ -898,9 +920,12 @@ evaluate_collaborative_filter_by_model_id(PG_FUNCTION_ARGS)
 			}
 			{
 				/* Use safe function for int32 values */
-				bool		user_null = false, item_null = false;
-				Datum		user_datum, item_datum;
-				bool		user_isnull, item_isnull;
+				bool		user_null = false,
+							item_null = false;
+				Datum		user_datum,
+							item_datum;
+				bool		user_isnull,
+							item_isnull;
 				int32		user_id;
 				int32		item_id;
 				Datum		rating_datum;
@@ -908,53 +933,63 @@ evaluate_collaborative_filter_by_model_id(PG_FUNCTION_ARGS)
 				float		true_rating;
 				float		pred_rating;
 				float		error;
-				
+
 				if (!ndb_spi_get_result_safe(i, 1, NULL, &user_datum, &user_isnull) || user_isnull)
-			{
-				user_null = true;
-			}
-			else
-			{
-				user_id_val = DatumGetInt32(user_datum);
-			}
-			if (!ndb_spi_get_result_safe(i, 2, NULL, &item_datum, &item_isnull) || item_isnull)
-			{
-				item_null = true;
-			}
-			else
-			{
-				item_id_val = DatumGetInt32(item_datum);
-			}
-			user_id = user_id_val;
-			item_id = item_id_val;
-			
-			/* For rating (float), need to use SPI_getbinval with safe access */
-			/* Safe access for rating - validate tupdesc has at least 3 columns */
-			if (tupdesc->natts < 3)
-			{
-				continue;
-			}
-			rating_datum = SPI_getbinval(tuple, tupdesc, 3, &rating_null);
+				{
+					user_null = true;
+				}
+				else
+				{
+					user_id_val = DatumGetInt32(user_datum);
+				}
+				if (!ndb_spi_get_result_safe(i, 2, NULL, &item_datum, &item_isnull) || item_isnull)
+				{
+					item_null = true;
+				}
+				else
+				{
+					item_id_val = DatumGetInt32(item_datum);
+				}
+				user_id = user_id_val;
+				item_id = item_id_val;
 
-			if (user_null || item_null || rating_null)
-				continue;
+				/*
+				 * For rating (float), need to use SPI_getbinval with safe
+				 * access
+				 */
 
-			true_rating = DatumGetFloat4(rating_datum);
+				/*
+				 * Safe access for rating - validate tupdesc has at least 3
+				 * columns
+				 */
+				if (tupdesc->natts < 3)
+				{
+					continue;
+				}
+				rating_datum = SPI_getbinval(tuple, tupdesc, 3, &rating_null);
 
-			/* Get prediction */
-			pred_rating = DatumGetFloat8(DirectFunctionCall3(predict_collaborative_filter,
-															 Int32GetDatum(model_id),
-															 Int32GetDatum(user_id),
-															 Int32GetDatum(item_id)));
+				if (user_null || item_null || rating_null)
+					continue;
 
-			/* Skip NaN/Inf predictions (shouldn't happen now, but keep as safety check) */
-			if (isnan(pred_rating) || isinf(pred_rating))
-				continue;
+				true_rating = DatumGetFloat4(rating_datum);
 
-			/* Compute error */
-			error = true_rating - pred_rating;
-			mse += error * error;
-			mae += fabs(error);
+				/* Get prediction */
+				pred_rating = DatumGetFloat8(DirectFunctionCall3(predict_collaborative_filter,
+																 Int32GetDatum(model_id),
+																 Int32GetDatum(user_id),
+																 Int32GetDatum(item_id)));
+
+				/*
+				 * Skip NaN/Inf predictions (shouldn't happen now, but keep as
+				 * safety check)
+				 */
+				if (isnan(pred_rating) || isinf(pred_rating))
+					continue;
+
+				/* Compute error */
+				error = true_rating - pred_rating;
+				mse += error * error;
+				mae += fabs(error);
 			}
 		}
 
@@ -1017,15 +1052,18 @@ recommend_items(PG_FUNCTION_ARGS)
 
 	NDB_DECLARE(float *, user_factors);
 	int			n_factors = 0;
+
 	NDB_DECLARE(int *, item_ids);
 	NDB_DECLARE(float **, item_factors);
 	int			n_items_total = 0;
 	int			i,
 				j;
+
 	NDB_DECLARE(int32 *, top_items);
 	NDB_DECLARE(float *, top_scores);
 	StringInfoData sql = {0};
-	NDB_DECLARE (NdbSpiSession *, predict_cf_spi_session);
+
+	NDB_DECLARE(NdbSpiSession *, predict_cf_spi_session);
 	MemoryContext oldcontext = CurrentMemoryContext;
 	int			ret = 0;
 
@@ -1077,7 +1115,7 @@ recommend_items(PG_FUNCTION_ARGS)
 	}
 
 	/* Safe access for complex types - validate before access */
-	if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL || 
+	if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL ||
 		SPI_processed == 0 || SPI_tuptable->vals[0] == NULL || SPI_tuptable->tupdesc == NULL)
 	{
 		NDB_FREE(sql.data);
@@ -1154,8 +1192,10 @@ recommend_items(PG_FUNCTION_ARGS)
 	{
 		HeapTuple	itup = SPI_tuptable->vals[i];
 		int			item_id = 0;
+
 		NDB_DECLARE(float *, fac);
 		int			item_n_factors = 0;
+
 		NDB_DECLARE(ArrayType *, arr_f);
 		bool		isnull_fac = false;
 		Datum		facdatum;
@@ -1165,7 +1205,7 @@ recommend_items(PG_FUNCTION_ARGS)
 		Datum		item_id_datum;
 		bool		item_id_isnull;
 		int32		item_id_val;
-		
+
 		item_id_datum = SPI_getbinval(itup, tupdesc, 1, &item_id_isnull);
 		if (!item_id_isnull)
 		{
@@ -1288,9 +1328,11 @@ recommend_content_based(PG_FUNCTION_ARGS)
 				j,
 				item_count,
 				n_factors;
+
 	NDB_DECLARE(int32 *, other_ids);
 	NDB_DECLARE(float **, other_factors);
 	int			target_idx = -1;
+
 	NDB_DECLARE(float *, target_vec);
 
 	NDB_DECLARE(ArrayType *, result_array);
@@ -1676,15 +1718,19 @@ recommend_hybrid(PG_FUNCTION_ARGS)
 		Datum		arr;
 		ArrayType  *user_vec;
 		int			n_factors;
+
 		NDB_DECLARE(float *, user_factors);
 		int			n_items_total;
+
 		NDB_DECLARE(int32 *, item_ids);
 		float	  **item_factors = NULL;
 		int			n_feat_items;
+
 		NDB_DECLARE(int32 *, feat_item_ids);
 		float	  **content_factors = NULL;
 		int			nf_content;
 		int			ntop;
+
 		NDB_DECLARE(int32 *, top_items);
 		NDB_DECLARE(float *, top_scores);
 		NDB_DECLARE(Datum *, elems);
@@ -2063,6 +2109,7 @@ recommender_model_serialize_to_bytea(float **user_factors, int n_users, float **
 {
 	StringInfoData buf;
 	int			total_size;
+
 	NDB_DECLARE(bytea *, result);
 	int			u,
 				i,
@@ -2169,9 +2216,10 @@ recommender_model_free(float **user_factors, int n_users, float **item_factors, 
 }
 
 static bool
-recommender_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
+recommender_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **errstr)
 {
 	RecommenderGpuModelState *state;
+
 	NDB_DECLARE(float **, user_factors);
 	NDB_DECLARE(float **, item_factors);
 	int			n_users = 100;
@@ -2183,6 +2231,7 @@ recommender_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **er
 	int			u,
 				i,
 				f;
+
 	NDB_DECLARE(bytea *, model_data);
 	NDB_DECLARE(Jsonb *, metrics);
 	StringInfoData metrics_json;
@@ -2300,10 +2349,11 @@ recommender_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **er
 }
 
 static bool
-recommender_gpu_predict(const MLGpuModel * model, const float *input, int input_dim,
+recommender_gpu_predict(const MLGpuModel *model, const float *input, int input_dim,
 						float *output, int output_dim, char **errstr)
 {
 	const		RecommenderGpuModelState *state;
+
 	NDB_DECLARE(float **, user_factors);
 	NDB_DECLARE(float **, item_factors);
 	int			n_users = 0,
@@ -2382,8 +2432,8 @@ recommender_gpu_predict(const MLGpuModel * model, const float *input, int input_
 }
 
 static bool
-recommender_gpu_evaluate(const MLGpuModel * model, const MLGpuEvalSpec * spec,
-						 MLGpuMetrics * out, char **errstr)
+recommender_gpu_evaluate(const MLGpuModel *model, const MLGpuEvalSpec *spec,
+						 MLGpuMetrics *out, char **errstr)
 {
 	const		RecommenderGpuModelState *state;
 	Jsonb	   *metrics_json;
@@ -2422,10 +2472,11 @@ recommender_gpu_evaluate(const MLGpuModel * model, const MLGpuEvalSpec * spec,
 }
 
 static bool
-recommender_gpu_serialize(const MLGpuModel * model, bytea * *payload_out,
+recommender_gpu_serialize(const MLGpuModel *model, bytea * *payload_out,
 						  Jsonb * *metadata_out, char **errstr)
 {
 	const		RecommenderGpuModelState *state;
+
 	NDB_DECLARE(bytea *, payload_copy);
 	int			payload_size;
 
@@ -2467,12 +2518,14 @@ recommender_gpu_serialize(const MLGpuModel * model, bytea * *payload_out,
 }
 
 static bool
-recommender_gpu_deserialize(MLGpuModel * model, const bytea * payload,
+recommender_gpu_deserialize(MLGpuModel *model, const bytea * payload,
 							const Jsonb * metadata, char **errstr)
 {
 	RecommenderGpuModelState *state;
+
 	NDB_DECLARE(bytea *, payload_copy);
 	int			payload_size;
+
 	NDB_DECLARE(float **, user_factors);
 	NDB_DECLARE(float **, item_factors);
 	int			n_users = 0,
@@ -2519,6 +2572,7 @@ recommender_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 	if (metadata != NULL)
 	{
 		int			metadata_size = VARSIZE(metadata);
+
 		NDB_DECLARE(Jsonb *, metadata_copy);
 
 		NDB_ALLOC(metadata_copy, Jsonb, metadata_size);
@@ -2556,7 +2610,7 @@ recommender_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 }
 
 static void
-recommender_gpu_destroy(MLGpuModel * model)
+recommender_gpu_destroy(MLGpuModel *model)
 {
 	RecommenderGpuModelState *state;
 

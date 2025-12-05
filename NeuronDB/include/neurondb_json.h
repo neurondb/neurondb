@@ -44,84 +44,84 @@
  * ndb_jsonb_in - Convert text to JSONB
  * Wrapper for DirectFunctionCall1(jsonb_in, text_datum)
  */
-extern Jsonb *ndb_jsonb_in(text *json_text);
+extern Jsonb * ndb_jsonb_in(text * json_text);
 
 /*
  * ndb_jsonb_in_cstring - Convert C string to JSONB
  * Convenience wrapper that converts C string to text first
  */
-extern Jsonb *ndb_jsonb_in_cstring(const char *json_str);
+extern Jsonb * ndb_jsonb_in_cstring(const char *json_str);
 
 /*
  * ndb_jsonb_out - Convert JSONB to text
  * Wrapper for DirectFunctionCall1(jsonb_out, jsonb_datum)
  */
-extern text *ndb_jsonb_out(Jsonb *jsonb);
+extern text * ndb_jsonb_out(Jsonb * jsonb);
 
 /*
  * ndb_jsonb_out_cstring - Convert JSONB to C string
  * Convenience wrapper that returns C string
  */
-extern char *ndb_jsonb_out_cstring(Jsonb *jsonb);
+extern char *ndb_jsonb_out_cstring(Jsonb * jsonb);
 
 /*
  * ndb_jsonb_object_field - Extract field from JSONB object
  * Wrapper for DirectFunctionCall2(jsonb_object_field, jsonb_datum, text_datum)
  */
-extern Jsonb *ndb_jsonb_object_field(Jsonb *jsonb, const char *field_name);
+extern Jsonb * ndb_jsonb_object_field(Jsonb * jsonb, const char *field_name);
 
 /*
  * ndb_jsonb_array_element - Extract element from JSONB array
  * Wrapper for DirectFunctionCall2(jsonb_array_element, jsonb_datum, int_datum)
  */
-extern Jsonb *ndb_jsonb_array_element(Jsonb *jsonb, int index);
+extern Jsonb * ndb_jsonb_array_element(Jsonb * jsonb, int index);
 
 /*
  * ndb_jsonb_extract_path - Extract value by path
  * Wrapper for DirectFunctionCall2(jsonb_extract_path, jsonb_datum, text_array_datum)
  */
-extern Jsonb *ndb_jsonb_extract_path(Jsonb *jsonb, const char **path, int path_len);
+extern Jsonb * ndb_jsonb_extract_path(Jsonb * jsonb, const char **path, int path_len);
 
 /*
  * ndb_jsonb_extract_path_text - Extract text value by path
  * Wrapper for DirectFunctionCall2(jsonb_extract_path_text, jsonb_datum, text_array_datum)
  */
-extern text *ndb_jsonb_extract_path_text(Jsonb *jsonb, const char **path, int path_len);
+extern text * ndb_jsonb_extract_path_text(Jsonb * jsonb, const char **path, int path_len);
 
 /*
  * ndb_jsonb_extract_path_cstring - Extract C string value by path
  * Convenience wrapper that returns C string
  */
-extern char *ndb_jsonb_extract_path_cstring(Jsonb *jsonb, const char **path, int path_len);
+extern char *ndb_jsonb_extract_path_cstring(Jsonb * jsonb, const char **path, int path_len);
 
 /*
  * ndb_jsonb_typeof - Get JSONB type
  * Wrapper for DirectFunctionCall1(jsonb_typeof, jsonb_datum)
  */
-extern text *ndb_jsonb_typeof(Jsonb *jsonb);
+extern text * ndb_jsonb_typeof(Jsonb * jsonb);
 
 /*
  * ndb_jsonb_typeof_cstring - Get JSONB type as C string
  * Convenience wrapper that returns C string
  */
-extern char *ndb_jsonb_typeof_cstring(Jsonb *jsonb);
+extern char *ndb_jsonb_typeof_cstring(Jsonb * jsonb);
 
 /*
  * ndb_jsonb_to_text - Convert JSONB to text (alias for jsonb_out)
  */
-extern text *ndb_jsonb_to_text(Jsonb *jsonb);
+extern text * ndb_jsonb_to_text(Jsonb * jsonb);
 
 /*
  * ndb_jsonb_build_object - Build JSONB object from key-value pairs
  * Uses variadic DirectFunctionCall for jsonb_build_object
  */
-extern Jsonb *ndb_jsonb_build_object(const char *key1, const char *value1, ...);
+extern Jsonb * ndb_jsonb_build_object(const char *key1, const char *value1,...);
 
 /*
  * ndb_jsonb_build_array - Build JSONB array from values
  * Uses variadic DirectFunctionCall for jsonb_build_array
  */
-extern Jsonb *ndb_jsonb_build_array(const char *value1, ...);
+extern Jsonb * ndb_jsonb_build_array(const char *value1,...);
 
 /* ========== JSON String Quoting and Escaping ========== */
 
@@ -152,7 +152,8 @@ typedef struct NdbJsonParseResult
 {
 	char	   *key;
 	char	   *value;
-	int			value_type;		/* 0=string, 1=number, 2=boolean, 3=null, 4=object, 5=array */
+	int			value_type;		/* 0=string, 1=number, 2=boolean, 3=null,
+								 * 4=object, 5=array */
 	double		num_value;
 	bool		bool_value;
 } NdbJsonParseResult;
@@ -197,7 +198,7 @@ extern bool ndb_json_extract_bool(const char *json_str, const char *key, bool *f
  * ndb_json_extract_int - Extract integer value by key
  * Returns integer value, sets found flag
  */
-extern int ndb_json_extract_int(const char *json_str, const char *key, bool *found);
+extern int	ndb_json_extract_int(const char *json_str, const char *key, bool *found);
 
 /*
  * ndb_json_extract_float - Extract float value by key
@@ -234,7 +235,7 @@ typedef struct NdbGenParams
  * Unified parser for LLM generation parameters
  * Returns 0 on success, -1 on error (sets errstr)
  */
-extern int ndb_json_parse_gen_params(const char *params_json,
+extern int	ndb_json_parse_gen_params(const char *params_json,
 									  NdbGenParams *gen_params,
 									  char **errstr);
 
@@ -259,7 +260,7 @@ typedef struct NdbOpenAIResponse
  * Parses OpenAI chat completion or embedding response
  * Returns 0 on success, -1 on error
  */
-extern int ndb_json_extract_openai_response(const char *json_str,
+extern int	ndb_json_extract_openai_response(const char *json_str,
 											 NdbOpenAIResponse *response);
 
 /*
@@ -272,9 +273,9 @@ extern void ndb_json_extract_openai_response_free(NdbOpenAIResponse *response);
  * Extracts embedding array from OpenAI embedding API response
  * Returns 0 on success, -1 on error
  */
-extern int ndb_json_parse_openai_embedding(const char *json_str,
-											 float **vec_out,
-											 int *dim_out);
+extern int	ndb_json_parse_openai_embedding(const char *json_str,
+											float **vec_out,
+											int *dim_out);
 
 /*
  * Sparse vector parsing structure
@@ -293,7 +294,7 @@ typedef struct NdbSparseVectorParse
  * Proper JSON parsing for sparse vector format
  * Returns 0 on success, -1 on error (sets errstr)
  */
-extern int ndb_json_parse_sparse_vector(const char *json_str,
+extern int	ndb_json_parse_sparse_vector(const char *json_str,
 										 NdbSparseVectorParse *result,
 										 char **errstr);
 
@@ -308,25 +309,25 @@ extern void ndb_json_parse_sparse_vector_free(NdbSparseVectorParse *result);
  * ndb_json_build_object - Build JSON object string from key-value pairs
  * Returns allocated JSON string
  */
-extern char *ndb_json_build_object(const char *key1, const char *value1, ...);
+extern char *ndb_json_build_object(const char *key1, const char *value1,...);
 
 /*
  * ndb_json_build_object_buf - Build JSON object into StringInfo buffer
  * Appends JSON object to existing buffer
  */
-extern void ndb_json_build_object_buf(StringInfo buf, const char *key1, const char *value1, ...);
+extern void ndb_json_build_object_buf(StringInfo buf, const char *key1, const char *value1,...);
 
 /*
  * ndb_json_build_array - Build JSON array string from values
  * Returns allocated JSON string
  */
-extern char *ndb_json_build_array(const char *value1, ...);
+extern char *ndb_json_build_array(const char *value1,...);
 
 /*
  * ndb_json_build_array_buf - Build JSON array into StringInfo buffer
  * Appends JSON array to existing buffer
  */
-extern void ndb_json_build_array_buf(StringInfo buf, const char *value1, ...);
+extern void ndb_json_build_array_buf(StringInfo buf, const char *value1,...);
 
 /*
  * ndb_json_merge_objects - Merge two JSON objects
@@ -405,5 +406,4 @@ extern char *ndb_json_strip_whitespace(const char *json_str);
 #define NDB_JSON_HAS_FIELD(jsonb, key_const) \
 	(ndb_jsonb_object_field((jsonb), (key_const)) != NULL)
 
-#endif	/* NEURONDB_JSON_H */
-
+#endif							/* NEURONDB_JSON_H */

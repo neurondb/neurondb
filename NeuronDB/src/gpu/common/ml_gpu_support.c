@@ -23,7 +23,7 @@
 #include "neurondb_constants.h"
 
 void
-ml_gpu_call_begin(MLGpuCallState * state,
+ml_gpu_call_begin(MLGpuCallState *state,
 				  const char *tag,
 				  const char *kernel_name,
 				  bool must_have_kernel)
@@ -59,13 +59,13 @@ ml_gpu_call_begin(MLGpuCallState * state,
 }
 
 bool
-ml_gpu_call_use_gpu(const MLGpuCallState * state)
+ml_gpu_call_use_gpu(const MLGpuCallState *state)
 {
 	return state && state->use_gpu;
 }
 
 MLGpuContext *
-ml_gpu_call_context(const MLGpuCallState * state)
+ml_gpu_call_context(const MLGpuCallState *state)
 {
 	if (state == NULL)
 		return NULL;
@@ -73,7 +73,7 @@ ml_gpu_call_context(const MLGpuCallState * state)
 }
 
 void
-ml_gpu_call_end(MLGpuCallState * state)
+ml_gpu_call_end(MLGpuCallState *state)
 {
 	if (state == NULL)
 		return;

@@ -111,13 +111,13 @@ detect_outliers_zscore(PG_FUNCTION_ARGS)
 	float	  **vectors;
 	int			nvec,
 				dim;
-	double	   *mean;
-	double	   *distances;
-	bool	   *outliers;
+	NDB_DECLARE(double *, mean);
+	NDB_DECLARE(double *, distances);
+	NDB_DECLARE(bool *, outliers);
 	int			i,
 				d;
 	ArrayType  *result;
-	Datum	   *result_datums;
+	NDB_DECLARE(Datum *, result_datums);
 	int16		typlen;
 	bool		typbyval;
 	char		typalign;
@@ -163,10 +163,10 @@ detect_outliers_zscore(PG_FUNCTION_ARGS)
 		/* Free vectors array and rows if vectors is not NULL */
 		if (vectors != NULL)
 		{
-			for (int i = 0; i < nvec; i++)
+			for (int idx = 0; idx < nvec; idx++)
 			{
-				if (vectors[i] != NULL)
-					NDB_FREE(vectors[i]);
+				if (vectors[idx] != NULL)
+					NDB_FREE(vectors[idx]);
 			}
 			NDB_FREE(vectors);
 		}
@@ -182,7 +182,7 @@ detect_outliers_zscore(PG_FUNCTION_ARGS)
 						"detection")));
 
 	/* Compute centroid (mean vector) */
-	mean = (double *) palloc0(sizeof(double) * dim);
+	NDB_ALLOC(mean, double, dim);
 	for (i = 0; i < nvec; i++)
 		for (d = 0; d < dim; d++)
 			mean[d] += (double) vectors[i][d];
@@ -191,12 +191,12 @@ detect_outliers_zscore(PG_FUNCTION_ARGS)
 		mean[d] /= nvec;
 
 	/* Compute distances from mean */
-	distances = (double *) palloc(sizeof(double) * nvec);
+	NDB_ALLOC(distances, double, nvec);
 	for (i = 0; i < nvec; i++)
 		distances[i] = distance_from_mean(vectors[i], mean, dim);
 
 	/* Allocate outlier flags */
-	outliers = (bool *) palloc0(sizeof(bool) * nvec);
+	NDB_ALLOC(outliers, bool, nvec);
 
 	/* Apply detection method */
 	if (strcmp(method, "zscore") == 0)
@@ -247,7 +247,7 @@ detect_outliers_zscore(PG_FUNCTION_ARGS)
 		int			num_outliers;
 
 		/* Compute median distance */
-		sorted_distances = (double *) palloc(sizeof(double) * nvec);
+		NDB_ALLOC(sorted_distances, double, nvec);
 		memcpy(sorted_distances, distances, sizeof(double) * nvec);
 		qsort(sorted_distances, nvec, sizeof(double), double_compare);
 
@@ -258,7 +258,7 @@ detect_outliers_zscore(PG_FUNCTION_ARGS)
 			: sorted_distances[nvec / 2];
 
 		/* Compute MAD */
-		abs_deviations = (double *) palloc(sizeof(double) * nvec);
+		NDB_ALLOC(abs_deviations, double, nvec);
 		for (i = 0; i < nvec; i++)
 			abs_deviations[i] = fabs(distances[i] - median_dist);
 
@@ -308,7 +308,7 @@ detect_outliers_zscore(PG_FUNCTION_ARGS)
 					q3_idx;
 		int			num_outliers;
 
-		sorted_distances = (double *) palloc(sizeof(double) * nvec);
+		NDB_ALLOC(sorted_distances, double, nvec);
 		memcpy(sorted_distances, distances, sizeof(double) * nvec);
 		qsort(sorted_distances, nvec, sizeof(double), double_compare);
 
@@ -351,7 +351,7 @@ detect_outliers_zscore(PG_FUNCTION_ARGS)
 	}
 
 	/* Build result array */
-	result_datums = (Datum *) palloc(sizeof(Datum) * nvec);
+	NDB_ALLOC(result_datums, Datum, nvec);
 	for (i = 0; i < nvec; i++)
 		result_datums[i] = BoolGetDatum(outliers[i]);
 
@@ -401,13 +401,13 @@ compute_outlier_scores(PG_FUNCTION_ARGS)
 	float	  **vectors;
 	int			nvec,
 				dim;
-	double	   *mean;
-	double	   *distances;
-	double	   *scores;
+	NDB_DECLARE(double *, mean);
+	NDB_DECLARE(double *, distances);
+	NDB_DECLARE(double *, scores);
 	int			i,
 				d;
 	ArrayType  *result;
-	Datum	   *result_datums;
+	NDB_DECLARE(Datum *, result_datums);
 
 	table_name = PG_GETARG_TEXT_PP(0);
 	vector_column = PG_GETARG_TEXT_PP(1);
@@ -439,10 +439,10 @@ compute_outlier_scores(PG_FUNCTION_ARGS)
 		/* Free vectors array and rows if vectors is not NULL */
 		if (vectors != NULL)
 		{
-			for (int i = 0; i < nvec; i++)
+			for (int idx = 0; idx < nvec; idx++)
 			{
-				if (vectors[i] != NULL)
-					NDB_FREE(vectors[i]);
+				if (vectors[idx] != NULL)
+					NDB_FREE(vectors[idx]);
 			}
 			NDB_FREE(vectors);
 		}
@@ -457,7 +457,7 @@ compute_outlier_scores(PG_FUNCTION_ARGS)
 				 errmsg("Need at least 2 vectors")));
 
 	/* Compute mean */
-	mean = (double *) palloc0(sizeof(double) * dim);
+	NDB_ALLOC(mean, double, dim);
 	for (i = 0; i < nvec; i++)
 		for (d = 0; d < dim; d++)
 			mean[d] += (double) vectors[i][d];
@@ -465,12 +465,12 @@ compute_outlier_scores(PG_FUNCTION_ARGS)
 		mean[d] /= nvec;
 
 	/* Compute distances */
-	distances = (double *) palloc(sizeof(double) * nvec);
+	NDB_ALLOC(distances, double, nvec);
 	for (i = 0; i < nvec; i++)
 		distances[i] = distance_from_mean(vectors[i], mean, dim);
 
 	/* Compute scores */
-	scores = (double *) palloc(sizeof(double) * nvec);
+	NDB_ALLOC(scores, double, nvec);
 
 	if (strcmp(method, "zscore") == 0)
 	{
@@ -508,7 +508,7 @@ compute_outlier_scores(PG_FUNCTION_ARGS)
 		double	   *sorted_distances;
 		double	   *abs_deviations;
 
-		sorted_distances = (double *) palloc(sizeof(double) * nvec);
+		NDB_ALLOC(sorted_distances, double, nvec);
 		memcpy(sorted_distances, distances, sizeof(double) * nvec);
 		qsort(sorted_distances, nvec, sizeof(double), double_compare);
 
@@ -518,7 +518,7 @@ compute_outlier_scores(PG_FUNCTION_ARGS)
 			/ 2.0
 			: sorted_distances[nvec / 2];
 
-		abs_deviations = (double *) palloc(sizeof(double) * nvec);
+		NDB_ALLOC(abs_deviations, double, nvec);
 		for (i = 0; i < nvec; i++)
 			abs_deviations[i] = fabs(distances[i] - median_dist);
 
@@ -545,7 +545,7 @@ compute_outlier_scores(PG_FUNCTION_ARGS)
 				 errmsg("Unknown method '%s'", method)));
 	}
 
-	result_datums = (Datum *) palloc(sizeof(Datum) * nvec);
+	NDB_ALLOC(result_datums, Datum, nvec);
 	for (i = 0; i < nvec; i++)
 		result_datums[i] = Float8GetDatum(scores[i]);
 

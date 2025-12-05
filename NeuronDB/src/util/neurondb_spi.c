@@ -53,7 +53,7 @@ struct NdbSpiSession
 NdbSpiSession *
 ndb_spi_session_begin(MemoryContext parent_context, bool assume_spi_connected)
 {
-	NDB_DECLARE (NdbSpiSession *, session);
+	NDB_DECLARE(NdbSpiSession *, session);
 	MemoryContext oldcontext;
 
 	if (parent_context == NULL)
@@ -61,7 +61,7 @@ ndb_spi_session_begin(MemoryContext parent_context, bool assume_spi_connected)
 
 	/* Allocate session in parent context */
 	oldcontext = MemoryContextSwitchTo(parent_context);
-	NDB_ALLOC	(session, NdbSpiSession, 1);
+	NDB_ALLOC(session, NdbSpiSession, 1);
 
 	MemoryContextSwitchTo(oldcontext);
 
@@ -217,7 +217,7 @@ ndb_spi_execute_with_args(NdbSpiSession *session,
 						  const char *src,
 						  int nargs,
 						  Oid * argtypes,
-						  Datum *values,
+						  Datum * values,
 						  const char *nulls,
 						  bool read_only,
 						  long tcount)
@@ -298,7 +298,7 @@ ndb_spi_execute_with_args(NdbSpiSession *session,
  */
 
 void
-ndb_spi_stringinfo_init(NdbSpiSession *session, StringInfoData *str)
+ndb_spi_stringinfo_init(NdbSpiSession *session, StringInfoData * str)
 {
 	MemoryContext oldcontext;
 
@@ -319,7 +319,7 @@ ndb_spi_stringinfo_init(NdbSpiSession *session, StringInfoData *str)
 }
 
 void
-ndb_spi_stringinfo_free(NdbSpiSession *session, StringInfoData *str)
+ndb_spi_stringinfo_free(NdbSpiSession *session, StringInfoData * str)
 {
 	if (session == NULL || str == NULL || str->data == NULL)
 		return;
@@ -332,7 +332,7 @@ ndb_spi_stringinfo_free(NdbSpiSession *session, StringInfoData *str)
 }
 
 void
-ndb_spi_stringinfo_reset(NdbSpiSession *session, StringInfoData *str)
+ndb_spi_stringinfo_reset(NdbSpiSession *session, StringInfoData * str)
 {
 	if (session == NULL || str == NULL)
 		return;
@@ -396,7 +396,10 @@ ndb_spi_get_int32(NdbSpiSession *session,
 	}
 	else
 	{
-		/* Type is not an integer type - this shouldn't happen for training functions */
+		/*
+		 * Type is not an integer type - this shouldn't happen for training
+		 * functions
+		 */
 		/* Log warning and return false */
 		elog(WARNING,
 			 "neurondb: ndb_spi_get_int32: unexpected type OID %u (expected integer type)",

@@ -38,16 +38,16 @@
 #include "neurondb_macros.h"
 
 /* Forward declarations for kernel launchers */
-extern int	launch_rf_predict_batch_kernel_hip(const NdbCudaRfNode * d_nodes,
-											   const NdbCudaRfTreeHeader * d_trees,
+extern int	launch_rf_predict_batch_kernel_hip(const NdbCudaRfNode *d_nodes,
+											   const NdbCudaRfTreeHeader *d_trees,
 											   int tree_count,
 											   const float *d_features,
 											   int n_samples,
 											   int feature_dim,
 											   int class_count,
 											   int *d_votes);
-extern int	ndb_rocm_rf_infer(const NdbCudaRfNode * nodes,
-							  const NdbCudaRfTreeHeader * trees,
+extern int	ndb_rocm_rf_infer(const NdbCudaRfNode *nodes,
+							  const NdbCudaRfTreeHeader *trees,
 							  int tree_count,
 							  const float *input,
 							  int feature_dim,
@@ -55,10 +55,10 @@ extern int	ndb_rocm_rf_infer(const NdbCudaRfNode * nodes,
 							  int *votes);
 
 static void
-rf_copy_tree_nodes_rocm(const GTree * tree, NdbCudaRfNode * dest,
+rf_copy_tree_nodes_rocm(const GTree *tree, NdbCudaRfNode *dest,
 						int *node_offset, int *max_feat_idx)
 {
-	const		GTreeNode *src_nodes;
+	const GTreeNode *src_nodes;
 	int			count;
 	int			i;
 	int			max_idx = -1;
@@ -70,7 +70,7 @@ rf_copy_tree_nodes_rocm(const GTree * tree, NdbCudaRfNode * dest,
 	count = tree->count;
 	for (i = 0; i < count; i++)
 	{
-		const		GTreeNode *src = &src_nodes[i];
+		const GTreeNode *src = &src_nodes[i];
 		NdbCudaRfNode *dst = &dest[*node_offset + i];
 
 		dst->feature_idx = src->feature_idx;
@@ -108,7 +108,6 @@ ndb_rocm_rf_pack_model(const struct RFModel *model,
 	size_t		header_bytes;
 	size_t		nodes_bytes;
 	size_t		payload_bytes;
-	bytea	   *blob;
 	char	   *base;
 	NdbCudaRfModelHeader *model_hdr;
 	NdbCudaRfTreeHeader *tree_hdrs;
@@ -129,7 +128,7 @@ ndb_rocm_rf_pack_model(const struct RFModel *model,
 		tree_count = model->tree_count;
 		for (i = 0; i < model->tree_count; i++)
 		{
-			const		GTree *tree = model->trees[i];
+			const GTree *tree = model->trees[i];
 
 			if (tree != NULL)
 				total_nodes += tree->count;
@@ -174,7 +173,10 @@ ndb_rocm_rf_pack_model(const struct RFModel *model,
 		return -1;
 	}
 
-	blob = (bytea *) palloc(VARHDRSZ + payload_bytes);
+	NDB_DECLARE(bytea *, blob);
+	NDB_DECLARE(char *, blob_raw);
+	NDB_ALLOC(blob_raw, char, VARHDRSZ + payload_bytes);
+	blob = (bytea *) blob_raw;
 	if (blob == NULL)
 	{
 		if (errstr)
@@ -199,7 +201,7 @@ ndb_rocm_rf_pack_model(const struct RFModel *model,
 	node_cursor = 0;
 	for (i = 0; i < tree_count; i++)
 	{
-		const		GTree *tree =
+		const GTree *tree =
 			(model->tree_count > 0 && model->trees != NULL)
 			? model->trees[i]
 			: model->tree;
@@ -242,9 +244,9 @@ ndb_rocm_rf_predict(const bytea * model_data,
 					int *class_out,
 					char **errstr)
 {
-	const		NdbCudaRfModelHeader *model_hdr;
-	const		NdbCudaRfTreeHeader *tree_hdrs;
-	const		NdbCudaRfNode *nodes;
+	const NdbCudaRfModelHeader *model_hdr;
+	const NdbCudaRfTreeHeader *tree_hdrs;
+	const NdbCudaRfNode *nodes;
 	int		   *votes = NULL;
 	int			i;
 	int			best_class = 0;
@@ -337,17 +339,18 @@ ndb_rocm_rf_train(const float *features,
 {
 	const int	default_n_trees = 32;
 	int			n_trees = default_n_trees;
-	int		   *label_ints = NULL;
-	int		   *class_counts = NULL;
-	int		   *best_left_counts = NULL;
-	int		   *best_right_counts = NULL;
-	int		   *tmp_left_counts = NULL;
-	int		   *tmp_right_counts = NULL;
-	bytea	   *payload = NULL;
+	NDB_DECLARE(int *, label_ints);
+	NDB_DECLARE(int *, class_counts);
+	NDB_DECLARE(int *, best_left_counts);
+	NDB_DECLARE(int *, best_right_counts);
+	NDB_DECLARE(int *, tmp_left_counts);
+	NDB_DECLARE(int *, tmp_right_counts);
+	NDB_DECLARE(bytea *, payload);
+	NDB_DECLARE(char *, payload_raw);
 	Jsonb	   *metrics_json = NULL;
 	float	   *d_features = NULL;
 	int		   *d_labels = NULL;
-	hipError_t status = hipSuccess;
+	hipError_t	status = hipSuccess;
 	double		gini_accumulator = 0.0;
 	size_t		feature_bytes;
 	size_t		label_bytes;
@@ -397,12 +400,12 @@ ndb_rocm_rf_train(const float *features,
 			return -1;
 		}
 
-		label_ints = (int *) palloc(label_size);
-		class_counts = (int *) palloc0(class_size);
-		tmp_left_counts = (int *) palloc(class_size);
-		tmp_right_counts = (int *) palloc(class_size);
-		best_left_counts = (int *) palloc(class_size);
-		best_right_counts = (int *) palloc(class_size);
+		NDB_ALLOC(label_ints, int, n_samples);
+		NDB_ALLOC(class_counts, int, class_count);
+		NDB_ALLOC(tmp_left_counts, int, class_count);
+		NDB_ALLOC(tmp_right_counts, int, class_count);
+		NDB_ALLOC(best_left_counts, int, class_count);
+		NDB_ALLOC(best_right_counts, int, class_count);
 		if (label_ints == NULL || class_counts == NULL ||
 			tmp_left_counts == NULL || tmp_right_counts == NULL ||
 			best_left_counts == NULL || best_right_counts == NULL)
@@ -490,13 +493,8 @@ ndb_rocm_rf_train(const float *features,
 			goto gpu_fail;
 		}
 
-		payload = (bytea *) palloc(VARHDRSZ + payload_bytes);
-		if (payload == NULL)
-		{
-			if (errstr)
-				*errstr = pstrdup("ROCm RF train: palloc failed for payload");
-			goto gpu_fail;
-		}
+		NDB_ALLOC(payload_raw, char, VARHDRSZ + payload_bytes);
+		payload = (bytea *) payload_raw;
 		SET_VARSIZE(payload, VARHDRSZ + payload_bytes);
 		base = VARDATA(payload);
 
@@ -668,7 +666,7 @@ ndb_rocm_rf_train(const float *features,
 		spec.majority_class = majority_class;
 		spec.majority_fraction = majority_fraction;
 		spec.gini = (n_trees > 0) ? (gini_accumulator / (double) n_trees) : 0.0;
-		spec.oob_accuracy = 0.0; /* OOB not computed in simplified version */
+		spec.oob_accuracy = 0.0;	/* OOB not computed in simplified version */
 		metrics_json = rf_build_metrics_json(&spec);
 	}
 

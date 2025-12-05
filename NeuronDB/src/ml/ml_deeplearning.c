@@ -423,6 +423,7 @@ dl_predict(PG_FUNCTION_ARGS)
 			JsonbIterator *it;
 			JsonbValue	v;
 			int			r;
+
 			NDB_DECLARE(char *, framework);
 
 			it = JsonbIteratorInit(&parameters->root);

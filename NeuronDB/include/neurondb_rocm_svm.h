@@ -125,3 +125,4 @@ extern int ndb_rocm_svm_launch_update_errors(const float *kernel_row,
 #endif
 
 #endif /* NEURONDB_ROCM_SVM_H */
+

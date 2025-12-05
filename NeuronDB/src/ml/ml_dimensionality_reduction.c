@@ -151,6 +151,7 @@ reduce_tsne(PG_FUNCTION_ARGS)
 			double	  **distances_sq = NULL;
 			double	  **P = NULL;	/* High-dimensional probabilities */
 			double	  **Q = NULL;	/* Low-dimensional probabilities */
+
 			NDB_DECLARE(double *, sum_P);
 			int			iter;
 			int			k;
@@ -1019,6 +1020,7 @@ autoencoder_init(int n_inputs,
 				k;
 	int			prev_size;
 	int			total_layers = n_encoder_layers + n_decoder_layers;
+
 	NDB_DECLARE(Autoencoder *, ae);
 	NDB_ALLOC(ae, Autoencoder, 1);
 
@@ -1187,6 +1189,7 @@ train_autoencoder(PG_FUNCTION_ARGS)
 	float	  **vectors = NULL;
 	int			nvec,
 				dim;
+
 	NDB_DECLARE(Autoencoder *, ae);
 	NDB_DECLARE(int *, encoder_layers);
 	NDB_DECLARE(int *, decoder_layers);
@@ -1197,11 +1200,13 @@ train_autoencoder(PG_FUNCTION_ARGS)
 	float		loss;
 	int			i,
 				j;
+
 	NDB_DECLARE(bytea *, serialized);
 	MLCatalogModelSpec spec;
 	int32		model_id = 0;
 	StringInfoData metricsbuf;
 	StringInfoData paramsbuf;
+
 	NDB_DECLARE(Jsonb *, params_jsonb);
 	NDB_DECLARE(Jsonb *, metrics_jsonb);
 

@@ -16,4 +16,4 @@ typedef enum AutoMLBackendType
 /* GUC initialization is now centralized in neurondb_guc.c */
 extern AutoMLBackendType neurondb_automl_choose_backend(const char *algorithm);
 
-#endif /* NEURONDB_AUTOML_H */
+#endif							/* NEURONDB_AUTOML_H */

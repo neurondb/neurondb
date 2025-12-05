@@ -38,4 +38,4 @@ extern Datum vgraph_out(PG_FUNCTION_ARGS);
 extern Datum vgraph_recv(PG_FUNCTION_ARGS);
 extern Datum vgraph_send(PG_FUNCTION_ARGS);
 
-#endif /* VECTOR_TYPES_H */
+#endif							/* VECTOR_TYPES_H */

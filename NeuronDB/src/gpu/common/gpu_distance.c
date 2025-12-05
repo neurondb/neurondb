@@ -31,7 +31,7 @@
 float
 neurondb_gpu_l2_distance(const float *vec1, const float *vec2, int dim)
 {
-	const		ndb_gpu_backend *backend;
+	const ndb_gpu_backend *backend;
 	float		result = -1.0f;
 
 	/* CPU mode: never run GPU code */
@@ -63,7 +63,7 @@ neurondb_gpu_l2_distance(const float *vec1, const float *vec2, int dim)
 float
 neurondb_gpu_cosine_distance(const float *vec1, const float *vec2, int dim)
 {
-	const		ndb_gpu_backend *backend;
+	const ndb_gpu_backend *backend;
 	float		result = -1.0f;
 
 	/* CPU mode: never run GPU code */
@@ -95,7 +95,7 @@ neurondb_gpu_cosine_distance(const float *vec1, const float *vec2, int dim)
 float
 neurondb_gpu_inner_product(const float *vec1, const float *vec2, int dim)
 {
-	const		ndb_gpu_backend *backend;
+	const ndb_gpu_backend *backend;
 	int			i;
 	float		dot = 0.0f;
 

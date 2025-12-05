@@ -41,6 +41,7 @@ parse_vector_str(const char *vec, int *out_dim)
 	char	   *copy;
 	int			capacity = 32;
 	int			count = 0;
+
 	NDB_DECLARE(float8 *, result);
 	char	   *token;
 	char	   *ptr;
@@ -85,7 +86,11 @@ parse_vector_str(const char *vec, int *out_dim)
 		if (count >= capacity)
 		{
 			capacity *= 2;
-			/* For reallocation, we need to manually handle since NDB_ALLOC doesn't support repalloc */
+
+			/*
+			 * For reallocation, we need to manually handle since NDB_ALLOC
+			 * doesn't support repalloc
+			 */
 			/* This is acceptable for dynamic growth patterns */
 			result = (float8 *) repalloc(
 										 result, capacity * sizeof(float8));

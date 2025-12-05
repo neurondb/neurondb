@@ -18,15 +18,15 @@
 
 typedef struct RidgeModel
 {
-	int32 model_id;
-	int n_features;
-	int n_samples;
-	double intercept;
-	double *coefficients;
-	double lambda;
-	double r_squared;
-	double mse;
-	double mae;
+	int32		model_id;
+	int			n_features;
+	int			n_samples;
+	double		intercept;
+	double	   *coefficients;
+	double		lambda;
+	double		r_squared;
+	double		mse;
+	double		mae;
 } RidgeModel;
 
-#endif /* ML_RIDGE_REGRESSION_INTERNAL_H */
+#endif							/* ML_RIDGE_REGRESSION_INTERNAL_H */

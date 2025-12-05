@@ -39,16 +39,16 @@
 #include "neurondb_constants.h"
 
 /* Forward declarations for kernel launchers */
-extern int	launch_rf_predict_batch_kernel(const NdbCudaRfNode * d_nodes,
-										   const NdbCudaRfTreeHeader * d_trees,
+extern int	launch_rf_predict_batch_kernel(const NdbCudaRfNode *d_nodes,
+										   const NdbCudaRfTreeHeader *d_trees,
 										   int tree_count,
 										   const float *d_features,
 										   int n_samples,
 										   int feature_dim,
 										   int class_count,
 										   int *d_votes);
-extern int	ndb_cuda_rf_infer(const NdbCudaRfNode * nodes,
-							  const NdbCudaRfTreeHeader * trees,
+extern int	ndb_cuda_rf_infer(const NdbCudaRfNode *nodes,
+							  const NdbCudaRfTreeHeader *trees,
 							  int tree_count,
 							  const float *input,
 							  int feature_dim,
@@ -90,10 +90,10 @@ rf_model_hash(const void *key, Size keysize)
 }
 
 static void
-rf_copy_tree_nodes(const GTree * tree, NdbCudaRfNode * dest,
+rf_copy_tree_nodes(const GTree *tree, NdbCudaRfNode *dest,
 				   int *node_offset, int *max_feat_idx)
 {
-	const		GTreeNode *src_nodes;
+	const GTreeNode *src_nodes;
 	int			count;
 	int			i;
 	int			max_idx = -1;
@@ -105,7 +105,7 @@ rf_copy_tree_nodes(const GTree * tree, NdbCudaRfNode * dest,
 	count = tree->count;
 	for (i = 0; i < count; i++)
 	{
-		const		GTreeNode *src = &src_nodes[i];
+		const GTreeNode *src = &src_nodes[i];
 		NdbCudaRfNode *dst = &dest[*node_offset + i];
 
 		dst->feature_idx = src->feature_idx;
@@ -132,7 +132,7 @@ rf_copy_tree_nodes(const GTree * tree, NdbCudaRfNode * dest,
 }
 
 static void
-rf_fill_single_node_tree(NdbCudaRfNode * node, int majority_class)
+rf_fill_single_node_tree(NdbCudaRfNode *node, int majority_class)
 {
 	node->feature_idx = -1;
 	node->threshold = 0.0f;
@@ -142,7 +142,7 @@ rf_fill_single_node_tree(NdbCudaRfNode * node, int majority_class)
 }
 
 int
-ndb_cuda_rf_pack_model(const RFModel * model,
+ndb_cuda_rf_pack_model(const RFModel *model,
 					   bytea * *model_data,
 					   Jsonb * *metrics,
 					   char **errstr)
@@ -153,11 +153,12 @@ ndb_cuda_rf_pack_model(const RFModel * model,
 	size_t		header_bytes;
 	size_t		nodes_bytes;
 	size_t		payload_bytes;
-	bytea	   *blob;
 	char	   *base;
 	NdbCudaRfModelHeader *model_hdr;
 	NdbCudaRfTreeHeader *tree_hdrs;
 	NdbCudaRfNode *nodes;
+	bytea	   *blob = NULL;
+	char	   *blob_raw = NULL;
 	int			node_cursor = 0;
 
 	if (errstr)
@@ -174,7 +175,7 @@ ndb_cuda_rf_pack_model(const RFModel * model,
 		tree_count = model->tree_count;
 		for (i = 0; i < model->tree_count; i++)
 		{
-			const		GTree *tree = model->trees[i];
+			const GTree *tree = model->trees[i];
 
 			if (tree != NULL)
 				total_nodes += tree->count;
@@ -219,13 +220,8 @@ ndb_cuda_rf_pack_model(const RFModel * model,
 		return -1;
 	}
 
-	blob = (bytea *) palloc(VARHDRSZ + payload_bytes);
-	if (blob == NULL)
-	{
-		if (errstr)
-			*errstr = pstrdup("CUDA RF pack: palloc failed");
-		return -1;
-	}
+	NDB_ALLOC(blob_raw, char, VARHDRSZ + payload_bytes);
+	blob = (bytea *) blob_raw;
 	SET_VARSIZE(blob, VARHDRSZ + payload_bytes);
 	base = VARDATA(blob);
 
@@ -244,7 +240,7 @@ ndb_cuda_rf_pack_model(const RFModel * model,
 	node_cursor = 0;
 	for (i = 0; i < tree_count; i++)
 	{
-		const		GTree *tree =
+		const GTree *tree =
 			(model->tree_count > 0 && model->trees != NULL)
 			? model->trees[i]
 			: model->tree;
@@ -293,13 +289,14 @@ ndb_cuda_rf_train(const float *features,
 {
 	const int	default_n_trees = 32;
 	int			n_trees = default_n_trees;
-	int		   *label_ints = NULL;
-	int		   *class_counts = NULL;
-	int		   *best_left_counts = NULL;
-	int		   *best_right_counts = NULL;
-	int		   *tmp_left_counts = NULL;
-	int		   *tmp_right_counts = NULL;
-	bytea	   *payload = NULL;
+	NDB_DECLARE(int *, label_ints);
+	NDB_DECLARE(int *, class_counts);
+	NDB_DECLARE(int *, best_left_counts);
+	NDB_DECLARE(int *, best_right_counts);
+	NDB_DECLARE(int *, tmp_left_counts);
+	NDB_DECLARE(int *, tmp_right_counts);
+	NDB_DECLARE(bytea *, payload);
+	NDB_DECLARE(char *, payload_raw);
 	Jsonb	   *metrics_json = NULL;
 	float	   *d_features = NULL;
 	int		   *d_labels = NULL;
@@ -357,12 +354,12 @@ ndb_cuda_rf_train(const float *features,
 				*errstr = pstrdup("CUDA RF train: allocation size exceeds MaxAllocSize");
 			return -1;
 		}
-		label_ints = (int *) palloc(label_size);
-		class_counts = (int *) palloc0(class_size);
-		tmp_left_counts = (int *) palloc(class_size);
-		tmp_right_counts = (int *) palloc(class_size);
-		best_left_counts = (int *) palloc(class_size);
-		best_right_counts = (int *) palloc(class_size);
+		NDB_ALLOC(label_ints, int, n_samples);
+		NDB_ALLOC(class_counts, int, class_count);
+		NDB_ALLOC(tmp_left_counts, int, class_count);
+		NDB_ALLOC(tmp_right_counts, int, class_count);
+		NDB_ALLOC(best_left_counts, int, class_count);
+		NDB_ALLOC(best_right_counts, int, class_count);
 		if (label_ints == NULL || class_counts == NULL ||
 			tmp_left_counts == NULL || tmp_right_counts == NULL ||
 			best_left_counts == NULL || best_right_counts == NULL)
@@ -483,13 +480,8 @@ ndb_cuda_rf_train(const float *features,
 				*errstr = pstrdup("CUDA RF train: payload size exceeds MaxAllocSize");
 			goto gpu_fail;
 		}
-		payload = (bytea *) palloc(VARHDRSZ + payload_bytes);
-		if (payload == NULL)
-		{
-			if (errstr)
-				*errstr = pstrdup("CUDA RF train: palloc failed for payload");
-			goto gpu_fail;
-		}
+		NDB_ALLOC(payload_raw, char, VARHDRSZ + payload_bytes);
+		payload = (bytea *) payload_raw;
 		SET_VARSIZE(payload, VARHDRSZ + payload_bytes);
 		base = VARDATA(payload);
 
@@ -734,9 +726,9 @@ ndb_cuda_rf_predict(const bytea * model_data,
 					char **errstr)
 {
 	const char *base;
-	const		NdbCudaRfModelHeader *model_hdr;
-	const		NdbCudaRfTreeHeader *tree_hdrs;
-	const		NdbCudaRfNode *nodes_base;
+	const NdbCudaRfModelHeader *model_hdr;
+	const NdbCudaRfTreeHeader *tree_hdrs;
+	const NdbCudaRfNode *nodes_base;
 	size_t		header_bytes;
 	int		   *votes = NULL;
 	int			rc;
@@ -977,13 +969,13 @@ rf_gpu_cache_cleanup(int code, Datum arg)
  * Upload RF model to GPU and cache it
  */
 int
-ndb_cuda_rf_model_upload(const NdbCudaRfNode * nodes,
-						 const NdbCudaRfTreeHeader * trees,
+ndb_cuda_rf_model_upload(const NdbCudaRfNode *nodes,
+						 const NdbCudaRfTreeHeader *trees,
 						 int tree_count,
 						 int feature_dim,
 						 int class_count,
 						 int majority_class,
-						 NdbCudaRfGpuModel * *out_model)
+						 NdbCudaRfGpuModel **out_model)
 {
 	NdbCudaRfGpuModel *model;
 	cudaError_t status;
@@ -1066,7 +1058,7 @@ ndb_cuda_rf_model_upload(const NdbCudaRfNode * nodes,
  * Free GPU model
  */
 void
-ndb_cuda_rf_model_free(NdbCudaRfGpuModel * model)
+ndb_cuda_rf_model_free(NdbCudaRfGpuModel *model)
 {
 	if (model == NULL)
 		return;
@@ -1084,7 +1076,7 @@ ndb_cuda_rf_model_free(NdbCudaRfGpuModel * model)
  * Infer using cached GPU model (no upload overhead)
  */
 int
-ndb_cuda_rf_infer_model(const NdbCudaRfGpuModel * model,
+ndb_cuda_rf_infer_model(const NdbCudaRfGpuModel *model,
 						const float *input,
 						int feature_dim,
 						int *votes)
@@ -1165,7 +1157,7 @@ cleanup:
 }
 
 /* Forward declaration for GPU-only batch inference */
-static int	ndb_cuda_rf_infer_batch_gpu(const NdbCudaRfGpuModel * model,
+static int	ndb_cuda_rf_infer_batch_gpu(const NdbCudaRfGpuModel *model,
 										const float *d_features,
 										int n_samples,
 										int feature_dim,
@@ -1176,7 +1168,7 @@ static int	ndb_cuda_rf_infer_batch_gpu(const NdbCudaRfGpuModel * model,
  * Clears d_votes, launches kernel (launcher handles sync)
  */
 static int
-ndb_cuda_rf_infer_batch_gpu(const NdbCudaRfGpuModel * model,
+ndb_cuda_rf_infer_batch_gpu(const NdbCudaRfGpuModel *model,
 							const float *d_features,
 							int n_samples,
 							int feature_dim,
@@ -1229,9 +1221,9 @@ ndb_cuda_rf_predict_batch(const bytea * model_data,
 						  char **errstr)
 {
 	const char *base;
-	const		NdbCudaRfModelHeader *model_hdr;
-	const		NdbCudaRfTreeHeader *tree_hdrs;
-	const		NdbCudaRfNode *nodes_base;
+	const NdbCudaRfModelHeader *model_hdr;
+	const NdbCudaRfTreeHeader *tree_hdrs;
+	const NdbCudaRfNode *nodes_base;
 	size_t		header_bytes;
 	int			effective_dim;
 	RfGpuModelCacheEntry *cache_entry;
@@ -1470,10 +1462,10 @@ ndb_cuda_rf_evaluate_batch(const bytea * model_data,
 						   double *f1_out,
 						   char **errstr)
 {
-	int		   *predictions = NULL;
-	int		   *tp = NULL;
-	int		   *fp = NULL;
-	int		   *fn = NULL;
+	NDB_DECLARE(int *, predictions);
+	NDB_DECLARE(int *, tp);
+	NDB_DECLARE(int *, fp);
+	NDB_DECLARE(int *, fn);
 	int			class_count;
 	int			i;
 	int			total_correct = 0;
@@ -1504,7 +1496,7 @@ ndb_cuda_rf_evaluate_batch(const bytea * model_data,
 
 	/* Get class count from model */
 	{
-		const		NdbCudaRfModelHeader *model_hdr =
+		const NdbCudaRfModelHeader *model_hdr =
 			(const NdbCudaRfModelHeader *) VARDATA(model_data);
 
 		class_count = model_hdr->class_count;
@@ -1518,10 +1510,10 @@ ndb_cuda_rf_evaluate_batch(const bytea * model_data,
 	}
 
 	/* Allocate predictions array */
-	predictions = (int *) palloc(sizeof(int) * (size_t) n_samples);
-	tp = (int *) palloc0(sizeof(int) * (size_t) class_count);
-	fp = (int *) palloc0(sizeof(int) * (size_t) class_count);
-	fn = (int *) palloc0(sizeof(int) * (size_t) class_count);
+	NDB_ALLOC(predictions, int, n_samples);
+	NDB_ALLOC(tp, int, class_count);
+	NDB_ALLOC(fp, int, class_count);
+	NDB_ALLOC(fn, int, class_count);
 
 	/* Batch predict */
 	rc = ndb_cuda_rf_predict_batch(model_data,

@@ -641,7 +641,7 @@ ndb_rocm_knn_predict_batch(const bytea * model_data,
 						   char **errstr)
 {
 	const char *base;
-	const		NdbCudaKnnModelHeader *hdr;
+	const NdbCudaKnnModelHeader *hdr;
 	int			i;
 	int			rc;
 
@@ -759,7 +759,7 @@ ndb_rocm_knn_evaluate_batch(const bytea * model_data,
 							char **errstr)
 {
 	const char *base;
-	const		NdbCudaKnnModelHeader *hdr;
+	const NdbCudaKnnModelHeader *hdr;
 	int		   *predictions = NULL;
 	int			tp = 0;
 	int			tn = 0;

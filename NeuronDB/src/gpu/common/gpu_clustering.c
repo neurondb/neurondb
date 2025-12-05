@@ -28,7 +28,7 @@ neurondb_gpu_kmeans(const float *vectors,
 					float *centroids,
 					int *assignments)
 {
-	const		ndb_gpu_backend *backend;
+	const ndb_gpu_backend *backend;
 	int			iter;
 
 	/* CPU mode: never run GPU code */

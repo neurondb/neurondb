@@ -24,8 +24,8 @@
 extern void vector_wal_register(void);
 extern void vector_wal_insert(Relation rel, ItemPointer tid);
 extern void
-vector_wal_update(Relation rel, ItemPointer oldtid, ItemPointer newtid);
+			vector_wal_update(Relation rel, ItemPointer oldtid, ItemPointer newtid);
 extern void vector_wal_delete(Relation rel, ItemPointer tid);
-extern void vector_wal_redo(XLogReaderState *record);
+extern void vector_wal_redo(XLogReaderState * record);
 
-#endif /* VECTOR_WAL_H */
+#endif							/* VECTOR_WAL_H */

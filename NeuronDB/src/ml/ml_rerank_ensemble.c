@@ -170,7 +170,8 @@ rerank_ensemble_weighted(PG_FUNCTION_ARGS)
 	else
 	{
 		/* Equal weights */
-		weights = (float8 *) palloc(sizeof(float8) * num_systems);
+		NDB_DECLARE(float8 *, weights);
+		NDB_ALLOC(weights, float8, num_systems);
 		NDB_CHECK_ALLOC(weights, "weights");
 		for (s = 0; s < num_systems; s++)
 			weights[s] = 1.0 / num_systems;
@@ -183,8 +184,7 @@ rerank_ensemble_weighted(PG_FUNCTION_ARGS)
 		 num_docs);
 
 	/* Normalize scores if requested */
-	normalized_scores =
-		(double *) palloc(sizeof(double) * num_systems * num_docs);
+	NDB_ALLOC(normalized_scores, double, num_systems * num_docs);
 
 	if (normalize)
 	{
@@ -233,7 +233,7 @@ rerank_ensemble_weighted(PG_FUNCTION_ARGS)
 	}
 
 	/* Compute ensemble scores (weighted sum) */
-	doc_scores = (DocScore *) palloc(sizeof(DocScore) * num_docs);
+	NDB_ALLOC(doc_scores, DocScore, num_docs);
 	NDB_CHECK_ALLOC(doc_scores, "doc_scores");
 
 	for (i = 0; i < num_docs; i++)
@@ -252,7 +252,7 @@ rerank_ensemble_weighted(PG_FUNCTION_ARGS)
 	qsort(doc_scores, num_docs, sizeof(DocScore), docscore_cmp);
 
 	/* Build result array */
-	result_datums = (Datum *) palloc(sizeof(Datum) * num_docs);
+	NDB_ALLOC(result_datums, Datum, num_docs);
 	NDB_CHECK_ALLOC(result_datums, "result_datums");
 	for (i = 0; i < num_docs; i++)
 		result_datums[i] = Int32GetDatum(doc_scores[i].doc_id);
@@ -325,7 +325,7 @@ rerank_ensemble_borda(PG_FUNCTION_ARGS)
 		 max_docs);
 
 	/* Collect unique doc IDs */
-	doc_id_map = (int *) palloc0(sizeof(int) * num_systems * max_docs);
+	NDB_ALLOC(doc_id_map, int, num_systems * max_docs);
 	NDB_CHECK_ALLOC(doc_id_map, "doc_id_map");
 	num_unique_docs = 0;
 
@@ -358,7 +358,7 @@ rerank_ensemble_borda(PG_FUNCTION_ARGS)
 	}
 
 	/* Initialize scores */
-	doc_scores = (DocScore *) palloc0(sizeof(DocScore) * num_unique_docs);
+	NDB_ALLOC(doc_scores, DocScore, num_unique_docs);
 	NDB_CHECK_ALLOC(doc_scores, "doc_scores");
 	for (i = 0; i < num_unique_docs; i++)
 	{
@@ -393,7 +393,7 @@ rerank_ensemble_borda(PG_FUNCTION_ARGS)
 	/* Sort by Borda score */
 	qsort(doc_scores, num_unique_docs, sizeof(DocScore), docscore_cmp);
 
-	result_datums = (Datum *) palloc(sizeof(Datum) * num_unique_docs);
+	NDB_ALLOC(result_datums, Datum, num_unique_docs);
 	NDB_CHECK_ALLOC(result_datums, "result_datums");
 	for (i = 0; i < num_unique_docs; i++)
 		result_datums[i] = Int32GetDatum(doc_scores[i].doc_id);

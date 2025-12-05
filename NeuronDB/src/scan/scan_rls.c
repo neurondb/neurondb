@@ -67,7 +67,7 @@ typedef struct RLSFilterState
 	ExprContext *econtext;		/* Expression context for ExecQual */
 	bool		hasRLS;
 	Oid			userId;
-}			RLSFilterState;
+} RLSFilterState;
 
 /* Forward declarations */
 static List * ndb_get_row_security_policies(Relation rel, Oid userId);
@@ -122,7 +122,7 @@ ndb_rls_init(Relation rel, EState * estate)
  * Check if a tuple passes RLS policies
  */
 bool
-ndb_rls_check_tuple(RLSFilterState * state, TupleTableSlot * slot)
+ndb_rls_check_tuple(RLSFilterState *state, TupleTableSlot * slot)
 {
 	bool		result = true;
 
@@ -157,7 +157,7 @@ ndb_rls_check_tuple(RLSFilterState * state, TupleTableSlot * slot)
  * Check if a heap tuple (by ItemPointer) passes RLS
  */
 bool
-ndb_rls_check_item(RLSFilterState * state, ItemPointer tid)
+ndb_rls_check_item(RLSFilterState *state, ItemPointer tid)
 {
 	bool		result;
 	HeapTupleData tupleData;
@@ -194,7 +194,7 @@ ndb_rls_check_item(RLSFilterState * state, ItemPointer tid)
  * Free RLS filter state
  */
 void
-ndb_rls_end(RLSFilterState * state)
+ndb_rls_end(RLSFilterState *state)
 {
 	if (state->policies)
 		list_free(state->policies);
@@ -387,9 +387,18 @@ ndb_index_scan_rls_filter(IndexScanDesc scan, ItemPointer tid)
 		/* Check if opaque is already in use by index AM */
 		if (scan->opaque != NULL)
 		{
-			/* If opaque is already used, we need to wrap it or use alternative storage */
-			/* For now, allocate RLS state separately and store pointer in a wrapper */
-			/* This is a fallback - ideally index AMs should cooperate with RLS */
+			/*
+			 * If opaque is already used, we need to wrap it or use
+			 * alternative storage
+			 */
+			/*
+			 * For now, allocate RLS state separately and store pointer in a
+			 * wrapper
+			 */
+			/*
+			 * This is a fallback - ideally index AMs should cooperate with
+			 * RLS
+			 */
 			elog(DEBUG1,
 				 "neurondb: scan->opaque already in use, RLS state allocated separately");
 			rlsState = ndb_rls_init(scan->heapRelation, NULL);
@@ -481,6 +490,7 @@ neurondb_create_tenant_policy(PG_FUNCTION_ARGS)
 	char	   *table_str = text_to_cstring(table_name);
 	char	   *column_str = text_to_cstring(tenant_column);
 	StringInfoData query;
+
 	NDB_DECLARE(NdbSpiSession *, session);
 	int			ret;
 

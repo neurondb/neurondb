@@ -113,11 +113,11 @@ auto_train(PG_FUNCTION_ARGS)
 	text	   *task = PG_ARGISNULL(3) ? NULL : PG_GETARG_TEXT_PP(3);
 	text	   *metric_text = PG_ARGISNULL(4) ? NULL : PG_GETARG_TEXT_PP(4);
 
-	NDB_DECLARE (char *, table_name_str);
-	NDB_DECLARE (char *, feature_col_str);
-	NDB_DECLARE (char *, label_col_str);
-	NDB_DECLARE (char *, task_str);
-	NDB_DECLARE (char *, metric);
+	NDB_DECLARE(char *, table_name_str);
+	NDB_DECLARE(char *, feature_col_str);
+	NDB_DECLARE(char *, label_col_str);
+	NDB_DECLARE(char *, task_str);
+	NDB_DECLARE(char *, metric);
 	MemoryContext oldcontext;
 	MemoryContext automl_context;
 	StringInfoData result;
@@ -127,7 +127,8 @@ auto_train(PG_FUNCTION_ARGS)
 	float		best_score = -1.0f;
 	const char *best_algorithm = NULL;
 	int32		best_model_id = 0;
-	NDB_DECLARE (ModelScore *, scores);
+
+	NDB_DECLARE(ModelScore *, scores);
 
 	/* Validate required parameters */
 	if (table_name == NULL)
@@ -246,8 +247,8 @@ auto_train(PG_FUNCTION_ARGS)
 
 			/* Build feature array */
 			{
-				NDB_DECLARE (Datum *, elems);
-				NDB_DECLARE (bool *, nulls_arr);
+				NDB_DECLARE(Datum *, elems);
+				NDB_DECLARE(bool *, nulls_arr);
 				NDB_ALLOC(elems, Datum, 1);
 				NDB_ALLOC(nulls_arr, bool, 1);
 
@@ -278,7 +279,10 @@ auto_train(PG_FUNCTION_ARGS)
 
 			if (!OidIsValid(func_oid))
 			{
-				/* Don't free text/array/jsonb pointers - they're managed by memory context */
+				/*
+				 * Don't free text/array/jsonb pointers - they're managed by
+				 * memory context
+				 */
 				ereport(ERROR,
 						(errcode(ERRCODE_UNDEFINED_FUNCTION),
 						 errmsg("neurondb.train function not found")));
@@ -303,7 +307,10 @@ auto_train(PG_FUNCTION_ARGS)
 			/* Extract model_id from result */
 			model_id = DatumGetInt32(result_datum);
 
-			/* Don't free text/array/jsonb pointers - they're managed by memory context */
+			/*
+			 * Don't free text/array/jsonb pointers - they're managed by
+			 * memory context
+			 */
 			/* The memory context will clean them up automatically */
 
 			if (model_id <= 0)
@@ -320,12 +327,12 @@ auto_train(PG_FUNCTION_ARGS)
 		{
 			/* Individual algorithm failed - log warning and continue */
 			NDB_DECLARE(ErrorData *, edata);
-			NDB_DECLARE (char *, error_message);
+			NDB_DECLARE(char *, error_message);
 			MemoryContext safe_context;
-			
+
 			/* Flush error state first */
 			FlushErrorState();
-			
+
 			/* Switch out of ErrorContext before CopyErrorData() */
 			safe_context = oldcontext;
 			if (safe_context == NULL || safe_context == ErrorContext)
@@ -333,7 +340,7 @@ auto_train(PG_FUNCTION_ARGS)
 				safe_context = TopMemoryContext;
 			}
 			MemoryContextSwitchTo(safe_context);
-			
+
 			/* Suppress shadow warnings from nested PG_TRY blocks */
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wshadow=compatible-local"
@@ -353,7 +360,7 @@ auto_train(PG_FUNCTION_ARGS)
 			}
 			PG_END_TRY();
 #pragma GCC diagnostic pop
-			
+
 			/* Free error data before using the copied message */
 			if (edata != NULL)
 			{
@@ -373,10 +380,10 @@ auto_train(PG_FUNCTION_ARGS)
 #pragma GCC diagnostic pop
 				edata = NULL;
 			}
-			
+
 			/* Switch back to automl_context for elog calls */
 			MemoryContextSwitchTo(automl_context);
-			
+
 			elog(WARNING,
 				 "auto_train: Algorithm '%s' failed, continuing with next algorithm",
 				 algorithms[i]);
@@ -387,7 +394,7 @@ auto_train(PG_FUNCTION_ARGS)
 					 algorithms[i], error_message);
 				NDB_FREE(error_message);
 			}
-			
+
 			scores[i].score = -1.0f;
 			scores[i].model_id = 0;
 		}
@@ -398,27 +405,32 @@ auto_train(PG_FUNCTION_ARGS)
 			continue;
 
 		/* Evaluate model using neurondb.evaluate() directly via function call */
-		/* This avoids transaction visibility issues by calling the function directly */
+
+		/*
+		 * This avoids transaction visibility issues by calling the function
+		 * directly
+		 */
 		{
-			FmgrInfo eval_flinfo;
-			Oid eval_func_oid;
-			List *eval_funcname;
-			Oid eval_argtypes[4];
-			Datum eval_values[4];
-			Datum eval_result_datum;
+			FmgrInfo	eval_flinfo;
+			Oid			eval_func_oid;
+			List	   *eval_funcname;
+			Oid			eval_argtypes[4];
+			Datum		eval_values[4];
+			Datum		eval_result_datum;
+
 			NDB_DECLARE(Jsonb *, metrics_jsonb);
-			bool metrics_isnull = false;
+			bool		metrics_isnull = false;
 			JsonbIterator *it;
-			JsonbValue v;
+			JsonbValue	v;
 			JsonbIteratorToken r;
-			float extracted_score = 0.5f; /* Default score */
+			float		extracted_score = 0.5f; /* Default score */
 
 			/* Lookup neurondb.evaluate function */
 			eval_funcname = list_make2(makeString("neurondb"), makeString("evaluate"));
-			eval_argtypes[0] = INT4OID;	/* model_id */
-			eval_argtypes[1] = TEXTOID;	/* table_name */
-			eval_argtypes[2] = TEXTOID;	/* feature_col */
-			eval_argtypes[3] = TEXTOID;	/* label_col */
+			eval_argtypes[0] = INT4OID; /* model_id */
+			eval_argtypes[1] = TEXTOID; /* table_name */
+			eval_argtypes[2] = TEXTOID; /* feature_col */
+			eval_argtypes[3] = TEXTOID; /* label_col */
 			eval_func_oid = LookupFuncName(eval_funcname, 4, eval_argtypes, false);
 			list_free(eval_funcname);
 
@@ -441,15 +453,18 @@ auto_train(PG_FUNCTION_ARGS)
 				eval_values[2] = PointerGetDatum(eval_feature_col_text);
 				eval_values[3] = PointerGetDatum(eval_label_col_text);
 
-				/* Call neurondb.evaluate() directly - avoids nested SPI and transaction visibility issues */
+				/*
+				 * Call neurondb.evaluate() directly - avoids nested SPI and
+				 * transaction visibility issues
+				 */
 				/* Suppress shadow warnings from nested PG_TRY blocks */
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wshadow=compatible-local"
 				PG_TRY();
 				{
 					eval_result_datum = FunctionCall4(&eval_flinfo,
-													   eval_values[0], eval_values[1],
-													   eval_values[2], eval_values[3]);
+													  eval_values[0], eval_values[1],
+													  eval_values[2], eval_values[3]);
 
 					metrics_jsonb = DatumGetJsonbP(eval_result_datum);
 					metrics_isnull = (metrics_jsonb == NULL);
@@ -457,13 +472,13 @@ auto_train(PG_FUNCTION_ARGS)
 					if (!metrics_isnull && metrics_jsonb != NULL)
 					{
 						/* Extract metric value from JSONB */
-						it = JsonbIteratorInit((JsonbContainer *) &metrics_jsonb->root);
+						it = JsonbIteratorInit((JsonbContainer *) & metrics_jsonb->root);
 
 						while ((r = JsonbIteratorNext(&it, &v, false)) != WJB_DONE)
 						{
 							if (r == WJB_KEY)
 							{
-								char *key = pnstrdup(v.val.string.val, v.val.string.len);
+								char	   *key = pnstrdup(v.val.string.val, v.val.string.len);
 
 								if (strcmp(key, "accuracy") == 0 ||
 									strcmp(key, "r_squared") == 0 ||
@@ -473,12 +488,12 @@ auto_train(PG_FUNCTION_ARGS)
 									if (r == WJB_VALUE && v.type == jbvNumeric)
 									{
 										extracted_score = (float) DatumGetFloat8(
-											DirectFunctionCall1(numeric_float8,
-																NumericGetDatum(v.val.numeric)));
+																				 DirectFunctionCall1(numeric_float8,
+																									 NumericGetDatum(v.val.numeric)));
 										break;
 									}
 								}
-								pfree(key);
+								NDB_FREE(key);
 							}
 						}
 					}
@@ -548,7 +563,7 @@ auto_train(PG_FUNCTION_ARGS)
 		}
 
 		/* Safe access for JSONB - validate before access */
-		if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL || 
+		if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL ||
 			SPI_processed == 0 || SPI_tuptable->vals[0] == NULL || SPI_tuptable->tupdesc == NULL)
 		{
 			NDB_FREE(sql.data);
@@ -558,7 +573,7 @@ auto_train(PG_FUNCTION_ARGS)
 		/* Use safe function to get JSONB */
 		metrics_jsonb = ndb_spi_get_jsonb(spi_session, 0, 1, oldcontext);
 		NDB_FREE(sql.data);
-		
+
 		if (metrics_jsonb == NULL)
 		{
 			metrics_isnull = true;
@@ -774,12 +789,14 @@ optimize_hyperparameters(PG_FUNCTION_ARGS)
 	int			r;
 	StringInfoData result = {0};
 	StringInfoData sql = {0};
-	NDB_DECLARE (NdbSpiSession *, opt_spi_session);
+
+	NDB_DECLARE(NdbSpiSession *, opt_spi_session);
 	MemoryContext oldcontext;
 	MemoryContext opt_context;
 	int			ret;
 	int32		best_model_id = 0;
 	float		best_score = -1.0f;
+
 	NDB_DECLARE(Jsonb *, best_params);
 	NDB_DECLARE(char *, best_params_str);
 	int			n_combinations = 0;
@@ -909,6 +926,7 @@ optimize_hyperparameters(PG_FUNCTION_ARGS)
 
 						/* Use safe function to get int32 model_id */
 						int32		model_id_val;
+
 						if (ndb_spi_get_result_safe(0, 1, NULL, &model_id_datum, &isnull) && !isnull)
 						{
 							model_id_val = DatumGetInt32(model_id_datum);
@@ -942,8 +960,11 @@ optimize_hyperparameters(PG_FUNCTION_ARGS)
 
 							if (ret == SPI_OK_SELECT && SPI_processed > 0)
 							{
-								/* Safe access for JSONB - validate before access */
-								if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL || 
+								/*
+								 * Safe access for JSONB - validate before
+								 * access
+								 */
+								if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL ||
 									SPI_tuptable->vals[0] == NULL || SPI_tuptable->tupdesc == NULL)
 								{
 									metrics_isnull = true;
@@ -1112,19 +1133,22 @@ feature_importance(PG_FUNCTION_ARGS)
 {
 	int32		model_id;
 	ArrayType  *result_array;
+
 	NDB_DECLARE(float *, scores);
 	NDB_DECLARE(Datum *, elems);
 	int			i;
 	int			n_features = 0;
 	int			ret;
 	StringInfoData sql;
+
 	NDB_DECLARE(bytea *, model_data);
 	NDB_DECLARE(Jsonb *, metrics);
 	NDB_DECLARE(Jsonb *, parameters);
 	NDB_DECLARE(char *, algorithm_str);
 	MemoryContext oldcontext;
 	MemoryContext feat_context;
-	NDB_DECLARE (NdbSpiSession *, feat_spi_session);
+
+	NDB_DECLARE(NdbSpiSession *, feat_spi_session);
 
 	/* Defensive: validate model_id */
 	model_id = PG_GETARG_INT32(0);
@@ -1145,47 +1169,47 @@ feature_importance(PG_FUNCTION_ARGS)
 		Assert(oldcontext != NULL);
 		NDB_SPI_SESSION_BEGIN(feat_spi_session, oldcontext);
 
-	/* Fetch model metadata from catalog */
-	initStringInfo(&sql);
-	appendStringInfo(&sql,
-					 "SELECT algorithm, num_features FROM neurondb.ml_models WHERE model_id = %d",
-					 model_id);
+		/* Fetch model metadata from catalog */
+		initStringInfo(&sql);
+		appendStringInfo(&sql,
+						 "SELECT algorithm, num_features FROM neurondb.ml_models WHERE model_id = %d",
+						 model_id);
 
-	ret = ndb_spi_execute_safe(sql.data, true, 1);
-	NDB_CHECK_SPI_TUPTABLE();
-	NDB_FREE(sql.data);
+		ret = ndb_spi_execute_safe(sql.data, true, 1);
+		NDB_CHECK_SPI_TUPTABLE();
+		NDB_FREE(sql.data);
 
-	if (ret != SPI_OK_SELECT || SPI_processed == 0)
-	{
-		NDB_SPI_SESSION_END(feat_spi_session);
-		MemoryContextSwitchTo(oldcontext);
-		MemoryContextDelete(feat_context);
-		ereport(ERROR,
-				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-				 errmsg("neurondb: feature_importance: model %d not found", model_id),
-				 errdetail("Query returned %llu rows (expected 1)", (unsigned long long) SPI_processed),
-				 errhint("Verify the model_id exists in neurondb.ml_models catalog.")));
-	}
+		if (ret != SPI_OK_SELECT || SPI_processed == 0)
+		{
+			NDB_SPI_SESSION_END(feat_spi_session);
+			MemoryContextSwitchTo(oldcontext);
+			MemoryContextDelete(feat_context);
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					 errmsg("neurondb: feature_importance: model %d not found", model_id),
+					 errdetail("Query returned %llu rows (expected 1)", (unsigned long long) SPI_processed),
+					 errhint("Verify the model_id exists in neurondb.ml_models catalog.")));
+		}
 
-	{
-		bool		isnull;
-		Datum		algo_datum;
-		Datum		nfeat_datum;
+		{
+			bool		isnull;
+			Datum		algo_datum;
+			Datum		nfeat_datum;
 
-		algo_datum = SPI_getbinval(SPI_tuptable->vals[0],
-								   SPI_tuptable->tupdesc,
-								   1,
-								   &isnull);
-		if (!isnull)
-			algorithm_str = TextDatumGetCString(algo_datum);
+			algo_datum = SPI_getbinval(SPI_tuptable->vals[0],
+									   SPI_tuptable->tupdesc,
+									   1,
+									   &isnull);
+			if (!isnull)
+				algorithm_str = TextDatumGetCString(algo_datum);
 
-		nfeat_datum = SPI_getbinval(SPI_tuptable->vals[0],
-									SPI_tuptable->tupdesc,
-									2,
-									&isnull);
-		if (!isnull)
-			n_features = DatumGetInt32(nfeat_datum);
-	}
+			nfeat_datum = SPI_getbinval(SPI_tuptable->vals[0],
+										SPI_tuptable->tupdesc,
+										2,
+										&isnull);
+			if (!isnull)
+				n_features = DatumGetInt32(nfeat_datum);
+		}
 
 		NDB_SPI_SESSION_END(feat_spi_session);
 	}
@@ -1197,7 +1221,7 @@ feature_importance(PG_FUNCTION_ARGS)
 		n_features = 10000;		/* Safety limit */
 
 	/* Allocate scores array */
-	scores = (float *) palloc0(n_features * sizeof(float));
+	NDB_ALLOC(scores, float, n_features);
 
 	/* Extract feature importance based on algorithm type */
 	if (algorithm_str != NULL)
@@ -1230,8 +1254,11 @@ feature_importance(PG_FUNCTION_ARGS)
 								if (strcmp(key, "feature_importance") == 0 &&
 									v.type == jbvArray)
 								{
-									/* Properly extract array elements from JsonbArray */
-									int array_idx = 0;
+									/*
+									 * Properly extract array elements from
+									 * JsonbArray
+									 */
+									int			array_idx = 0;
 									JsonbIteratorToken array_token;
 
 									/* Iterate through array elements */
@@ -1241,23 +1268,33 @@ feature_importance(PG_FUNCTION_ARGS)
 										{
 											if (array_idx < n_features)
 											{
-												/* Extract numeric value from array element */
+												/*
+												 * Extract numeric value from
+												 * array element
+												 */
 												if (v.type == jbvNumeric)
 												{
 													scores[array_idx] = (float) DatumGetFloat8(
-														DirectFunctionCall1(numeric_float8,
-																			NumericGetDatum(v.val.numeric)));
+																							   DirectFunctionCall1(numeric_float8,
+																												   NumericGetDatum(v.val.numeric)));
 												}
 												else if (v.type == jbvString)
 												{
-													/* Try to parse string as float */
-													char *str_val = pnstrdup(v.val.string.val, v.val.string.len);
+													/*
+													 * Try to parse string as
+													 * float
+													 */
+													char	   *str_val = pnstrdup(v.val.string.val, v.val.string.len);
+
 													scores[array_idx] = (float) strtof(str_val, NULL);
 													NDB_FREE(str_val);
 												}
 												else
 												{
-													/* Fallback for other types */
+													/*
+													 * Fallback for other
+													 * types
+													 */
 													scores[array_idx] = 0.0f;
 												}
 												array_idx++;
@@ -1270,10 +1307,15 @@ feature_importance(PG_FUNCTION_ARGS)
 										}
 									}
 
-									/* If we didn't extract enough values, fill remaining with uniform distribution */
+									/*
+									 * If we didn't extract enough values,
+									 * fill remaining with uniform
+									 * distribution
+									 */
 									if (array_idx < n_features)
 									{
-										float uniform_val = 1.0f / (float) n_features;
+										float		uniform_val = 1.0f / (float) n_features;
+
 										for (i = array_idx; i < n_features; i++)
 											scores[i] = uniform_val;
 									}
@@ -1379,7 +1421,8 @@ cross_validate(PG_FUNCTION_ARGS)
 	int			r;
 	bool		found_score;
 	float		fold_score;
-	NDB_DECLARE (NdbSpiSession *, cv_spi_session);
+
+	NDB_DECLARE(NdbSpiSession *, cv_spi_session);
 
 	/* Defensive: validate inputs */
 	algorithm = PG_GETARG_TEXT_PP(0);
@@ -1416,7 +1459,7 @@ cross_validate(PG_FUNCTION_ARGS)
 
 	/* Perform k-fold cross-validation */
 	for (fold = 0; fold < n_folds; fold++)
-		{
+	{
 		int32		model_id = 0;
 		bool		isnull;
 
@@ -1574,6 +1617,7 @@ create_ensemble(PG_FUNCTION_ARGS)
 	text	   *method_text;
 	char	   *method;
 	int			n_models;
+
 	NDB_DECLARE(int32 *, model_ids);
 	int			i;
 	int			ret;
@@ -1584,9 +1628,10 @@ create_ensemble(PG_FUNCTION_ARGS)
 	MemoryContext ensemble_context;
 	MLCatalogModelSpec spec;
 	int32		ensemble_model_id = 0;
+
 	NDB_DECLARE(Jsonb *, ensemble_params);
 	NDB_DECLARE(Jsonb *, ensemble_metrics);
-	NDB_DECLARE (NdbSpiSession *, ensemble_spi_session);
+	NDB_DECLARE(NdbSpiSession *, ensemble_spi_session);
 
 	/* Defensive: validate inputs */
 	model_ids_array = PG_GETARG_ARRAYTYPE_P(0);
@@ -1664,8 +1709,8 @@ create_ensemble(PG_FUNCTION_ARGS)
 	Assert(oldcontext != NULL);
 	NDB_SPI_SESSION_BEGIN(ensemble_spi_session, oldcontext);
 
-		/* Validate all model IDs exist and are compatible */
-		initStringInfo(&sql);
+	/* Validate all model IDs exist and are compatible */
+	initStringInfo(&sql);
 	appendStringInfo(&sql,
 					 "SELECT COUNT(DISTINCT algorithm), COUNT(*) "
 					 "FROM neurondb.ml_models "
@@ -1685,8 +1730,10 @@ create_ensemble(PG_FUNCTION_ARGS)
 	if (ret == SPI_OK_SELECT && SPI_processed > 0 && SPI_tuptable != NULL)
 	{
 		int32		n_found = 0;
-		Datum		first_datum, n_found_datum;
-		bool		first_isnull, n_found_isnull;
+		Datum		first_datum,
+					n_found_datum;
+		bool		first_isnull,
+					n_found_isnull;
 
 		/* Get int32 values directly from SPI_tuptable */
 		first_datum = SPI_getbinval(SPI_tuptable->vals[0],
@@ -1694,9 +1741,9 @@ create_ensemble(PG_FUNCTION_ARGS)
 									1,
 									&first_isnull);
 		n_found_datum = SPI_getbinval(SPI_tuptable->vals[0],
-									   SPI_tuptable->tupdesc,
-									   2,
-									   &n_found_isnull);
+									  SPI_tuptable->tupdesc,
+									  2,
+									  &n_found_isnull);
 		if (!first_isnull && !n_found_isnull)
 		{
 			/* first_val not used, but validate we got data */
@@ -1752,7 +1799,7 @@ create_ensemble(PG_FUNCTION_ARGS)
 	spec.num_samples = 0;
 	spec.num_features = 0;
 
-		ensemble_model_id = ml_catalog_register_model(&spec);
+	ensemble_model_id = ml_catalog_register_model(&spec);
 
 	NDB_SPI_SESSION_END(ensemble_spi_session);
 
@@ -1806,7 +1853,8 @@ auto_feature_engineering(PG_FUNCTION_ARGS)
 	int			ret;
 	StringInfoData result = {0};
 	StringInfoData sql = {0};
-	NDB_DECLARE (NdbSpiSession *, feat_eng_spi_session);
+
+	NDB_DECLARE(NdbSpiSession *, feat_eng_spi_session);
 	MemoryContext oldcontext = CurrentMemoryContext;
 	MemoryContext feat_eng_context;
 	int			n_engineered = 0;
@@ -1969,7 +2017,8 @@ model_leaderboard(PG_FUNCTION_ARGS)
 	MemoryContext leaderboard_context;
 	int			rank = 1;
 	const char *metric_name;
-	NDB_DECLARE (NdbSpiSession *, leaderboard_spi_session);
+
+	NDB_DECLARE(NdbSpiSession *, leaderboard_spi_session);
 
 	/* Defensive: validate inputs */
 	task = PG_GETARG_TEXT_PP(0);
@@ -2004,7 +2053,7 @@ model_leaderboard(PG_FUNCTION_ARGS)
 	Assert(oldcontext != NULL);
 	NDB_SPI_SESSION_BEGIN(leaderboard_spi_session, oldcontext);
 
-		/* Query models with metrics from catalog */
+	/* Query models with metrics from catalog */
 
 	/*
 	 * Safely extract metrics field with validation to prevent crashes on
@@ -2135,6 +2184,7 @@ automl_model_serialize_to_bytea(int selected_model_id, const char *selected_algo
 {
 	StringInfoData buf;
 	int			total_size;
+
 	NDB_DECLARE(bytea *, result);
 	int			alg_len;
 	int			task_len;
@@ -2228,16 +2278,18 @@ automl_model_deserialize_from_bytea(const bytea * data, int *selected_model_id_o
 }
 
 static bool
-automl_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
+automl_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **errstr)
 {
 	AutoMLGpuModelState *state;
 	int			selected_model_id = 1;
 	char		selected_algorithm[64] = "linear_regression";
+
 	NDB_DECLARE(Jsonb *, best_hyperparameters);
 	float		best_score_val = 0.0f;
 	char		task_type[32] = "regression";
 	int			nvec = 0;
 	int			dim = 0;
+
 	NDB_DECLARE(bytea *, model_data);
 	NDB_DECLARE(Jsonb *, metrics);
 	StringInfoData metrics_json;
@@ -2308,11 +2360,13 @@ automl_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 		int			i;
 		int			train_size;
 		int			test_size;
+
 		NDB_DECLARE(float *, train_features);
 		NDB_DECLARE(double *, train_labels);
 		NDB_DECLARE(float *, test_features);
 		NDB_DECLARE(double *, test_labels);
 		int			j;
+		bool		error_occurred = false;
 
 		/* Select candidate algorithms based on task type */
 		if (strcmp(task_type, "classification") == 0)
@@ -2332,7 +2386,7 @@ automl_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 
 		/* Full implementation: Train and evaluate each candidate algorithm */
 		/* Split data into train (80%) and test (20%) sets */
-		
+
 		train_size = (int) (nvec * 0.8);
 		test_size = nvec - train_size;
 
@@ -2351,20 +2405,25 @@ automl_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 			{
 				if (errstr)
 					*errstr = pstrdup("automl_gpu_train: train_features allocation size exceeds MaxAllocSize");
+				error_occurred = true;
 				goto cleanup;
 			}
 			if (test_size > 0 && (size_t) test_size > MaxAllocSize / sizeof(float) / (size_t) dim)
 			{
 				if (errstr)
 					*errstr = pstrdup("automl_gpu_train: test_features allocation size exceeds MaxAllocSize");
+				error_occurred = true;
 				goto cleanup;
 			}
-			train_features = (float *) palloc(sizeof(float) * train_size * dim);
-			train_labels = (double *) palloc(sizeof(double) * train_size);
-			test_features = (float *) palloc(sizeof(float) * test_size * dim);
-			test_labels = (double *) palloc(sizeof(double) * test_size);
+			NDB_ALLOC(train_features, float, train_size * dim);
+			NDB_ALLOC(train_labels, double, train_size);
+			NDB_ALLOC(test_features, float, test_size * dim);
+			NDB_ALLOC(test_labels, double, test_size);
 
-			/* Simple split: first train_size samples for training, rest for testing */
+			/*
+			 * Simple split: first train_size samples for training, rest for
+			 * testing
+			 */
 			for (j = 0; j < train_size; j++)
 			{
 				memcpy(train_features + j * dim, spec->feature_matrix + j * dim, sizeof(float) * dim);
@@ -2381,13 +2440,15 @@ automl_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 		for (i = 0; i < n_candidates; i++)
 		{
 			MLGpuTrainResult train_result;
-			MLGpuModel eval_model;
+			MLGpuModel	eval_model;
 			MLGpuEvalSpec eval_spec;
 			MLGpuMetrics eval_metrics;
+
 			NDB_DECLARE(char *, train_err);
 			NDB_DECLARE(char *, eval_err);
 			bool		trained = false;
 			float		score = 0.0f;
+
 			NDB_DECLARE(Jsonb *, algo_hyperparams);
 
 			memset(&train_result, 0, sizeof(train_result));
@@ -2414,7 +2475,7 @@ automl_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 					appendStringInfo(&hyperbuf, "{}");
 
 				algo_hyperparams = DatumGetJsonbP(DirectFunctionCall1(
-																	jsonb_in, CStringGetTextDatum(hyperbuf.data)));
+																	  jsonb_in, CStringGetTextDatum(hyperbuf.data)));
 				NDB_FREE(hyperbuf.data);
 			}
 
@@ -2422,39 +2483,39 @@ automl_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 			if (train_size > 0 && test_size > 0)
 			{
 				trained = ndb_gpu_try_train_model(candidate_algorithms[i],
-												   NULL,
-												   NULL,
-												   NULL,
-												   NULL,
-												   NULL,
-												   0,
-												   algo_hyperparams,
-												   train_features,
-												   train_labels,
-												   train_size,
-												   dim,
-												   spec->class_count,
-												   &train_result,
-												   &train_err);
+												  NULL,
+												  NULL,
+												  NULL,
+												  NULL,
+												  NULL,
+												  0,
+												  algo_hyperparams,
+												  train_features,
+												  train_labels,
+												  train_size,
+												  dim,
+												  spec->class_count,
+												  &train_result,
+												  &train_err);
 			}
 			else
 			{
 				/* Use all data for training if split too small */
 				trained = ndb_gpu_try_train_model(candidate_algorithms[i],
-												   NULL,
-												   NULL,
-												   NULL,
-												   NULL,
-												   NULL,
-												   0,
-												   algo_hyperparams,
-												   spec->feature_matrix,
-												   spec->label_vector,
-												   nvec,
-												   dim,
-												   spec->class_count,
-												   &train_result,
-												   &train_err);
+												  NULL,
+												  NULL,
+												  NULL,
+												  NULL,
+												  NULL,
+												  0,
+												  algo_hyperparams,
+												  spec->feature_matrix,
+												  spec->label_vector,
+												  nvec,
+												  dim,
+												  spec->class_count,
+												  &train_result,
+												  &train_err);
 			}
 
 			if (!trained || train_result.spec.model_data == NULL)
@@ -2474,22 +2535,31 @@ automl_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 			/* Evaluate model if we have test data */
 			if (test_size > 0 && train_result.spec.model_data != NULL)
 			{
-				const		MLGpuModelOps *ops = ndb_gpu_lookup_model_ops(candidate_algorithms[i]);
+				const MLGpuModelOps *ops = ndb_gpu_lookup_model_ops(candidate_algorithms[i]);
 
 				if (ops != NULL && ops->deserialize != NULL && ops->evaluate != NULL)
 				{
 					/* Deserialize model */
 					if (ops->deserialize(&eval_model, train_result.spec.model_data, train_result.metadata, &eval_err))
 					{
-						/* Set up evaluation spec - note: MLGpuEvalSpec uses table-based API, not direct arrays */
-						/* For now, skip evaluation as the API doesn't match the current implementation */
+						/*
+						 * Set up evaluation spec - note: MLGpuEvalSpec uses
+						 * table-based API, not direct arrays
+						 */
+						/*
+						 * For now, skip evaluation as the API doesn't match
+						 * the current implementation
+						 */
 						score = 0.5f;	/* Default score */
 
-						/* Try to extract score from train_result metrics if available */
+						/*
+						 * Try to extract score from train_result metrics if
+						 * available
+						 */
 						if (train_result.metrics != NULL)
 						{
 							JsonbIterator *eval_it;
-							JsonbValue eval_v;
+							JsonbValue	eval_v;
 							int			eval_r;
 							bool		found = false;
 
@@ -2535,10 +2605,10 @@ automl_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 
 			candidate_scores[i] = score;
 
-		/* Cleanup training result */
-		if (train_result.spec.model_data)
-			NDB_FREE(train_result.spec.model_data);
-		if (train_err)
+			/* Cleanup training result */
+			if (train_result.spec.model_data)
+				NDB_FREE(train_result.spec.model_data);
+			if (train_err)
 				NDB_FREE(train_err);
 			if (eval_err)
 				NDB_FREE(eval_err);
@@ -2585,6 +2655,9 @@ cleanup:
 		if (test_labels)
 			NDB_FREE(test_labels);
 
+		if (error_occurred)
+			return false;
+
 		elog(DEBUG1,
 			 "automl_gpu_train: Selected algorithm '%s' with evaluation score %.4f "
 			 "(nvec=%d, dim=%d, trained %d candidates)",
@@ -2607,7 +2680,7 @@ cleanup:
 												 CStringGetTextDatum(metrics_json.data)));
 	NDB_FREE(metrics_json.data);
 
-	state = (AutoMLGpuModelState *) palloc0(sizeof(AutoMLGpuModelState));
+	NDB_ALLOC(state, AutoMLGpuModelState, 1);
 	state->model_blob = model_data;
 	state->metrics = metrics;
 	state->selected_model_id = selected_model_id;
@@ -2629,7 +2702,7 @@ cleanup:
 }
 
 static bool
-automl_gpu_predict(const MLGpuModel * model, const float *input, int input_dim,
+automl_gpu_predict(const MLGpuModel *model, const float *input, int input_dim,
 				   float *output, int output_dim, char **errstr)
 {
 	const		AutoMLGpuModelState *state;
@@ -2690,8 +2763,8 @@ automl_gpu_predict(const MLGpuModel * model, const float *input, int input_dim,
 }
 
 static bool
-automl_gpu_evaluate(const MLGpuModel * model, const MLGpuEvalSpec * spec,
-					MLGpuMetrics * out, char **errstr)
+automl_gpu_evaluate(const MLGpuModel *model, const MLGpuEvalSpec *spec,
+					MLGpuMetrics *out, char **errstr)
 {
 	const		AutoMLGpuModelState *state;
 	Jsonb	   *metrics_json;
@@ -2732,10 +2805,11 @@ automl_gpu_evaluate(const MLGpuModel * model, const MLGpuEvalSpec * spec,
 }
 
 static bool
-automl_gpu_serialize(const MLGpuModel * model, bytea * *payload_out,
+automl_gpu_serialize(const MLGpuModel *model, bytea * *payload_out,
 					 Jsonb * *metadata_out, char **errstr)
 {
 	const		AutoMLGpuModelState *state;
+
 	NDB_DECLARE(bytea *, payload_copy);
 	int			payload_size;
 
@@ -2777,14 +2851,16 @@ automl_gpu_serialize(const MLGpuModel * model, bytea * *payload_out,
 }
 
 static bool
-automl_gpu_deserialize(MLGpuModel * model, const bytea * payload,
+automl_gpu_deserialize(MLGpuModel *model, const bytea * payload,
 					   const Jsonb * metadata, char **errstr)
 {
 	AutoMLGpuModelState *state;
+
 	NDB_DECLARE(bytea *, payload_copy);
 	int			payload_size;
 	int			selected_model_id = 0;
 	char		selected_algorithm[64];
+
 	NDB_DECLARE(Jsonb *, best_hyperparameters);
 	float		best_score = 0.0f;
 	int			n_features = 0;
@@ -2816,7 +2892,7 @@ automl_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 		return false;
 	}
 
-	state = (AutoMLGpuModelState *) palloc0(sizeof(AutoMLGpuModelState));
+	NDB_ALLOC(state, AutoMLGpuModelState, 1);
 	state->model_blob = payload_copy;
 	state->selected_model_id = selected_model_id;
 	strncpy(state->selected_algorithm, selected_algorithm, sizeof(state->selected_algorithm) - 1);
@@ -2829,6 +2905,7 @@ automl_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 	if (metadata != NULL)
 	{
 		int			metadata_size = VARSIZE(metadata);
+
 		NDB_DECLARE(Jsonb *, metadata_copy);
 
 		NDB_ALLOC(metadata_copy, Jsonb, metadata_size);
@@ -2866,7 +2943,7 @@ automl_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 }
 
 static void
-automl_gpu_destroy(MLGpuModel * model)
+automl_gpu_destroy(MLGpuModel *model)
 {
 	AutoMLGpuModelState *state;
 
@@ -2891,12 +2968,12 @@ automl_gpu_destroy(MLGpuModel * model)
 }
 
 /* Forward declarations for functions used in struct initializer */
-static bool automl_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr);
-static bool automl_gpu_predict(const MLGpuModel * model, const float *input, int input_dim, float *output, int output_dim, char **errstr);
-static bool automl_gpu_evaluate(const MLGpuModel * model, const MLGpuEvalSpec * spec, MLGpuMetrics * out, char **errstr);
-static bool automl_gpu_serialize(const MLGpuModel * model, bytea * *payload_out, Jsonb * *metadata_out, char **errstr);
-static bool automl_gpu_deserialize(MLGpuModel * model, const bytea * payload, const Jsonb * metadata, char **errstr);
-static void automl_gpu_destroy(MLGpuModel * model);
+static bool automl_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **errstr);
+static bool automl_gpu_predict(const MLGpuModel *model, const float *input, int input_dim, float *output, int output_dim, char **errstr);
+static bool automl_gpu_evaluate(const MLGpuModel *model, const MLGpuEvalSpec *spec, MLGpuMetrics *out, char **errstr);
+static bool automl_gpu_serialize(const MLGpuModel *model, bytea * *payload_out, Jsonb * *metadata_out, char **errstr);
+static bool automl_gpu_deserialize(MLGpuModel *model, const bytea * payload, const Jsonb * metadata, char **errstr);
+static void automl_gpu_destroy(MLGpuModel *model);
 
 static const MLGpuModelOps automl_gpu_model_ops = {
 	.algorithm = "automl",

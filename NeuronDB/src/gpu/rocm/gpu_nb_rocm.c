@@ -56,7 +56,6 @@ ndb_rocm_nb_pack_model(const GaussianNBModel * model,
 	size_t		priors_bytes;
 	size_t		means_bytes;
 	size_t		variances_bytes;
-	bytea	   *blob;
 	char	   *base;
 	NdbCudaNbModelHeader *hdr;
 	double	   *priors_dest;
@@ -119,7 +118,10 @@ ndb_rocm_nb_pack_model(const GaussianNBModel * model,
 	}
 
 	/* Note: palloc never returns NULL in PostgreSQL - it errors on failure */
-	blob = (bytea *) palloc(VARHDRSZ + payload_bytes);
+	NDB_DECLARE(bytea *, blob);
+	NDB_DECLARE(char *, blob_raw);
+	NDB_ALLOC(blob_raw, char, VARHDRSZ + payload_bytes);
+	blob = (bytea *) blob_raw;
 
 	SET_VARSIZE(blob, VARHDRSZ + payload_bytes);
 	base = VARDATA(blob);
@@ -277,12 +279,12 @@ ndb_rocm_nb_train(const float *features,
 				  Jsonb * *metrics,
 				  char **errstr)
 {
-	int		   *class_counts = NULL;
-	double	   *class_priors = NULL;
-	double	   *means = NULL;
-	double	   *variances = NULL;
+	NDB_DECLARE(int *, class_counts);
+	NDB_DECLARE(double *, class_priors);
+	NDB_DECLARE(double *, means);
+	NDB_DECLARE(double *, variances);
 	struct GaussianNBModel model;
-	bytea	   *blob = NULL;
+	NDB_DECLARE(bytea *, blob);
 	Jsonb	   *metrics_json = NULL;
 	int			i;
 	int			j;
@@ -345,8 +347,8 @@ ndb_rocm_nb_train(const float *features,
 
 	/* Allocate host memory with overflow checks */
 	/* Note: palloc never returns NULL in PostgreSQL - it errors on failure */
-	class_counts = (int *) palloc0(sizeof(int) * class_count);
-	class_priors = (double *) palloc(sizeof(double) * class_count);
+	NDB_ALLOC(class_counts, int, class_count);
+	NDB_ALLOC(class_priors, double, class_count);
 
 	if (feature_dim > 0 && (size_t) class_count > MaxAllocSize / sizeof(double) / (size_t) feature_dim)
 	{
@@ -354,8 +356,8 @@ ndb_rocm_nb_train(const float *features,
 			*errstr = pstrdup("HIP NB train: means array size exceeds MaxAllocSize");
 		goto cleanup;
 	}
-	means = (double *) palloc0(sizeof(double) * (size_t) class_count * (size_t) feature_dim);
-	variances = (double *) palloc0(sizeof(double) * (size_t) class_count * (size_t) feature_dim);
+	NDB_ALLOC(means, double, class_count * feature_dim);
+	NDB_ALLOC(variances, double, class_count * feature_dim);
 
 	/* Validate input data for NaN/Inf before processing */
 	/* Use rint() to match CPU training behavior - labels must be integral */
@@ -466,8 +468,12 @@ ndb_rocm_nb_train(const float *features,
 	model.n_classes = class_count;
 	model.n_features = feature_dim;
 	model.class_priors = class_priors;
-	model.means = (double **) palloc(sizeof(double *) * class_count);
-	model.variances = (double **) palloc(sizeof(double *) * class_count);
+	NDB_DECLARE(double **, model_means);
+	NDB_DECLARE(double **, model_variances);
+	NDB_ALLOC(model_means, double *, class_count);
+	NDB_ALLOC(model_variances, double *, class_count);
+	model.means = model_means;
+	model.variances = model_variances;
 
 	for (i = 0; i < class_count; i++)
 	{
@@ -605,7 +611,8 @@ ndb_rocm_nb_predict(const bytea * model_data,
 	variances = (const double *) (base + sizeof(NdbCudaNbModelHeader) + sizeof(double) * (size_t) hdr->n_classes + sizeof(double) * (size_t) hdr->n_classes * (size_t) hdr->n_features);
 
 	/* Note: palloc never returns NULL in PostgreSQL - it errors on failure */
-	class_log_probs = (double *) palloc(sizeof(double) * hdr->n_classes);
+	NDB_DECLARE(double *, class_log_probs);
+	NDB_ALLOC(class_log_probs, double, hdr->n_classes);
 
 	/*
 	 * Note: priors, means, variances are computed from valid bytea offsets,
@@ -758,7 +765,7 @@ ndb_rocm_nb_predict_batch(const bytea * model_data,
 						  char **errstr)
 {
 	const char *base;
-	const		NdbCudaNbModelHeader *hdr;
+	const NdbCudaNbModelHeader *hdr;
 	int			i;
 	int			rc;
 
@@ -835,7 +842,7 @@ ndb_rocm_nb_evaluate_batch(const bytea * model_data,
 						   double *f1_out,
 						   char **errstr)
 {
-	int		   *predictions = NULL;
+	NDB_DECLARE(int *, predictions);
 	int			tp = 0;
 	int			tn = 0;
 	int			fp = 0;
@@ -865,7 +872,7 @@ ndb_rocm_nb_evaluate_batch(const bytea * model_data,
 
 	/* Allocate predictions array */
 	/* Note: palloc never returns NULL in PostgreSQL - it errors on failure */
-	predictions = (int *) palloc(sizeof(int) * (size_t) n_samples);
+	NDB_ALLOC(predictions, int, n_samples);
 
 	/* Batch predict */
 	rc = ndb_rocm_nb_predict_batch(model_data,

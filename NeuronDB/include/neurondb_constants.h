@@ -75,7 +75,7 @@
 #define NDB_TABLE_LLM_CACHE                 "llm_cache"
 
 /* Unified API Tables */
-#define NDB_TABLE_PROJECTS                  "nb_catalog"  /* Unified API catalog */
+#define NDB_TABLE_PROJECTS                  "nb_catalog"	/* Unified API catalog */
 #define NDB_TABLE_HYPERPARAMETER_RESULTS    "hyperparameter_results"
 
 /* Index & System Tables */
@@ -102,18 +102,18 @@
  * ----------
  */
 #define NDB_FQ_TABLE(name)                  NDB_SCHEMA_NAME "." name
-#define NDB_FQ_ML_MODELS                    NDB_FQ_TABLE(NDB_TABLE_ML_MODELS)                /* neurondb.ml_models */
-#define NDB_FQ_ML_PROJECTS                  NDB_FQ_TABLE(NDB_TABLE_ML_PROJECTS)              /* neurondb.ml_projects */
-#define NDB_FQ_ML_EXPERIMENTS               NDB_FQ_TABLE(NDB_TABLE_ML_EXPERIMENTS)           /* neurondb.ml_experiments */
-#define NDB_FQ_ML_DEPLOYMENTS               NDB_FQ_TABLE(NDB_TABLE_ML_DEPLOYMENTS)           /* neurondb.ml_deployments */
-#define NDB_FQ_ML_PREDICTIONS               NDB_FQ_TABLE(NDB_TABLE_ML_PREDICTIONS)           /* neurondb.ml_predictions */
-#define NDB_FQ_FEATURE_STORES               NDB_FQ_TABLE(NDB_TABLE_FEATURE_STORES)           /* neurondb.feature_stores */
-#define NDB_FQ_FEATURE_DEFINITIONS          NDB_FQ_TABLE(NDB_TABLE_FEATURE_DEFINITIONS)      /* neurondb.feature_definitions */
-#define NDB_FQ_FEATURES                     NDB_FQ_TABLE(NDB_TABLE_FEATURES)                 /* neurondb.features */
-#define NDB_FQ_LLM_CACHE                    NDB_FQ_TABLE(NDB_TABLE_LLM_CACHE)                /* neurondb.llm_cache */
-#define NDB_FQ_INDEX_REBUILD_HISTORY        NDB_FQ_TABLE(NDB_TABLE_INDEX_REBUILD_HISTORY)    /* neurondb.index_rebuild_history */
-#define NDB_FQ_PROJECTS                     NDB_FQ_TABLE(NDB_TABLE_PROJECTS)                 /* neurondb.nb_catalog */
-#define NDB_FQ_HYPERPARAMETER_RESULTS       NDB_FQ_TABLE(NDB_TABLE_HYPERPARAMETER_RESULTS)   /* neurondb.hyperparameter_results */
+#define NDB_FQ_ML_MODELS                    NDB_FQ_TABLE(NDB_TABLE_ML_MODELS)	/* neurondb.ml_models */
+#define NDB_FQ_ML_PROJECTS                  NDB_FQ_TABLE(NDB_TABLE_ML_PROJECTS) /* neurondb.ml_projects */
+#define NDB_FQ_ML_EXPERIMENTS               NDB_FQ_TABLE(NDB_TABLE_ML_EXPERIMENTS)	/* neurondb.ml_experiments */
+#define NDB_FQ_ML_DEPLOYMENTS               NDB_FQ_TABLE(NDB_TABLE_ML_DEPLOYMENTS)	/* neurondb.ml_deployments */
+#define NDB_FQ_ML_PREDICTIONS               NDB_FQ_TABLE(NDB_TABLE_ML_PREDICTIONS)	/* neurondb.ml_predictions */
+#define NDB_FQ_FEATURE_STORES               NDB_FQ_TABLE(NDB_TABLE_FEATURE_STORES)	/* neurondb.feature_stores */
+#define NDB_FQ_FEATURE_DEFINITIONS          NDB_FQ_TABLE(NDB_TABLE_FEATURE_DEFINITIONS) /* neurondb.feature_definitions */
+#define NDB_FQ_FEATURES                     NDB_FQ_TABLE(NDB_TABLE_FEATURES)	/* neurondb.features */
+#define NDB_FQ_LLM_CACHE                    NDB_FQ_TABLE(NDB_TABLE_LLM_CACHE)	/* neurondb.llm_cache */
+#define NDB_FQ_INDEX_REBUILD_HISTORY        NDB_FQ_TABLE(NDB_TABLE_INDEX_REBUILD_HISTORY)	/* neurondb.index_rebuild_history */
+#define NDB_FQ_PROJECTS                     NDB_FQ_TABLE(NDB_TABLE_PROJECTS)	/* neurondb.nb_catalog */
+#define NDB_FQ_HYPERPARAMETER_RESULTS       NDB_FQ_TABLE(NDB_TABLE_HYPERPARAMETER_RESULTS)	/* neurondb.hyperparameter_results */
 
 /* ----------
  * Column Names
@@ -262,8 +262,8 @@
 #define NDB_TYPE_SPARSE_VECTOR              "sparse_vector"
 
 /* Fully qualified type names */
-#define NDB_FQ_TYPE_ML_ALGORITHM            NDB_SCHEMA_NAME "." NDB_TYPE_ML_ALGORITHM   /* neurondb.ml_algorithm_type */
-#define NDB_FQ_TYPE_ML_MODEL                NDB_SCHEMA_NAME "." NDB_TYPE_ML_MODEL       /* neurondb.ml_model_type */
+#define NDB_FQ_TYPE_ML_ALGORITHM            NDB_SCHEMA_NAME "." NDB_TYPE_ML_ALGORITHM	/* neurondb.ml_algorithm_type */
+#define NDB_FQ_TYPE_ML_MODEL                NDB_SCHEMA_NAME "." NDB_TYPE_ML_MODEL	/* neurondb.ml_model_type */
 
 /* ----------
  * GUC Configuration Variable Names
@@ -338,7 +338,8 @@
  * ----------
  * Controls execution mode for ML operations
  */
-typedef enum {
+typedef enum
+{
 	NDB_COMPUTE_MODE_CPU = 0,
 	NDB_COMPUTE_MODE_GPU = 1,
 	NDB_COMPUTE_MODE_AUTO = 2
@@ -349,7 +350,8 @@ typedef enum {
  * ----------
  * Selects GPU backend implementation (only valid when compute_mode is GPU or AUTO)
  */
-typedef enum {
+typedef enum
+{
 	NDB_GPU_BACKEND_TYPE_CUDA = 0,
 	NDB_GPU_BACKEND_TYPE_ROCM = 1,
 	NDB_GPU_BACKEND_TYPE_METAL = 2
@@ -390,8 +392,8 @@ typedef enum {
 	(neurondb_gpu_backend_type == NDB_GPU_BACKEND_TYPE_METAL)
 
 /* Forward declarations for GUC variables (defined in neurondb_guc.c) */
-extern int neurondb_compute_mode;
-extern int neurondb_gpu_backend_type;
+extern int	neurondb_compute_mode;
+extern int	neurondb_gpu_backend_type;
 
 /* ----------
  * JSON/JSONB Field Names (COMPREHENSIVE)
@@ -473,8 +475,8 @@ extern int neurondb_gpu_backend_type;
  */
 #ifndef NEURONDB_JSON_H
 /* Forward declarations - will be available when neurondb_json.h is included */
-extern Jsonb *ndb_jsonb_object_field(Jsonb *jsonb, const char *field_name);
-extern char *ndb_jsonb_out_cstring(Jsonb *jsonb);
+extern Jsonb * ndb_jsonb_object_field(Jsonb * jsonb, const char *field_name);
+extern char *ndb_jsonb_out_cstring(Jsonb * jsonb);
 #endif
 
 /* Safe JSON field extraction using constants */
@@ -544,5 +546,4 @@ extern char *ndb_jsonb_out_cstring(Jsonb *jsonb);
 #define NDB_DRIFT_TYPE_CONCEPT              "concept"
 #define NDB_DRIFT_TYPE_PREDICTION           "prediction"
 
-#endif /* NEURONDB_CONSTANTS_H */
-
+#endif							/* NEURONDB_CONSTANTS_H */

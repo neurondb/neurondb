@@ -48,14 +48,14 @@ train_lightgbm_classifier(PG_FUNCTION_ARGS)
 			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 			 errmsg("LightGBM library not available"),
 			 errhint("LightGBM library was not found during compilation. "
-				"Reason: LightGBM headers not found. "
-				"To enable LightGBM support:\n"
-				"1. Install LightGBM development libraries:\n"
-				"   Ubuntu/Debian: sudo apt-get install liblightgbm-dev\n"
-				"   RHEL/CentOS: sudo yum install lightgbm-devel\n"
-				"   macOS: brew install lightgbm\n"
-				"2. Ensure LightGBM headers are in standard include paths\n"
-				"3. Recompile NeuronDB: make clean && make install")));
+					 "Reason: LightGBM headers not found. "
+					 "To enable LightGBM support:\n"
+					 "1. Install LightGBM development libraries:\n"
+					 "   Ubuntu/Debian: sudo apt-get install liblightgbm-dev\n"
+					 "   RHEL/CentOS: sudo yum install lightgbm-devel\n"
+					 "   macOS: brew install lightgbm\n"
+					 "2. Ensure LightGBM headers are in standard include paths\n"
+					 "3. Recompile NeuronDB: make clean && make install")));
 	PG_RETURN_INT32(0);
 }
 
@@ -76,14 +76,14 @@ train_lightgbm_regressor(PG_FUNCTION_ARGS)
 			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 			 errmsg("LightGBM library not available"),
 			 errhint("LightGBM library was not found during compilation. "
-				"Reason: LightGBM headers not found. "
-				"To enable LightGBM support:\n"
-				"1. Install LightGBM development libraries:\n"
-				"   Ubuntu/Debian: sudo apt-get install liblightgbm-dev\n"
-				"   RHEL/CentOS: sudo yum install lightgbm-devel\n"
-				"   macOS: brew install lightgbm\n"
-				"2. Ensure LightGBM headers are in standard include paths\n"
-				"3. Recompile NeuronDB: make clean && make install")));
+					 "Reason: LightGBM headers not found. "
+					 "To enable LightGBM support:\n"
+					 "1. Install LightGBM development libraries:\n"
+					 "   Ubuntu/Debian: sudo apt-get install liblightgbm-dev\n"
+					 "   RHEL/CentOS: sudo yum install lightgbm-devel\n"
+					 "   macOS: brew install lightgbm\n"
+					 "2. Ensure LightGBM headers are in standard include paths\n"
+					 "3. Recompile NeuronDB: make clean && make install")));
 	PG_RETURN_INT32(0);
 }
 
@@ -182,7 +182,7 @@ lightgbm_model_deserialize_from_bytea(const bytea * data, int *n_estimators_out,
 }
 
 static bool
-lightgbm_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
+lightgbm_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **errstr)
 {
 	LightGBMGpuModelState *state;
 	int			n_estimators = 100;
@@ -191,6 +191,7 @@ lightgbm_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errst
 	char		boosting_type[32] = "gbdt";
 	int			nvec = 0;
 	int			dim = 0;
+
 	NDB_DECLARE(bytea *, model_data);
 	NDB_DECLARE(Jsonb *, metrics);
 	StringInfoData metrics_json;
@@ -286,7 +287,7 @@ lightgbm_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errst
 }
 
 static bool
-lightgbm_gpu_predict(const MLGpuModel * model, const float *input, int input_dim,
+lightgbm_gpu_predict(const MLGpuModel *model, const float *input, int input_dim,
 					 float *output, int output_dim, char **errstr)
 {
 	const		LightGBMGpuModelState *state;
@@ -335,8 +336,8 @@ lightgbm_gpu_predict(const MLGpuModel * model, const float *input, int input_dim
 }
 
 static bool
-lightgbm_gpu_evaluate(const MLGpuModel * model, const MLGpuEvalSpec * spec,
-					  MLGpuMetrics * out, char **errstr)
+lightgbm_gpu_evaluate(const MLGpuModel *model, const MLGpuEvalSpec *spec,
+					  MLGpuMetrics *out, char **errstr)
 {
 	const		LightGBMGpuModelState *state;
 	Jsonb	   *metrics_json;
@@ -377,7 +378,7 @@ lightgbm_gpu_evaluate(const MLGpuModel * model, const MLGpuEvalSpec * spec,
 }
 
 static bool
-lightgbm_gpu_serialize(const MLGpuModel * model, bytea * *payload_out,
+lightgbm_gpu_serialize(const MLGpuModel *model, bytea * *payload_out,
 					   Jsonb * *metadata_out, char **errstr)
 {
 	const		LightGBMGpuModelState *state;
@@ -422,7 +423,7 @@ lightgbm_gpu_serialize(const MLGpuModel * model, bytea * *payload_out,
 }
 
 static bool
-lightgbm_gpu_deserialize(MLGpuModel * model, const bytea * payload,
+lightgbm_gpu_deserialize(MLGpuModel *model, const bytea * payload,
 						 const Jsonb * metadata, char **errstr)
 {
 	LightGBMGpuModelState *state;
@@ -506,7 +507,7 @@ lightgbm_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 }
 
 static void
-lightgbm_gpu_destroy(MLGpuModel * model)
+lightgbm_gpu_destroy(MLGpuModel *model)
 {
 	LightGBMGpuModelState *state;
 

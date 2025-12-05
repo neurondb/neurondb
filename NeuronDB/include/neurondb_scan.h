@@ -23,10 +23,10 @@
 /* RLS functions */
 typedef struct RLSFilterState RLSFilterState;
 
-extern RLSFilterState * ndb_rls_init(Relation rel, EState * estate);
-extern bool ndb_rls_check_tuple(RLSFilterState * state, TupleTableSlot * slot);
-extern bool ndb_rls_check_item(RLSFilterState * state, ItemPointer tid);
-extern void ndb_rls_end(RLSFilterState * state);
+extern RLSFilterState *ndb_rls_init(Relation rel, EState * estate);
+extern bool ndb_rls_check_tuple(RLSFilterState *state, TupleTableSlot * slot);
+extern bool ndb_rls_check_item(RLSFilterState *state, ItemPointer tid);
+extern void ndb_rls_end(RLSFilterState *state);
 extern bool ndb_index_scan_rls_filter(IndexScanDesc scan, ItemPointer tid);
 extern int	ndb_rls_filter_results(Relation rel,
 								   ItemPointer * items,

@@ -129,3 +129,4 @@ extern int ndb_rocm_dt_launch_split_stats_regression(const float *features,
 #endif
 
 #endif /* NEURONDB_ROCM_DT_H */
+

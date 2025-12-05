@@ -13,6 +13,7 @@
 #include <ctype.h>
 #include "neurondb_llm.h"
 #include "neurondb_json.h"
+#include "neurondb_macros.h"
 
 /* Function prototypes to fix implicit declaration errors */
 /* ndb_json_quote_string is now replaced by ndb_json_quote_string from neurondb_json.h */
@@ -23,12 +24,12 @@ int			http_post_json(const char *url, const char *api_key, const char *body, int
  * ndb_hf_vision_complete - Call HuggingFace vision model for image+prompt completion
  */
 int
-ndb_hf_vision_complete(const NdbLLMConfig * cfg,
+ndb_hf_vision_complete(const NdbLLMConfig *cfg,
 					   const unsigned char *image_data,
 					   size_t image_size,
 					   const char *prompt,
 					   const char *params_json,
-					   NdbLLMResp * out)
+					   NdbLLMResp *out)
 {
 	StringInfoData url,
 				body;
@@ -60,14 +61,17 @@ ndb_hf_vision_complete(const NdbLLMConfig * cfg,
 
 	/* Base64 encode image */
 	{
-		bytea	   *image_bytea = (bytea *) palloc(VARHDRSZ + image_size);
+		NDB_DECLARE(bytea *, image_bytea);
+		NDB_DECLARE(char *, image_bytea_raw);
+		NDB_ALLOC(image_bytea_raw, char, VARHDRSZ + image_size);
+		image_bytea = (bytea *) image_bytea_raw;
 
 		SET_VARSIZE(image_bytea, VARHDRSZ + image_size);
 		memcpy(VARDATA(image_bytea), image_data, image_size);
 		encoded_text = ndb_encode_base64(image_bytea);
 		base64_data = text_to_cstring(encoded_text);
-		pfree(image_bytea);
-		pfree(encoded_text);
+		NDB_FREE(image_bytea);
+		NDB_FREE(encoded_text);
 	}
 
 	quoted_prompt = ndb_json_quote_string(prompt);
@@ -112,15 +116,15 @@ ndb_hf_vision_complete(const NdbLLMConfig * cfg,
 	text_start = NULL;
 	text_end = NULL;
 	len = 0;
-	pfree(url.data);
-	pfree(body.data);
-	pfree(base64_data);
-	pfree(quoted_prompt);
+	NDB_FREE(url.data);
+	NDB_FREE(body.data);
+	NDB_FREE(base64_data);
+	NDB_FREE(quoted_prompt);
 
 	if (code < 200 || code >= 300 || !resp)
 	{
 		if (resp)
-			pfree(resp);
+			NDB_FREE(resp);
 		return -1;
 	}
 
@@ -138,7 +142,7 @@ ndb_hf_vision_complete(const NdbLLMConfig * cfg,
 			if (text_end)
 			{
 				len = text_end - text_start;
-				out->text = (char *) palloc(len + 1);
+				NDB_ALLOC(out->text, char, len + 1);
 				strncpy(out->text, text_start, len);
 				out->text[len] = '\0';
 				ok = true;
@@ -241,7 +245,7 @@ http_post_json(const char *url,
 		curl_slist_free_all(headers);
 		curl_easy_cleanup(curl);
 		if (buf.data)
-			pfree(buf.data);
+			NDB_FREE(buf.data);
 		return -1;
 	}
 	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);
@@ -287,17 +291,17 @@ extract_hf_text(const char *json)
 	if (!q)
 		return NULL;
 	len = q - p;
-	out = (char *) palloc(len + 1);
+	NDB_ALLOC(out, char, len + 1);
 	memcpy(out, p, len);
 	out[len] = '\0';
 	return out;
 }
 
 int
-ndb_hf_complete(const NdbLLMConfig * cfg,
+ndb_hf_complete(const NdbLLMConfig *cfg,
 				const char *prompt,
 				const char *params_json,
-				NdbLLMResp * out)
+				NdbLLMResp *out)
 {
 	StringInfoData url,
 				body;
@@ -307,16 +311,16 @@ ndb_hf_complete(const NdbLLMConfig * cfg,
 
 	if (prompt == NULL)
 	{
-		pfree(url.data);
-		pfree(body.data);
+		NDB_FREE(url.data);
+		NDB_FREE(body.data);
 		return -1;
 	}
 
 	/* Validate API key is required for HuggingFace inference API */
 	if (!cfg->api_key || cfg->api_key[0] == '\0')
 	{
-		pfree(url.data);
-		pfree(body.data);
+		NDB_FREE(url.data);
+		NDB_FREE(body.data);
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("API key is required for HuggingFace but was not provided"),
@@ -386,12 +390,14 @@ parse_hf_emb_vector(const char *json, float **vec_out, int *dim_out)
 				if (err_end)
 				{
 					size_t		err_len = err_end - err_start;
-					char	   *err_msg = palloc(err_len + 1);
+
+					NDB_DECLARE(char *, err_msg);
+					NDB_ALLOC(err_msg, char, err_len + 1);
 
 					memcpy(err_msg, err_start, err_len);
 					err_msg[err_len] = '\0';
 					elog(DEBUG1, "neurondb: HF API error: %s", err_msg);
-					pfree(err_msg);
+					NDB_FREE(err_msg);
 				}
 			}
 		}
@@ -427,7 +433,7 @@ parse_hf_emb_vector(const char *json, float **vec_out, int *dim_out)
 		return false;
 	}
 
-	vec = (float *) palloc(sizeof(float) * cap);
+	NDB_ALLOC(vec, float, cap);
 
 	while (*p && *p != ']')
 	{
@@ -453,13 +459,13 @@ parse_hf_emb_vector(const char *json, float **vec_out, int *dim_out)
 	}
 	else
 	{
-		pfree(vec);
+		NDB_FREE(vec);
 		return false;
 	}
 }
 
 int
-ndb_hf_embed(const NdbLLMConfig * cfg,
+ndb_hf_embed(const NdbLLMConfig *cfg,
 			 const char *text,
 			 float **vec_out,
 			 int *dim_out)
@@ -475,16 +481,16 @@ ndb_hf_embed(const NdbLLMConfig * cfg,
 
 	if (text == NULL)
 	{
-		pfree(url.data);
-		pfree(body.data);
+		NDB_FREE(url.data);
+		NDB_FREE(body.data);
 		return -1;
 	}
 
 	/* Validate API key is required for HuggingFace inference API */
 	if (!cfg->api_key || cfg->api_key[0] == '\0')
 	{
-		pfree(url.data);
-		pfree(body.data);
+		NDB_FREE(url.data);
+		NDB_FREE(body.data);
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("API key is required for HuggingFace but was not provided"),
@@ -548,30 +554,30 @@ ndb_hf_embed(const NdbLLMConfig * cfg,
 	if (code < 200 || code >= 300 || !resp)
 	{
 		if (resp)
-			pfree(resp);
-		pfree(url.data);
-		pfree(body.data);
+			NDB_FREE(resp);
+		NDB_FREE(url.data);
+		NDB_FREE(body.data);
 		return -1;
 	}
 	/* Check for error in response body (API may return 200 with error JSON) */
 	if (strncmp(resp, "{\"error\"", 8) == 0)
 	{
-		pfree(resp);
-		pfree(url.data);
-		pfree(body.data);
+		NDB_FREE(resp);
+		NDB_FREE(url.data);
+		NDB_FREE(body.data);
 		return -1;
 	}
 	ok = parse_hf_emb_vector(resp, vec_out, dim_out);
 	if (!ok)
 	{
-		pfree(resp);
-		pfree(url.data);
-		pfree(body.data);
+		NDB_FREE(resp);
+		NDB_FREE(url.data);
+		NDB_FREE(body.data);
 		return -1;
 	}
-	pfree(resp);
-	pfree(url.data);
-	pfree(body.data);
+	NDB_FREE(resp);
+	NDB_FREE(url.data);
+	NDB_FREE(body.data);
 	return 0;
 }
 
@@ -606,8 +612,8 @@ parse_hf_emb_batch(const char *json,
 	while (*p && isspace(*p))
 		p++;
 
-	vecs = (float **) palloc(sizeof(float *) * cap);
-	dims = (int *) palloc(sizeof(int) * cap);
+	NDB_ALLOC(vecs, float *, cap);
+	NDB_ALLOC(dims, int, cap);
 
 	/* Parse array of arrays */
 	while (*p && *p != ']')
@@ -624,7 +630,7 @@ parse_hf_emb_batch(const char *json,
 		p++;
 
 		/* Parse vector elements */
-		vec = (float *) palloc(sizeof(float) * vec_cap);
+		NDB_ALLOC(vec, float, vec_cap);
 		vec_dim = 0;
 		while (*p && *p != ']')
 		{
@@ -670,7 +676,7 @@ parse_hf_emb_batch(const char *json,
 		}
 		else if (vec)
 		{
-			pfree(vec);
+			NDB_FREE(vec);
 			vec = NULL;
 		}
 	}
@@ -685,15 +691,15 @@ parse_hf_emb_batch(const char *json,
 	else
 	{
 		if (vecs)
-			pfree(vecs);
+			NDB_FREE(vecs);
 		if (dims)
-			pfree(dims);
+			NDB_FREE(dims);
 		return false;
 	}
 }
 
 int
-ndb_hf_embed_batch(const NdbLLMConfig * cfg,
+ndb_hf_embed_batch(const NdbLLMConfig *cfg,
 				   const char **texts,
 				   int num_texts,
 				   float ***vecs_out,
@@ -717,9 +723,9 @@ ndb_hf_embed_batch(const NdbLLMConfig * cfg,
 
 	if (texts == NULL || num_texts <= 0)
 	{
-		pfree(url.data);
-		pfree(body.data);
-		pfree(inputs_json.data);
+		NDB_FREE(url.data);
+		NDB_FREE(body.data);
+		NDB_FREE(inputs_json.data);
 		return -1;
 	}
 
@@ -734,7 +740,7 @@ ndb_hf_embed_batch(const NdbLLMConfig * cfg,
 			char	   *quoted = ndb_json_quote_string(texts[i]);
 
 			appendStringInfoString(&inputs_json, quoted);
-			pfree(quoted);
+			NDB_FREE(quoted);
 		}
 		else
 		{
@@ -768,19 +774,19 @@ ndb_hf_embed_batch(const NdbLLMConfig * cfg,
 	code = http_post_json(
 						  url.data, cfg->api_key, body.data, cfg->timeout_ms, &resp);
 
-	pfree(url.data);
-	pfree(body.data);
-	pfree(inputs_json.data);
+	NDB_FREE(url.data);
+	NDB_FREE(body.data);
+	NDB_FREE(inputs_json.data);
 
 	if (code < 200 || code >= 300 || !resp)
 	{
 		if (resp)
-			pfree(resp);
+			NDB_FREE(resp);
 		return -1;
 	}
 
 	ok = parse_hf_emb_batch(resp, &vecs, &dims, &num_vecs);
-	pfree(resp);
+	NDB_FREE(resp);
 
 	if (!ok)
 	{
@@ -789,12 +795,12 @@ ndb_hf_embed_batch(const NdbLLMConfig * cfg,
 			for (i = 0; i < num_vecs; i++)
 			{
 				if (vecs[i])
-					pfree(vecs[i]);
+					NDB_FREE(vecs[i]);
 			}
-			pfree(vecs);
+			NDB_FREE(vecs);
 		}
 		if (dims)
-			pfree(dims);
+			NDB_FREE(dims);
 		return -1;
 	}
 
@@ -805,7 +811,7 @@ ndb_hf_embed_batch(const NdbLLMConfig * cfg,
 }
 
 int
-ndb_hf_image_embed(const NdbLLMConfig * cfg,
+ndb_hf_image_embed(const NdbLLMConfig *cfg,
 				   const unsigned char *image_data,
 				   size_t image_size,
 				   float **vec_out,
@@ -824,8 +830,8 @@ ndb_hf_image_embed(const NdbLLMConfig * cfg,
 
 	if (image_data == NULL || image_size == 0)
 	{
-		pfree(url.data);
-		pfree(body.data);
+		NDB_FREE(url.data);
+		NDB_FREE(body.data);
 		return -1;
 	}
 
@@ -836,7 +842,9 @@ ndb_hf_image_embed(const NdbLLMConfig * cfg,
 	{
 		bytea	   *image_bytea = NULL;
 
-		image_bytea = (bytea *) palloc(VARHDRSZ + image_size);
+		NDB_DECLARE(char *, image_bytea_raw);
+		NDB_ALLOC(image_bytea_raw, char, VARHDRSZ + image_size);
+		image_bytea = (bytea *) image_bytea_raw;
 		SET_VARSIZE(image_bytea, VARHDRSZ + image_size);
 		memcpy(VARDATA(image_bytea), image_data, image_size);
 
@@ -844,8 +852,8 @@ ndb_hf_image_embed(const NdbLLMConfig * cfg,
 		encoded_text = ndb_encode_base64(image_bytea);
 		base64_data = text_to_cstring(encoded_text);
 
-		pfree(image_bytea);
-		pfree(encoded_text);
+		NDB_FREE(image_bytea);
+		NDB_FREE(encoded_text);
 	}
 
 	/* Build URL and JSON body for HuggingFace CLIP API */
@@ -876,19 +884,19 @@ ndb_hf_image_embed(const NdbLLMConfig * cfg,
 	code = http_post_json(
 						  url.data, cfg->api_key, body.data, cfg->timeout_ms, &resp);
 
-	pfree(url.data);
-	pfree(body.data);
-	pfree(base64_data);
+	NDB_FREE(url.data);
+	NDB_FREE(body.data);
+	NDB_FREE(base64_data);
 
 	if (code < 200 || code >= 300 || !resp)
 	{
 		if (resp)
-			pfree(resp);
+			NDB_FREE(resp);
 		return -1;
 	}
 
 	ok = parse_hf_emb_vector(resp, vec_out, dim_out);
-	pfree(resp);
+	NDB_FREE(resp);
 
 	if (!ok)
 		return -1;
@@ -896,7 +904,7 @@ ndb_hf_image_embed(const NdbLLMConfig * cfg,
 }
 
 int
-ndb_hf_multimodal_embed(const NdbLLMConfig * cfg,
+ndb_hf_multimodal_embed(const NdbLLMConfig *cfg,
 						const char *text_input,
 						const unsigned char *image_data,
 						size_t image_size,
@@ -917,8 +925,8 @@ ndb_hf_multimodal_embed(const NdbLLMConfig * cfg,
 
 	if (text_input == NULL || image_data == NULL || image_size == 0)
 	{
-		pfree(url.data);
-		pfree(body.data);
+		NDB_FREE(url.data);
+		NDB_FREE(body.data);
 		return -1;
 	}
 
@@ -926,15 +934,17 @@ ndb_hf_multimodal_embed(const NdbLLMConfig * cfg,
 	{
 		bytea	   *image_bytea = NULL;
 
-		image_bytea = (bytea *) palloc(VARHDRSZ + image_size);
+		NDB_DECLARE(char *, image_bytea_raw);
+		NDB_ALLOC(image_bytea_raw, char, VARHDRSZ + image_size);
+		image_bytea = (bytea *) image_bytea_raw;
 		SET_VARSIZE(image_bytea, VARHDRSZ + image_size);
 		memcpy(VARDATA(image_bytea), image_data, image_size);
 
 		encoded_text = ndb_encode_base64(image_bytea);
 		base64_data = text_to_cstring(encoded_text);
 
-		pfree(image_bytea);
-		pfree(encoded_text);
+		NDB_FREE(image_bytea);
+		NDB_FREE(encoded_text);
 	}
 
 	/* Quote text for JSON */
@@ -969,20 +979,20 @@ ndb_hf_multimodal_embed(const NdbLLMConfig * cfg,
 	code = http_post_json(
 						  url.data, cfg->api_key, body.data, cfg->timeout_ms, &resp);
 
-	pfree(url.data);
-	pfree(body.data);
-	pfree(base64_data);
-	pfree(quoted_text);
+	NDB_FREE(url.data);
+	NDB_FREE(body.data);
+	NDB_FREE(base64_data);
+	NDB_FREE(quoted_text);
 
 	if (code < 200 || code >= 300 || !resp)
 	{
 		if (resp)
-			pfree(resp);
+			NDB_FREE(resp);
 		return -1;
 	}
 
 	ok = parse_hf_emb_vector(resp, vec_out, dim_out);
-	pfree(resp);
+	NDB_FREE(resp);
 
 	if (!ok)
 		return -1;
@@ -1012,7 +1022,7 @@ parse_hf_scores(const char *json, float **scores_out, int ndocs)
 	if (!ps)
 		return false;
 	ps++;
-	scores = palloc(sizeof(float) * ndocs);
+	NDB_ALLOC(scores, float, ndocs);
 	while (*ps && *ps != ']' && n < ndocs)
 	{
 		while (*ps && (isspace(*ps) || *ps == ','))
@@ -1029,12 +1039,12 @@ parse_hf_scores(const char *json, float **scores_out, int ndocs)
 		*scores_out = scores;
 		return true;
 	}
-	pfree(scores);
+	NDB_FREE(scores);
 	return false;
 }
 
 int
-ndb_hf_rerank(const NdbLLMConfig * cfg,
+ndb_hf_rerank(const NdbLLMConfig *cfg,
 			  const char *query,
 			  const char **docs,
 			  int ndocs,
@@ -1054,16 +1064,16 @@ ndb_hf_rerank(const NdbLLMConfig * cfg,
 	/* Validate inputs */
 	if (query == NULL || docs == NULL || ndocs <= 0)
 	{
-		pfree(url.data);
-		pfree(body.data);
+		NDB_FREE(url.data);
+		NDB_FREE(body.data);
 		return -1;
 	}
 
 	/* Validate API key is required for HuggingFace inference API */
 	if (!cfg->api_key || cfg->api_key[0] == '\0')
 	{
-		pfree(url.data);
-		pfree(body.data);
+		NDB_FREE(url.data);
+		NDB_FREE(body.data);
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("API key is required for HuggingFace but was not provided"),
@@ -1102,12 +1112,12 @@ ndb_hf_rerank(const NdbLLMConfig * cfg,
 	if (code < 200 || code >= 300 || !resp)
 	{
 		if (resp)
-			pfree(resp);
+			NDB_FREE(resp);
 		return -1;
 	}
 
 	ok = parse_hf_scores(resp, scores_out, ndocs);
-	pfree(resp);
+	NDB_FREE(resp);
 	if (!ok)
 		return -1;
 	return 0;

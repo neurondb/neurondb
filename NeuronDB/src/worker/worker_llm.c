@@ -136,6 +136,7 @@ neuranllm_main(Datum main_arg)
 			{
 				int			ret;
 				uint64		table_check_processed;
+
 				NDB_DECLARE(NdbSpiSession *, session);
 
 				session = ndb_spi_session_begin(CurrentMemoryContext, false);
@@ -145,11 +146,11 @@ neuranllm_main(Datum main_arg)
 						 "to begin SPI session");
 
 				ret = ndb_spi_execute(session,
-									   "SELECT 1 FROM pg_tables WHERE "
-									   "schemaname = 'neurondb' AND tablename "
-									   "= 'llm_jobs'",
-									   true,
-									   0);
+									  "SELECT 1 FROM pg_tables WHERE "
+									  "schemaname = 'neurondb' AND tablename "
+									  "= 'llm_jobs'",
+									  true,
+									  0);
 				table_check_processed = SPI_processed;
 				ndb_spi_session_end(&session);
 

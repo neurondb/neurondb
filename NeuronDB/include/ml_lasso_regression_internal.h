@@ -18,16 +18,16 @@
 
 typedef struct LassoModel
 {
-	int32 model_id;
-	int n_features;
-	int n_samples;
-	double intercept;
-	double *coefficients;
-	double lambda;
-	int max_iters;
-	double r_squared;
-	double mse;
-	double mae;
+	int32		model_id;
+	int			n_features;
+	int			n_samples;
+	double		intercept;
+	double	   *coefficients;
+	double		lambda;
+	int			max_iters;
+	double		r_squared;
+	double		mse;
+	double		mae;
 } LassoModel;
 
-#endif /* ML_LASSO_REGRESSION_INTERNAL_H */
+#endif							/* ML_LASSO_REGRESSION_INTERNAL_H */

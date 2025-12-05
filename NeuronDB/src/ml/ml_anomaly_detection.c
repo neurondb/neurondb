@@ -84,7 +84,8 @@ build_isolation_tree(float **data, int *indices, int n_points, int dim,
 
 	if (n_points <= 1 || current_depth >= max_depth)
 	{
-		node = (IsolationNode *) palloc(sizeof(IsolationNode));
+		NDB_DECLARE(IsolationNode *, node);
+		NDB_ALLOC(node, IsolationNode, 1);
 		node->split_dim = -1;
 		node->split_value = 0.0;
 		node->left = NULL;
@@ -93,7 +94,8 @@ build_isolation_tree(float **data, int *indices, int n_points, int dim,
 		return node;
 	}
 
-	node = (IsolationNode *) palloc(sizeof(IsolationNode));
+	NDB_DECLARE(IsolationNode *, node);
+	NDB_ALLOC(node, IsolationNode, 1);
 	node->size = n_points;
 
 	/* Randomly select dimension */
@@ -121,8 +123,10 @@ build_isolation_tree(float **data, int *indices, int n_points, int dim,
 	node->split_value = split_value;
 
 	/* Partition indices */
-	left_indices = (int *) palloc(sizeof(int) * n_points);
-	right_indices = (int *) palloc(sizeof(int) * n_points);
+	NDB_DECLARE(int *, left_indices);
+	NDB_DECLARE(int *, right_indices);
+	NDB_ALLOC(left_indices, int, n_points);
+	NDB_ALLOC(right_indices, int, n_points);
 	left_count = right_count = 0;
 
 	for (i = 0; i < n_points; i++)
@@ -281,15 +285,19 @@ detect_anomalies_isolation_forest(PG_FUNCTION_ARGS)
 				 errmsg("Need at least 2 vectors")));
 
 	/* Build isolation forest */
-	forest = (IsolationForest *) palloc(sizeof(IsolationForest));
+	NDB_DECLARE(IsolationForest *, forest);
+	NDB_ALLOC(forest, IsolationForest, 1);
 	forest->n_trees = n_trees;
 	forest->max_depth = (int) ceil(log2((double) nvec));
 	forest->n_samples = nvec;
 	forest->dim = dim;
-	forest->trees = (IsolationNode * *) palloc(sizeof(IsolationNode *) *
+	NDB_DECLARE(IsolationNode **, trees);
+	NDB_ALLOC(trees, IsolationNode *, n_trees);
+	forest->trees = trees;
 											   n_trees);
 
-	indices = (int *) palloc(sizeof(int) * nvec);
+	NDB_DECLARE(int *, indices);
+	NDB_ALLOC(indices, int, nvec);
 	for (i = 0; i < nvec; i++)
 		indices[i] = i;
 
@@ -309,7 +317,8 @@ detect_anomalies_isolation_forest(PG_FUNCTION_ARGS)
 	}
 
 	/* Calculate anomaly scores */
-	anomaly_scores = (double *) palloc(sizeof(double) * nvec);
+	NDB_DECLARE(double *, anomaly_scores);
+	NDB_ALLOC(anomaly_scores, double, nvec);
 	for (i = 0; i < nvec; i++)
 	{
 		double		avg_path = 0.0;
@@ -325,7 +334,8 @@ detect_anomalies_isolation_forest(PG_FUNCTION_ARGS)
 		double	   *sorted_scores;
 		int			threshold_idx;
 
-		sorted_scores = (double *) palloc(sizeof(double) * nvec);
+		NDB_DECLARE(double *, sorted_scores);
+		NDB_ALLOC(sorted_scores, double, nvec);
 		memcpy(sorted_scores, anomaly_scores, sizeof(double) * nvec);
 		qsort(sorted_scores, nvec, sizeof(double), double_compare);
 
@@ -343,7 +353,8 @@ detect_anomalies_isolation_forest(PG_FUNCTION_ARGS)
 		anomalies[i] = (anomaly_scores[i] > threshold);
 
 	/* Build result array */
-	result_datums = (Datum *) palloc(sizeof(Datum) * nvec);
+	NDB_DECLARE(Datum *, result_datums);
+	NDB_ALLOC(result_datums, Datum, nvec);
 	for (i = 0; i < nvec; i++)
 		result_datums[i] = BoolGetDatum(anomalies[i]);
 
@@ -395,7 +406,8 @@ k_distance(const float *point, float **data, int nvec, int dim, int k)
 				d;
 	double		dist;
 
-	distances = (double *) palloc(sizeof(double) * nvec);
+	NDB_DECLARE(double *, distances);
+	NDB_ALLOC(distances, double, nvec);
 
 	for (i = 0; i < nvec; i++)
 	{
@@ -453,8 +465,10 @@ local_reachability_density(const float *point, float **data, int nvec,
 	double		sum_reach_dist = 0.0;
 	double		lrd;
 
-	distances = (double *) palloc(sizeof(double) * nvec);
-	neighbors = (int *) palloc(sizeof(int) * k);
+	NDB_DECLARE(double *, distances);
+	NDB_ALLOC(distances, double, nvec);
+	NDB_DECLARE(int *, neighbors);
+	NDB_ALLOC(neighbors, int, k);
 
 	/* Calculate distances to all points */
 	for (i = 0; i < nvec; i++)
@@ -606,7 +620,8 @@ detect_anomalies_lof(PG_FUNCTION_ARGS)
 				 errmsg("Need at least k+1 vectors for LOF")));
 
 	/* Calculate LOF scores */
-	lof_scores = (double *) palloc(sizeof(double) * nvec);
+	NDB_DECLARE(double *, lof_scores);
+	NDB_ALLOC(lof_scores, double, nvec);
 	for (i = 0; i < nvec; i++)
 	{
 		double		lrd_point = local_reachability_density(
@@ -620,8 +635,10 @@ detect_anomalies_lof(PG_FUNCTION_ARGS)
 			int		   *neighbors;
 			int			n;
 
-			distances = (double *) palloc(sizeof(double) * nvec);
-			neighbors = (int *) palloc(sizeof(int) * k);
+			NDB_DECLARE(double *, distances);
+	NDB_ALLOC(distances, double, nvec);
+			NDB_DECLARE(int *, neighbors);
+	NDB_ALLOC(neighbors, int, k);
 
 			/* Calculate distances */
 			for (j = 0; j < nvec; j++)
@@ -697,7 +714,8 @@ detect_anomalies_lof(PG_FUNCTION_ARGS)
 		anomalies[i] = (lof_scores[i] > threshold);
 
 	/* Build result array */
-	result_datums = (Datum *) palloc(sizeof(Datum) * nvec);
+	NDB_DECLARE(Datum *, result_datums);
+	NDB_ALLOC(result_datums, Datum, nvec);
 	for (i = 0; i < nvec; i++)
 		result_datums[i] = BoolGetDatum(anomalies[i]);
 
@@ -801,7 +819,8 @@ detect_anomalies_ocsvm(PG_FUNCTION_ARGS)
 
 	/* Simplified One-Class SVM using RBF kernel */
 	/* Calculate decision function for each point */
-	scores = (double *) palloc(sizeof(double) * nvec);
+	NDB_DECLARE(double *, scores);
+	NDB_ALLOC(scores, double, nvec);
 
 	/* Use support vectors (subset of training data) */
 	int			n_sv = (int) (nu * nvec);
@@ -842,7 +861,8 @@ detect_anomalies_ocsvm(PG_FUNCTION_ARGS)
 		double	   *sorted_scores;
 		int			threshold_idx;
 
-		sorted_scores = (double *) palloc(sizeof(double) * nvec);
+		NDB_DECLARE(double *, sorted_scores);
+		NDB_ALLOC(sorted_scores, double, nvec);
 		memcpy(sorted_scores, scores, sizeof(double) * nvec);
 		qsort(sorted_scores, nvec, sizeof(double), double_compare);
 
@@ -859,7 +879,8 @@ detect_anomalies_ocsvm(PG_FUNCTION_ARGS)
 	}
 
 	/* Build result array */
-	result_datums = (Datum *) palloc(sizeof(Datum) * nvec);
+	NDB_DECLARE(Datum *, result_datums);
+	NDB_ALLOC(result_datums, Datum, nvec);
 	for (i = 0; i < nvec; i++)
 		result_datums[i] = BoolGetDatum(anomalies[i]);
 

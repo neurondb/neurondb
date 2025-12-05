@@ -121,6 +121,7 @@ rerank_index_create(PG_FUNCTION_ARGS)
 	char	   *cache_tbl;
 	StringInfoData sql;
 	int			ret;
+
 	NDB_DECLARE(NdbSpiSession *, session);
 
 	cache_tbl = get_rerank_cache_table(tbl_str, col_str);
@@ -193,17 +194,18 @@ rerank_get_candidates(PG_FUNCTION_ARGS)
 	if (SRF_IS_FIRSTCALL())
 	{
 		MemoryContext oldcontext;
+
 		NDB_DECLARE(NdbSpiSession *, session);
-		
+
 		funcctx = SRF_FIRSTCALL_INIT();
 		oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
-		
+
 		query_hash = vector_hash(query);
 		cache_tbl = get_rerank_cache_table(table_name, vector_col);
 		session = ndb_spi_session_begin(funcctx->multi_call_memory_ctx, false);
 		if (session == NULL)
 			elog(ERROR, "failed to begin SPI session");
-		
+
 		initStringInfo(&sql);
 		appendStringInfo(&sql,
 						 "SELECT candidate_id, candidate_vec, similarity "
@@ -322,7 +324,11 @@ rerank_get_candidates(PG_FUNCTION_ARGS)
 		TupleDescInitEntry(tupdesc, (AttrNumber) 1, "candidate_id", INT8OID, -1, 0);
 		TupleDescInitEntry(tupdesc, (AttrNumber) 2, "similarity", FLOAT4OID, -1, 0);
 		funcctx->tuple_desc = BlessTupleDesc(tupdesc);
-		/* Session is stored in user_fctx, will be cleaned up in SRF_RETURN_DONE */
+
+		/*
+		 * Session is stored in user_fctx, will be cleaned up in
+		 * SRF_RETURN_DONE
+		 */
 	}
 
 	funcctx = SRF_PERCALL_SETUP();
@@ -335,9 +341,10 @@ rerank_get_candidates(PG_FUNCTION_ARGS)
 		Datum		values[2];
 		bool		nulls[2];
 		HeapTuple	tuple;
-		
-		(void) session;  /* May be unused in some code paths */
-		tuptable = SPI_tuptable;  /* Access via global SPI_tuptable while session is active */
+
+		(void) session;			/* May be unused in some code paths */
+		tuptable = SPI_tuptable;	/* Access via global SPI_tuptable while
+									 * session is active */
 
 		Assert(session != NULL);
 
@@ -383,6 +390,7 @@ rerank_index_warm(PG_FUNCTION_ARGS)
 	bool	   *elem_nulls;
 	char	   *cache_tbl;
 	StringInfoData sql;
+
 	NDB_DECLARE(NdbSpiSession *, session);
 
 	get_typlenbyvalalign(eltype, &elmlen, &elmbyval, &elmalign);

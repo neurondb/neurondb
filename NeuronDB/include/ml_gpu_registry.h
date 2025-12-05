@@ -51,4 +51,4 @@ extern void neurondb_gpu_register_topic_discovery_model(void);
 extern void neurondb_gpu_register_timeseries_model(void);
 extern void neurondb_gpu_register_davies_bouldin_model(void);
 
-#endif /* NEURONDB_ML_GPU_REGISTRY_H */
+#endif							/* NEURONDB_ML_GPU_REGISTRY_H */

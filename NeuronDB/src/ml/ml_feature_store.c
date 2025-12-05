@@ -63,6 +63,7 @@ neurondb_create_feature_store(PG_FUNCTION_ARGS)
 	int			ret;
 	int32		store_id_val;
 	int			store_id;
+
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext;
 
@@ -152,6 +153,7 @@ neurondb_register_feature(PG_FUNCTION_ARGS)
 	int			ret;
 	int32		feature_id_val;
 	int			feature_id;
+
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext;
 
@@ -272,6 +274,7 @@ neurondb_get_features(PG_FUNCTION_ARGS)
 	int			i,
 				j,
 				ndefs;
+
 	NDB_DECLARE(Datum *, entity_datums);
 	NDB_DECLARE(bool *, entity_nulls);
 	NDB_DECLARE(Datum *, feat_datums);
@@ -286,6 +289,7 @@ neurondb_get_features(PG_FUNCTION_ARGS)
 				fncontext;
 	StringInfoData sql;
 	int			spi_ret;
+
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext_spi;
 
@@ -394,7 +398,7 @@ neurondb_get_features(PG_FUNCTION_ARGS)
 			bool		isnull;
 
 			/* Safe access for complex types - validate before access */
-			if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL || 
+			if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL ||
 				SPI_tuptable->vals[0] == NULL || SPI_tuptable->tupdesc == NULL)
 			{
 				continue;
@@ -589,6 +593,7 @@ neurondb_feature_engineering(PG_FUNCTION_ARGS)
 				ret,
 				updated = 0;
 	StringInfoData sql;
+
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext;
 
@@ -694,6 +699,7 @@ entity_key_for_store(int32 store_id)
 	StringInfoData sql;
 	int			ret;
 	char	   *entity_key;
+
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext = CurrentMemoryContext;
 
@@ -717,6 +723,7 @@ entity_key_for_store(int32 store_id)
 
 	{
 		text	   *entity_key_text = ndb_spi_get_text(spi_session, 0, 1, oldcontext);
+
 		entity_key = entity_key_text ? text_to_cstring(entity_key_text) : NULL;
 	}
 
@@ -734,6 +741,7 @@ entity_table_for_store(int32 store_id)
 	StringInfoData sql;
 	int			ret;
 	char	   *entity_table;
+
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext = CurrentMemoryContext;
 
@@ -757,6 +765,7 @@ entity_table_for_store(int32 store_id)
 
 	{
 		text	   *entity_table_text = ndb_spi_get_text(spi_session, 0, 1, oldcontext);
+
 		entity_table = entity_table_text ? text_to_cstring(entity_table_text) : NULL;
 	}
 
@@ -782,6 +791,7 @@ get_feature_definitions(int32 store_id,
 	char	  **fnames = NULL;
 	char	  **ftypes = NULL;
 	char	  **ftransforms = NULL;
+
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext = CurrentMemoryContext;
 
@@ -814,6 +824,7 @@ get_feature_definitions(int32 store_id,
 		text	   *fname_text = ndb_spi_get_text(spi_session, i, 1, oldcontext);
 		text	   *ftype_text = ndb_spi_get_text(spi_session, i, 2, oldcontext);
 		text	   *ftransform_text = ndb_spi_get_text(spi_session, i, 3, oldcontext);
+
 		fnames[i] = fname_text ? text_to_cstring(fname_text) : NULL;
 		ftypes[i] = ftype_text ? text_to_cstring(ftype_text) : NULL;
 		ftransforms[i] = ftransform_text ? text_to_cstring(ftransform_text) : NULL;

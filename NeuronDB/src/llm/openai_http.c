@@ -249,10 +249,10 @@ http_post_json(const char *url,
  * }
  */
 int
-ndb_openai_complete(const NdbLLMConfig * cfg,
+ndb_openai_complete(const NdbLLMConfig *cfg,
 					const char *prompt,
 					const char *params_json,
-					NdbLLMResp * out)
+					NdbLLMResp *out)
 {
 	StringInfoData url,
 				body;
@@ -352,17 +352,19 @@ ndb_openai_complete(const NdbLLMConfig * cfg,
 		if (parse_result == 0 && response.text)
 		{
 			out->text = response.text;
-			/* Note: response.text is now owned by out->text, don't free it here */
+
+			/*
+			 * Note: response.text is now owned by out->text, don't free it
+			 * here
+			 */
 		}
 		else
 		{
 			/* Free response if it was partially allocated */
 			Jsonb	   *jsonb = NULL;
 
-			if (response.text)
-				pfree(response.text);
-			if (response.error_message)
-				pfree(response.error_message);
+			NDB_FREE(response.text);
+			NDB_FREE(response.error_message);
 			/* Fallback: try to extract any text content from JSON using JSONB */
 			PG_TRY();
 			{
@@ -449,7 +451,7 @@ ndb_openai_complete(const NdbLLMConfig * cfg,
  * }
  */
 int
-ndb_openai_embed(const NdbLLMConfig * cfg,
+ndb_openai_embed(const NdbLLMConfig *cfg,
 				 const char *text,
 				 float **vec_out,
 				 int *dim_out)
@@ -499,7 +501,7 @@ ndb_openai_embed(const NdbLLMConfig * cfg,
 
 	/* Quote model and text for JSON */
 	model_quoted = ndb_json_quote_string(
-									   cfg->model ? cfg->model : "text-embedding-ada-002");
+										 cfg->model ? cfg->model : "text-embedding-ada-002");
 	text_quoted = ndb_json_quote_string(text);
 
 	/* Build request body */
@@ -547,7 +549,7 @@ ndb_openai_embed(const NdbLLMConfig * cfg,
  * OpenAI supports batch embeddings in a single request
  */
 int
-ndb_openai_embed_batch(const NdbLLMConfig * cfg,
+ndb_openai_embed_batch(const NdbLLMConfig *cfg,
 					   const char **texts,
 					   int num_texts,
 					   float ***vecs_out,
@@ -598,7 +600,7 @@ ndb_openai_embed_batch(const NdbLLMConfig * cfg,
 
 	/* Quote model for JSON */
 	model_quoted = ndb_json_quote_string(
-									   cfg->model ? cfg->model : "text-embedding-ada-002");
+										 cfg->model ? cfg->model : "text-embedding-ada-002");
 
 	/* Build request body with array of inputs */
 	appendStringInfo(&body, "{\"model\":%s,\"input\":[", model_quoted);
@@ -627,8 +629,8 @@ ndb_openai_embed_batch(const NdbLLMConfig * cfg,
 								 url.data, cfg->api_key, body.data, cfg->timeout_ms, &json_resp);
 
 	/* Allocate output arrays */
-	vecs = (float **) palloc(sizeof(float *) * num_texts);
-	dims = (int *) palloc(sizeof(int) * num_texts);
+	NDB_ALLOC(vecs, float *, num_texts);
+	NDB_ALLOC(dims, int, num_texts);
 
 	if (http_status >= 200 && http_status < 300 && json_resp)
 	{
@@ -655,7 +657,7 @@ ndb_openai_embed_batch(const NdbLLMConfig * cfg,
 						emb_start = strchr(emb_start, '[');
 						if (emb_start)
 						{
-							float	   *vec;
+							NDB_DECLARE(float *, vec);
 							int			vec_dim;
 							int			vec_cap;
 							char	   *endptr;
@@ -663,11 +665,10 @@ ndb_openai_embed_batch(const NdbLLMConfig * cfg,
 
 							emb_start++;
 							/* Parse vector */
-							vec = NULL;
 							vec_dim = 0;
 							vec_cap = 32;
 
-							vec = (float *) palloc(sizeof(float) * vec_cap);
+							NDB_ALLOC(vec, float, vec_cap);
 
 							while (*emb_start && *emb_start != ']')
 							{
@@ -744,12 +745,12 @@ ndb_openai_embed_batch(const NdbLLMConfig * cfg,
  * Request body includes image as base64 in messages content.
  */
 int
-ndb_openai_vision_complete(const NdbLLMConfig * cfg,
+ndb_openai_vision_complete(const NdbLLMConfig *cfg,
 						   const unsigned char *image_data,
 						   size_t image_size,
 						   const char *prompt,
 						   const char *params_json,
-						   NdbLLMResp * out)
+						   NdbLLMResp *out)
 {
 	StringInfoData url,
 				body;
@@ -757,7 +758,8 @@ ndb_openai_vision_complete(const NdbLLMConfig * cfg,
 	char	   *prompt_quoted = NULL;
 	char	   *base64_data = NULL;
 	text	   *encoded_text = NULL;
-	bytea	   *image_bytea = NULL;
+	NDB_DECLARE(bytea *, image_bytea);
+	NDB_DECLARE(char *, image_bytea_raw);
 	ImageMetadata *img_meta;
 	const char *vision_model;
 	const char *vision_prompt;
@@ -813,7 +815,8 @@ ndb_openai_vision_complete(const NdbLLMConfig * cfg,
 	}
 
 	/* Convert image data to bytea, then base64 encode */
-	image_bytea = (bytea *) palloc(VARHDRSZ + image_size);
+	NDB_ALLOC(image_bytea_raw, char, VARHDRSZ + image_size);
+	image_bytea = (bytea *) image_bytea_raw;
 	SET_VARSIZE(image_bytea, VARHDRSZ + image_size);
 	memcpy(VARDATA(image_bytea), image_data, image_size);
 
@@ -900,6 +903,7 @@ ndb_openai_vision_complete(const NdbLLMConfig * cfg,
 	{
 		NdbOpenAIResponse response = {0};
 		int			parse_result = ndb_json_extract_openai_response(out->json, &response);
+
 		if (parse_result == 0)
 		{
 			out->text = response.text;
@@ -910,10 +914,8 @@ ndb_openai_vision_complete(const NdbLLMConfig * cfg,
 		else
 		{
 			/* Free response if it was partially allocated */
-			if (response.text)
-				pfree(response.text);
-			if (response.error_message)
-				pfree(response.error_message);
+			NDB_FREE(response.text);
+			NDB_FREE(response.error_message);
 		}
 		rc = 0;
 	}
@@ -932,7 +934,7 @@ ndb_openai_vision_complete(const NdbLLMConfig * cfg,
  * Alternatively, use OpenAI's text-embedding-3 models with image descriptions.
  */
 int
-ndb_openai_image_embed(const NdbLLMConfig * cfg,
+ndb_openai_image_embed(const NdbLLMConfig *cfg,
 					   const unsigned char *image_data,
 					   size_t image_size,
 					   float **vec_out,
@@ -962,7 +964,7 @@ ndb_openai_image_embed(const NdbLLMConfig * cfg,
  * For now, we embed the text and suggest using vision API for image understanding.
  */
 int
-ndb_openai_multimodal_embed(const NdbLLMConfig * cfg,
+ndb_openai_multimodal_embed(const NdbLLMConfig *cfg,
 							const char *text,
 							const unsigned char *image_data,
 							size_t image_size,
@@ -990,7 +992,7 @@ ndb_openai_multimodal_embed(const NdbLLMConfig * cfg,
  * This implementation makes individual API calls for each document.
  */
 int
-ndb_openai_rerank(const NdbLLMConfig * cfg,
+ndb_openai_rerank(const NdbLLMConfig *cfg,
 				  const char *query,
 				  const char **docs,
 				  int ndocs,
@@ -1006,7 +1008,7 @@ ndb_openai_rerank(const NdbLLMConfig * cfg,
 	char	   *json_response = NULL;
 	int			http_status;
 	int			i;
-	float	   *scores = NULL;
+	NDB_DECLARE(float *, scores);
 
 	if (!cfg || !query || !docs || ndocs <= 0 || !scores_out)
 		return -1;
@@ -1022,9 +1024,7 @@ ndb_openai_rerank(const NdbLLMConfig * cfg,
 	}
 
 	/* Allocate scores array */
-	scores = (float *) palloc(sizeof(float) * ndocs);
-	if (!scores)
-		return -1;
+	NDB_ALLOC(scores, float, ndocs);
 
 	/* Use chat completion API with scoring prompt for each document */
 	for (i = 0; i < ndocs; i++)
@@ -1057,6 +1057,7 @@ ndb_openai_rerank(const NdbLLMConfig * cfg,
 			NdbOpenAIResponse response = {0};
 			int			parse_result = ndb_json_extract_openai_response(json_response, &response);
 			char	   *text = (parse_result == 0) ? response.text : NULL;
+
 			/* Note: text is owned by response, caller should free if needed */
 
 			if (text)

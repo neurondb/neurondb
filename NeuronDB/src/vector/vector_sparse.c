@@ -29,7 +29,7 @@
 
 /* Helper: Check dimensions match */
 static inline void
-check_vecmap_dimensions(const VectorMap * a, const VectorMap * b)
+check_vecmap_dimensions(const VectorMap *a, const VectorMap *b)
 {
 	if (a->total_dim != b->total_dim)
 		ereport(ERROR,
@@ -79,10 +79,10 @@ vecmap_l2_distance(PG_FUNCTION_ARGS)
 	 * the difference between both values. When indices differ, we treat the
 	 * missing value as zero and compute the difference accordingly. The
 	 * algorithm uses Kahan summation to maintain numerical precision when
-	 * accumulating squared differences, which is critical for high-dimensional
-	 * sparse vectors where cancellation errors can accumulate. This approach
-	 * achieves O(nnz) time complexity where nnz is the number of non-zero
-	 * elements, compared to O(dim) for dense vectors.
+	 * accumulating squared differences, which is critical for
+	 * high-dimensional sparse vectors where cancellation errors can
+	 * accumulate. This approach achieves O(nnz) time complexity where nnz is
+	 * the number of non-zero elements, compared to O(dim) for dense vectors.
 	 */
 	i = 0;
 	j = 0;
@@ -449,7 +449,11 @@ vecmap_add(PG_FUNCTION_ARGS)
 	/* Allocate result - variable-length type requires custom size */
 	size = sizeof(VectorMap) + sizeof(int32) * result_nnz +
 		sizeof(float4) * result_nnz;
-	/* Variable-length type requires custom size - use palloc0 but ensure proper cleanup */
+
+	/*
+	 * Variable-length type requires custom size - use palloc0 but ensure
+	 * proper cleanup
+	 */
 	/* Note: For variable-length PostgreSQL types, palloc0 is standard */
 	result = (VectorMap *) palloc0(size);
 	SET_VARSIZE(result, size);

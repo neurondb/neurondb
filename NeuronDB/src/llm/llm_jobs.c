@@ -40,6 +40,7 @@ ndb_llm_job_enqueue(const char *job_type, const char *payload)
 	StringInfoData query;
 	Oid			argtypes[2] = {TEXTOID, JSONBOID};
 	Datum		values[2];
+
 	NDB_DECLARE(NdbSpiSession *, session);
 
 	/* Validate inputs */
@@ -83,7 +84,7 @@ ndb_llm_job_enqueue(const char *job_type, const char *payload)
 	}
 
 	if (ndb_spi_execute_with_args(session,
-							  query.data, 2, argtypes, values, NULL, false, 1)
+								  query.data, 2, argtypes, values, NULL, false, 1)
 		== SPI_OK_INSERT_RETURNING
 		&& SPI_processed == 1)
 	{
@@ -126,6 +127,7 @@ ndb_llm_job_acquire(int *job_id, char **job_type, char **payload)
 {
 	bool		found = false;
 	StringInfoData query;
+
 	NDB_DECLARE(NdbSpiSession *, session);
 
 	/* Must be called within an active transaction */
@@ -206,6 +208,7 @@ ndb_llm_job_update(int job_id,
 	Oid			argtypes[4] = {INT8OID, TEXTOID, TEXTOID, TEXTOID};
 	Datum		values[4];
 	bool		ok = false;
+
 	NDB_DECLARE(NdbSpiSession *, session);
 
 	if (job_id <= 0)
@@ -246,7 +249,7 @@ ndb_llm_job_update(int job_id,
 			nulls[3] = 'n';
 
 		if (ndb_spi_execute_with_args(session,
-								  query.data, 4, argtypes, values, nulls, false, 0)
+									  query.data, 4, argtypes, values, nulls, false, 0)
 			== SPI_OK_UPDATE)
 		{
 			if (SPI_processed > 0)
@@ -268,6 +271,7 @@ ndb_llm_job_prune(int max_age_days)
 	int			deleted = 0;
 	StringInfoData query;
 	int			days;
+
 	NDB_DECLARE(NdbSpiSession *, session);
 
 	days = (max_age_days > 0) ? max_age_days : 7;
@@ -305,6 +309,7 @@ ndb_llm_job_count_status(const char *status)
 	StringInfoData query;
 	Oid			argtypes[1] = {TEXTOID};
 	Datum		values[1];
+
 	NDB_DECLARE(NdbSpiSession *, session);
 
 	if (!status || strlen(status) == 0)
@@ -323,7 +328,7 @@ ndb_llm_job_count_status(const char *status)
 	values[0] = CStringGetTextDatum(status);
 
 	if (ndb_spi_execute_with_args(session,
-							  query.data, 1, argtypes, values, NULL, false, 1)
+								  query.data, 1, argtypes, values, NULL, false, 1)
 		== SPI_OK_SELECT
 		&& SPI_processed == 1)
 	{
@@ -353,6 +358,7 @@ ndb_llm_job_retry_failed(int max_retries)
 	StringInfoData query;
 	Oid			argtypes[1] = {INT4OID};
 	Datum		values[1];
+
 	NDB_DECLARE(NdbSpiSession *, session);
 
 	if (max_retries < 1)
@@ -376,7 +382,7 @@ ndb_llm_job_retry_failed(int max_retries)
 	values[0] = Int32GetDatum(max_retries);
 
 	if (ndb_spi_execute_with_args(session,
-							  query.data, 1, argtypes, values, NULL, false, 0)
+								  query.data, 1, argtypes, values, NULL, false, 0)
 		== SPI_OK_UPDATE)
 		retried = SPI_processed;
 

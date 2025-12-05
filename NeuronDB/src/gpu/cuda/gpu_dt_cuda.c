@@ -36,7 +36,7 @@
  * Helper: Free tree recursively
  */
 static void
-dt_free_tree(DTNode * node)
+dt_free_tree(DTNode *node)
 {
 	if (node == NULL)
 		return;
@@ -52,8 +52,8 @@ dt_free_tree(DTNode * node)
  * Helper function to serialize tree nodes recursively
  */
 static int
-dt_serialize_node_recursive(const DTNode * node,
-							NdbCudaDtNode * dest,
+dt_serialize_node_recursive(const DTNode *node,
+							NdbCudaDtNode *dest,
 							int *node_idx,
 							int *max_idx)
 {
@@ -102,7 +102,7 @@ dt_serialize_node_recursive(const DTNode * node,
  * Count nodes in tree recursively
  */
 static int
-dt_count_nodes(const DTNode * node)
+dt_count_nodes(const DTNode *node)
 {
 	if (node == NULL)
 		return 0;
@@ -112,7 +112,7 @@ dt_count_nodes(const DTNode * node)
 }
 
 int
-ndb_cuda_dt_pack_model(const DTModel * model,
+ndb_cuda_dt_pack_model(const DTModel *model,
 					   bytea * *model_data,
 					   Jsonb * *metrics,
 					   char **errstr)
@@ -126,6 +126,7 @@ ndb_cuda_dt_pack_model(const DTModel * model,
 	NdbCudaDtModelHeader *hdr;
 	NdbCudaDtNode *nodes;
 	int			node_idx = 0;
+	char	   *blob_raw = NULL;
 
 	if (errstr)
 		*errstr = NULL;
@@ -156,7 +157,8 @@ ndb_cuda_dt_pack_model(const DTModel * model,
 	nodes_bytes = sizeof(NdbCudaDtNode) * (size_t) node_count;
 	payload_bytes = header_bytes + nodes_bytes;
 
-	blob = (bytea *) palloc(VARHDRSZ + payload_bytes);
+	NDB_ALLOC(blob_raw, char, VARHDRSZ + payload_bytes);
+	blob = (bytea *) blob_raw;
 	SET_VARSIZE(blob, VARHDRSZ + payload_bytes);
 	base = VARDATA(blob);
 
@@ -332,13 +334,13 @@ dt_build_tree_gpu(const float *features,
 	int			best_feature = -1;
 	float		best_threshold = 0.0f;
 	double		best_gain = -DBL_MAX;
-	int		   *left_indices = NULL;
-	int		   *right_indices = NULL;
+	NDB_DECLARE(int *, left_indices);
+	NDB_DECLARE(int *, right_indices);
 	int			left_count = 0;
 	int			right_count = 0;
-	int		   *label_ints = NULL;
-	int		   *left_counts = NULL;
-	int		   *right_counts = NULL;
+	NDB_DECLARE(int *, label_ints);
+	NDB_DECLARE(int *, left_counts);
+	NDB_DECLARE(int *, right_counts);
 	double		left_sum = 0.0;
 	double		left_sumsq = 0.0;
 	int			left_count_reg = 0;
@@ -346,7 +348,6 @@ dt_build_tree_gpu(const float *features,
 	double		right_sumsq = 0.0;
 	int			right_count_reg = 0;
 	int			majority;
-	int		   *parent_counts;
 	double		parent_imp;
 	double		left_var;
 	double		right_var;
@@ -356,13 +357,7 @@ dt_build_tree_gpu(const float *features,
 		*errstr = NULL;
 
 	/* Allocate node */
-	node = (DTNode *) palloc0(sizeof(DTNode));
-	if (node == NULL)
-	{
-		if (errstr)
-			*errstr = pstrdup("CUDA DT train: failed to allocate node");
-		return NULL;
-	}
+	NDB_ALLOC(node, DTNode, 1);
 
 	/* Stopping criteria */
 	if (max_depth <= 0 || n_samples < min_samples_split)
@@ -371,7 +366,8 @@ dt_build_tree_gpu(const float *features,
 		if (is_classification)
 		{
 			/* Count classes for majority vote */
-			int		   *class_counts = (int *) palloc0(sizeof(int) * class_count);
+			NDB_DECLARE(int *, class_counts);
+			NDB_ALLOC(class_counts, int, class_count);
 
 			for (i = 0; i < n_samples; i++)
 			{
@@ -402,40 +398,14 @@ dt_build_tree_gpu(const float *features,
 	}
 
 	/* Allocate working arrays */
-	left_indices = (int *) palloc(sizeof(int) * n_samples);
-	right_indices = (int *) palloc(sizeof(int) * n_samples);
-	if (left_indices == NULL || right_indices == NULL)
-	{
-		if (errstr)
-			*errstr = pstrdup("CUDA DT train: failed to allocate index arrays");
-		if (left_indices)
-			NDB_FREE(left_indices);
-		if (right_indices)
-			NDB_FREE(right_indices);
-		NDB_FREE(node);
-		return NULL;
-	}
+	NDB_ALLOC(left_indices, int, n_samples);
+	NDB_ALLOC(right_indices, int, n_samples);
 
 	if (is_classification)
 	{
-		label_ints = (int *) palloc(sizeof(int) * n_samples);
-		left_counts = (int *) palloc0(sizeof(int) * class_count);
-		right_counts = (int *) palloc0(sizeof(int) * class_count);
-		if (label_ints == NULL || left_counts == NULL || right_counts == NULL)
-		{
-			if (errstr)
-				*errstr = pstrdup("CUDA DT train: failed to allocate classification arrays");
-			if (label_ints)
-				NDB_FREE(label_ints);
-			if (left_counts)
-				NDB_FREE(left_counts);
-			if (right_counts)
-				NDB_FREE(right_counts);
-			NDB_FREE(left_indices);
-			NDB_FREE(right_indices);
-			NDB_FREE(node);
-			return NULL;
-		}
+		NDB_ALLOC(label_ints, int, n_samples);
+		NDB_ALLOC(left_counts, int, class_count);
+		NDB_ALLOC(right_counts, int, class_count);
 
 		/* Convert labels to integers */
 		for (i = 0; i < n_samples; i++)
@@ -498,16 +468,19 @@ dt_build_tree_gpu(const float *features,
 					continue;
 
 				/* Compute parent impurity from all samples in current node */
-				parent_counts = (int *) palloc0(sizeof(int) * class_count);
-				for (i = 0; i < n_samples; i++)
 				{
-					int			label = label_ints[i];
+					int		   *parent_counts = NULL;
+					NDB_ALLOC(parent_counts, int, class_count);
+					for (i = 0; i < n_samples; i++)
+					{
+						int			label = label_ints[i];
 
-					if (label >= 0 && label < class_count)
-						parent_counts[label]++;
+						if (label >= 0 && label < class_count)
+							parent_counts[label]++;
+					}
+					parent_imp = dt_compute_gini(parent_counts, class_count, n_samples);
+					NDB_FREE(parent_counts);
 				}
-				parent_imp = dt_compute_gini(parent_counts, class_count, n_samples);
-				NDB_FREE(parent_counts);
 
 				/* Compute Gini impurity */
 				left_imp = dt_compute_gini(left_counts, class_count, left_total);
@@ -573,7 +546,8 @@ dt_build_tree_gpu(const float *features,
 		node->is_leaf = true;
 		if (is_classification)
 		{
-			int		   *class_counts = (int *) palloc0(sizeof(int) * class_count);
+			NDB_DECLARE(int *, class_counts);
+			NDB_ALLOC(class_counts, int, class_count);
 
 			for (i = 0; i < n_samples; i++)
 			{
@@ -621,7 +595,8 @@ dt_build_tree_gpu(const float *features,
 		node->is_leaf = true;
 		if (is_classification)
 		{
-			int		   *class_counts = (int *) palloc0(sizeof(int) * class_count);
+			NDB_DECLARE(int *, class_counts);
+			NDB_ALLOC(class_counts, int, class_count);
 
 			for (i = 0; i < n_samples; i++)
 			{
@@ -699,7 +674,7 @@ ndb_cuda_dt_train(const float *features,
 	int			min_samples_split = 2;
 	bool		is_classification = true;
 	int			class_count = 2;
-	DTModel    *model = NULL;
+	NDB_DECLARE(DTModel *, model);
 	DTNode	   *root = NULL;
 	int		   *indices = NULL;
 	int			i;
@@ -862,13 +837,7 @@ ndb_cuda_dt_train(const float *features,
 	}
 
 	/* Create index array */
-	indices = (int *) palloc(sizeof(int) * n_samples);
-	if (indices == NULL)
-	{
-		if (errstr)
-			*errstr = pstrdup("CUDA DT train: failed to allocate indices array");
-		return -1;
-	}
+	NDB_ALLOC(indices, int, n_samples);
 	for (i = 0; i < n_samples; i++)
 		indices[i] = i;
 
@@ -884,15 +853,7 @@ ndb_cuda_dt_train(const float *features,
 	}
 
 	/* Create model structure */
-	model = (DTModel *) palloc0(sizeof(DTModel));
-	if (model == NULL)
-	{
-		if (errstr)
-			*errstr = pstrdup("CUDA DT train: failed to allocate model");
-		dt_free_tree(root);
-		NDB_FREE(indices);
-		return -1;
-	}
+	NDB_ALLOC(model, DTModel, 1);
 
 	model->model_id = 0;		/* Will be set by catalog */
 	model->n_features = feature_dim;
@@ -913,7 +874,7 @@ ndb_cuda_dt_train(const float *features,
 	}
 
 	NDB_FREE(indices);
-	NDB_FREE(model); /* Note: root is now owned by packed model */
+	NDB_FREE(model);			/* Note: root is now owned by packed model */
 
 	rc = 0;
 	return rc;
@@ -926,8 +887,8 @@ ndb_cuda_dt_predict(const bytea * model_data,
 					double *prediction_out,
 					char **errstr)
 {
-	const		NdbCudaDtModelHeader *hdr;
-	const		NdbCudaDtNode *nodes;
+	const NdbCudaDtModelHeader *hdr;
+	const NdbCudaDtNode *nodes;
 	const		bytea *detoasted;
 	int			node_idx = 0;
 
@@ -979,7 +940,7 @@ ndb_cuda_dt_predict(const bytea * model_data,
 	/* Traverse tree to make prediction */
 	while (node_idx >= 0 && node_idx < hdr->node_count)
 	{
-		const		NdbCudaDtNode *node = &nodes[node_idx];
+		const NdbCudaDtNode *node = &nodes[node_idx];
 
 		if (node->is_leaf)
 		{
@@ -1010,8 +971,8 @@ ndb_cuda_dt_predict_batch(const bytea * model_data,
 						  int *predictions_out,
 						  char **errstr)
 {
-	const		NdbCudaDtModelHeader *hdr;
-	const		NdbCudaDtNode *nodes;
+	const NdbCudaDtModelHeader *hdr;
+	const NdbCudaDtNode *nodes;
 	const		bytea *detoasted;
 	int			i;
 	int			node_idx;
@@ -1072,7 +1033,7 @@ ndb_cuda_dt_predict_batch(const bytea * model_data,
 		/* Traverse tree to make prediction */
 		while (node_idx >= 0 && node_idx < hdr->node_count)
 		{
-			const		NdbCudaDtNode *node = &nodes[node_idx];
+			const NdbCudaDtNode *node = &nodes[node_idx];
 
 			if (node->is_leaf)
 			{
@@ -1143,13 +1104,7 @@ ndb_cuda_dt_evaluate_batch(const bytea * model_data,
 	}
 
 	/* Allocate predictions array */
-	predictions = (int *) palloc(sizeof(int) * (size_t) n_samples);
-	if (predictions == NULL)
-	{
-		if (errstr)
-			*errstr = pstrdup("failed to allocate predictions array");
-		return -1;
-	}
+	NDB_ALLOC(predictions, int, n_samples);
 
 	/* Batch predict */
 	rc = ndb_cuda_dt_predict_batch(model_data,

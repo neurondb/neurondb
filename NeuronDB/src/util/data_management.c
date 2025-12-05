@@ -70,6 +70,7 @@ vector_time_travel(PG_FUNCTION_ARGS)
 	bool		isnull;
 	MemoryContext oldcontext,
 				tmpcontext;
+
 	NDB_DECLARE(NdbSpiSession *, session);
 
 	/* Get arguments and validate nulls */
@@ -257,6 +258,7 @@ compress_cold_tier(PG_FUNCTION_ARGS)
 	bool		coldtable_exists = false;
 	MemoryContext oldcontext,
 				tmpcontext;
+
 	NDB_DECLARE(NdbSpiSession *, session);
 
 	/* Validate inputs */
@@ -530,6 +532,7 @@ vacuum_vectors(PG_FUNCTION_ARGS)
 	bool		isnull;
 	MemoryContext oldcontext,
 				tmpcontext;
+
 	NDB_DECLARE(NdbSpiSession *, session);
 
 	if (PG_ARGISNULL(0) || PG_ARGISNULL(1))
@@ -764,6 +767,7 @@ rebalance_index(PG_FUNCTION_ARGS)
 	bool		index_exists = false;
 	MemoryContext oldcontext,
 				tmpcontext;
+
 	NDB_DECLARE(NdbSpiSession *, session);
 
 	if (PG_ARGISNULL(0) || PG_ARGISNULL(1))

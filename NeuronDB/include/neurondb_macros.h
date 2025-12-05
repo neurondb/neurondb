@@ -71,4 +71,4 @@
 		}								\
 	} while (0)
 
-#endif	/* NEURONDB_MACROS_H */
+#endif							/* NEURONDB_MACROS_H */

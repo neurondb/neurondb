@@ -32,7 +32,7 @@ neurondb_gpu_batch_l2_distance(const float *queries,
 							   int num_vectors,
 							   int dim)
 {
-	const		ndb_gpu_backend *backend;
+	const ndb_gpu_backend *backend;
 	int			q,
 				v,
 				d;
@@ -93,7 +93,7 @@ neurondb_gpu_batch_cosine_distance(const float *queries,
 								   int num_vectors,
 								   int dim)
 {
-	const		ndb_gpu_backend *backend;
+	const ndb_gpu_backend *backend;
 	int			q,
 				v,
 				d;

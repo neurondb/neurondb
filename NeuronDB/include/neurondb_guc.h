@@ -27,8 +27,8 @@ typedef struct NeuronDBConfig
 	/* GPU settings */
 	struct
 	{
-		int			compute_mode;  /* 0=CPU, 1=GPU, 2=AUTO */
-		int			backend_type;  /* 0=CUDA, 1=ROCm, 2=Metal */
+		int			compute_mode;	/* 0=CPU, 1=GPU, 2=AUTO */
+		int			backend_type;	/* 0=CUDA, 1=ROCm, 2=Metal */
 		int			device;
 		int			batch_size;
 		int			streams;
@@ -107,37 +107,36 @@ typedef struct NeuronDBConfig
 }			NeuronDBConfig;
 
 /* Global config structure instance */
-extern NeuronDBConfig *neurondb_config;
+extern NeuronDBConfig * neurondb_config;
 
 /* Function declarations */
 extern void neurondb_init_all_gucs(void);
 extern void neurondb_sync_config_from_gucs(void);
 
 /* Legacy GUC variable declarations (for backward compatibility) */
-extern int neurondb_hnsw_ef_search;
-extern int neurondb_ivf_probes;
-extern int neurondb_ef_construction;
-extern int neurondb_compute_mode;
-extern int neurondb_gpu_backend_type;
-extern int neurondb_gpu_device;
-extern int neurondb_gpu_batch_size;
-extern int neurondb_gpu_streams;
+extern int	neurondb_hnsw_ef_search;
+extern int	neurondb_ivf_probes;
+extern int	neurondb_ef_construction;
+extern int	neurondb_compute_mode;
+extern int	neurondb_gpu_backend_type;
+extern int	neurondb_gpu_device;
+extern int	neurondb_gpu_batch_size;
+extern int	neurondb_gpu_streams;
 extern char *neurondb_gpu_kernels;
-extern int neurondb_gpu_timeout_ms;
+extern int	neurondb_gpu_timeout_ms;
 extern char *neurondb_llm_provider;
 extern char *neurondb_llm_model;
 extern char *neurondb_llm_endpoint;
 extern char *neurondb_llm_api_key;
-extern int neurondb_llm_timeout_ms;
-extern int neurondb_llm_cache_ttl;
-extern int neurondb_llm_rate_limiter_qps;
+extern int	neurondb_llm_timeout_ms;
+extern int	neurondb_llm_cache_ttl;
+extern int	neurondb_llm_rate_limiter_qps;
 extern bool neurondb_llm_fail_open;
 extern bool neurondb_automl_use_gpu;
 extern double neurondb_gpu_memory_pool_mb;
 extern char *neurondb_onnx_model_path;
 extern bool neurondb_onnx_use_gpu;
-extern int neurondb_onnx_threads;
-extern int neurondb_onnx_cache_size;
+extern int	neurondb_onnx_threads;
+extern int	neurondb_onnx_cache_size;
 
 #endif							/* NEURONDB_GUC_H */
-

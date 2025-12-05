@@ -71,13 +71,13 @@ typedef struct DTDataset
 static void dt_dataset_init(DTDataset * dataset);
 static void dt_dataset_free(DTDataset * dataset);
 static void dt_dataset_load(const char *quoted_tbl, const char *quoted_feat, const char *quoted_label, DTDataset * dataset);
-static bytea * dt_model_serialize(const DTModel * model, uint8 training_backend);
-static DTModel * dt_model_deserialize(const bytea * data, uint8 *training_backend_out);
+static bytea * dt_model_serialize(const DTModel *model, uint8 training_backend);
+static DTModel *dt_model_deserialize(const bytea * data, uint8 * training_backend_out);
 static bool dt_metadata_is_gpu(Jsonb * metadata);
 static bool dt_try_gpu_predict_catalog(int32 model_id, const Vector *feature_vec, double *result_out);
-static bool dt_load_model_from_catalog(int32 model_id, DTModel * *out);
-static void dt_free_tree(DTNode * node);
-static double dt_tree_predict(const DTNode * node, const float *x, int dim);
+static bool dt_load_model_from_catalog(int32 model_id, DTModel **out);
+static void dt_free_tree(DTNode *node);
+static double dt_tree_predict(const DTNode *node, const float *x, int dim);
 
 /*
  * dt_dataset_init
@@ -129,6 +129,7 @@ dt_dataset_load(const char *quoted_tbl,
 	int			n_samples = 0;
 	int			feature_dim = 0;
 	int			i = 0;
+
 	NDB_DECLARE(NdbSpiSession *, dt_load_spi_session);
 
 	if (!dataset)
@@ -177,7 +178,7 @@ dt_dataset_load(const char *quoted_tbl,
 	}
 
 	/* Safe access for complex types - validate before access */
-	if (n_samples > 0 && SPI_tuptable != NULL && SPI_tuptable->vals != NULL && 
+	if (n_samples > 0 && SPI_tuptable != NULL && SPI_tuptable->vals != NULL &&
 		SPI_tuptable->vals[0] != NULL && SPI_tuptable->tupdesc != NULL)
 	{
 		HeapTuple	first_tuple = SPI_tuptable->vals[0];
@@ -241,9 +242,9 @@ dt_dataset_load(const char *quoted_tbl,
 		bool		label_null = false;
 		Oid			feat_type;
 		float	   *row;
-		
+
 		/* Safe access to SPI_tuptable - validate before access */
-		if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL || 
+		if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL ||
 			i >= SPI_processed || SPI_tuptable->vals[i] == NULL)
 		{
 			continue;
@@ -447,31 +448,32 @@ find_best_split_1d(const float *features,
 
 		for (ii = 1; ii < 10; ii++)
 		{
-		float		threshold = min_val + (max_val - min_val) * ii / 10.0f;
-		int			left_count = 0,
-					right_count = 0,
-					j;
-		NDB_DECLARE(double *, left_y);
-		NDB_DECLARE(double *, right_y);
-		int			l_idx = 0,
-					r_idx = 0;
-		double		left_imp,
-					right_imp,
-					gain;
+			float		threshold = min_val + (max_val - min_val) * ii / 10.0f;
+			int			left_count = 0,
+						right_count = 0,
+						j;
 
-		for (j = 0; j < n_samples; j++)
-		{
-			if (features[indices[j] * dim + feat] <= threshold)
-				left_count++;
-			else
-				right_count++;
-		}
+			NDB_DECLARE(double *, left_y);
+			NDB_DECLARE(double *, right_y);
+			int			l_idx = 0,
+						r_idx = 0;
+			double		left_imp,
+						right_imp,
+						gain;
 
-		if (left_count == 0 || right_count == 0)
-			continue;
+			for (j = 0; j < n_samples; j++)
+			{
+				if (features[indices[j] * dim + feat] <= threshold)
+					left_count++;
+				else
+					right_count++;
+			}
 
-		NDB_ALLOC(left_y, double, left_count);
-		NDB_ALLOC(right_y, double, right_count);
+			if (left_count == 0 || right_count == 0)
+				continue;
+
+			NDB_ALLOC(left_y, double, left_count);
+			NDB_ALLOC(right_y, double, right_count);
 
 			l_idx = r_idx = 0;
 			for (j = 0; j < n_samples; j++)
@@ -532,6 +534,7 @@ build_tree_1d(const float *features,
 				best_feature;
 	float		best_threshold;
 	double		best_gain;
+
 	NDB_DECLARE(int *, left_indices);
 	NDB_DECLARE(int *, right_indices);
 	int			left_count = 0,
@@ -649,7 +652,7 @@ build_tree_1d(const float *features,
  * Predict by walking the tree for an input vector.
  */
 static double
-dt_tree_predict(const DTNode * node, const float *x, int dim)
+dt_tree_predict(const DTNode *node, const float *x, int dim)
 {
 	if (node == NULL)
 		ereport(ERROR,
@@ -675,7 +678,7 @@ dt_tree_predict(const DTNode * node, const float *x, int dim)
  * Free the memory allocated for the tree recursively.
  */
 static void
-dt_free_tree(DTNode * node)
+dt_free_tree(DTNode *node)
 {
 	if (node == NULL)
 		return;
@@ -694,7 +697,7 @@ dt_free_tree(DTNode * node)
  * Recursively write a tree node into a StringInfo buffer.
  */
 static void
-dt_serialize_node(StringInfo buf, const DTNode * node)
+dt_serialize_node(StringInfo buf, const DTNode *node)
 {
 	if (!node)
 	{
@@ -753,10 +756,11 @@ dt_deserialize_node(StringInfo buf)
  * Serialize a DTModel structure into a binary blob.
  */
 static bytea *
-dt_model_serialize(const DTModel * model, uint8 training_backend)
+dt_model_serialize(const DTModel *model, uint8 training_backend)
 {
 	StringInfoData buf;
-	bytea	   *result;
+	NDB_DECLARE(bytea *, result);
+	NDB_DECLARE(char *, result_raw);
 
 	if (model == NULL)
 		return NULL;
@@ -783,7 +787,8 @@ dt_model_serialize(const DTModel * model, uint8 training_backend)
 
 	dt_serialize_node(&buf, model->root);
 
-	result = (bytea *) palloc(VARHDRSZ + buf.len);
+	NDB_ALLOC(result_raw, char, VARHDRSZ + buf.len);
+	result = (bytea *) result_raw;
 	SET_VARSIZE(result, VARHDRSZ + buf.len);
 	memcpy(VARDATA(result), buf.data, buf.len);
 	NDB_FREE(buf.data);
@@ -797,7 +802,7 @@ dt_model_serialize(const DTModel * model, uint8 training_backend)
  * Deserialize a binary blob into a DTModel struct.
  */
 static DTModel *
-dt_model_deserialize(const bytea * data, uint8 *training_backend_out)
+dt_model_deserialize(const bytea * data, uint8 * training_backend_out)
 {
 	StringInfoData buf;
 	DTModel    *model;
@@ -908,13 +913,13 @@ dt_metadata_is_gpu(Jsonb * metadata)
 	bool		is_gpu = false;
 	JsonbIterator *it;
 	JsonbIteratorToken r;
-	JsonbValue v;
+	JsonbValue	v;
 
 	if (metadata == NULL)
 		return false;
 
 	/* Check for training_backend integer in metrics */
-	it = JsonbIteratorInit((JsonbContainer *) &metadata->root);
+	it = JsonbIteratorInit((JsonbContainer *) & metadata->root);
 	while ((r = JsonbIteratorNext(&it, &v, true)) != WJB_DONE)
 	{
 		if (r == WJB_KEY && v.type == jbvString)
@@ -927,6 +932,7 @@ dt_metadata_is_gpu(Jsonb * metadata)
 				if (r == WJB_VALUE && v.type == jbvNumeric)
 				{
 					int			backend = DatumGetInt32(DirectFunctionCall1(numeric_int4, NumericGetDatum(v.val.numeric)));
+
 					is_gpu = (backend == 1);
 				}
 			}
@@ -995,7 +1001,7 @@ cleanup:
  * Load a model from catalog into a DTModel structure.
  */
 static bool
-dt_load_model_from_catalog(int32 model_id, DTModel * *out)
+dt_load_model_from_catalog(int32 model_id, DTModel **out)
 {
 	NDB_DECLARE(bytea *, payload);
 	NDB_DECLARE(Jsonb *, metrics);
@@ -1051,16 +1057,19 @@ train_decision_tree_classifier(PG_FUNCTION_ARGS)
 	const char *quoted_feat;
 	const char *quoted_label;
 	MLGpuTrainResult gpu_result;
+
 	NDB_DECLARE(char *, gpu_err);
 	NDB_DECLARE(Jsonb *, gpu_hyperparams);
 	StringInfoData hyperbuf;
 	int32		model_id = 0;
+
 	NDB_DECLARE(int *, indices);
 	NDB_DECLARE(DTModel *, model);
 	NDB_DECLARE(bytea *, model_blob);
 	MLCatalogModelSpec spec;
 	StringInfoData paramsbuf;
 	StringInfoData metricsbuf;
+
 	NDB_DECLARE(Jsonb *, params_jsonb);
 	NDB_DECLARE(Jsonb *, metrics_jsonb);
 	int			i;
@@ -1196,7 +1205,7 @@ train_decision_tree_classifier(PG_FUNCTION_ARGS)
 
 	}
 
-	indices = (int *) palloc(sizeof(int) * dataset.n_samples);
+	NDB_ALLOC(indices, int, dataset.n_samples);
 
 	for (i = 0; i < dataset.n_samples; i++)
 		indices[i] = i;
@@ -1210,7 +1219,7 @@ train_decision_tree_classifier(PG_FUNCTION_ARGS)
 								dataset.n_samples, dataset.feature_dim, max_depth,
 								min_samples_split, true);
 
-		model_blob = dt_model_serialize(model, 0);
+	model_blob = dt_model_serialize(model, 0);
 	if (model_blob == NULL)
 	{
 		dt_free_tree(model->root);
@@ -1375,7 +1384,7 @@ predict_decision_tree_model_id(PG_FUNCTION_ARGS)
  * Updates confusion matrix.
  */
 static void
-dt_predict_batch(const DTModel * model,
+dt_predict_batch(const DTModel *model,
 				 const float *features,
 				 const double *labels,
 				 int n_samples,
@@ -1425,7 +1434,10 @@ dt_predict_batch(const DTModel * model,
 			continue;
 		}
 
-		/* Convert label to binary class: values <= 0.5 -> class 0, > 0.5 -> class 1 */
+		/*
+		 * Convert label to binary class: values <= 0.5 -> class 0, > 0.5 ->
+		 * class 1
+		 */
 		true_class = (y_true > 0.5) ? 1 : 0;
 
 		prediction = dt_tree_predict(model->root, row, feature_dim);
@@ -1434,8 +1446,11 @@ dt_predict_batch(const DTModel * model,
 			elog(DEBUG1, "neurondb: dt_predict_batch: sample %d - skipping non-finite prediction=%.6f", i, prediction);
 			continue;
 		}
-		
-		/* Convert prediction to binary class: values <= 0.5 -> class 0, > 0.5 -> class 1 */
+
+		/*
+		 * Convert prediction to binary class: values <= 0.5 -> class 0, > 0.5
+		 * -> class 1
+		 */
 		pred_class = (prediction > 0.5) ? 1 : 0;
 
 		if (i < 10 || (i % 100 == 0))
@@ -1457,15 +1472,21 @@ dt_predict_batch(const DTModel * model,
 
 	/* Count actual class distribution for debugging */
 	{
-		int class0_count = 0, class1_count = 0;
+		int			class0_count = 0,
+					class1_count = 0;
+
 		for (int j = 0; j < i; j++)
 		{
-			double y = labels[j];
+			double		y = labels[j];
+
 			if (isfinite(y))
 			{
-				int c = (y > 0.5) ? 1 : 0;
-				if (c == 0) class0_count++;
-				else class1_count++;
+				int			c = (y > 0.5) ? 1 : 0;
+
+				if (c == 0)
+					class0_count++;
+				else
+					class1_count++;
 			}
 		}
 		elog(DEBUG1,
@@ -1519,12 +1540,15 @@ evaluate_decision_tree_by_model_id(PG_FUNCTION_ARGS)
 	int			fn = 0;
 	MemoryContext oldcontext;
 	StringInfoData query;
+
 	NDB_DECLARE(DTModel *, model);
 	StringInfoData jsonbuf;
+
 	NDB_DECLARE(Jsonb *, result_jsonb);
 	NDB_DECLARE(bytea *, gpu_payload);
 	NDB_DECLARE(Jsonb *, gpu_metrics);
 	bool		is_gpu_model = false;
+
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 
 	if (PG_ARGISNULL(0))
@@ -1641,10 +1665,11 @@ evaluate_decision_tree_by_model_id(PG_FUNCTION_ARGS)
 		{
 			/* Use safe function to get int32 count (will be cast to int64) */
 			int32		count_val_int32;
-			
+
 			if (ndb_spi_get_int32(spi_session, 0, 1, &count_val_int32))
 			{
 				int64		count_val = (int64) count_val_int32;
+
 				total_rows = count_val;
 			}
 		}
@@ -1689,7 +1714,8 @@ evaluate_decision_tree_by_model_id(PG_FUNCTION_ARGS)
 	if (is_gpu_model && neurondb_gpu_is_available())
 	{
 #ifdef NDB_GPU_CUDA
-		const		NdbCudaDtModelHeader *gpu_hdr;
+		const NdbCudaDtModelHeader *gpu_hdr;
+
 		NDB_DECLARE(int *, h_labels);
 		NDB_DECLARE(float *, h_features);
 		int			feat_dim = 0;
@@ -1734,8 +1760,8 @@ evaluate_decision_tree_by_model_id(PG_FUNCTION_ARGS)
 				goto cpu_evaluation_path;
 			}
 
-			h_features = (float *) palloc(features_size);
-			h_labels = (int *) palloc(labels_size);
+			NDB_ALLOC(h_features, float, nvec * feat_dim);
+			NDB_ALLOC(h_labels, int, nvec);
 
 			if (h_features == NULL || h_labels == NULL)
 			{
@@ -1873,6 +1899,7 @@ evaluate_decision_tree_by_model_id(PG_FUNCTION_ARGS)
 		/* Use optimized GPU batch evaluation */
 		{
 			int			rc;
+
 			NDB_DECLARE(char *, gpu_errstr);
 
 			/* Defensive checks before GPU call */
@@ -1915,13 +1942,13 @@ evaluate_decision_tree_by_model_id(PG_FUNCTION_ARGS)
 					NDB_FREE(feat_str);
 					NDB_FREE(targ_str);
 					ndb_spi_stringinfo_free(spi_session, &query);
-					
+
 					/* End SPI session BEFORE creating JSONB */
 					NDB_SPI_SESSION_END(spi_session);
-					
+
 					/* Switch to oldcontext to create JSONB */
 					MemoryContextSwitchTo(oldcontext);
-					
+
 					/* Build result JSON string */
 					initStringInfo(&jsonbuf);
 					appendStringInfo(&jsonbuf,
@@ -1935,14 +1962,14 @@ evaluate_decision_tree_by_model_id(PG_FUNCTION_ARGS)
 					/* Create JSONB in oldcontext using ndb_jsonb_in_cstring */
 					result_jsonb = ndb_jsonb_in_cstring(jsonbuf.data);
 					NDB_FREE(jsonbuf.data);
-					
+
 					if (result_jsonb == NULL)
 					{
 						ereport(ERROR,
 								(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
 								 errmsg("neurondb: evaluate_decision_tree_by_model_id: failed to parse metrics JSON")));
 					}
-					
+
 					PG_RETURN_JSONB_P(result_jsonb);
 				}
 				else
@@ -1995,7 +2022,7 @@ cpu_evaluation_path:
 			feat_dim = model->n_features;
 		else if (is_gpu_model && gpu_payload != NULL)
 		{
-			const		NdbCudaDtModelHeader *gpu_hdr;
+			const NdbCudaDtModelHeader *gpu_hdr;
 
 			gpu_hdr = (const NdbCudaDtModelHeader *) VARDATA(gpu_payload);
 			feat_dim = gpu_hdr->feature_dim;
@@ -2016,8 +2043,8 @@ cpu_evaluation_path:
 		}
 
 		/* Allocate host buffers for features and labels */
-		h_features = (float *) palloc(sizeof(float) * (size_t) nvec * (size_t) feat_dim);
-		h_labels = (double *) palloc(sizeof(double) * (size_t) nvec);
+		NDB_ALLOC(h_features, float, nvec * feat_dim);
+		NDB_ALLOC(h_labels, double, nvec);
 
 		/*
 		 * Extract features and labels from SPI results - optimized batch
@@ -2208,16 +2235,16 @@ cpu_evaluation_path:
 			if (model->root != NULL)
 				dt_free_tree(model->root);
 			NDB_FREE(model);
+		}
+		NDB_FREE(gpu_payload);
+		NDB_FREE(gpu_metrics);
 	}
-	NDB_FREE(gpu_payload);
-	NDB_FREE(gpu_metrics);
-}
 
-ndb_spi_stringinfo_free(spi_session, &query);
-NDB_SPI_SESSION_END(spi_session);
-NDB_FREE(tbl_str);
-NDB_FREE(feat_str);
-NDB_FREE(targ_str);
+	ndb_spi_stringinfo_free(spi_session, &query);
+	NDB_SPI_SESSION_END(spi_session);
+	NDB_FREE(tbl_str);
+	NDB_FREE(feat_str);
+	NDB_FREE(targ_str);
 
 	/* Build jsonb result */
 	initStringInfo(&jsonbuf);
@@ -2234,8 +2261,12 @@ NDB_FREE(targ_str);
 	if (result_jsonb == NULL)
 	{
 		NDB_FREE(jsonbuf.data);
-		/* Note: model, h_features, h_labels, gpu_payload, gpu_metrics, 
-		 * tbl_str, feat_str, targ_str, and query have already been freed above */
+
+		/*
+		 * Note: model, h_features, h_labels, gpu_payload, gpu_metrics,
+		 * tbl_str, feat_str, targ_str, and query have already been freed
+		 * above
+		 */
 		NDB_SPI_SESSION_END(spi_session);
 		MemoryContextSwitchTo(oldcontext);
 		ereport(ERROR,
@@ -2274,7 +2305,7 @@ dt_gpu_release_state(DTGpuModelState * state)
 }
 
 static bool
-dt_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
+dt_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **errstr)
 {
 	DTGpuModelState *state;
 	bytea	   *payload;
@@ -2341,7 +2372,7 @@ dt_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 }
 
 static bool
-dt_gpu_predict(const MLGpuModel * model, const float *input, int input_dim,
+dt_gpu_predict(const MLGpuModel *model, const float *input, int input_dim,
 			   float *output, int output_dim, char **errstr)
 {
 	const		DTGpuModelState *state;
@@ -2374,8 +2405,8 @@ dt_gpu_predict(const MLGpuModel * model, const float *input, int input_dim,
 }
 
 static bool
-dt_gpu_evaluate(const MLGpuModel * model, const MLGpuEvalSpec * spec,
-				MLGpuMetrics * out, char **errstr)
+dt_gpu_evaluate(const MLGpuModel *model, const MLGpuEvalSpec *spec,
+				MLGpuMetrics *out, char **errstr)
 {
 	const		DTGpuModelState *state;
 	Jsonb	   *metrics_json;
@@ -2413,11 +2444,12 @@ dt_gpu_evaluate(const MLGpuModel * model, const MLGpuEvalSpec * spec,
 }
 
 static bool
-dt_gpu_serialize(const MLGpuModel * model, bytea * *payload_out,
+dt_gpu_serialize(const MLGpuModel *model, bytea * *payload_out,
 				 Jsonb * *metadata_out, char **errstr)
 {
 	const		DTGpuModelState *state;
-	bytea	   *payload_copy;
+	NDB_DECLARE(bytea *, payload_copy);
+	NDB_DECLARE(char *, payload_copy_raw);
 	int			payload_size;
 
 	if (errstr != NULL)
@@ -2434,7 +2466,8 @@ dt_gpu_serialize(const MLGpuModel * model, bytea * *payload_out,
 		return false;
 
 	payload_size = VARSIZE(state->model_blob);
-	payload_copy = (bytea *) palloc(payload_size);
+	NDB_ALLOC(payload_copy_raw, char, payload_size);
+	payload_copy = (bytea *) payload_copy_raw;
 	memcpy(payload_copy, state->model_blob, payload_size);
 
 	if (payload_out != NULL)
@@ -2454,11 +2487,12 @@ dt_gpu_serialize(const MLGpuModel * model, bytea * *payload_out,
 }
 
 static bool
-dt_gpu_deserialize(MLGpuModel * model, const bytea * payload,
+dt_gpu_deserialize(MLGpuModel *model, const bytea * payload,
 				   const Jsonb * metadata, char **errstr)
 {
 	DTGpuModelState *state;
-	bytea	   *payload_copy;
+	NDB_DECLARE(bytea *, payload_copy);
+	NDB_DECLARE(char *, payload_copy_raw);
 	int			payload_size;
 	int			feature_dim = -1;
 	int			n_samples = -1;
@@ -2469,7 +2503,8 @@ dt_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 		return false;
 
 	payload_size = VARSIZE(payload);
-	payload_copy = (bytea *) palloc(payload_size);
+	NDB_ALLOC(payload_copy_raw, char, payload_size);
+	payload_copy = (bytea *) payload_copy_raw;
 	memcpy(payload_copy, payload, payload_size);
 
 	/* Extract feature_dim and n_samples from metadata if available */
@@ -2536,7 +2571,7 @@ dt_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 }
 
 static void
-dt_gpu_destroy(MLGpuModel * model)
+dt_gpu_destroy(MLGpuModel *model)
 {
 	if (model == NULL)
 		return;

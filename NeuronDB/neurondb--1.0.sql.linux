@@ -6314,10 +6314,46 @@ CREATE OR REPLACE FUNCTION neurondb.embed_batch(
 	texts text[],
 	batch_size integer DEFAULT 32
 ) RETURNS vector[]
-LANGUAGE sql STABLE AS $$
-	SELECT embed_text_batch(texts, model);
+LANGUAGE plpgsql STABLE AS $$
+DECLARE
+	result_vectors vector[];
+	chunk_vectors vector[];
+	chunk_start integer;
+	chunk_end integer;
+	total_texts integer;
+BEGIN
+	-- Validate inputs
+	IF texts IS NULL OR array_length(texts, 1) IS NULL THEN
+		RETURN ARRAY[]::vector[];
+	END IF;
+	
+	IF batch_size IS NULL OR batch_size <= 0 THEN
+		batch_size := 32;
+	END IF;
+	
+	total_texts := array_length(texts, 1);
+	result_vectors := ARRAY[]::vector[];
+	
+	-- Process in chunks
+	chunk_start := 1;
+	WHILE chunk_start <= total_texts LOOP
+		chunk_end := LEAST(chunk_start + batch_size - 1, total_texts);
+		
+		-- Process this chunk
+		SELECT embed_text_batch(texts[chunk_start:chunk_end], model) INTO chunk_vectors;
+		
+		-- Append chunk results to overall result
+		IF chunk_vectors IS NOT NULL AND array_length(chunk_vectors, 1) > 0 THEN
+			result_vectors := result_vectors || chunk_vectors;
+		END IF;
+		
+		chunk_start := chunk_end + 1;
+	END LOOP;
+	
+	RETURN result_vectors;
+END;
 $$;
-COMMENT ON FUNCTION neurondb.embed_batch IS 'Batch embedding: embed_batch(model, texts[], batch_size) - efficient batch processing using optimized batch API';
+COMMENT ON FUNCTION neurondb.embed_batch IS 'Batch embedding: embed_batch(model, texts[], batch_size) - efficient batch processing using optimized batch API with configurable batch size';
 
 CREATE OR REPLACE FUNCTION neurondb.predict_batch(
 	model_id integer,

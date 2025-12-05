@@ -74,13 +74,12 @@ soft_threshold(double x, double lambda)
 }
 
 int
-ndb_rocm_lasso_pack_model(const LassoModel * model,
+ndb_rocm_lasso_pack_model(const LassoModel *model,
 						  bytea * *model_data,
 						  Jsonb * *metrics,
 						  char **errstr)
 {
 	size_t		payload_bytes;
-	bytea	   *blob;
 	char	   *base;
 	NdbCudaLassoModelHeader *hdr;
 	float	   *coef_dest;
@@ -95,7 +94,10 @@ ndb_rocm_lasso_pack_model(const LassoModel * model,
 	}
 	payload_bytes = sizeof(NdbCudaLassoModelHeader)
 		+ sizeof(float) * (size_t) model->n_features;
-	blob = (bytea *) palloc(VARHDRSZ + payload_bytes);
+	NDB_DECLARE(bytea *, blob);
+	NDB_DECLARE(char *, blob_raw);
+	NDB_ALLOC(blob_raw, char, VARHDRSZ + payload_bytes);
+	blob = (bytea *) blob_raw;
 	SET_VARSIZE(blob, VARHDRSZ + payload_bytes);
 	base = VARDATA(blob);
 
@@ -296,11 +298,11 @@ ndb_rocm_lasso_train(const float *features,
 	}
 	y_mean /= (double) n_samples;
 
-	weights = (double *) palloc0(sizeof(double) * feature_dim);
-	weights_old = (double *) palloc(sizeof(double) * feature_dim);
-	residuals = (double *) palloc(sizeof(double) * n_samples);
-	h_rho = (double *) palloc(sizeof(double));
-	h_z = (double *) palloc(sizeof(double));
+	NDB_ALLOC(weights, double, feature_dim);
+	NDB_ALLOC(weights_old, double, feature_dim);
+	NDB_ALLOC(residuals, double, n_samples);
+	NDB_ALLOC(h_rho, double, 1);
+	NDB_ALLOC(h_z, double, 1);
 
 	for (i = 0; i < n_samples; i++)
 		residuals[i] = targets[i] - y_mean;
@@ -521,7 +523,9 @@ ndb_rocm_lasso_train(const float *features,
 		model.intercept = y_mean;
 		model.lambda = lambda;
 		model.max_iters = max_iters;
-		model.coefficients = (double *) palloc(sizeof(double) * feature_dim);
+		NDB_DECLARE(double *, model_coefficients);
+		NDB_ALLOC(model_coefficients, double, feature_dim);
+		model.coefficients = model_coefficients;
 		for (i = 0; i < feature_dim; i++)
 		{
 			if (!isfinite(weights[i]))
@@ -605,7 +609,7 @@ ndb_rocm_lasso_predict(const bytea * model_data,
 					   double *prediction_out,
 					   char **errstr)
 {
-	const		NdbCudaLassoModelHeader *hdr;
+	const NdbCudaLassoModelHeader *hdr;
 	const float *coefficients;
 	const		bytea *detoasted;
 	double		prediction;
@@ -681,7 +685,7 @@ ndb_rocm_lasso_evaluate(const bytea * model_data,
 						double *r_squared_out,
 						char **errstr)
 {
-	const		NdbCudaLassoModelHeader *hdr;
+	const NdbCudaLassoModelHeader *hdr;
 	const float *coefficients;
 	const		bytea *detoasted;
 	hipError_t	cuda_err;
@@ -905,7 +909,8 @@ ndb_rocm_lasso_evaluate(const bytea * model_data,
 
 	/* Convert coefficients from float to double and copy to GPU */
 	{
-		double	   *h_coefficients_double = (double *) palloc(sizeof(double) * (size_t) feature_dim);
+		NDB_DECLARE(double *, h_coefficients_double);
+		NDB_ALLOC(h_coefficients_double, double, feature_dim);
 
 		if (h_coefficients_double == NULL)
 		{

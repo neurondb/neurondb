@@ -59,6 +59,7 @@ ndb_cuda_svm_pack_model(const SVMModel * model,
 	float	   *alphas_dest;
 	float	   *sv_dest;
 	int32	   *indices_dest;
+	char	   *blob_raw = NULL;
 	int			i,
 				j;
 	size_t		alphas_size;
@@ -111,7 +112,8 @@ ndb_cuda_svm_pack_model(const SVMModel * model,
 
 	payload_bytes = total_payload;
 
-	blob = (bytea *) palloc(VARHDRSZ + payload_bytes);
+	NDB_ALLOC(blob_raw, char, VARHDRSZ + payload_bytes);
+	blob = (bytea *) blob_raw;
 	SET_VARSIZE(blob, VARHDRSZ + payload_bytes);
 	base = VARDATA(blob);
 
@@ -205,6 +207,9 @@ ndb_cuda_svm_train(const float *features,
 	size_t		errors_size;
 	size_t		kernel_matrix_size;
 	size_t		kernel_row_size;
+	double	   *model_alphas = NULL;
+	float	   *model_support_vectors = NULL;
+	int		   *model_support_vector_indices = NULL;
 
 	/* CPU mode: never execute GPU code */
 	if (NDB_COMPUTE_MODE_IS_CPU())
@@ -345,10 +350,10 @@ ndb_cuda_svm_train(const float *features,
 		return -1;
 	}
 
-	alphas = (float *) palloc0(alphas_size);
-	errors = (float *) palloc(errors_size);
-	kernel_matrix = (float *) palloc(kernel_matrix_size);
-	kernel_row = (float *) palloc(kernel_row_size);
+	NDB_ALLOC(alphas, float, sample_limit);
+	NDB_ALLOC(errors, float, sample_limit);
+	NDB_ALLOC(kernel_matrix, float, sample_limit * sample_limit);
+	NDB_ALLOC(kernel_row, float, sample_limit);
 
 	if (alphas == NULL || errors == NULL || kernel_matrix == NULL || kernel_row == NULL)
 	{
@@ -529,9 +534,12 @@ ndb_cuda_svm_train(const float *features,
 	model.max_iters = actual_max_iters;
 
 	/* Allocate support vectors and alphas */
-	model.alphas = (double *) palloc(sizeof(double) * (size_t) sv_count);
-	model.support_vectors = (float *) palloc(sizeof(float) * (size_t) sv_count * (size_t) feature_dim);
-	model.support_vector_indices = (int *) palloc(sizeof(int) * (size_t) sv_count);
+	NDB_ALLOC(model_alphas, double, sv_count);
+	NDB_ALLOC(model_support_vectors, float, sv_count * feature_dim);
+	NDB_ALLOC(model_support_vector_indices, int, sv_count);
+	model.alphas = model_alphas;
+	model.support_vectors = model_support_vectors;
+	model.support_vector_indices = model_support_vector_indices;
 
 	if (model.alphas == NULL || model.support_vectors == NULL || model.support_vector_indices == NULL)
 	{
@@ -616,7 +624,7 @@ ndb_cuda_svm_predict(const bytea * model_data,
 					 double *confidence_out,
 					 char **errstr)
 {
-	const		NdbCudaSvmModelHeader *hdr;
+	const NdbCudaSvmModelHeader *hdr;
 	const float *alphas;
 	const float *support_vectors;
 	const		int32 *indices __attribute__((unused));
@@ -710,7 +718,7 @@ ndb_cuda_svm_predict_batch(const bytea * model_data,
 						   char **errstr)
 {
 	const char *base;
-	const		NdbCudaSvmModelHeader *hdr;
+	const NdbCudaSvmModelHeader *hdr;
 	bytea	   *detoasted;
 	int			i;
 	int			rc;
@@ -812,7 +820,7 @@ ndb_cuda_svm_evaluate_batch(const bytea * model_data,
 							double *f1_out,
 							char **errstr)
 {
-	int		   *predictions = NULL;
+	NDB_DECLARE(int *, predictions);
 	int			tp = 0;
 	int			tn = 0;
 	int			fp = 0;
@@ -841,7 +849,7 @@ ndb_cuda_svm_evaluate_batch(const bytea * model_data,
 	}
 
 	/* Allocate predictions array */
-	predictions = (int *) palloc(sizeof(int) * (size_t) n_samples);
+	NDB_ALLOC(predictions, int, n_samples);
 	if (predictions == NULL)
 	{
 		if (errstr)

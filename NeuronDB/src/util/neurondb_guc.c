@@ -27,13 +27,14 @@ int			neurondb_ivf_probes = 10;
 int			neurondb_ef_construction = 200;
 
 /* GPU GUC variables */
-int			neurondb_compute_mode = 0;  /* Default: CPU (0=CPU, 1=GPU, 2=AUTO) */
-int			neurondb_gpu_backend_type = 0;  /* Default: CUDA (0=CUDA, 1=ROCm, 2=Metal) */
+int			neurondb_compute_mode = 0;	/* Default: CPU (0=CPU, 1=GPU, 2=AUTO) */
+int			neurondb_gpu_backend_type = 0;	/* Default: CUDA (0=CUDA, 1=ROCm,
+											 * 2=Metal) */
 int			neurondb_gpu_device = 0;
 int			neurondb_gpu_batch_size = 8192;
 int			neurondb_gpu_streams = 2;
 double		neurondb_gpu_memory_pool_mb = 512.0;
-char	   *neurondb_gpu_kernels = NULL;  /* Will be set by GUC system */
+char	   *neurondb_gpu_kernels = NULL;	/* Will be set by GUC system */
 int			neurondb_gpu_timeout_ms = 30000;
 
 /* LLM GUC variables */
@@ -77,7 +78,7 @@ int			neurondb_onnx_cache_size = 10;
 /* Quota GUC variables */
 static int64 default_max_vectors = 1000000;
 static int64 default_max_storage_mb = 10240;
-static int default_max_qps = 1000;
+static int	default_max_qps = 1000;
 static bool enforce_quotas = true;
 
 /* AutoML GUC variables */
@@ -198,6 +199,7 @@ void
 neurondb_init_all_gucs(void)
 {
 	MemoryContext oldcontext;
+
 	NDB_DECLARE(NeuronDBConfig *, config);
 
 	/* Allocate config structure in TopMemoryContext */
@@ -206,9 +208,11 @@ neurondb_init_all_gucs(void)
 	neurondb_config = config;
 	MemoryContextSwitchTo(oldcontext);
 
-	/* ====================================================================
+	/*
+	 * ====================================================================
 	 * Core/Index GUCs
-	 * ==================================================================== */
+	 * ====================================================================
+	 */
 
 	DefineCustomIntVariable("neurondb.hnsw_ef_search",
 							"Sets the ef_search parameter for HNSW index scans",
@@ -249,9 +253,11 @@ neurondb_init_all_gucs(void)
 							NULL,
 							NULL);
 
-	/* ====================================================================
+	/*
+	 * ====================================================================
 	 * GPU GUCs
-	 * ==================================================================== */
+	 * ====================================================================
+	 */
 
 	/* Compute mode parameter (0=CPU, 1=GPU, 2=AUTO) */
 	DefineCustomIntVariable("neurondb.compute_mode",
@@ -261,9 +267,9 @@ neurondb_init_all_gucs(void)
 							"1 (gpu) - GPU required, error if unavailable; "
 							"2 (auto) - Try GPU first, fallback to CPU. Default is 0 (cpu).",
 							&neurondb_compute_mode,
-							0,  /* Default: CPU */
-							0,  /* Min: CPU */
-							2,  /* Max: AUTO */
+							0,	/* Default: CPU */
+							0,	/* Min: CPU */
+							2,	/* Max: AUTO */
 							PGC_USERSET,
 							0,
 							NULL,
@@ -329,9 +335,9 @@ neurondb_init_all_gucs(void)
 							"Values: 0 (cuda) - NVIDIA CUDA; 1 (rocm) - AMD ROCm; 2 (metal) - Apple Metal. "
 							"Default is 0 (cuda). Ignored when compute_mode is 'cpu'.",
 							&neurondb_gpu_backend_type,
-							0,  /* Default: CUDA */
-							0,  /* Min: CUDA */
-							2,  /* Max: Metal */
+							0,	/* Default: CUDA */
+							0,	/* Min: CUDA */
+							2,	/* Max: Metal */
 							PGC_USERSET,
 							0,
 							neurondb_check_gpu_backend_type,
@@ -363,9 +369,11 @@ neurondb_init_all_gucs(void)
 							NULL,
 							NULL);
 
-	/* ====================================================================
+	/*
+	 * ====================================================================
 	 * LLM GUCs
-	 * ==================================================================== */
+	 * ====================================================================
+	 */
 
 	DefineCustomStringVariable("neurondb.llm_provider",
 							   "LLM provider",
@@ -461,9 +469,11 @@ neurondb_init_all_gucs(void)
 							 NULL,
 							 NULL);
 
-	/* ====================================================================
+	/*
+	 * ====================================================================
 	 * Worker: neuranq GUCs
-	 * ==================================================================== */
+	 * ====================================================================
+	 */
 
 	DefineCustomIntVariable("neurondb.neuranq_naptime",
 							"Duration between job processing cycles (ms)",
@@ -541,9 +551,11 @@ neurondb_init_all_gucs(void)
 							 NULL,
 							 NULL);
 
-	/* ====================================================================
+	/*
+	 * ====================================================================
 	 * Worker: neuranmon GUCs
-	 * ==================================================================== */
+	 * ====================================================================
+	 */
 
 	DefineCustomIntVariable("neurondb.neuranmon_naptime",
 							"Duration between tuning cycles (ms)",
@@ -608,9 +620,11 @@ neurondb_init_all_gucs(void)
 							 NULL,
 							 NULL);
 
-	/* ====================================================================
+	/*
+	 * ====================================================================
 	 * Worker: neurandefrag GUCs
-	 * ==================================================================== */
+	 * ====================================================================
+	 */
 
 	DefineCustomIntVariable("neurondb.neurandefrag_naptime",
 							"Duration between maintenance cycles (ms)",
@@ -673,9 +687,11 @@ neurondb_init_all_gucs(void)
 							 NULL,
 							 NULL);
 
-	/* ====================================================================
+	/*
+	 * ====================================================================
 	 * ONNX Runtime GUCs
-	 * ==================================================================== */
+	 * ====================================================================
+	 */
 
 	DefineCustomStringVariable("neurondb.onnx_model_path",
 							   "Directory with ONNX model files",
@@ -728,9 +744,11 @@ neurondb_init_all_gucs(void)
 							NULL,
 							NULL);
 
-	/* ====================================================================
+	/*
+	 * ====================================================================
 	 * Quota GUCs
-	 * ==================================================================== */
+	 * ====================================================================
+	 */
 
 	DefineCustomIntVariable("neurondb.default_max_vectors",
 							"Default maximum vectors per tenant (thousands)",
@@ -782,9 +800,11 @@ neurondb_init_all_gucs(void)
 							 NULL,
 							 NULL);
 
-	/* ====================================================================
+	/*
+	 * ====================================================================
 	 * AutoML GUCs
-	 * ==================================================================== */
+	 * ====================================================================
+	 */
 
 	DefineCustomBoolVariable("neurondb.automl.use_gpu",
 							 "Enable GPU acceleration for AutoML training",
@@ -800,5 +820,3 @@ neurondb_init_all_gucs(void)
 	/* Sync initial values to config structure */
 	neurondb_sync_config_from_gucs();
 }
-
-

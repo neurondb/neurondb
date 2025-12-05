@@ -29,7 +29,7 @@
 #include "neurondb_macros.h"
 
 /* Forward declaration */
-extern VectorI4 * quantize_vector_int4(Vector *v);
+extern VectorI4 *quantize_vector_int4(Vector *v);
 
 /*
  * FP8 E4M3 format: 1 sign bit, 4 exponent bits, 3 mantissa bits

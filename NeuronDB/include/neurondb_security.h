@@ -25,14 +25,14 @@
  */
 typedef struct EncryptedVector
 {
-	int32 vl_len_;
-	uint32 tenant_id;
-	uint8 encryption_iv[12]; /* GCM initialization vector */
-	uint8 auth_tag[16]; /* GCM authentication tag */
-	uint16 dim; /* Original dimension */
-	uint16 unused;
+	int32		vl_len_;
+	uint32		tenant_id;
+	uint8		encryption_iv[12];	/* GCM initialization vector */
+	uint8		auth_tag[16];	/* GCM authentication tag */
+	uint16		dim;			/* Original dimension */
+	uint16		unused;
 	/* Followed by encrypted data */
-	uint8 ciphertext[FLEXIBLE_ARRAY_MEMBER];
+	uint8		ciphertext[FLEXIBLE_ARRAY_MEMBER];
 } EncryptedVector;
 
 /*
@@ -41,12 +41,12 @@ typedef struct EncryptedVector
  */
 typedef struct DPEmbedding
 {
-	int32 tenant_id;
-	float8 epsilon; /* Privacy budget */
-	float8 delta; /* Privacy parameter */
-	float8 sensitivity; /* L2 sensitivity */
-	int32 queries_used; /* Query budget consumed */
-	int32 queries_total; /* Total budget */
+	int32		tenant_id;
+	float8		epsilon;		/* Privacy budget */
+	float8		delta;			/* Privacy parameter */
+	float8		sensitivity;	/* L2 sensitivity */
+	int32		queries_used;	/* Query budget consumed */
+	int32		queries_total;	/* Total budget */
 } DPEmbedding;
 
 /*
@@ -55,10 +55,10 @@ typedef struct DPEmbedding
  */
 typedef struct VectorRLS
 {
-	int32 tenant_id;
-	int32 label_id; /* Classification label */
-	uint32 access_mask; /* Bitfield of allowed operations */
-	bool enforce_in_index; /* Check during index scan */
+	int32		tenant_id;
+	int32		label_id;		/* Classification label */
+	uint32		access_mask;	/* Bitfield of allowed operations */
+	bool		enforce_in_index;	/* Check during index scan */
 } VectorRLS;
 
 /*
@@ -67,10 +67,10 @@ typedef struct VectorRLS
  */
 typedef struct SignedResult
 {
-	uint64 query_id;
+	uint64		query_id;
 	TimestampTz timestamp;
-	int32 result_count;
-	uint8 hmac[32]; /* SHA-256 HMAC */
+	int32		result_count;
+	uint8		hmac[32];		/* SHA-256 HMAC */
 	/* Followed by result data */
 } SignedResult;
 
@@ -80,4 +80,4 @@ typedef struct SignedResult
 #define VEC_RLS_DELETE 0x04
 #define VEC_RLS_SIMILARITY 0x08
 
-#endif /* NEURONDB_SECURITY_H */
+#endif							/* NEURONDB_SECURITY_H */

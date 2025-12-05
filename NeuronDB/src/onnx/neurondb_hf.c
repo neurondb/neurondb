@@ -101,7 +101,7 @@ neurondb_hf_embedding(PG_FUNCTION_ARGS)
 											 txt, 128, &token_length, model_name);
 
 	/* Convert token IDs to float array for ONNX */
-	input_data = (float *) palloc(token_length * sizeof(float));
+	NDB_ALLOC(input_data, float, token_length);
 	for (i = 0; i < token_length; i++)
 		input_data[i] = (float) token_ids[i];
 
@@ -193,7 +193,7 @@ neurondb_hf_classify(PG_FUNCTION_ARGS)
 											 txt, 128, &token_length, model_name);
 
 	/* Convert token IDs to float array for ONNX */
-	input_data = (float *) palloc(token_length * sizeof(float));
+	NDB_ALLOC(input_data, float, token_length);
 	for (i = 0; i < token_length; i++)
 		input_data[i] = (float) token_ids[i];
 
@@ -309,7 +309,7 @@ neurondb_hf_ner(PG_FUNCTION_ARGS)
 											 txt, 128, &token_length, model_name);
 
 	/* Convert token IDs to float array for ONNX */
-	input_data = (float *) palloc(token_length * sizeof(float));
+	NDB_ALLOC(input_data, float, token_length);
 	for (i = 0; i < token_length; i++)
 		input_data[i] = (float) token_ids[i];
 
@@ -426,7 +426,7 @@ neurondb_hf_qa(PG_FUNCTION_ARGS)
 											 combined_text.data, 256, &token_length, model_name);
 
 	/* Convert token IDs to float array for ONNX */
-	input_data = (float *) palloc(token_length * sizeof(float));
+	NDB_ALLOC(input_data, float, token_length);
 	for (i = 0; i < token_length; i++)
 		input_data[i] = (float) token_ids[i];
 
@@ -576,7 +576,7 @@ sample_token_multinomial(float *logits, int vocab_size, float temperature)
 	int			selected = 0;
 
 	/* Allocate probabilities array */
-	probs = (float *) palloc(vocab_size * sizeof(float));
+	NDB_ALLOC(probs, float, vocab_size);
 
 	/* Compute softmax with temperature */
 	for (i = 0; i < vocab_size; i++)
@@ -695,6 +695,7 @@ ndb_onnx_hf_complete(const char *model_name,
 	if (params_json && strlen(params_json) > 0)
 	{
 		NdbGenParams ndb_params = {0};
+
 		rc = ndb_json_parse_gen_params(params_json, &ndb_params, errstr);
 		if (rc != 0)
 		{
@@ -762,8 +763,7 @@ ndb_onnx_hf_complete(const char *model_name,
 	}
 
 	/* Allocate generated token IDs array */
-	generated_token_ids =
-		(int32_t *) palloc(max_gen_tokens * sizeof(int32_t));
+	NDB_ALLOC(generated_token_ids, int32_t, max_gen_tokens);
 
 	/* Set seed if provided */
 	if (gen_params.seed != 0)
@@ -781,7 +781,8 @@ ndb_onnx_hf_complete(const char *model_name,
 		/* Allocate input data */
 		if (input_data)
 			NDB_FREE(input_data);
-		input_data = (float *) palloc(current_seq_len * sizeof(float));
+		NDB_DECLARE(float *, input_data);
+		NDB_ALLOC(input_data, float, current_seq_len);
 
 		/* Copy prompt tokens */
 		for (j = 0; j < input_token_length; j++)
@@ -1024,7 +1025,8 @@ ndb_onnx_hf_embed(const char *model_name,
 		}
 
 		/* Convert token IDs to float array for ONNX */
-		input_data = (float *) palloc(token_length * sizeof(float));
+		NDB_DECLARE(float *, input_data);
+	NDB_ALLOC(input_data, float, token_length);
 		for (i = 0; i < token_length; i++)
 			input_data[i] = (float) token_ids[i];
 
@@ -1073,7 +1075,8 @@ ndb_onnx_hf_embed(const char *model_name,
 
 		/* Allocate result vector in parent memory context */
 		MemoryContextSwitchTo(oldcontext);
-		result_vec = (float *) palloc(embedding_dim * sizeof(float));
+		NDB_DECLARE(float *, result_vec);
+		NDB_ALLOC(result_vec, float, embedding_dim);
 
 		/* Pool embeddings (mean pooling across sequence dimension) */
 		for (i = 0; i < embedding_dim; i++)
@@ -1202,7 +1205,8 @@ ndb_onnx_hf_image_embed(const char *model_name,
 			const int	channels = 3;
 			const int	total_size = img_size * img_size * channels;
 
-			input_data = (float *) palloc(total_size * sizeof(float));
+			NDB_DECLARE(float *, input_data);
+			NDB_ALLOC(input_data, float, total_size);
 			if (!input_data)
 			{
 				if (errstr)
@@ -1222,105 +1226,117 @@ ndb_onnx_hf_image_embed(const char *model_name,
 				 * production, integrate with libjpeg, libpng, or stb_image.
 				 */
 
-			/*
-			 * Image preprocessing implementation:
-			 * 1. Try to decode image if it's JPEG/PNG (basic detection)
-			 * 2. Resize to 224x224 if needed
-			 * 3. Normalize pixel values to [0,1] range
-			 * 4. Convert to RGB format (NCHW: [1, 3, 224, 224])
-			 *
-			 * Note: Full JPEG/PNG decoding requires external libraries.
-			 * This implementation handles raw RGB data and basic preprocessing.
-			 */
-			{
-				/* Detect image format from magic bytes */
-				bool		is_jpeg = (image_size >= 2 && image_data[0] == 0xFF && image_data[1] == 0xD8);
-				bool		is_png = (image_size >= 8 && image_data[0] == 0x89 && image_data[1] == 0x50
-									  && image_data[2] == 0x4E && image_data[3] == 0x47);
-				bool		is_raw_rgb = false;
-				int			src_width = 0;
-				int			src_height = 0;
-				int			src_channels = 3;
-				unsigned char *decoded_data = NULL;
-
-				if (is_jpeg || is_png)
+				/*
+				 * Image preprocessing implementation: 1. Try to decode image
+				 * if it's JPEG/PNG (basic detection) 2. Resize to 224x224 if
+				 * needed 3. Normalize pixel values to [0,1] range 4. Convert
+				 * to RGB format (NCHW: [1, 3, 224, 224])
+				 *
+				 * Note: Full JPEG/PNG decoding requires external libraries.
+				 * This implementation handles raw RGB data and basic
+				 * preprocessing.
+				 */
 				{
-					/*
-					 * Image format detected but decoding not available.
-					 * For production, integrate libjpeg/libpng or stb_image.
-					 */
-					elog(WARNING,
-						 "neurondb: JPEG/PNG image detected but decoding not available. "
-						 "Please use pre-processed RGB data or integrate image decoding library.");
-					/* Fall through to treat as raw RGB */
-					is_raw_rgb = true;
-				}
-				else
-				{
-					/* Assume raw RGB data: [width * height * channels] bytes */
-					/* Try to infer dimensions from size */
-					int			total_pixels = image_size / src_channels;
+					/* Detect image format from magic bytes */
+					bool		is_jpeg = (image_size >= 2 && image_data[0] == 0xFF && image_data[1] == 0xD8);
+					bool		is_png = (image_size >= 8 && image_data[0] == 0x89 && image_data[1] == 0x50
+										  && image_data[2] == 0x4E && image_data[3] == 0x47);
+					bool		is_raw_rgb = false;
+					int			src_width = 0;
+					int			src_height = 0;
+					int			src_channels = 3;
+					unsigned char *decoded_data = NULL;
 
-					if (total_pixels > 0)
+					if (is_jpeg || is_png)
 					{
-						/* Assume square image for simplicity, or use common aspect ratios */
-						src_width = (int) sqrt(total_pixels);
-						src_height = total_pixels / src_width;
-						if (src_width * src_height * src_channels == image_size)
-						{
-							is_raw_rgb = true;
-							decoded_data = (unsigned char *) image_data;
-						}
+						/*
+						 * Image format detected but decoding not available.
+						 * For production, integrate libjpeg/libpng or
+						 * stb_image.
+						 */
+						elog(WARNING,
+							 "neurondb: JPEG/PNG image detected but decoding not available. "
+							 "Please use pre-processed RGB data or integrate image decoding library.");
+						/* Fall through to treat as raw RGB */
+						is_raw_rgb = true;
 					}
-				}
-
-				if (is_raw_rgb && decoded_data != NULL && src_width > 0 && src_height > 0)
-				{
-					/* Resize and normalize raw RGB data */
-					int			dst_width = img_size;
-					int			dst_height = img_size;
-					int			x, y, c;
-					float		scale_x = (float) src_width / (float) dst_width;
-					float		scale_y = (float) src_height / (float) dst_height;
-
-					/* Resize using nearest-neighbor interpolation */
-					for (y = 0; y < dst_height; y++)
+					else
 					{
-						for (x = 0; x < dst_width; x++)
+						/*
+						 * Assume raw RGB data: [width * height * channels]
+						 * bytes
+						 */
+						/* Try to infer dimensions from size */
+						int			total_pixels = image_size / src_channels;
+
+						if (total_pixels > 0)
 						{
-							int			src_x = (int) (x * scale_x);
-							int			src_y = (int) (y * scale_y);
-
-							if (src_x >= src_width)
-								src_x = src_width - 1;
-							if (src_y >= src_height)
-								src_y = src_height - 1;
-
-							for (c = 0; c < channels; c++)
+							/*
+							 * Assume square image for simplicity, or use
+							 * common aspect ratios
+							 */
+							src_width = (int) sqrt(total_pixels);
+							src_height = total_pixels / src_width;
+							if (src_width * src_height * src_channels == image_size)
 							{
-								/* NCHW format: [batch, channel, height, width] */
-								int			dst_idx = c * dst_height * dst_width + y * dst_width + x;
-								int			src_idx = (src_y * src_width + src_x) * src_channels + c;
-								unsigned char pixel_val = decoded_data[src_idx];
-
-								/* Normalize to [0, 1] range */
-								input_data[dst_idx] = (float) pixel_val / 255.0f;
+								is_raw_rgb = true;
+								decoded_data = (unsigned char *) image_data;
 							}
 						}
 					}
-				}
-				else
-				{
-					/* Fallback: zero-filled array if decoding fails */
-					elog(WARNING,
-						 "neurondb: Could not decode image data. Using zero-filled array. "
-						 "Please provide pre-processed RGB data or integrate image decoding library.");
-					for (int idx = 0; idx < total_size; idx++)
+
+					if (is_raw_rgb && decoded_data != NULL && src_width > 0 && src_height > 0)
 					{
-						input_data[idx] = 0.0f;
+						/* Resize and normalize raw RGB data */
+						int			dst_width = img_size;
+						int			dst_height = img_size;
+						int			x,
+									y,
+									c;
+						float		scale_x = (float) src_width / (float) dst_width;
+						float		scale_y = (float) src_height / (float) dst_height;
+
+						/* Resize using nearest-neighbor interpolation */
+						for (y = 0; y < dst_height; y++)
+						{
+							for (x = 0; x < dst_width; x++)
+							{
+								int			src_x = (int) (x * scale_x);
+								int			src_y = (int) (y * scale_y);
+
+								if (src_x >= src_width)
+									src_x = src_width - 1;
+								if (src_y >= src_height)
+									src_y = src_height - 1;
+
+								for (c = 0; c < channels; c++)
+								{
+									/*
+									 * NCHW format: [batch, channel, height,
+									 * width]
+									 */
+									int			dst_idx = c * dst_height * dst_width + y * dst_width + x;
+									int			src_idx = (src_y * src_width + src_x) * src_channels + c;
+									unsigned char pixel_val = decoded_data[src_idx];
+
+									/* Normalize to [0, 1] range */
+									input_data[dst_idx] = (float) pixel_val / 255.0f;
+								}
+							}
+						}
+					}
+					else
+					{
+						/* Fallback: zero-filled array if decoding fails */
+						elog(WARNING,
+							 "neurondb: Could not decode image data. Using zero-filled array. "
+							 "Please provide pre-processed RGB data or integrate image decoding library.");
+						for (int idx = 0; idx < total_size; idx++)
+						{
+							input_data[idx] = 0.0f;
+						}
 					}
 				}
-			}
 
 				/* CLIP input shape: [batch, channels, height, width] */
 				input_shape[0] = 1;
@@ -1354,7 +1370,9 @@ ndb_onnx_hf_image_embed(const char *model_name,
 					{
 						/* Extract embedding */
 						*dim_out = (int) output_tensor->size;
-						*vec_out = (float *) palloc(*dim_out * sizeof(float));
+						NDB_DECLARE(float *, vec_out_local);
+		NDB_ALLOC(vec_out_local, float, *dim_out);
+		*vec_out = vec_out_local;
 						if (!*vec_out)
 						{
 							neurondb_onnx_free_tensor(input_tensor);
@@ -1499,7 +1517,9 @@ ndb_onnx_hf_multimodal_embed(const char *model_name,
 	{
 		/* Average pooling for fusion */
 		*dim_out = text_dim;
-		*vec_out = (float *) palloc(*dim_out * sizeof(float));
+		NDB_DECLARE(float *, vec_out_local);
+		NDB_ALLOC(vec_out_local, float, *dim_out);
+		*vec_out = vec_out_local;
 		if (!*vec_out)
 		{
 			if (text_vec)
@@ -1604,7 +1624,7 @@ ndb_onnx_hf_rerank(const char *model_name,
 	}
 
 	/* Allocate scores array */
-	scores = (float *) palloc(ndocs * sizeof(float));
+	NDB_ALLOC(scores, float, ndocs);
 	if (!scores)
 	{
 		if (errstr)
@@ -1684,7 +1704,8 @@ ndb_onnx_hf_rerank(const char *model_name,
 						combined_token_length = max_combined_length;
 					}
 
-					combined_token_ids = (int32 *) palloc(
+					NDB_DECLARE(int32 *, combined_token_ids);
+					NDB_ALLOC(combined_token_ids, int32,
 														  combined_token_length * sizeof(int32));
 					if (!combined_token_ids)
 					{
@@ -1716,7 +1737,8 @@ ndb_onnx_hf_rerank(const char *model_name,
 					combined_token_length = j;
 
 					/* Convert token IDs to float array for ONNX */
-					input_data = (float *) palloc(
+					NDB_DECLARE(float *, input_data);
+					NDB_ALLOC(input_data, float,
 												  combined_token_length * sizeof(float));
 					if (!input_data)
 					{

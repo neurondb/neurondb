@@ -305,8 +305,8 @@ bool
 ndb_spi_exec_select_one_row_safe(const char *query,
 								 bool read_only,
 								 MemoryContext dest_context,
-								 TupleDesc *out_tupdesc,
-								 Datum **out_datum,
+								 TupleDesc * out_tupdesc,
+								 Datum * *out_datum,
 								 bool **out_isnull,
 								 int *out_natts)
 {
@@ -474,7 +474,7 @@ bool
 ndb_spi_get_result_safe(int row_idx,
 						int col_idx,
 						Oid * out_type,
-						Datum *out_datum,
+						Datum * out_datum,
 						bool *out_isnull)
 {
 	if (SPI_tuptable == NULL || SPI_tuptable->tupdesc == NULL)

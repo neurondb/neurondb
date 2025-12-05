@@ -362,7 +362,9 @@ neurondb_onnx_unload_model(ONNXModelSession *session)
 ONNXTensor *
 neurondb_onnx_create_tensor(float *data, int64 *shape, int32 ndim)
 {
-	ONNXTensor *tensor;
+	NDB_DECLARE(ONNXTensor *, tensor);
+	NDB_DECLARE(float *, tensor_data);
+	NDB_DECLARE(int64 *, tensor_shape);
 	size_t total_size = 1;
 	int i;
 
@@ -373,12 +375,14 @@ neurondb_onnx_create_tensor(float *data, int64 *shape, int32 ndim)
 	for (i = 0; i < ndim; i++)
 		total_size *= (size_t)shape[i];
 
-	tensor = (ONNXTensor *)palloc0(sizeof(ONNXTensor));
-	tensor->data = (float *)palloc(total_size * sizeof(float));
-	memcpy(tensor->data, data, total_size * sizeof(float));
+	NDB_ALLOC(tensor, ONNXTensor, 1);
+	NDB_ALLOC(tensor_data, float, total_size);
+	memcpy(tensor_data, data, total_size * sizeof(float));
+	tensor->data = tensor_data;
 
 	/* Allocate shape as int64_t for ONNX API compatibility */
-	tensor->shape = (int64 *)palloc(ndim * sizeof(int64));
+	NDB_ALLOC(tensor_shape, int64, ndim);
+	tensor->shape = tensor_shape;
 	for (i = 0; i < ndim; i++)
 		tensor->shape[i] = shape[i];
 
@@ -428,9 +432,9 @@ neurondb_onnx_run_inference(ONNXModelSession *session, ONNXTensor *input)
 
 	/* Create ONNX input tensor - need to cast int64* to int64_t* */
 	{
-		int64_t *shape_cast =
-			(int64_t *)palloc(input->ndim * sizeof(int64_t));
-		int i;
+		int64_t    *shape_cast = NULL;
+		int			i;
+		NDB_ALLOC(shape_cast, int64_t, input->ndim);
 
 		for (i = 0; i < input->ndim; i++)
 			shape_cast[i] = (int64_t)input->shape[i];
@@ -481,15 +485,15 @@ neurondb_onnx_run_inference(ONNXModelSession *session, ONNXTensor *input)
 
 	/* GetDimensions requires int64_t*, allocate temp array and copy to int64* */
 	{
-		int64_t *dims_temp =
-			(int64_t *)palloc(num_dims * sizeof(int64_t));
+		NDB_DECLARE(int64_t *, dims_temp);
+		NDB_ALLOC(dims_temp, int64_t, num_dims);
 
 		status = g_ort_api->GetDimensions(
 			output_info, dims_temp, num_dims);
 		onnx_check_status(status, "GetDimensions");
 
 		/* Copy to PostgreSQL int64 */
-		output_dims = (int64 *)palloc(num_dims * sizeof(int64));
+		NDB_ALLOC(output_dims, int64, num_dims);
 		for (i = 0; i < num_dims; i++)
 			output_dims[i] = (int64)dims_temp[i];
 
@@ -500,9 +504,11 @@ neurondb_onnx_run_inference(ONNXModelSession *session, ONNXTensor *input)
 	for (i = 0; i < num_dims; i++)
 		output_size *= output_dims[i];
 
-	output = (ONNXTensor *)palloc0(sizeof(ONNXTensor));
-	output->data = (float *)palloc(output_size * sizeof(float));
-	memcpy(output->data, output_data, output_size * sizeof(float));
+	NDB_DECLARE(float *, output_data_alloc);
+	output = (ONNXTensor *) palloc0(sizeof(ONNXTensor));
+	NDB_ALLOC(output_data_alloc, float, output_size);
+	memcpy(output_data_alloc, output_data, output_size * sizeof(float));
+	output->data = output_data_alloc;
 	output->shape = output_dims;
 	output->ndim = num_dims;
 	output->size = output_size;
@@ -710,13 +716,13 @@ neurondb_onnx_version(void)
 char **
 neurondb_onnx_get_providers(int *num_providers)
 {
-	char **providers;
+	NDB_DECLARE(char **, providers);
 	int count = 0;
 
 	Assert(num_providers != NULL);
 
 	/* Allocate extra entries for possible providers */
-	providers = (char **)palloc(5 * sizeof(char *));
+	NDB_ALLOC(providers, char *, 5);
 
 	providers[count++] = pstrdup("CPUExecutionProvider");
 #ifdef ORT_ENABLE_CUDA

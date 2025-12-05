@@ -2841,7 +2841,7 @@ def main() -> int:
 		else:
 			failed += 1
 		
-		# Overwrite the starting line with final result (colored: green ✓ or red ✗ or crash 💥)
+		# Overwrite the starting line with final result (colored: green ✓ or red ✗ or crash )
 		print(format_test_line(ok, when, idx, total, name, elapsed, critical_crash))
 		
 		# Verify GPU usage for ML training tests in GPU or auto mode (only if not crashed)

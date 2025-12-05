@@ -145,36 +145,41 @@ qlearning_train(PG_FUNCTION_ARGS)
 	for (i = 0; i < iterations && i < SPI_processed; i++)
 	{
 		/* Safe access to SPI_tuptable - validate before access */
-		if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL || 
+		if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL ||
 			i >= SPI_processed || SPI_tuptable->vals[i] == NULL)
 		{
 			continue;
 		}
 		HeapTuple	tuple = SPI_tuptable->vals[i];
 		TupleDesc	tupdesc = SPI_tuptable->tupdesc;
+
 		if (tupdesc == NULL)
 		{
 			continue;
 		}
 		/* Use safe function for int32 values */
-		int32		state_id_val, action_id_val, next_state_id_val;
+		int32		state_id_val,
+					action_id_val,
+					next_state_id_val;
 		bool		isnull = false;
-		
+
 		if (!ndb_spi_get_int32(spi_session, i, 1, &state_id_val))
 			continue;
 		if (!ndb_spi_get_int32(spi_session, i, 2, &action_id_val))
 			continue;
 		int			state_id = state_id_val;
 		int			action_id = action_id_val;
-		
+
 		/* For float8 reward, need to use SPI_getbinval with safe access */
 		double		reward = 0.0;
+
 		if (tupdesc->natts >= 3)
 		{
 			Datum		reward_datum = SPI_getbinval(tuple, tupdesc, 3, NULL);
+
 			reward = DatumGetFloat8(reward_datum);
 		}
-		
+
 		/* For next_state_id, use safe function */
 		if (!ndb_spi_get_int32(spi_session, i, 4, &next_state_id_val))
 		{
@@ -358,11 +363,13 @@ multi_armed_bandit(PG_FUNCTION_ARGS)
 	double		beta;
 	char	   *tbl_str;
 	char	   *algorithm;
+
 	NDB_DECLARE(int *, arm_counts);
 	NDB_DECLARE(double *, arm_rewards);
 	NDB_DECLARE(double *, arm_probs);
 	int			i;
 	ArrayType  *result;
+
 	NDB_DECLARE(Datum *, result_datums);
 	StringInfoData query;
 	int			ret;
@@ -402,28 +409,32 @@ multi_armed_bandit(PG_FUNCTION_ARGS)
 		for (i = 0; i < SPI_processed; i++)
 		{
 			/* Safe access to SPI_tuptable - validate before access */
-			if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL || 
+			if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL ||
 				i >= SPI_processed || SPI_tuptable->vals[i] == NULL)
 			{
 				continue;
 			}
 			HeapTuple	tuple = SPI_tuptable->vals[i];
 			TupleDesc	tupdesc = SPI_tuptable->tupdesc;
+
 			if (tupdesc == NULL)
 			{
 				continue;
 			}
 			/* Use safe function for int32 arm_id */
 			int32		arm_id_val;
+
 			if (!ndb_spi_get_int32(spi_session, i, 1, &arm_id_val))
 				continue;
 			int			arm_id = arm_id_val;
-			
+
 			/* For float8 reward, need to use SPI_getbinval with safe access */
 			double		reward = 0.0;
+
 			if (tupdesc->natts >= 2)
 			{
 				Datum		reward_datum = SPI_getbinval(tuple, tupdesc, 2, NULL);
+
 				reward = DatumGetFloat8(reward_datum);
 			}
 

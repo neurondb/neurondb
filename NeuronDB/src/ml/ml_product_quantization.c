@@ -83,7 +83,8 @@ train_subspace_kmeans(float **subspace_data,
 	int		   *assignments =
 		NULL;					/* Assignment for each vector (index of
 								 * centroid) */
-	NDB_DECLARE(int *, counts);	/* Number of points assigned to each centroid */
+
+	NDB_DECLARE(int *, counts); /* Number of points assigned to each centroid */
 	bool		changed = true;
 	int			iter,
 				i,
@@ -268,10 +269,10 @@ train_pq_codebook(PG_FUNCTION_ARGS)
 		/* Free data array and rows if data is not NULL */
 		if (data != NULL)
 		{
-			for (int i = 0; i < nvec; i++)
+			for (int idx = 0; idx < nvec; idx++)
 			{
-				if (data[i] != NULL)
-					NDB_FREE(data[i]);
+				if (data[idx] != NULL)
+					NDB_FREE(data[idx]);
 			}
 			NDB_FREE(data);
 		}
@@ -296,14 +297,20 @@ train_pq_codebook(PG_FUNCTION_ARGS)
 	 * Allocate centroids 3D array: [m][ksub][dsub], each float* properly
 	 * allocated
 	 */
-	codebook.centroids = (float ***) palloc(sizeof(float **) * m);
+	float	 ***centroids = NULL;
+	NDB_ALLOC(centroids, float **, m);
+	codebook.centroids = centroids;
 	for (sub = 0; sub < m; sub++)
 	{
-		codebook.centroids[sub] =
-			(float **) palloc(sizeof(float *) * ksub);
+		NDB_DECLARE(float **, sub_centroids);
+		NDB_ALLOC(sub_centroids, float *, ksub);
+		codebook.centroids[sub] = sub_centroids;
 		for (i = 0; i < ksub; i++)
-			codebook.centroids[sub][i] =
-				(float *) palloc(sizeof(float) * codebook.dsub);
+		{
+			NDB_DECLARE(float *, centroid_vec);
+			NDB_ALLOC(centroid_vec, float, codebook.dsub);
+			codebook.centroids[sub][i] = centroid_vec;
+		}
 	}
 
 	/*
@@ -326,11 +333,12 @@ train_pq_codebook(PG_FUNCTION_ARGS)
 		 * Extract subspace vectors from data (copy block of contiguous
 		 * floats)
 		 */
-		subspace_data = (float **) palloc(sizeof(float *) * nvec);
+		NDB_ALLOC(subspace_data, float *, nvec);
 		for (i = 0; i < nvec; i++)
 		{
-			subspace_data[i] =
-				(float *) palloc(sizeof(float) * codebook.dsub);
+			NDB_DECLARE(float *, sub_vec);
+			NDB_ALLOC(sub_vec, float, codebook.dsub);
+			subspace_data[i] = sub_vec;
 			memcpy(subspace_data[i],
 				   &data[i][start_dim],
 				   sizeof(float) * codebook.dsub);
@@ -354,7 +362,9 @@ train_pq_codebook(PG_FUNCTION_ARGS)
 	result_size = sizeof(int) * 3 + /* header: m, ksub, dsub */
 		m * ksub * codebook.dsub * sizeof(float);	/* centroids */
 
-	result = (bytea *) palloc(VARHDRSZ + result_size);
+	char	   *result_raw = NULL;
+	NDB_ALLOC(result_raw, char, VARHDRSZ + result_size);
+	result = (bytea *) result_raw;
 	SET_VARSIZE(result, VARHDRSZ + result_size);
 	result_ptr = VARDATA(result);
 
@@ -427,6 +437,7 @@ pq_encode_vector(PG_FUNCTION_ARGS)
 				dsub;
 	char	   *cb_ptr;
 	float	 ***centroids = NULL;
+
 	NDB_DECLARE(int16 *, codes);	/* array of length m */
 	ArrayType  *result;
 	Datum	   *result_datums;
@@ -463,21 +474,24 @@ pq_encode_vector(PG_FUNCTION_ARGS)
 						dsub)));
 
 	/* ----- Reconstruct centroids 3D array from codebook bytea ----- */
-	centroids = (float ***) palloc(sizeof(float **) * m);
+	NDB_ALLOC(centroids, float **, m);
 	for (sub = 0; sub < m; sub++)
 	{
-		centroids[sub] = (float **) palloc(sizeof(float *) * ksub);
+		NDB_DECLARE(float **, sub_centroids);
+		NDB_ALLOC(sub_centroids, float *, ksub);
+		centroids[sub] = sub_centroids;
 		for (c = 0; c < ksub; c++)
 		{
-			centroids[sub][c] =
-				(float *) palloc(sizeof(float) * dsub);
+			NDB_DECLARE(float *, centroid_vec);
+			NDB_ALLOC(centroid_vec, float, dsub);
+			centroids[sub][c] = centroid_vec;
 			memcpy(centroids[sub][c], cb_ptr, sizeof(float) * dsub);
 			cb_ptr += sizeof(float) * dsub;
 		}
 	}
 
 	/* ----- Compute PQ codes for each subspace ----- */
-	codes = (int16 *) palloc(sizeof(int16) * m);
+	NDB_ALLOC(codes, int16, m);
 	for (sub = 0; sub < m; sub++)
 	{
 		int			start_dim = sub * dsub;
@@ -505,7 +519,7 @@ pq_encode_vector(PG_FUNCTION_ARGS)
 	}
 
 	/* ----- Build int2[] result array ----- */
-	result_datums = (Datum *) palloc(sizeof(Datum) * m);
+	NDB_ALLOC(result_datums, Datum, m);
 	for (sub = 0; sub < m; sub++)
 		result_datums[sub] = Int16GetDatum(codes[sub]);
 
@@ -538,6 +552,7 @@ predict_pq_codebook(PG_FUNCTION_ARGS)
 {
 	int32		model_id;
 	ArrayType  *vector_array;
+
 	NDB_DECLARE(bytea *, model_data);
 	NDB_DECLARE(Jsonb *, parameters);
 	float4	   *vec_data;
@@ -547,6 +562,7 @@ predict_pq_codebook(PG_FUNCTION_ARGS)
 				dsub;
 	char	   *cb_ptr;
 	float	 ***centroids = NULL;
+
 	NDB_DECLARE(int16 *, codes);
 	ArrayType  *result;
 	Datum	   *result_datums;
@@ -607,20 +623,24 @@ predict_pq_codebook(PG_FUNCTION_ARGS)
 						m * dsub)));
 
 	/* Reconstruct centroids 3D array from codebook */
-	centroids = (float ***) palloc(sizeof(float **) * m);
+	NDB_ALLOC(centroids, float **, m);
 	for (sub = 0; sub < m; sub++)
 	{
-		centroids[sub] = (float **) palloc(sizeof(float *) * ksub);
+		NDB_DECLARE(float **, sub_centroids);
+		NDB_ALLOC(sub_centroids, float *, ksub);
+		centroids[sub] = sub_centroids;
 		for (c = 0; c < ksub; c++)
 		{
-			centroids[sub][c] = (float *) palloc(sizeof(float) * dsub);
+			NDB_DECLARE(float *, centroid_vec);
+			NDB_ALLOC(centroid_vec, float, dsub);
+			centroids[sub][c] = centroid_vec;
 			memcpy(centroids[sub][c], cb_ptr, sizeof(float) * dsub);
 			cb_ptr += sizeof(float) * dsub;
 		}
 	}
 
 	/* Compute PQ codes for each subspace */
-	codes = (int16 *) palloc(sizeof(int16) * m);
+	NDB_ALLOC(codes, int16, m);
 	for (sub = 0; sub < m; sub++)
 	{
 		start_dim = sub * dsub;
@@ -649,7 +669,7 @@ predict_pq_codebook(PG_FUNCTION_ARGS)
 	}
 
 	/* Build result array */
-	result_datums = (Datum *) palloc(sizeof(Datum) * m);
+	NDB_ALLOC(result_datums, Datum, m);
 	for (sub = 0; sub < m; sub++)
 		result_datums[sub] = Int16GetDatum(codes[sub]);
 
@@ -696,6 +716,7 @@ evaluate_pq_codebook_by_model_id(PG_FUNCTION_ARGS)
 	int			subquantizers;
 	int			codebook_size;
 	int			bits_per_code;
+
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext_spi;
 
@@ -775,7 +796,7 @@ evaluate_pq_codebook_by_model_id(PG_FUNCTION_ARGS)
 		double		total_error = 0.0;
 		int			valid_vectors = 0;
 		TupleDesc	tupdesc = SPI_tuptable->tupdesc;
-		float	  ***centroids = NULL;
+		float	 ***centroids = NULL;
 
 		/* Load model from catalog */
 		if (ml_catalog_fetch_model_payload(model_id,
@@ -821,7 +842,7 @@ evaluate_pq_codebook_by_model_id(PG_FUNCTION_ARGS)
 				for (i = 0; i < n_points; i++)
 				{
 					/* Safe access to SPI_tuptable - validate before access */
-					if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL || 
+					if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL ||
 						i >= SPI_processed || SPI_tuptable->vals[i] == NULL)
 					{
 						continue;
@@ -840,67 +861,67 @@ evaluate_pq_codebook_by_model_id(PG_FUNCTION_ARGS)
 							continue;
 						}
 
-					vec_datum = SPI_getbinval(tuple, tupdesc, 1, &vec_null);
-					if (vec_null)
-						continue;
+						vec_datum = SPI_getbinval(tuple, tupdesc, 1, &vec_null);
+						if (vec_null)
+							continue;
 
-					vec = DatumGetVector(vec_datum);
-					if (vec == NULL || vec->dim != m * dsub)
-						continue;
+						vec = DatumGetVector(vec_datum);
+						if (vec == NULL || vec->dim != m * dsub)
+							continue;
 
-					vec_data = vec->data;
-					valid_vectors++;
+						vec_data = vec->data;
+						valid_vectors++;
 
-					/*
-					 * For each subspace, find nearest centroid and compute
-					 * error
-					 */
-					for (sub = 0; sub < m; sub++)
-					{
-						double		min_dist;
-						int			best_c;
-						double		sub_error;
-
-						start_dim = sub * dsub;
-						min_dist = DBL_MAX;
-						best_c = -1;
-						sub_error = 0.0;
-
-						/* Find nearest centroid */
-						for (c = 0; c < ksub; c++)
+						/*
+						 * For each subspace, find nearest centroid and
+						 * compute error
+						 */
+						for (sub = 0; sub < m; sub++)
 						{
-							double		dist = 0.0;
+							double		min_dist;
+							int			best_c;
+							double		sub_error;
 
-							for (d = 0; d < dsub; d++)
-							{
-								double		diff = (double) vec_data[start_dim + d]
-									- (double) centroids[sub][c][d];
+							start_dim = sub * dsub;
+							min_dist = DBL_MAX;
+							best_c = -1;
+							sub_error = 0.0;
 
-								dist += diff * diff;
-							}
-							if (dist < min_dist)
+							/* Find nearest centroid */
+							for (c = 0; c < ksub; c++)
 							{
-								min_dist = dist;
-								best_c = c;
+								double		dist = 0.0;
+
+								for (d = 0; d < dsub; d++)
+								{
+									double		diff = (double) vec_data[start_dim + d]
+										- (double) centroids[sub][c][d];
+
+									dist += diff * diff;
+								}
+								if (dist < min_dist)
+								{
+									min_dist = dist;
+									best_c = c;
+								}
 							}
+
+							/* Compute reconstruction error for this subspace */
+							if (best_c >= 0)
+							{
+								for (d = 0; d < dsub; d++)
+								{
+									double		diff = (double) vec_data[start_dim + d]
+										- (double) centroids[sub][best_c][d];
+
+									sub_error += diff * diff;
+								}
+							}
+
+							vector_error += sub_error;
 						}
 
-						/* Compute reconstruction error for this subspace */
-						if (best_c >= 0)
-						{
-							for (d = 0; d < dsub; d++)
-							{
-								double		diff = (double) vec_data[start_dim + d]
-									- (double) centroids[sub][best_c][d];
-
-								sub_error += diff * diff;
-							}
-						}
-
-						vector_error += sub_error;
-					}
-
-					total_error += vector_error;
+						total_error += vector_error;
 					}
 				}
 
@@ -1040,14 +1061,17 @@ pq_asymmetric_distance(PG_FUNCTION_ARGS)
 						m,
 						dsub)));
 
-	centroids = (float ***) palloc(sizeof(float **) * m);
+	NDB_ALLOC(centroids, float **, m);
 	for (sub = 0; sub < m; sub++)
 	{
-		centroids[sub] = (float **) palloc(sizeof(float *) * ksub);
+		NDB_DECLARE(float **, sub_centroids);
+		NDB_ALLOC(sub_centroids, float *, ksub);
+		centroids[sub] = sub_centroids;
 		for (int c = 0; c < ksub; c++)
 		{
-			centroids[sub][c] =
-				(float *) palloc(sizeof(float) * dsub);
+			NDB_DECLARE(float *, centroid_vec);
+			NDB_ALLOC(centroid_vec, float, dsub);
+			centroids[sub][c] = centroid_vec;
 			memcpy(centroids[sub][c], cb_ptr, sizeof(float) * dsub);
 			cb_ptr += sizeof(float) * dsub;
 		}
@@ -1117,10 +1141,14 @@ pq_codebook_serialize_to_bytea(const PQCodebook * codebook)
 	int			sub,
 				i;
 
-	result_size = sizeof(int) * 3 + codebook->m * codebook->ksub * codebook->dsub * sizeof(float);
-	result = (bytea *) palloc(VARHDRSZ + result_size);
-	SET_VARSIZE(result, VARHDRSZ + result_size);
-	result_ptr = VARDATA(result);
+	{
+		char	   *result_raw = NULL;
+		result_size = sizeof(int) * 3 + codebook->m * codebook->ksub * codebook->dsub * sizeof(float);
+		NDB_ALLOC(result_raw, char, VARHDRSZ + result_size);
+		result = (bytea *) result_raw;
+		SET_VARSIZE(result, VARHDRSZ + result_size);
+		result_ptr = VARDATA(result);
+	}
 
 	memcpy(result_ptr, &codebook->m, sizeof(int));
 	result_ptr += sizeof(int);
@@ -1161,15 +1189,23 @@ pq_codebook_deserialize_from_bytea(const bytea * data, PQCodebook * codebook)
 	if (codebook->m < 1 || codebook->m > 128 || codebook->ksub < 2 || codebook->ksub > 65536 || codebook->dsub <= 0)
 		return -1;
 
-	codebook->centroids = (float ***) palloc(sizeof(float **) * codebook->m);
-	for (sub = 0; sub < codebook->m; sub++)
 	{
-		codebook->centroids[sub] = (float **) palloc(sizeof(float *) * codebook->ksub);
-		for (i = 0; i < codebook->ksub; i++)
+		float	 ***centroids = NULL;
+		NDB_ALLOC(centroids, float **, codebook->m);
+		codebook->centroids = centroids;
+		for (sub = 0; sub < codebook->m; sub++)
 		{
-			codebook->centroids[sub][i] = (float *) palloc(sizeof(float) * codebook->dsub);
-			memcpy(codebook->centroids[sub][i], buf + offset, sizeof(float) * codebook->dsub);
-			offset += sizeof(float) * codebook->dsub;
+			float	 **sub_centroids = NULL;
+			NDB_ALLOC(sub_centroids, float *, codebook->ksub);
+			codebook->centroids[sub] = sub_centroids;
+			for (i = 0; i < codebook->ksub; i++)
+			{
+				float	   *centroid_vec = NULL;
+				NDB_ALLOC(centroid_vec, float, codebook->dsub);
+				codebook->centroids[sub][i] = centroid_vec;
+				memcpy(codebook->centroids[sub][i], buf + offset, sizeof(float) * codebook->dsub);
+				offset += sizeof(float) * codebook->dsub;
+			}
 		}
 	}
 
@@ -1199,7 +1235,7 @@ pq_codebook_free(PQCodebook * codebook)
 }
 
 static bool
-product_quantization_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
+product_quantization_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **errstr)
 {
 	ProductQuantizationGpuModelState *state;
 	float	  **data = NULL;
@@ -1210,6 +1246,7 @@ product_quantization_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, 
 	int			dim = 0;
 	int			sub,
 				i;
+
 	NDB_DECLARE(bytea *, model_data);
 	NDB_DECLARE(Jsonb *, metrics);
 	StringInfoData metrics_json;
@@ -1272,10 +1309,12 @@ product_quantization_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, 
 		return false;
 	}
 
-	data = (float **) palloc(sizeof(float *) * nvec);
+	NDB_ALLOC(data, float *, nvec);
 	for (i = 0; i < nvec; i++)
 	{
-		data[i] = (float *) palloc(sizeof(float) * dim);
+		NDB_DECLARE(float *, data_row);
+		NDB_ALLOC(data_row, float, dim);
+		data[i] = data_row;
 		memcpy(data[i], &spec->feature_matrix[i * dim], sizeof(float) * dim);
 	}
 
@@ -1285,12 +1324,22 @@ product_quantization_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, 
 	codebook.dsub = dim / m;
 
 	/* Allocate centroids */
-	codebook.centroids = (float ***) palloc(sizeof(float **) * m);
-	for (sub = 0; sub < m; sub++)
 	{
-		codebook.centroids[sub] = (float **) palloc(sizeof(float *) * ksub);
-		for (i = 0; i < ksub; i++)
-			codebook.centroids[sub][i] = (float *) palloc(sizeof(float) * codebook.dsub);
+		float	 ***centroids = NULL;
+		NDB_ALLOC(centroids, float **, m);
+		codebook.centroids = centroids;
+		for (sub = 0; sub < m; sub++)
+		{
+			NDB_DECLARE(float **, sub_centroids);
+			NDB_ALLOC(sub_centroids, float *, ksub);
+			codebook.centroids[sub] = sub_centroids;
+			for (i = 0; i < ksub; i++)
+			{
+				NDB_DECLARE(float *, centroid_vec);
+				NDB_ALLOC(centroid_vec, float, codebook.dsub);
+				codebook.centroids[sub][i] = centroid_vec;
+			}
+		}
 	}
 
 	/* Train PQ codebook */
@@ -1299,10 +1348,12 @@ product_quantization_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, 
 		float	  **subspace_data = NULL;
 		int			start_dim = sub * codebook.dsub;
 
-		subspace_data = (float **) palloc(sizeof(float *) * nvec);
+		NDB_ALLOC(subspace_data, float *, nvec);
 		for (i = 0; i < nvec; i++)
 		{
-			subspace_data[i] = (float *) palloc(sizeof(float) * codebook.dsub);
+			NDB_DECLARE(float *, sub_vec);
+			NDB_ALLOC(sub_vec, float, codebook.dsub);
+			subspace_data[i] = sub_vec;
 			memcpy(subspace_data[i], &data[i][start_dim], sizeof(float) * codebook.dsub);
 		}
 
@@ -1328,8 +1379,12 @@ product_quantization_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, 
 	state = (ProductQuantizationGpuModelState *) palloc0(sizeof(ProductQuantizationGpuModelState));
 	state->model_blob = model_data;
 	state->metrics = metrics;
-	state->codebook = (PQCodebook *) palloc(sizeof(PQCodebook));
-	*state->codebook = codebook;
+	{
+		PQCodebook *codebook_ptr = NULL;
+		NDB_ALLOC(codebook_ptr, PQCodebook, 1);
+		state->codebook = codebook_ptr;
+		*state->codebook = codebook;
+	}
 	state->m = m;
 	state->ksub = ksub;
 	state->dsub = codebook.dsub;
@@ -1352,7 +1407,7 @@ product_quantization_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, 
 }
 
 static bool
-product_quantization_gpu_predict(const MLGpuModel * model, const float *input, int input_dim,
+product_quantization_gpu_predict(const MLGpuModel *model, const float *input, int input_dim,
 								 float *output, int output_dim, char **errstr)
 {
 	const		ProductQuantizationGpuModelState *state;
@@ -1412,12 +1467,16 @@ product_quantization_gpu_predict(const MLGpuModel * model, const float *input, i
 				*errstr = pstrdup("product_quantization_gpu_predict: failed to deserialize");
 			return false;
 		}
-		((ProductQuantizationGpuModelState *) state)->codebook = (PQCodebook *) palloc(sizeof(PQCodebook));
-		*((ProductQuantizationGpuModelState *) state)->codebook = temp_codebook;
+		{
+			PQCodebook *codebook_ptr = NULL;
+			NDB_ALLOC(codebook_ptr, PQCodebook, 1);
+			((ProductQuantizationGpuModelState *) state)->codebook = codebook_ptr;
+			*((ProductQuantizationGpuModelState *) state)->codebook = temp_codebook;
+		}
 	}
 
 	codebook = state->codebook;
-	reconstructed = (float *) palloc(sizeof(float) * state->dim);
+	NDB_ALLOC(reconstructed, float, state->dim);
 
 	/* Encode and reconstruct */
 	for (sub = 0; sub < codebook->m; sub++)
@@ -1449,8 +1508,8 @@ product_quantization_gpu_predict(const MLGpuModel * model, const float *input, i
 }
 
 static bool
-product_quantization_gpu_evaluate(const MLGpuModel * model, const MLGpuEvalSpec * spec,
-								  MLGpuMetrics * out, char **errstr)
+product_quantization_gpu_evaluate(const MLGpuModel *model, const MLGpuEvalSpec *spec,
+								  MLGpuMetrics *out, char **errstr)
 {
 	const		ProductQuantizationGpuModelState *state;
 	Jsonb	   *metrics_json;
@@ -1498,7 +1557,7 @@ product_quantization_gpu_evaluate(const MLGpuModel * model, const MLGpuEvalSpec 
 }
 
 static bool
-product_quantization_gpu_serialize(const MLGpuModel * model, bytea * *payload_out,
+product_quantization_gpu_serialize(const MLGpuModel *model, bytea * *payload_out,
 								   Jsonb * *metadata_out, char **errstr)
 {
 	const		ProductQuantizationGpuModelState *state;
@@ -1526,9 +1585,13 @@ product_quantization_gpu_serialize(const MLGpuModel * model, bytea * *payload_ou
 		return false;
 	}
 
-	payload_size = VARSIZE(state->model_blob);
-	payload_copy = (bytea *) palloc(payload_size);
-	memcpy(payload_copy, state->model_blob, payload_size);
+	{
+		char	   *payload_copy_raw = NULL;
+		payload_size = VARSIZE(state->model_blob);
+		NDB_ALLOC(payload_copy_raw, char, payload_size);
+		payload_copy = (bytea *) payload_copy_raw;
+		memcpy(payload_copy, state->model_blob, payload_size);
+	}
 
 	if (payload_out != NULL)
 		*payload_out = payload_copy;
@@ -1543,7 +1606,7 @@ product_quantization_gpu_serialize(const MLGpuModel * model, bytea * *payload_ou
 }
 
 static bool
-product_quantization_gpu_deserialize(MLGpuModel * model, const bytea * payload,
+product_quantization_gpu_deserialize(MLGpuModel *model, const bytea * payload,
 									 const Jsonb * metadata, char **errstr)
 {
 	ProductQuantizationGpuModelState *state;
@@ -1563,9 +1626,13 @@ product_quantization_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 		return false;
 	}
 
-	payload_size = VARSIZE(payload);
-	payload_copy = (bytea *) palloc(payload_size);
-	memcpy(payload_copy, payload, payload_size);
+	{
+		char	   *payload_copy_raw = NULL;
+		payload_size = VARSIZE(payload);
+		NDB_ALLOC(payload_copy_raw, char, payload_size);
+		payload_copy = (bytea *) payload_copy_raw;
+		memcpy(payload_copy, payload, payload_size);
+	}
 
 	if (pq_codebook_deserialize_from_bytea(payload_copy, &codebook) != 0)
 	{
@@ -1577,8 +1644,12 @@ product_quantization_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 
 	state = (ProductQuantizationGpuModelState *) palloc0(sizeof(ProductQuantizationGpuModelState));
 	state->model_blob = payload_copy;
-	state->codebook = (PQCodebook *) palloc(sizeof(PQCodebook));
-	*state->codebook = codebook;
+	{
+		PQCodebook *codebook_ptr = NULL;
+		NDB_ALLOC(codebook_ptr, PQCodebook, 1);
+		state->codebook = codebook_ptr;
+		*state->codebook = codebook;
+	}
 	state->m = codebook.m;
 	state->ksub = codebook.ksub;
 	state->dsub = codebook.dsub;
@@ -1587,27 +1658,38 @@ product_quantization_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 
 	if (metadata != NULL)
 	{
-		int			metadata_size = VARSIZE(metadata);
-		Jsonb	   *metadata_copy = (Jsonb *) palloc(metadata_size);
+		int			metadata_size;
+		Jsonb	   *metadata_copy = NULL;
+		char	   *metadata_copy_raw = NULL;
+
+		metadata_size = VARSIZE(metadata);
+		NDB_ALLOC(metadata_copy_raw, char, metadata_size);
+		metadata_copy = (Jsonb *) metadata_copy_raw;
 
 		memcpy(metadata_copy, metadata, metadata_size);
 		state->metrics = metadata_copy;
 
-		it = JsonbIteratorInit((JsonbContainer *) & metadata->root);
-		while ((r = JsonbIteratorNext(&it, &v, false)) != WJB_DONE)
 		{
-			if (r == WJB_KEY)
-			{
-				char	   *key = pnstrdup(v.val.string.val, v.val.string.len);
+			JsonbIterator *it_local = NULL;
+			JsonbValue	v_local;
+			int			r_local;
 
-				r = JsonbIteratorNext(&it, &v, false);
-				if (strcmp(key, "n_samples") == 0 && v.type == jbvNumeric)
-					state->n_samples = DatumGetInt32(DirectFunctionCall1(numeric_int4,
-																		 NumericGetDatum(v.val.numeric)));
-				else if (strcmp(key, "dim") == 0 && v.type == jbvNumeric)
-					state->dim = DatumGetInt32(DirectFunctionCall1(numeric_int4,
-																   NumericGetDatum(v.val.numeric)));
-				NDB_FREE(key);
+			it_local = JsonbIteratorInit((JsonbContainer *) & metadata->root);
+			while ((r_local = JsonbIteratorNext(&it_local, &v_local, false)) != WJB_DONE)
+			{
+				if (r_local == WJB_KEY)
+				{
+					char	   *key = pnstrdup(v_local.val.string.val, v_local.val.string.len);
+
+					r_local = JsonbIteratorNext(&it_local, &v_local, false);
+					if (strcmp(key, "n_samples") == 0 && v_local.type == jbvNumeric)
+						state->n_samples = DatumGetInt32(DirectFunctionCall1(numeric_int4,
+																			 NumericGetDatum(v_local.val.numeric)));
+					else if (strcmp(key, "dim") == 0 && v_local.type == jbvNumeric)
+						state->dim = DatumGetInt32(DirectFunctionCall1(numeric_int4,
+																	   NumericGetDatum(v_local.val.numeric)));
+					NDB_FREE(key);
+				}
 			}
 		}
 	}
@@ -1627,7 +1709,7 @@ product_quantization_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 }
 
 static void
-product_quantization_gpu_destroy(MLGpuModel * model)
+product_quantization_gpu_destroy(MLGpuModel *model)
 {
 	ProductQuantizationGpuModelState *state;
 

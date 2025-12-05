@@ -52,6 +52,7 @@ static int
 get_guc_int(const char *name, int default_val)
 {
 	const char *val = GetConfigOption(name, true, false);
+
 	return val ? atoi(val) : default_val;
 }
 
@@ -60,6 +61,7 @@ static double
 get_guc_double(const char *name, double default_val)
 {
 	const char *val = GetConfigOption(name, true, false);
+
 	return val ? atof(val) : default_val;
 }
 
@@ -68,6 +70,7 @@ static bool
 get_guc_bool(const char *name, bool default_val)
 {
 	const char *val = GetConfigOption(name, true, false);
+
 	if (!val)
 		return default_val;
 	return (strcmp(val, "on") == 0 || strcmp(val, "true") == 0 || strcmp(val, "1") == 0);
@@ -297,9 +300,9 @@ sample_and_tune(void)
 
 	/* Check if table exists (before CREATE EXTENSION, this is expected) */
 	ret = ndb_spi_execute(session, "SELECT 1 FROM pg_tables WHERE schemaname = "
-							   "'neurondb' AND tablename = 'query_metrics'",
-							   true,
-							   0);
+						  "'neurondb' AND tablename = 'query_metrics'",
+						  true,
+						  0);
 	if (ret != SPI_OK_SELECT || SPI_processed == 0)
 	{
 		/*
@@ -448,6 +451,7 @@ rotate_caches(void)
 {
 	StringInfoData sql;
 	int			ret;
+
 	NDB_DECLARE(NdbSpiSession *, session);
 
 	session = ndb_spi_session_begin(CurrentMemoryContext, false);
@@ -458,10 +462,10 @@ rotate_caches(void)
 	{
 		/* Check if table exists first */
 		ret = ndb_spi_execute(session,
-								   "SELECT 1 FROM pg_tables WHERE schemaname = 'neurondb' "
-								   "AND tablename = 'embedding_cache'",
-								   true,
-								   0);
+							  "SELECT 1 FROM pg_tables WHERE schemaname = 'neurondb' "
+							  "AND tablename = 'embedding_cache'",
+							  true,
+							  0);
 		if (ret != SPI_OK_SELECT || SPI_processed == 0)
 		{
 			/* Table doesn't exist, skip cache rotation */
@@ -523,10 +527,10 @@ record_metrics(void)
 	{
 		/* Check if tables exist first */
 		ret = ndb_spi_execute(session,
-								   "SELECT 1 FROM pg_tables WHERE schemaname = 'neurondb' "
-								   "AND tablename = 'histograms'",
-								   true,
-								   0);
+							  "SELECT 1 FROM pg_tables WHERE schemaname = 'neurondb' "
+							  "AND tablename = 'histograms'",
+							  true,
+							  0);
 		if (ret != SPI_OK_SELECT || SPI_processed == 0)
 		{
 			/* Tables don't exist, skip metrics recording */
@@ -577,6 +581,7 @@ export_prometheus_metrics(void)
 	StringInfoData sql;
 	StringInfoData metrics;
 	int			ret;
+
 	NDB_DECLARE(NdbSpiSession *, session);
 
 	session = ndb_spi_session_begin(CurrentMemoryContext, false);
@@ -593,10 +598,10 @@ export_prometheus_metrics(void)
 
 		/* Check if table exists first */
 		ret = ndb_spi_execute(session,
-								   "SELECT 1 FROM pg_tables WHERE schemaname = 'neurondb' "
-								   "AND tablename = 'prometheus_metrics'",
-								   true,
-								   0);
+							  "SELECT 1 FROM pg_tables WHERE schemaname = 'neurondb' "
+							  "AND tablename = 'prometheus_metrics'",
+							  true,
+							  0);
 		NDB_CHECK_SPI_TUPTABLE();
 		if (ret != SPI_OK_SELECT || SPI_processed == 0)
 		{

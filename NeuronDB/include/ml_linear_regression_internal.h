@@ -18,14 +18,14 @@
 
 typedef struct LinRegModel
 {
-	int32 model_id;
-	int n_features;
-	int n_samples;
-	double intercept;
-	double *coefficients;
-	double r_squared;
-	double mse;
-	double mae;
+	int32		model_id;
+	int			n_features;
+	int			n_samples;
+	double		intercept;
+	double	   *coefficients;
+	double		r_squared;
+	double		mse;
+	double		mae;
 } LinRegModel;
 
-#endif /* ML_LINEAR_REGRESSION_INTERNAL_H */
+#endif							/* ML_LINEAR_REGRESSION_INTERNAL_H */

@@ -18,17 +18,17 @@
 
 typedef struct SVMModel
 {
-	int32 model_id;
-	int n_features;
-	int n_samples;
-	int n_support_vectors;
-	double bias;
-	double *alphas;
-	float *support_vectors;
-	int *support_vector_indices;
-	double *support_labels;   /* y_i for each SV, in {-1, 1} */
-	double C;
-	int max_iters;
-} SVMModel;
+	int32		model_id;
+	int			n_features;
+	int			n_samples;
+	int			n_support_vectors;
+	double		bias;
+	double	   *alphas;
+	float	   *support_vectors;
+	int		   *support_vector_indices;
+	double	   *support_labels; /* y_i for each SV, in {-1, 1} */
+	double		C;
+	int			max_iters;
+}			SVMModel;
 
-#endif /* ML_SVM_INTERNAL_H */
+#endif							/* ML_SVM_INTERNAL_H */

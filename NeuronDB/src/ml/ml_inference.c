@@ -492,6 +492,7 @@ predict(PG_FUNCTION_ARGS)
 {
 	text	   *model_name;
 	Vector	   *input;
+
 	NDB_DECLARE(char *, name_str);
 	ModelEntry *m;
 	Vector	   *result;
@@ -736,6 +737,7 @@ predict(PG_FUNCTION_ARGS)
 			{
 #ifdef HAVE_ONNX_RUNTIME
 				ONNXModelSession *session = (ONNXModelSession *) m->model_handle->opaque_backend_state;
+
 				NDB_DECLARE(ONNXTensor *, input_tensor);
 				NDB_DECLARE(ONNXTensor *, output_tensor);
 
@@ -797,10 +799,14 @@ predict(PG_FUNCTION_ARGS)
 												output_dim)));
 							}
 
-							output_size = VECTOR_SIZE(output_dim);
-							result = (Vector *) palloc0(output_size);
-							SET_VARSIZE(result, output_size);
-							result->dim = output_dim;
+							{
+								char	   *result_raw = NULL;
+								output_size = VECTOR_SIZE(output_dim);
+								NDB_ALLOC(result_raw, char, output_size);
+								result = (Vector *) result_raw;
+								SET_VARSIZE(result, output_size);
+								result->dim = output_dim;
+							}
 
 							/* Copy output data (handle flattening if needed) */
 							if (output_tensor->ndim == 1)
@@ -895,6 +901,7 @@ predict_batch(PG_FUNCTION_ARGS)
 	bool	   *input_nulls;
 	int			i;
 	Oid			vector_oid;
+
 	NDB_DECLARE(Datum *, output_datums);
 	NDB_DECLARE(bool *, output_nulls);
 
@@ -984,23 +991,24 @@ predict_batch(PG_FUNCTION_ARGS)
 				if (session != NULL && session->is_loaded)
 				{
 					/* Process each vector in batch */
-				for (i = 0; i < nvecs; i++)
-				{
-					Vector	   *input_vec = (Vector *) DatumGetPointer(input_datums[i]);
-					NDB_DECLARE(ONNXTensor *, input_tensor);
-					NDB_DECLARE(ONNXTensor *, output_tensor);
-					NDB_DECLARE(Vector *, output_vec);
-					NDB_DECLARE(int64 *, shape);
-					NDB_DECLARE(float *, data);
-
-					if (input_nulls[i] || input_vec == NULL)
+					for (i = 0; i < nvecs; i++)
 					{
-						output_nulls[i] = true;
-						output_datums[i] = (Datum) 0;
-						continue;
-					}
+						Vector	   *input_vec = (Vector *) DatumGetPointer(input_datums[i]);
 
-					/* Convert Vector to ONNXTensor */
+						NDB_DECLARE(ONNXTensor *, input_tensor);
+						NDB_DECLARE(ONNXTensor *, output_tensor);
+						NDB_DECLARE(Vector *, output_vec);
+						NDB_DECLARE(int64 *, shape);
+						NDB_DECLARE(float *, data);
+
+						if (input_nulls[i] || input_vec == NULL)
+						{
+							output_nulls[i] = true;
+							output_datums[i] = (Datum) 0;
+							continue;
+						}
+
+						/* Convert Vector to ONNXTensor */
 						NDB_ALLOC(input_tensor, ONNXTensor, 1);
 						memset(input_tensor, 0, sizeof(ONNXTensor));
 						input_tensor->ndim = 2;
@@ -1039,7 +1047,9 @@ predict_batch(PG_FUNCTION_ARGS)
 								{
 									int			output_size = VECTOR_SIZE(output_dim);
 
-									output_vec = (Vector *) palloc0(output_size);
+									NDB_DECLARE(char *, output_vec_raw);
+									NDB_ALLOC(output_vec_raw, char, output_size);
+									output_vec = (Vector *) output_vec_raw;
 									SET_VARSIZE(output_vec, output_size);
 									output_vec->dim = output_dim;
 
@@ -1500,7 +1510,7 @@ export_model(PG_FUNCTION_ARGS)
 	}
 
 	/* Check if model data is actually available (not a stub) */
-	if (m->model_handle == NULL || 
+	if (m->model_handle == NULL ||
 		strstr(m->model_handle->backend_msg, "stub") != NULL ||
 		m->model_handle->model_size_bytes == 0)
 	{
@@ -1517,7 +1527,7 @@ export_model(PG_FUNCTION_ARGS)
 	/* Export model data: read from original file and write to export file */
 	{
 		FILE	   *src_f = NULL;
-		char	   *buffer = NULL;
+		NDB_DECLARE(char *, buffer);
 		size_t		bytes_read;
 		size_t		buffer_size = 8192; /* 8KB buffer for file copy */
 		const char *src_path = m->path;
@@ -1537,7 +1547,7 @@ export_model(PG_FUNCTION_ARGS)
 		}
 
 		/* Allocate buffer for file copy */
-		buffer = (char *) palloc(buffer_size);
+		NDB_ALLOC(buffer, char, buffer_size);
 		if (buffer == NULL)
 		{
 			fclose(src_f);
@@ -1554,7 +1564,7 @@ export_model(PG_FUNCTION_ARGS)
 			{
 				int			saved_errno = errno;
 
-				pfree(buffer);
+				NDB_FREE(buffer);
 				fclose(src_f);
 				fclose(f);
 				ereport(ERROR,
@@ -1570,7 +1580,7 @@ export_model(PG_FUNCTION_ARGS)
 		{
 			int			saved_errno = errno;
 
-			pfree(buffer);
+			NDB_FREE(buffer);
 			fclose(src_f);
 			fclose(f);
 			ereport(ERROR,
@@ -1580,7 +1590,7 @@ export_model(PG_FUNCTION_ARGS)
 							   src_path, strerror(saved_errno))));
 		}
 
-		pfree(buffer);
+		NDB_FREE(buffer);
 		fclose(src_f);
 	}
 
@@ -1687,7 +1697,7 @@ export_model_to_onnx(PG_FUNCTION_ARGS)
 			char	   *algorithm_text;
 
 			/* Safe access for complex types - validate before access */
-			if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL || 
+			if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL ||
 				SPI_processed == 0 || SPI_tuptable->vals[0] == NULL || SPI_tuptable->tupdesc == NULL)
 			{
 				NDB_FREE(sql.data);
@@ -1919,6 +1929,7 @@ import_model_from_onnx(PG_FUNCTION_ARGS)
 	FILE	   *output_file;
 	bytea	   *model_data;
 	size_t		file_size;
+
 	NDB_DECLARE(char *, file_data);
 	int			ret;
 	StringInfoData update_sql = {0};
@@ -1947,6 +1958,7 @@ import_model_from_onnx(PG_FUNCTION_ARGS)
 	if (access(onnx_path, R_OK) != 0)
 	{
 		int			saved_errno = errno;
+
 		NDB_FREE(onnx_path);
 		NDB_FREE(algorithm);
 		ereport(ERROR,
@@ -1981,6 +1993,7 @@ import_model_from_onnx(PG_FUNCTION_ARGS)
 	if (access(full_script_path, R_OK | X_OK) != 0)
 	{
 		int			saved_errno = errno;
+
 		NDB_FREE(onnx_path);
 		NDB_FREE(algorithm);
 		NDB_FREE(script_dir);
@@ -2083,9 +2096,13 @@ import_model_from_onnx(PG_FUNCTION_ARGS)
 	unlink(temp_path);
 
 	/* Create bytea from file data */
-	model_data = (bytea *) palloc(VARHDRSZ + file_size);
-	SET_VARSIZE(model_data, VARHDRSZ + file_size);
-	memcpy(VARDATA(model_data), file_data, file_size);
+	{
+		char	   *model_data_raw = NULL;
+		NDB_ALLOC(model_data_raw, char, VARHDRSZ + file_size);
+		model_data = (bytea *) model_data_raw;
+		SET_VARSIZE(model_data, VARHDRSZ + file_size);
+		memcpy(VARDATA(model_data), file_data, file_size);
+	}
 	NDB_FREE(file_data);
 
 	/* Update model in catalog */

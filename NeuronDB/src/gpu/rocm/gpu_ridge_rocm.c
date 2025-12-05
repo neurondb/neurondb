@@ -37,33 +37,32 @@
 
 /* Reuse linear regression kernels */
 extern hipError_t launch_linreg_compute_xtx_kernel(const float *features,
-													const double *targets,
-													int n_samples,
-													int feature_dim,
-													int dim_with_intercept,
-													double *XtX,
-													double *Xty);
+												   const double *targets,
+												   int n_samples,
+												   int feature_dim,
+												   int dim_with_intercept,
+												   double *XtX,
+												   double *Xty);
 extern hipError_t launch_linreg_eval_kernel(const float *features,
-											 const double *targets,
-											 const double *coefficients,
-											 double intercept,
-											 int n_samples,
-											 int feature_dim,
-											 double *sse_out,
-											 double *sae_out,
-											 long long *count_out);
+											const double *targets,
+											const double *coefficients,
+											double intercept,
+											int n_samples,
+											int feature_dim,
+											double *sse_out,
+											double *sae_out,
+											long long *count_out);
 extern hipError_t launch_ridge_add_lambda_diagonal_kernel(double *matrix,
 														  double lambda,
 														  int dim);
 
 int
-ndb_rocm_ridge_pack_model(const RidgeModel * model,
+ndb_rocm_ridge_pack_model(const RidgeModel *model,
 						  bytea * *model_data,
 						  Jsonb * *metrics,
 						  char **errstr)
 {
 	size_t		payload_bytes;
-	bytea	   *blob;
 	char	   *base;
 	NdbCudaRidgeModelHeader *hdr;
 	float	   *coef_dest;
@@ -80,7 +79,10 @@ ndb_rocm_ridge_pack_model(const RidgeModel * model,
 	payload_bytes = sizeof(NdbCudaRidgeModelHeader)
 		+ sizeof(float) * (size_t) model->n_features;
 
-	blob = (bytea *) palloc(VARHDRSZ + payload_bytes);
+	NDB_DECLARE(bytea *, blob);
+	NDB_DECLARE(char *, blob_raw);
+	NDB_ALLOC(blob_raw, char, VARHDRSZ + payload_bytes);
+	blob = (bytea *) blob_raw;
 	SET_VARSIZE(blob, VARHDRSZ + payload_bytes);
 	base = VARDATA(blob);
 
@@ -152,10 +154,10 @@ ndb_rocm_ridge_train(const float *features,
 	double	   *d_Xty = NULL;
 	double	   *d_XtX_inv = NULL;
 	double	   *d_beta = NULL;
-	double	   *h_XtX = NULL;
-	double	   *h_Xty = NULL;
-	double	   *h_XtX_inv = NULL;
-	double	   *h_beta = NULL;
+	NDB_DECLARE(double *, h_XtX);
+	NDB_DECLARE(double *, h_Xty);
+	NDB_DECLARE(double *, h_XtX_inv);
+	NDB_DECLARE(double *, h_beta);
 	bytea	   *payload = NULL;
 	Jsonb	   *metrics_json = NULL;
 	hipError_t	status = hipSuccess;
@@ -269,10 +271,14 @@ ndb_rocm_ridge_train(const float *features,
 	Xty_bytes = sizeof(double) * (size_t) dim_with_intercept;
 	beta_bytes = sizeof(double) * (size_t) dim_with_intercept;
 
-	h_XtX = (double *) palloc0(XtX_bytes);
-	h_Xty = (double *) palloc0(Xty_bytes);
-	h_XtX_inv = (double *) palloc(XtX_bytes);
-	h_beta = (double *) palloc(beta_bytes);
+	NDB_DECLARE(double *, h_XtX);
+	NDB_DECLARE(double *, h_Xty);
+	NDB_DECLARE(double *, h_XtX_inv);
+	NDB_DECLARE(double *, h_beta);
+	NDB_ALLOC(h_XtX, double, dim_with_intercept * dim_with_intercept);
+	NDB_ALLOC(h_Xty, double, dim_with_intercept);
+	NDB_ALLOC(h_XtX_inv, double, dim_with_intercept * dim_with_intercept);
+	NDB_ALLOC(h_beta, double, dim_with_intercept);
 
 	/* Compute X'X and X'y on GPU */
 	{
@@ -466,7 +472,8 @@ cpu_fallback:
 		const float *row = features + (i * feature_dim);
 		double	   *xi;
 
-		xi = (double *) palloc(sizeof(double) * dim_with_intercept);
+		NDB_DECLARE(double *, xi);
+		NDB_ALLOC(xi, double, dim_with_intercept);
 
 		xi[0] = 1.0;			/* intercept */
 		for (j = 1; j < dim_with_intercept; j++)
@@ -502,10 +509,11 @@ matrix_inversion:
 		bool		invert_success = true;
 
 		/* Create augmented matrix [A | I] */
-		augmented = (double **) palloc(sizeof(double *) * dim_with_intercept);
+		NDB_DECLARE(double **, augmented);
+		NDB_ALLOC(augmented, double *, dim_with_intercept);
 		for (row = 0; row < dim_with_intercept; row++)
 		{
-			augmented[row] = (double *) palloc(sizeof(double) * 2 * dim_with_intercept);
+			NDB_ALLOC(augmented[row], double, 2 * dim_with_intercept);
 			for (col = 0; col < dim_with_intercept; col++)
 			{
 				augmented[row][col] = h_XtX[row * dim_with_intercept + col];
@@ -670,7 +678,9 @@ build_model:
 		model.n_samples = n_samples;
 		model.intercept = h_beta[0];
 		model.lambda = lambda;
-		model.coefficients = (double *) palloc(sizeof(double) * feature_dim);
+		NDB_DECLARE(double *, model_coefficients);
+		NDB_ALLOC(model_coefficients, double, feature_dim);
+		model.coefficients = model_coefficients;
 		for (i = 0; i < feature_dim; i++)
 			model.coefficients[i] = h_beta[i + 1];
 
@@ -745,7 +755,7 @@ ndb_rocm_ridge_predict(const bytea * model_data,
 					   double *prediction_out,
 					   char **errstr)
 {
-	const		NdbCudaRidgeModelHeader *hdr;
+	const NdbCudaRidgeModelHeader *hdr;
 	const float *coefficients;
 	const		bytea *detoasted;
 	double		prediction;
@@ -820,7 +830,7 @@ ndb_rocm_ridge_evaluate(const bytea * model_data,
 						double *r_squared_out,
 						char **errstr)
 {
-	const		NdbCudaRidgeModelHeader *hdr;
+	const NdbCudaRidgeModelHeader *hdr;
 	const float *coefficients;
 	const		bytea *detoasted;
 	hipError_t	cuda_err;
@@ -1044,7 +1054,8 @@ ndb_rocm_ridge_evaluate(const bytea * model_data,
 
 	/* Convert coefficients from float to double and copy to GPU */
 	{
-		double	   *h_coefficients_double = (double *) palloc(sizeof(double) * (size_t) feature_dim);
+		NDB_DECLARE(double *, h_coefficients_double);
+		NDB_ALLOC(h_coefficients_double, double, feature_dim);
 
 		if (h_coefficients_double == NULL)
 		{

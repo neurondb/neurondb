@@ -97,8 +97,8 @@ extern int	ndb_spi_execute(NdbSpiSession *session,
 extern int	ndb_spi_execute_with_args(NdbSpiSession *session,
 									  const char *src,
 									  int nargs,
-									  Oid *argtypes,
-									  Datum *values,
+									  Oid * argtypes,
+									  Datum * values,
 									  const char *nulls,
 									  bool read_only,
 									  long tcount);
@@ -107,17 +107,17 @@ extern int	ndb_spi_execute_with_args(NdbSpiSession *session,
  * Allocate and initialize StringInfoData in SPI session context.
  * Use in place of initStringInfo() for buffers needed in SPI context.
  */
-extern void ndb_spi_stringinfo_init(NdbSpiSession *session, StringInfoData *str);
+extern void ndb_spi_stringinfo_init(NdbSpiSession *session, StringInfoData * str);
 
 /*
  * Free StringInfoData contents. Always safe (buffer may be SPI- or parent-context).
  */
-extern void ndb_spi_stringinfo_free(NdbSpiSession *session, StringInfoData *str);
+extern void ndb_spi_stringinfo_free(NdbSpiSession *session, StringInfoData * str);
 
 /*
  * Release and re-init buffer in the appropriate SPI or parent context.
  */
-extern void ndb_spi_stringinfo_reset(NdbSpiSession *session, StringInfoData *str);
+extern void ndb_spi_stringinfo_reset(NdbSpiSession *session, StringInfoData * str);
 
 /*
  * Copy an int32 value from an SPI result tuple at [row,col] to out_value.
@@ -126,34 +126,34 @@ extern void ndb_spi_stringinfo_reset(NdbSpiSession *session, StringInfoData *str
 extern bool ndb_spi_get_int32(NdbSpiSession *session,
 							  int row_idx,
 							  int col_idx,
-							  int32 *out_value);
+							  int32 * out_value);
 
 /*
  * Copy text datum from [row,col] to dest_context.
  * Returns pointer in dest_context, NULL if not available.
  */
-extern text *ndb_spi_get_text(NdbSpiSession *session,
-							 int row_idx,
-							 int col_idx,
-							 MemoryContext dest_context);
+extern text * ndb_spi_get_text(NdbSpiSession *session,
+							   int row_idx,
+							   int col_idx,
+							   MemoryContext dest_context);
 
 /*
  * Copy JSONB datum from [row,col] to dest_context.
  * Returns pointer in dest_context, NULL if not available.
  */
-extern Jsonb *ndb_spi_get_jsonb(NdbSpiSession *session,
-								int row_idx,
-								int col_idx,
-								MemoryContext dest_context);
+extern Jsonb * ndb_spi_get_jsonb(NdbSpiSession *session,
+								 int row_idx,
+								 int col_idx,
+								 MemoryContext dest_context);
 
 /*
  * Copy bytea datum from [row,col] to dest_context.
  * Returns pointer in dest_context, NULL if not available.
  */
-extern bytea *ndb_spi_get_bytea(NdbSpiSession *session,
-								int row_idx,
-								int col_idx,
-								MemoryContext dest_context);
+extern bytea * ndb_spi_get_bytea(NdbSpiSession *session,
+								 int row_idx,
+								 int col_idx,
+								 MemoryContext dest_context);
 
 /*
  * Macros for begin/end SPI session with error checks.
@@ -181,4 +181,4 @@ extern bytea *ndb_spi_get_bytea(NdbSpiSession *session,
 		} \
 	} while (0)
 
-#endif	/* NEURONDB_SPI_H */
+#endif							/* NEURONDB_SPI_H */

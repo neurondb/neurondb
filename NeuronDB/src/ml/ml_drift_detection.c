@@ -142,19 +142,19 @@ detect_centroid_drift(PG_FUNCTION_ARGS)
 		/* Free vectors arrays if not NULL */
 		if (baseline_vecs != NULL)
 		{
-			for (int i = 0; i < n_baseline; i++)
+			for (int idx = 0; idx < n_baseline; idx++)
 			{
-				if (baseline_vecs[i] != NULL)
-					NDB_FREE(baseline_vecs[i]);
+				if (baseline_vecs[idx] != NULL)
+					NDB_FREE(baseline_vecs[idx]);
 			}
 			NDB_FREE(baseline_vecs);
 		}
 		if (current_vecs != NULL)
 		{
-			for (int i = 0; i < n_current; i++)
+			for (int idx = 0; idx < n_current; idx++)
 			{
-				if (current_vecs[i] != NULL)
-					NDB_FREE(current_vecs[i]);
+				if (current_vecs[idx] != NULL)
+					NDB_FREE(current_vecs[idx]);
 			}
 			NDB_FREE(current_vecs);
 		}
@@ -339,19 +339,19 @@ compute_distribution_divergence(PG_FUNCTION_ARGS)
 		/* Free vectors arrays if not NULL */
 		if (baseline_vecs != NULL)
 		{
-			for (int i = 0; i < n_baseline; i++)
+			for (int idx = 0; idx < n_baseline; idx++)
 			{
-				if (baseline_vecs[i] != NULL)
-					NDB_FREE(baseline_vecs[i]);
+				if (baseline_vecs[idx] != NULL)
+					NDB_FREE(baseline_vecs[idx]);
 			}
 			NDB_FREE(baseline_vecs);
 		}
 		if (current_vecs != NULL)
 		{
-			for (int i = 0; i < n_current; i++)
+			for (int idx = 0; idx < n_current; idx++)
 			{
-				if (current_vecs[i] != NULL)
-					NDB_FREE(current_vecs[i]);
+				if (current_vecs[idx] != NULL)
+					NDB_FREE(current_vecs[idx]);
 			}
 			NDB_FREE(current_vecs);
 		}

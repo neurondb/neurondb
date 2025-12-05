@@ -21,14 +21,13 @@
 
 /* Flash Attention kernel launcher */
 extern cudaError_t launch_flash_attention(const float *Q,
-	const float *K,
-	const float *V,
-	float *output,
-	int batch_size,
-	int seq_len,
-	int head_dim,
-	cudaStream_t stream);
+										  const float *K,
+										  const float *V,
+										  float *output,
+										  int batch_size,
+										  int seq_len,
+										  int head_dim,
+										  cudaStream_t stream);
 #endif
 
-#endif /* NEURONDB_FLASH_ATTENTION_H */
-
+#endif							/* NEURONDB_FLASH_ATTENTION_H */

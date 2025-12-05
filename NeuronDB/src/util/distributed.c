@@ -71,9 +71,9 @@ distributed_knn_search(PG_FUNCTION_ARGS)
 		int			nshards = 0;
 		int			i;
 		int			total_candidates;
-		Datum	   *candidate_ids;
-		Datum	   *candidate_dists;
-		bool	   *candidate_nulls;
+		NDB_DECLARE(Datum *, candidate_ids);
+		NDB_DECLARE(Datum *, candidate_dists);
+		NDB_DECLARE(bool *, candidate_nulls);
 
 		/* Parse and tokenize the shard list string */
 		{
@@ -131,12 +131,9 @@ distributed_knn_search(PG_FUNCTION_ARGS)
 			 k);
 
 		total_candidates = nshards * k;
-		candidate_ids =
-			(Datum *) palloc(sizeof(Datum) * total_candidates);
-		candidate_dists =
-			(Datum *) palloc(sizeof(Datum) * total_candidates);
-		candidate_nulls =
-			(bool *) palloc0(sizeof(bool) * total_candidates);
+		NDB_ALLOC(candidate_ids, Datum, total_candidates);
+		NDB_ALLOC(candidate_dists, Datum, total_candidates);
+		NDB_ALLOC(candidate_nulls, bool, total_candidates);
 
 		/* Collect candidates from each shard using SPI */
 		{
@@ -150,6 +147,7 @@ distributed_knn_search(PG_FUNCTION_ARGS)
 				SPITupleTable *tuptable;
 				int			nrows;
 				int			row;
+
 				NDB_DECLARE(NdbSpiSession *, session);
 
 				initStringInfo(&sql);
@@ -213,8 +211,8 @@ distributed_knn_search(PG_FUNCTION_ARGS)
 				int			result_count = (cidx < total_candidates)
 					? cidx
 					: total_candidates;
-				int		   *sorted_idxs = (int *) palloc(
-														 sizeof(int) * result_count);
+				NDB_DECLARE(int *, sorted_idxs);
+				NDB_ALLOC(sorted_idxs, int, result_count);
 
 				for (i = 0; i < result_count; i++)
 					sorted_idxs[i] = i;
@@ -250,20 +248,16 @@ distributed_knn_search(PG_FUNCTION_ARGS)
 				}
 
 				{
-					DistKNNResultCtx *sctx;
+					NDB_DECLARE(DistKNNResultCtx *, sctx);
 
-					sctx = (DistKNNResultCtx *) palloc(
-													   sizeof(DistKNNResultCtx));
+					NDB_ALLOC(sctx, DistKNNResultCtx, 1);
 					sctx->cur = 0;
 					sctx->max = (result_count < k)
 						? result_count
 						: k;
-					sctx->ids = (Datum *) palloc(
-												 sizeof(Datum) * sctx->max);
-					sctx->dists = (Datum *) palloc(
-												   sizeof(Datum) * sctx->max);
-					sctx->nulls = (bool *) palloc(
-												  sizeof(bool) * sctx->max);
+					NDB_ALLOC(sctx->ids, Datum, sctx->max);
+					NDB_ALLOC(sctx->dists, Datum, sctx->max);
+					NDB_ALLOC(sctx->nulls, bool, sctx->max);
 
 					for (i = 0; i < sctx->max; i++)
 					{
@@ -446,7 +440,7 @@ merge_distributed_results(PG_FUNCTION_ARGS)
 
 		{
 			TupleDesc	res_tupdesc;
-			Datum	   *recs;
+			NDB_DECLARE(Datum *, recs);
 			ArrayType  *result;
 
 			res_tupdesc = CreateTemplateTupleDesc(2);
@@ -464,7 +458,7 @@ merge_distributed_results(PG_FUNCTION_ARGS)
 							   0);
 			res_tupdesc = BlessTupleDesc(res_tupdesc);
 
-			recs = (Datum *) palloc(sizeof(Datum) * nres);
+			NDB_ALLOC(recs, Datum, nres);
 
 			for (i = 0; i < nres; i++)
 			{
@@ -558,6 +552,7 @@ sync_index_async(PG_FUNCTION_ARGS)
 	Datum		values[3];
 	char		nulls[3];
 	int			i;
+
 	NDB_DECLARE(NdbSpiSession *, session);
 
 	elog(DEBUG1,

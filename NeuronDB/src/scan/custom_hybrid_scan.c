@@ -56,7 +56,7 @@
 static planner_hook_type prev_planner_hook = NULL;
 
 /* Forward declarations */
-void register_hybrid_scan_planner_hook(void);
+void		register_hybrid_scan_planner_hook(void);
 
 /*
  * Hybrid scan state
@@ -132,28 +132,29 @@ static CustomExecMethods hybrid_exec_methods =
 /*
  * Estimate cost for hybrid scan path
  */
-static void __attribute__((unused))
-hybrid_estimate_path_cost(PlannerInfo *root, RelOptInfo *rel, CustomPath *path)
+static void
+__attribute__((unused))
+hybrid_estimate_path_cost(PlannerInfo * root, RelOptInfo * rel, CustomPath * path)
 {
 	/* Estimate startup cost: vector index scan + FTS scan */
-	path->path.startup_cost = 100.0; /* Base startup cost */
+	path->path.startup_cost = 100.0;	/* Base startup cost */
 
-	/* Estimate total cost based on:
-	 * - Vector index scan cost (proportional to k)
-	 * - FTS scan cost (proportional to table size)
-	 * - Merge and rerank cost (proportional to candidate count)
+	/*
+	 * Estimate total cost based on: - Vector index scan cost (proportional to
+	 * k) - FTS scan cost (proportional to table size) - Merge and rerank cost
+	 * (proportional to candidate count)
 	 */
-	path->path.total_cost = 100.0 + (rel->tuples * 0.01); /* Simplified cost model */
+	path->path.total_cost = 100.0 + (rel->tuples * 0.01);	/* Simplified cost model */
 
 	/* Set path rows estimate */
-	path->path.rows = rel->tuples * 0.1; /* Estimate 10% selectivity */
+	path->path.rows = rel->tuples * 0.1;	/* Estimate 10% selectivity */
 }
 
 /*
  * Planner hook: Add hybrid scan custom path when appropriate
  */
 static PlannedStmt *
-hybrid_planner_hook(Query *parse, const char *query_string, int cursorOptions,
+hybrid_planner_hook(Query * parse, const char *query_string, int cursorOptions,
 					ParamListInfo boundParams)
 {
 	PlannedStmt *result;
@@ -164,15 +165,15 @@ hybrid_planner_hook(Query *parse, const char *query_string, int cursorOptions,
 	else
 		result = standard_planner(parse, query_string, cursorOptions, boundParams);
 
-	/* TODO: Analyze query and add CustomPath for hybrid scan when:
-	 * - Query involves both vector search and full-text search
-	 * - Multiple tables/indexes are involved
-	 * - Hybrid search would be more efficient than separate scans
-	 * 
-	 * This would require:
-	 * 1. Detecting vector and FTS operations in the query
-	 * 2. Creating CustomPath with appropriate cost estimates
-	 * 3. Adding path to rel->pathlist for planner consideration
+	/*
+	 * TODO: Analyze query and add CustomPath for hybrid scan when: - Query
+	 * involves both vector search and full-text search - Multiple
+	 * tables/indexes are involved - Hybrid search would be more efficient
+	 * than separate scans
+	 *
+	 * This would require: 1. Detecting vector and FTS operations in the query
+	 * 2. Creating CustomPath with appropriate cost estimates 3. Adding path
+	 * to rel->pathlist for planner consideration
 	 */
 
 	return result;
@@ -348,9 +349,8 @@ hybrid_begin(CustomScanState * node, EState * estate, int eflags)
 	}
 
 	/* Allocate candidate arrays */
-	state->candidates =
-		(TupleTableSlot * *) palloc(state->k * sizeof(TupleTableSlot *));
-	state->scores = (float4 *) palloc(state->k * sizeof(float4));
+	NDB_ALLOC(state->candidates, TupleTableSlot *, state->k);
+	NDB_ALLOC(state->scores, float4, state->k);
 	NDB_CHECK_ALLOC(state, "state");
 
 	/* Open vector index scan if available */
@@ -417,11 +417,11 @@ hybrid_exec(CustomScanState * node)
 	HybridScanState *state = (HybridScanState *) node;
 	TupleTableSlot *slot = node->ss.ss_ScanTupleSlot;
 	Relation	heapRel = node->ss.ss_currentRelation;
-	ItemPointerData *vectorItems = NULL;
-	float4	   *vectorDistances = NULL;
+	NDB_DECLARE(ItemPointerData *, vectorItems);
+	NDB_DECLARE(float4 *, vectorDistances);
 	int			vectorCount = 0;
-	ItemPointerData *ftsItems = NULL;
-	float4	   *ftsScores = NULL;
+	NDB_DECLARE(ItemPointerData *, ftsItems);
+	NDB_DECLARE(float4 *, ftsScores);
 	int			ftsCount = 0;
 	int			i;
 
@@ -432,9 +432,9 @@ hybrid_exec(CustomScanState * node)
 		if (state->vectorScan && !state->vectorDone)
 		{
 			/* Collect vector candidates */
-			vectorItems = (ItemPointerData *) palloc(state->k * sizeof(ItemPointerData));
+			NDB_ALLOC(vectorItems, ItemPointerData, state->k);
 			NDB_CHECK_ALLOC(vectorItems, "vectorItems");
-			vectorDistances = (float4 *) palloc(state->k * sizeof(float4));
+			NDB_ALLOC(vectorDistances, float4, state->k);
 			NDB_CHECK_ALLOC(vectorDistances, "vectorDistances");
 
 			while (vectorCount < state->k)
@@ -477,9 +477,9 @@ hybrid_exec(CustomScanState * node)
 		if (state->ftsScan && !state->ftsDone)
 		{
 			/* Collect FTS candidates */
-			ftsItems = (ItemPointerData *) palloc(state->k * sizeof(ItemPointerData));
+			NDB_ALLOC(ftsItems, ItemPointerData, state->k);
 			NDB_CHECK_ALLOC(ftsItems, "ftsItems");
-			ftsScores = (float4 *) palloc(state->k * sizeof(float4));
+			NDB_ALLOC(ftsScores, float4, state->k);
 			NDB_CHECK_ALLOC(ftsScores, "ftsScores");
 
 			while (ftsCount < state->k)
@@ -522,14 +522,14 @@ hybrid_exec(CustomScanState * node)
 		/* Merge candidates: deduplicate and compute hybrid scores */
 		{
 			/* Allocate arrays for merged candidates */
-			ItemPointerData *mergedItems;
-			float4	   *mergedScores;
+			NDB_DECLARE(ItemPointerData *, mergedItems);
+			NDB_DECLARE(float4 *, mergedScores);
 			int			mergedCount = 0;
 			int			maxCandidates = vectorCount + ftsCount;
 
-			mergedItems = (ItemPointerData *) palloc(maxCandidates * sizeof(ItemPointerData));
+			NDB_ALLOC(mergedItems, ItemPointerData, maxCandidates);
 			NDB_CHECK_ALLOC(mergedItems, "mergedItems");
-			mergedScores = (float4 *) palloc(maxCandidates * sizeof(float4));
+			NDB_ALLOC(mergedScores, float4, maxCandidates);
 			NDB_CHECK_ALLOC(mergedScores, "mergedScores");
 
 			/* Create a hash table or sorted list for deduplication */
@@ -598,7 +598,8 @@ hybrid_exec(CustomScanState * node)
 
 			/* Sort by score (descending) */
 			{
-				int		   *indices = (int *) palloc(mergedCount * sizeof(int));
+				NDB_DECLARE(int *, indices);
+				NDB_ALLOC(indices, int, mergedCount);
 
 				NDB_CHECK_ALLOC(indices, "indices");
 				for (i = 0; i < mergedCount; i++)

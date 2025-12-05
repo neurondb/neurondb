@@ -5,4 +5,4 @@
  */
 #include "neurondb_gpu_backend.h"
 
-#endif /* GPU_BACKEND_INTERFACE_H */
+#endif							/* GPU_BACKEND_INTERFACE_H */

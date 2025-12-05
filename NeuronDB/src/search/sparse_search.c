@@ -53,6 +53,7 @@ sparse_search(PG_FUNCTION_ARGS)
 	Tuplestorestate *tupstore;
 	MemoryContext per_query_ctx;
 	MemoryContext oldcontext;
+
 	NDB_DECLARE(NdbSpiSession *, session);
 	StringInfoData sql;
 	int			ret;
@@ -201,11 +202,15 @@ splade_embed(PG_FUNCTION_ARGS)
 	/* Create input tensor */
 	input_tensor = (ONNXTensor *) palloc0(sizeof(ONNXTensor));
 	input_tensor->ndim = 2;
-	input_tensor->shape = (int64 *) palloc(sizeof(int64) * 2);
+	NDB_DECLARE(int64 *, shape);
+	NDB_ALLOC(shape, int64, 2);
+	input_tensor->shape = shape;
 	input_tensor->shape[0] = 1; /* Batch size */
 	input_tensor->shape[1] = token_length;
 	input_tensor->size = token_length;
-	input_tensor->data = (float *) palloc(sizeof(float) * token_length);
+	NDB_DECLARE(float *, data);
+	NDB_ALLOC(data, float, token_length);
+	input_tensor->data = data;
 	for (i = 0; i < token_length; i++)
 		input_tensor->data[i] = (float) token_ids[i];
 
@@ -235,8 +240,10 @@ splade_embed(PG_FUNCTION_ARGS)
 
 	if (sparse_count > 0)
 	{
-		indices = (int *) palloc(sizeof(int32) * sparse_count);
-		values = (float *) palloc(sizeof(float4) * sparse_count);
+		NDB_DECLARE(int *, indices);
+		NDB_DECLARE(float *, values);
+		NDB_ALLOC(indices, int32, sparse_count);
+		NDB_ALLOC(values, float4, sparse_count);
 		sparse_count = 0;
 		for (i = 0; i < (int) output_tensor->size; i++)
 		{
@@ -251,7 +258,9 @@ splade_embed(PG_FUNCTION_ARGS)
 	}
 
 	/* Create sparse vector using proper structure */
-	sparse_vec = (SparseVector *) palloc(SPARSE_VEC_SIZE(sparse_count));
+	NDB_DECLARE(char *, sparse_vec_raw);
+	NDB_ALLOC(sparse_vec_raw, char, SPARSE_VEC_SIZE(sparse_count));
+	sparse_vec = (SparseVector *) sparse_vec_raw;
 	SET_VARSIZE(sparse_vec, SPARSE_VEC_SIZE(sparse_count));
 	sparse_vec->vocab_size = (int32) output_tensor->size;
 	sparse_vec->nnz = (int32) sparse_count;
@@ -324,11 +333,15 @@ colbertv2_embed(PG_FUNCTION_ARGS)
 	/* Create input tensor */
 	input_tensor = (ONNXTensor *) palloc0(sizeof(ONNXTensor));
 	input_tensor->ndim = 2;
-	input_tensor->shape = (int64 *) palloc(sizeof(int64) * 2);
+	NDB_DECLARE(int64 *, shape);
+	NDB_ALLOC(shape, int64, 2);
+	input_tensor->shape = shape;
 	input_tensor->shape[0] = 1; /* Batch size */
 	input_tensor->shape[1] = token_length;
 	input_tensor->size = token_length;
-	input_tensor->data = (float *) palloc(sizeof(float) * token_length);
+	NDB_DECLARE(float *, data);
+	NDB_ALLOC(data, float, token_length);
+	input_tensor->data = data;
 	for (i = 0; i < token_length; i++)
 		input_tensor->data[i] = (float) token_ids[i];
 
@@ -383,8 +396,10 @@ colbertv2_embed(PG_FUNCTION_ARGS)
 
 		if (sparse_count > 0)
 		{
-			indices = (int *) palloc(sizeof(int32) * sparse_count);
-			values = (float *) palloc(sizeof(float4) * sparse_count);
+			NDB_DECLARE(int *, indices);
+			NDB_DECLARE(float *, values);
+			NDB_ALLOC(indices, int32, sparse_count);
+			NDB_ALLOC(values, float4, sparse_count);
 			sparse_count = 0;
 			for (j = 0; j < output_dim; j++)
 			{
@@ -412,8 +427,10 @@ colbertv2_embed(PG_FUNCTION_ARGS)
 
 		if (sparse_count > 0)
 		{
-			indices = (int *) palloc(sizeof(int32) * sparse_count);
-			values = (float *) palloc(sizeof(float4) * sparse_count);
+			NDB_DECLARE(int *, indices);
+			NDB_DECLARE(float *, values);
+			NDB_ALLOC(indices, int32, sparse_count);
+			NDB_ALLOC(values, float4, sparse_count);
 			sparse_count = 0;
 			for (i = 0; i < output_dim; i++)
 			{
@@ -428,7 +445,9 @@ colbertv2_embed(PG_FUNCTION_ARGS)
 	}
 
 	/* Create sparse vector using proper structure */
-	sparse_vec = (SparseVector *) palloc(SPARSE_VEC_SIZE(sparse_count));
+	NDB_DECLARE(char *, sparse_vec_raw);
+	NDB_ALLOC(sparse_vec_raw, char, SPARSE_VEC_SIZE(sparse_count));
+	sparse_vec = (SparseVector *) sparse_vec_raw;
 	SET_VARSIZE(sparse_vec, SPARSE_VEC_SIZE(sparse_count));
 	sparse_vec->vocab_size = (int32) output_dim;
 	sparse_vec->nnz = (int32) sparse_count;
@@ -567,8 +586,8 @@ bm25_score(PG_FUNCTION_ARGS)
 	double		bm25_term;
 
 	/* Tokenize query and document */
-	query_tokens = (char **) palloc(sizeof(char *) * max_tokens);
-	doc_tokens = (char **) palloc(sizeof(char *) * max_tokens);
+	NDB_ALLOC(query_tokens, char *, max_tokens);
+	NDB_ALLOC(doc_tokens, char *, max_tokens);
 	bm25_tokenize(query_str, query_tokens, &num_query_tokens, max_tokens);
 	bm25_tokenize(doc_str, doc_tokens, &num_doc_tokens, max_tokens);
 
@@ -588,7 +607,7 @@ bm25_score(PG_FUNCTION_ARGS)
 	doc_length = (double) num_doc_tokens;
 
 	/* Count term frequencies */
-	query_unique = (char **) palloc(sizeof(char *) * num_query_tokens);
+	NDB_ALLOC(query_unique, char *, num_query_tokens);
 	query_counts = (int *) palloc0(sizeof(int) * num_query_tokens);
 	doc_counts = (int *) palloc0(sizeof(int) * num_doc_tokens);
 	bm25_count_tf(query_tokens, num_query_tokens, query_counts, query_unique, &num_query_unique);

@@ -21,20 +21,20 @@
 #endif
 
 static bool provider_is(const char *provider, const char *name);
-static int	fallback_complete(const NdbLLMConfig * cfg,
-							  const NdbLLMCallOptions * opts,
+static int	fallback_complete(const NdbLLMConfig *cfg,
+							  const NdbLLMCallOptions *opts,
 							  const char *reason,
 							  const char *prompt,
 							  const char *params_json,
-							  NdbLLMResp * out);
-static int	fallback_embed(const NdbLLMConfig * cfg,
-						   const NdbLLMCallOptions * opts,
+							  NdbLLMResp *out);
+static int	fallback_embed(const NdbLLMConfig *cfg,
+						   const NdbLLMCallOptions *opts,
 						   const char *reason,
 						   const char *text,
 						   float **vec_out,
 						   int *dim_out);
-static int	fallback_rerank(const NdbLLMConfig * cfg,
-							const NdbLLMCallOptions * opts,
+static int	fallback_rerank(const NdbLLMConfig *cfg,
+							const NdbLLMCallOptions *opts,
 							const char *reason,
 							const char *query,
 							const char **docs,
@@ -50,12 +50,12 @@ provider_is(const char *provider, const char *name)
 }
 
 static int
-fallback_complete(const NdbLLMConfig * cfg,
-				  const NdbLLMCallOptions * opts,
+fallback_complete(const NdbLLMConfig *cfg,
+				  const NdbLLMCallOptions *opts,
 				  const char *reason,
 				  const char *prompt,
 				  const char *params_json,
-				  NdbLLMResp * out)
+				  NdbLLMResp *out)
 {
 	if (opts != NULL && opts->require_gpu)
 	{
@@ -91,8 +91,8 @@ fallback_complete(const NdbLLMConfig * cfg,
 }
 
 static int
-fallback_embed(const NdbLLMConfig * cfg,
-			   const NdbLLMCallOptions * opts,
+fallback_embed(const NdbLLMConfig *cfg,
+			   const NdbLLMCallOptions *opts,
 			   const char *reason,
 			   const char *text,
 			   float **vec_out,
@@ -132,8 +132,8 @@ fallback_embed(const NdbLLMConfig * cfg,
 }
 
 static int
-fallback_rerank(const NdbLLMConfig * cfg,
-				const NdbLLMCallOptions * opts,
+fallback_rerank(const NdbLLMConfig *cfg,
+				const NdbLLMCallOptions *opts,
 				const char *reason,
 				const char *query,
 				const char **docs,
@@ -174,11 +174,11 @@ fallback_rerank(const NdbLLMConfig * cfg,
 }
 
 int
-ndb_llm_route_complete(const NdbLLMConfig * cfg,
-					   const NdbLLMCallOptions * opts,
+ndb_llm_route_complete(const NdbLLMConfig *cfg,
+					   const NdbLLMCallOptions *opts,
 					   const char *prompt,
 					   const char *params_json,
-					   NdbLLMResp * out)
+					   NdbLLMResp *out)
 {
 	if (cfg == NULL || prompt == NULL || out == NULL)
 		return NDB_LLM_ROUTE_ERROR;
@@ -605,13 +605,13 @@ ndb_llm_route_complete(const NdbLLMConfig * cfg,
  *	  Route vision (image-to-text) requests to appropriate backend
  */
 int
-ndb_llm_route_vision_complete(const NdbLLMConfig * cfg,
-							  const NdbLLMCallOptions * opts,
+ndb_llm_route_vision_complete(const NdbLLMConfig *cfg,
+							  const NdbLLMCallOptions *opts,
 							  const unsigned char *image_data,
 							  size_t image_size,
 							  const char *prompt,
 							  const char *params_json,
-							  NdbLLMResp * out)
+							  NdbLLMResp *out)
 {
 	if (cfg == NULL || image_data == NULL || image_size == 0 || out == NULL)
 		return NDB_LLM_ROUTE_ERROR;
@@ -632,7 +632,7 @@ ndb_llm_route_vision_complete(const NdbLLMConfig * cfg,
 		if (neurondb_gpu_is_available()
 			&& (opts == NULL || opts->prefer_gpu || opts->require_gpu))
 		{
-			const		ndb_gpu_backend *backend;
+			const ndb_gpu_backend *backend;
 			char	   *gpu_text = NULL;
 			char	   *gpu_err = NULL;
 			int			gpu_rc;
@@ -675,8 +675,8 @@ ndb_llm_route_vision_complete(const NdbLLMConfig * cfg,
 }
 
 int
-ndb_llm_route_embed(const NdbLLMConfig * cfg,
-					const NdbLLMCallOptions * opts,
+ndb_llm_route_embed(const NdbLLMConfig *cfg,
+					const NdbLLMCallOptions *opts,
 					const char *text,
 					float **vec_out,
 					int *dim_out)
@@ -1007,8 +1007,8 @@ ndb_llm_route_embed(const NdbLLMConfig * cfg,
 }
 
 int
-ndb_llm_route_rerank(const NdbLLMConfig * cfg,
-					 const NdbLLMCallOptions * opts,
+ndb_llm_route_rerank(const NdbLLMConfig *cfg,
+					 const NdbLLMCallOptions *opts,
 					 const char *query,
 					 const char **docs,
 					 int ndocs,
@@ -1157,12 +1157,12 @@ ndb_llm_route_rerank(const NdbLLMConfig * cfg,
  *	  Route batch completion requests to appropriate backend (GPU, ONNX, HTTP)
  */
 int
-ndb_llm_route_complete_batch(const NdbLLMConfig * cfg,
-							 const NdbLLMCallOptions * opts,
+ndb_llm_route_complete_batch(const NdbLLMConfig *cfg,
+							 const NdbLLMCallOptions *opts,
 							 const char **prompts,
 							 int num_prompts,
 							 const char *params_json,
-							 NdbLLMBatchResp * out)
+							 NdbLLMBatchResp *out)
 {
 	int			i;
 	int			num_success = 0;
@@ -1247,7 +1247,7 @@ ndb_llm_route_complete_batch(const NdbLLMConfig * cfg,
 						out->http_status[i] = 500;
 						if (batch_results[i].error)
 							NDB_FREE(batch_results[i]
-													.error);
+									 .error);
 					}
 				}
 				out->num_success = num_success;
@@ -1345,8 +1345,8 @@ ndb_llm_route_complete_batch(const NdbLLMConfig * cfg,
  *	  Route batch reranking requests to appropriate backend (GPU, ONNX, HTTP)
  */
 int
-ndb_llm_route_rerank_batch(const NdbLLMConfig * cfg,
-						   const NdbLLMCallOptions * opts,
+ndb_llm_route_rerank_batch(const NdbLLMConfig *cfg,
+						   const NdbLLMCallOptions *opts,
 						   const char **queries,
 						   const char ***docs_array,
 						   int *ndocs_array,
@@ -1408,8 +1408,8 @@ ndb_llm_route_rerank_batch(const NdbLLMConfig * cfg,
  *	  Route batch embedding requests to appropriate backend (GPU, HTTP)
  */
 int
-ndb_llm_route_embed_batch(const NdbLLMConfig * cfg,
-						  const NdbLLMCallOptions * opts,
+ndb_llm_route_embed_batch(const NdbLLMConfig *cfg,
+						  const NdbLLMCallOptions *opts,
 						  const char **texts,
 						  int num_texts,
 						  float ***vecs_out,
@@ -1590,8 +1590,8 @@ ndb_llm_route_embed_batch(const NdbLLMConfig * cfg,
  *	  Route image embedding requests to appropriate backend (GPU, HTTP)
  */
 int
-ndb_llm_route_image_embed(const NdbLLMConfig * cfg,
-						  const NdbLLMCallOptions * opts,
+ndb_llm_route_image_embed(const NdbLLMConfig *cfg,
+						  const NdbLLMCallOptions *opts,
 						  const unsigned char *image_data,
 						  size_t image_size,
 						  float **vec_out,
@@ -1614,7 +1614,7 @@ ndb_llm_route_image_embed(const NdbLLMConfig * cfg,
 		if (neurondb_gpu_is_available()
 			&& (opts == NULL || opts->prefer_gpu || opts->require_gpu))
 		{
-			const		ndb_gpu_backend *backend;
+			const ndb_gpu_backend *backend;
 			float	   *gpu_vec = NULL;
 			int			gpu_dim = 0;
 			char	   *gpu_err = NULL;
@@ -1686,8 +1686,8 @@ ndb_llm_route_image_embed(const NdbLLMConfig * cfg,
  *	  Route multimodal (text+image) embedding requests to appropriate backend (GPU, HTTP)
  */
 int
-ndb_llm_route_multimodal_embed(const NdbLLMConfig * cfg,
-							   const NdbLLMCallOptions * opts,
+ndb_llm_route_multimodal_embed(const NdbLLMConfig *cfg,
+							   const NdbLLMCallOptions *opts,
 							   const char *text,
 							   const unsigned char *image_data,
 							   size_t image_size,
@@ -1711,7 +1711,7 @@ ndb_llm_route_multimodal_embed(const NdbLLMConfig * cfg,
 		if (neurondb_gpu_is_available()
 			&& (opts == NULL || opts->prefer_gpu || opts->require_gpu))
 		{
-			const		ndb_gpu_backend *backend;
+			const ndb_gpu_backend *backend;
 			float	   *gpu_vec = NULL;
 			int			gpu_dim = 0;
 			char	   *gpu_err = NULL;

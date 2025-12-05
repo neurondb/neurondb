@@ -178,6 +178,7 @@ train_opq_rotation(PG_FUNCTION_ARGS)
 	{
 		double	  **covariance = NULL;
 		double	  **eigenvectors = NULL;
+
 		NDB_DECLARE(double *, eigenvalues);
 		NDB_DECLARE(double *, mean);
 		int			j,
@@ -196,7 +197,7 @@ train_opq_rotation(PG_FUNCTION_ARGS)
 			mean[j] /= (double) nvec;
 
 		/* Compute covariance matrix */
-		covariance = (double **) palloc(sizeof(double *) * dim);
+		NDB_ALLOC(covariance, double *, dim);
 		NDB_CHECK_ALLOC(covariance, "covariance");
 		for (i = 0; i < dim; i++)
 		{
@@ -227,9 +228,9 @@ train_opq_rotation(PG_FUNCTION_ARGS)
 		}
 
 		/* Compute eigenvectors using power iteration (PCA) */
-		eigenvectors = (double **) palloc(sizeof(double *) * dim);
+		NDB_ALLOC(eigenvectors, double *, dim);
 		NDB_CHECK_ALLOC(eigenvectors, "eigenvectors");
-		eigenvalues = (double *) palloc(sizeof(double) * dim);
+		NDB_ALLOC(eigenvalues, double, dim);
 		NDB_CHECK_ALLOC(eigenvalues, "eigenvalues");
 
 		for (i = 0; i < dim; i++)
@@ -239,7 +240,7 @@ train_opq_rotation(PG_FUNCTION_ARGS)
 			double		prev_eigenvalue = 0.0;
 			int			max_iter = 100;
 
-			eigvec = (double *) palloc(sizeof(double) * dim);
+			NDB_ALLOC(eigvec, double, dim);
 			NDB_CHECK_ALLOC(eigvec, "eigvec");
 
 			/* Initialize with random vector */
@@ -357,7 +358,7 @@ train_opq_rotation(PG_FUNCTION_ARGS)
 	}
 
 	/* Build result array */
-	result_datums = (Datum *) palloc(sizeof(Datum) * dim * dim);
+	NDB_ALLOC(result_datums, Datum, dim * dim);
 	NDB_CHECK_ALLOC(result_datums, "result_datums");
 	for (i = 0; i < dim * dim; i++)
 		result_datums[i] = Float8GetDatum(rotation_matrix[i]);
@@ -450,7 +451,7 @@ apply_opq_rotation(PG_FUNCTION_ARGS)
 		for (j = 0; j < dim; j++)
 			rotated[i] += rotation[i * dim + j] * vector[j];
 
-	result_datums = (Datum *) palloc(sizeof(Datum) * dim);
+	NDB_ALLOC(result_datums, Datum, dim);
 	NDB_CHECK_ALLOC(result_datums, "result_datums");
 	for (i = 0; i < dim; i++)
 		result_datums[i] = Float8GetDatum(rotated[i]);
@@ -479,6 +480,7 @@ predict_opq_rotation(PG_FUNCTION_ARGS)
 {
 	int32		model_id;
 	ArrayType  *vector_array;
+
 	NDB_DECLARE(bytea *, model_data);
 	NDB_DECLARE(Jsonb *, parameters);
 	float8	   *vector;
@@ -573,7 +575,8 @@ predict_opq_rotation(PG_FUNCTION_ARGS)
 		{
 			/* Extract rotation matrix from model_data */
 			rotation_dim = dim;
-			rotation = (float8 *) palloc(sizeof(float8) * dim * dim);
+			NDB_DECLARE(float8 *, rotation);
+			NDB_ALLOC(rotation, float8, dim * dim);
 			NDB_CHECK_ALLOC(rotation, "rotation");
 			memcpy(rotation, VARDATA(model_data), expected_size);
 			elog(DEBUG1,
@@ -583,7 +586,8 @@ predict_opq_rotation(PG_FUNCTION_ARGS)
 		{
 			/* Size mismatch - use identity matrix as fallback */
 			rotation_dim = dim;
-			rotation = (float8 *) palloc(sizeof(float8) * dim * dim);
+			NDB_DECLARE(float8 *, rotation);
+			NDB_ALLOC(rotation, float8, dim * dim);
 			NDB_CHECK_ALLOC(rotation, "rotation");
 			for (i = 0; i < dim; i++)
 			{
@@ -604,7 +608,8 @@ predict_opq_rotation(PG_FUNCTION_ARGS)
 		/* Extract rotation from JSONB array */
 		/* JSONB array format: [row0_col0, row0_col1, ..., row1_col0, ...] */
 		rotation_dim = dim;
-		rotation = (float8 *) palloc(sizeof(float8) * dim * dim);
+		NDB_DECLARE(float8 *, rotation);
+		NDB_ALLOC(rotation, float8, dim * dim);
 		NDB_CHECK_ALLOC(rotation, "rotation");
 
 		/* Re-initialize iterator to extract array elements */
@@ -638,8 +643,8 @@ predict_opq_rotation(PG_FUNCTION_ARGS)
 										Numeric		num = DatumGetNumeric(DirectFunctionCall1(
 																							  numeric_in,
 																							  CStringGetTextDatum(DatumGetCString(
-																															  DirectFunctionCall1(numeric_out,
-																																				  PointerGetDatum(arr_v.val.numeric))))));
+																																  DirectFunctionCall1(numeric_out,
+																																					  PointerGetDatum(arr_v.val.numeric))))));
 
 										rotation[idx] = DatumGetFloat8(DirectFunctionCall1(
 																						   numeric_float8,
@@ -696,7 +701,8 @@ predict_opq_rotation(PG_FUNCTION_ARGS)
 			}
 			/* Fall back to identity matrix */
 			rotation_dim = dim;
-			rotation = (float8 *) palloc(sizeof(float8) * dim * dim);
+			NDB_DECLARE(float8 *, rotation);
+			NDB_ALLOC(rotation, float8, dim * dim);
 			NDB_CHECK_ALLOC(rotation, "rotation");
 			for (i = 0; i < dim; i++)
 			{
@@ -739,7 +745,7 @@ predict_opq_rotation(PG_FUNCTION_ARGS)
 	}
 
 	/* Build result array */
-	result_datums = (Datum *) palloc(sizeof(Datum) * dim);
+	NDB_ALLOC(result_datums, Datum, dim);
 	NDB_CHECK_ALLOC(result_datums, "result_datums");
 	for (i = 0; i < dim; i++)
 		result_datums[i] = Float8GetDatum(rotated[i]);
@@ -785,6 +791,7 @@ evaluate_opq_rotation_by_model_id(PG_FUNCTION_ARGS)
 	double		avg_quantization_error;
 	int			subquantizers;
 	int			codebook_size;
+
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext_spi;
 
@@ -873,7 +880,7 @@ evaluate_opq_rotation_by_model_id(PG_FUNCTION_ARGS)
 										   &parameters,
 										   &metrics))
 		{
-			float	  ***centroids = NULL;
+			float	 ***centroids = NULL;
 
 			if (model_payload != NULL && VARSIZE(model_payload) > VARHDRSZ)
 			{
@@ -912,7 +919,7 @@ evaluate_opq_rotation_by_model_id(PG_FUNCTION_ARGS)
 					HeapTuple	tuple;
 
 					/* Safe access to SPI_tuptable - validate before access */
-					if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL || 
+					if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL ||
 						i >= SPI_processed || SPI_tuptable->vals[i] == NULL)
 					{
 						continue;
@@ -930,65 +937,65 @@ evaluate_opq_rotation_by_model_id(PG_FUNCTION_ARGS)
 						double		vector_error = 0.0;
 						int			start_dim;
 
-					vec_datum = SPI_getbinval(tuple, tupdesc, 1, &vec_null);
-					if (vec_null)
-						continue;
+						vec_datum = SPI_getbinval(tuple, tupdesc, 1, &vec_null);
+						if (vec_null)
+							continue;
 
-					vec = DatumGetVector(vec_datum);
-					if (vec == NULL || vec->dim != m * dsub)
-						continue;
+						vec = DatumGetVector(vec_datum);
+						if (vec == NULL || vec->dim != m * dsub)
+							continue;
 
-					vec_data = vec->data;
-					valid_vectors++;
+						vec_data = vec->data;
+						valid_vectors++;
 
-					/*
-					 * For each subspace, find nearest centroid and compute
-					 * error
-					 */
-					for (sub = 0; sub < m; sub++)
-					{
-						double		min_dist;
-						int			best_c;
-						double		sub_error;
-
-						start_dim = sub * dsub;
-						min_dist = DBL_MAX;
-						best_c = -1;
-						sub_error = 0.0;
-
-						for (c = 0; c < ksub; c++)
+						/*
+						 * For each subspace, find nearest centroid and
+						 * compute error
+						 */
+						for (sub = 0; sub < m; sub++)
 						{
-							double		dist = 0.0;
+							double		min_dist;
+							int			best_c;
+							double		sub_error;
 
-							for (d = 0; d < dsub; d++)
-							{
-								double		diff = (double) vec_data[start_dim + d]
-									- (double) centroids[sub][c][d];
+							start_dim = sub * dsub;
+							min_dist = DBL_MAX;
+							best_c = -1;
+							sub_error = 0.0;
 
-								dist += diff * diff;
-							}
-							if (dist < min_dist)
+							for (c = 0; c < ksub; c++)
 							{
-								min_dist = dist;
-								best_c = c;
+								double		dist = 0.0;
+
+								for (d = 0; d < dsub; d++)
+								{
+									double		diff = (double) vec_data[start_dim + d]
+										- (double) centroids[sub][c][d];
+
+									dist += diff * diff;
+								}
+								if (dist < min_dist)
+								{
+									min_dist = dist;
+									best_c = c;
+								}
 							}
+
+							if (best_c >= 0)
+							{
+								for (d = 0; d < dsub; d++)
+								{
+									double		diff = (double) vec_data[start_dim + d]
+										- (double) centroids[sub][best_c][d];
+
+									sub_error += diff * diff;
+								}
+							}
+
+							vector_error += sub_error;
 						}
 
-						if (best_c >= 0)
-						{
-							for (d = 0; d < dsub; d++)
-							{
-								double		diff = (double) vec_data[start_dim + d]
-									- (double) centroids[sub][best_c][d];
-
-								sub_error += diff * diff;
-							}
-						}
-
-						vector_error += sub_error;
-					}
-
-					total_error += vector_error;
+						total_error += vector_error;
 					}
 				}
 
@@ -1091,7 +1098,9 @@ opq_model_serialize_to_bytea(const PQCodebook * codebook, const float *rotation_
 
 	result_size = sizeof(int) * 4 + dim * dim * sizeof(float) +
 		codebook->m * codebook->ksub * codebook->dsub * sizeof(float);
-	result = (bytea *) palloc(VARHDRSZ + result_size);
+	NDB_DECLARE(char *, result_raw);
+	NDB_ALLOC(result_raw, char, VARHDRSZ + result_size);
+	result = (bytea *) result_raw;
 	NDB_CHECK_ALLOC(result, "result");
 	SET_VARSIZE(result, VARHDRSZ + result_size);
 	result_ptr = VARDATA(result);
@@ -1143,24 +1152,32 @@ opq_model_deserialize_from_bytea(const bytea * data, PQCodebook * codebook, floa
 		return -1;
 
 	/* Check for integer overflow in size calculation */
-	if (*dim_out > 0 && (size_t) *dim_out > MaxAllocSize / sizeof(float) / (size_t) *dim_out)
+	if (*dim_out > 0 && (size_t) * dim_out > MaxAllocSize / sizeof(float) / (size_t) * dim_out)
 	{
 		return -1;
 	}
-	*rotation_matrix_out = (float *) palloc(sizeof(float) * *dim_out * *dim_out);
+	NDB_DECLARE(float *, rotation_matrix);
+	NDB_ALLOC(rotation_matrix, float, *dim_out * *dim_out);
+	*rotation_matrix_out = rotation_matrix;
 	NDB_CHECK_ALLOC(rotation_matrix_out, "rotation_matrix_out");
 	memcpy(*rotation_matrix_out, buf + offset, sizeof(float) * *dim_out * *dim_out);
 	offset += sizeof(float) * *dim_out * *dim_out;
 
-	codebook->centroids = (float ***) palloc(sizeof(float **) * codebook->m);
+	NDB_DECLARE(float ***, centroids);
+	NDB_ALLOC(centroids, float **, codebook->m);
+	codebook->centroids = centroids;
 	NDB_CHECK_ALLOC(codebook, "codebook");
 	for (sub = 0; sub < codebook->m; sub++)
 	{
-		codebook->centroids[sub] = (float **) palloc(sizeof(float *) * codebook->ksub);
+		NDB_DECLARE(float **, sub_centroids);
+		NDB_ALLOC(sub_centroids, float *, codebook->ksub);
+		codebook->centroids[sub] = sub_centroids;
 		NDB_CHECK_ALLOC(codebook, "codebook");
 		for (i = 0; i < codebook->ksub; i++)
 		{
-			codebook->centroids[sub][i] = (float *) palloc(sizeof(float) * codebook->dsub);
+			NDB_DECLARE(float *, centroid_vec);
+			NDB_ALLOC(centroid_vec, float, codebook->dsub);
+			codebook->centroids[sub][i] = centroid_vec;
 			NDB_CHECK_ALLOC(codebook, "codebook");
 			memcpy(codebook->centroids[sub][i], buf + offset, sizeof(float) * codebook->dsub);
 			offset += sizeof(float) * codebook->dsub;
@@ -1171,11 +1188,12 @@ opq_model_deserialize_from_bytea(const bytea * data, PQCodebook * codebook, floa
 }
 
 static bool
-opq_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
+opq_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **errstr)
 {
 	OPQGpuModelState *state;
 	float	  **data = NULL;
 	PQCodebook	codebook;
+
 	NDB_DECLARE(float *, rotation_matrix);
 	int			m = 8;
 	int			ksub = 256;
@@ -1183,6 +1201,7 @@ opq_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 	int			dim = 0;
 	int			sub,
 				i;
+
 	NDB_DECLARE(bytea *, model_data);
 	NDB_DECLARE(Jsonb *, metrics);
 	StringInfoData metrics_json;
@@ -1245,11 +1264,13 @@ opq_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 		return false;
 	}
 
-	data = (float **) palloc(sizeof(float *) * nvec);
+	NDB_ALLOC(data, float *, nvec);
 	NDB_CHECK_ALLOC(data, "data");
 	for (i = 0; i < nvec; i++)
 	{
-		data[i] = (float *) palloc(sizeof(float) * dim);
+		NDB_DECLARE(float *, data_row);
+		NDB_ALLOC(data_row, float, dim);
+		data[i] = data_row;
 		NDB_CHECK_ALLOC(data, "data");
 		memcpy(data[i], &spec->feature_matrix[i * dim], sizeof(float) * dim);
 	}
@@ -1266,15 +1287,21 @@ opq_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 	codebook.dsub = dim / m;
 
 	/* Allocate centroids */
-	codebook.centroids = (float ***) palloc(sizeof(float **) * m);
+	NDB_DECLARE(float ***, centroids);
+	NDB_ALLOC(centroids, float **, m);
+	codebook.centroids = centroids;
 	NDB_CHECK_ALLOC(codebook.centroids, "codebook.centroids");
 	for (sub = 0; sub < m; sub++)
 	{
-		codebook.centroids[sub] = (float **) palloc(sizeof(float *) * ksub);
+		NDB_DECLARE(float **, sub_centroids);
+		NDB_ALLOC(sub_centroids, float *, ksub);
+		codebook.centroids[sub] = sub_centroids;
 		NDB_CHECK_ALLOC(codebook.centroids[sub], "codebook.centroids[sub]");
 		for (i = 0; i < ksub; i++)
 		{
-			codebook.centroids[sub][i] = (float *) palloc(sizeof(float) * codebook.dsub);
+			NDB_DECLARE(float *, centroid_vec);
+			NDB_ALLOC(centroid_vec, float, codebook.dsub);
+			codebook.centroids[sub][i] = centroid_vec;
 			NDB_CHECK_ALLOC(codebook.centroids[sub][i], "codebook.centroids[sub][i]");
 		}
 	}
@@ -1285,11 +1312,13 @@ opq_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 		float	  **subspace_data = NULL;
 		int			start_dim = sub * codebook.dsub;
 
-		subspace_data = (float **) palloc(sizeof(float *) * nvec);
+		NDB_ALLOC(subspace_data, float *, nvec);
 		NDB_CHECK_ALLOC(subspace_data, "subspace_data");
 		for (i = 0; i < nvec; i++)
 		{
-			subspace_data[i] = (float *) palloc(sizeof(float) * codebook.dsub);
+			NDB_DECLARE(float *, sub_vec);
+			NDB_ALLOC(sub_vec, float, codebook.dsub);
+			subspace_data[i] = sub_vec;
 			NDB_CHECK_ALLOC(subspace_data, "subspace_data");
 			memcpy(subspace_data[i], &data[i][start_dim], sizeof(float) * codebook.dsub);
 		}
@@ -1327,7 +1356,9 @@ opq_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 	NDB_CHECK_ALLOC(state, "state");
 	state->model_blob = model_data;
 	state->metrics = metrics;
-	state->codebook = (PQCodebook *) palloc(sizeof(PQCodebook));
+	NDB_DECLARE(PQCodebook *, codebook_ptr);
+	NDB_ALLOC(codebook_ptr, PQCodebook, 1);
+	state->codebook = codebook_ptr;
 	NDB_CHECK_ALLOC(state, "state");
 	*state->codebook = codebook;
 	state->rotation_matrix = rotation_matrix;
@@ -1353,16 +1384,18 @@ opq_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 }
 
 static bool
-opq_gpu_predict(const MLGpuModel * model, const float *input, int input_dim,
+opq_gpu_predict(const MLGpuModel *model, const float *input, int input_dim,
 				float *output, int output_dim, char **errstr)
 {
 	const		OPQGpuModelState *state;
 	PQCodebook *codebook;
+
 	NDB_DECLARE(float *, rotated_input);
 	int			sub;
 	int			start_dim;
 	double		min_dist;
 	int			best_code;
+
 	NDB_DECLARE(float *, reconstructed);
 	int			i,
 				j;
@@ -1409,6 +1442,7 @@ opq_gpu_predict(const MLGpuModel * model, const float *input, int input_dim,
 	if (state->codebook == NULL)
 	{
 		PQCodebook	temp_codebook;
+
 		NDB_DECLARE(float *, temp_rotation);
 		int			temp_dim = 0;
 
@@ -1418,16 +1452,18 @@ opq_gpu_predict(const MLGpuModel * model, const float *input, int input_dim,
 				*errstr = pstrdup("opq_gpu_predict: failed to deserialize");
 			return false;
 		}
-		((OPQGpuModelState *) state)->codebook = (PQCodebook *) palloc(sizeof(PQCodebook));
+		NDB_DECLARE(PQCodebook *, codebook_ptr);
+		NDB_ALLOC(codebook_ptr, PQCodebook, 1);
+		((OPQGpuModelState *) state)->codebook = codebook_ptr;
 		NDB_CHECK_ALLOC(((OPQGpuModelState *) state)->codebook, "codebook");
 		*((OPQGpuModelState *) state)->codebook = temp_codebook;
 		((OPQGpuModelState *) state)->rotation_matrix = temp_rotation;
 	}
 
 	codebook = state->codebook;
-	rotated_input = (float *) palloc(sizeof(float) * state->dim);
+	NDB_ALLOC(rotated_input, float, state->dim);
 	NDB_CHECK_ALLOC(rotated_input, "rotated_input");
-	reconstructed = (float *) palloc(sizeof(float) * state->dim);
+	NDB_ALLOC(reconstructed, float, state->dim);
 	NDB_CHECK_ALLOC(reconstructed, "reconstructed");
 
 	/* Apply rotation */
@@ -1476,8 +1512,8 @@ opq_gpu_predict(const MLGpuModel * model, const float *input, int input_dim,
 }
 
 static bool
-opq_gpu_evaluate(const MLGpuModel * model, const MLGpuEvalSpec * spec,
-				 MLGpuMetrics * out, char **errstr)
+opq_gpu_evaluate(const MLGpuModel *model, const MLGpuEvalSpec *spec,
+				 MLGpuMetrics *out, char **errstr)
 {
 	const		OPQGpuModelState *state;
 	Jsonb	   *metrics_json;
@@ -1525,7 +1561,7 @@ opq_gpu_evaluate(const MLGpuModel * model, const MLGpuEvalSpec * spec,
 }
 
 static bool
-opq_gpu_serialize(const MLGpuModel * model, bytea * *payload_out,
+opq_gpu_serialize(const MLGpuModel *model, bytea * *payload_out,
 				  Jsonb * *metadata_out, char **errstr)
 {
 	const		OPQGpuModelState *state;
@@ -1554,7 +1590,9 @@ opq_gpu_serialize(const MLGpuModel * model, bytea * *payload_out,
 	}
 
 	payload_size = VARSIZE(state->model_blob);
-	payload_copy = (bytea *) palloc(payload_size);
+	NDB_DECLARE(char *, payload_copy_raw);
+	NDB_ALLOC(payload_copy_raw, char, payload_size);
+	payload_copy = (bytea *) payload_copy_raw;
 	NDB_CHECK_ALLOC(payload_copy, "payload_copy");
 	memcpy(payload_copy, state->model_blob, payload_size);
 
@@ -1571,13 +1609,14 @@ opq_gpu_serialize(const MLGpuModel * model, bytea * *payload_out,
 }
 
 static bool
-opq_gpu_deserialize(MLGpuModel * model, const bytea * payload,
+opq_gpu_deserialize(MLGpuModel *model, const bytea * payload,
 					const Jsonb * metadata, char **errstr)
 {
 	OPQGpuModelState *state;
 	bytea	   *payload_copy;
 	int			payload_size;
 	PQCodebook	codebook;
+
 	NDB_DECLARE(float *, rotation_matrix);
 	int			dim = 0;
 	JsonbIterator *it;
@@ -1594,7 +1633,9 @@ opq_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 	}
 
 	payload_size = VARSIZE(payload);
-	payload_copy = (bytea *) palloc(payload_size);
+	NDB_DECLARE(char *, payload_copy_raw);
+	NDB_ALLOC(payload_copy_raw, char, payload_size);
+	payload_copy = (bytea *) payload_copy_raw;
 	NDB_CHECK_ALLOC(payload_copy, "payload_copy");
 	memcpy(payload_copy, payload, payload_size);
 
@@ -1609,7 +1650,9 @@ opq_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 	state = (OPQGpuModelState *) palloc0(sizeof(OPQGpuModelState));
 	NDB_CHECK_ALLOC(state, "state");
 	state->model_blob = payload_copy;
-	state->codebook = (PQCodebook *) palloc(sizeof(PQCodebook));
+	NDB_DECLARE(PQCodebook *, codebook_ptr);
+	NDB_ALLOC(codebook_ptr, PQCodebook, 1);
+	state->codebook = codebook_ptr;
 	NDB_CHECK_ALLOC(state, "state");
 	*state->codebook = codebook;
 	state->rotation_matrix = rotation_matrix;
@@ -1622,7 +1665,10 @@ opq_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 	if (metadata != NULL)
 	{
 		int			metadata_size = VARSIZE(metadata);
-		Jsonb	   *metadata_copy = (Jsonb *) palloc(metadata_size);
+		NDB_DECLARE(Jsonb *, metadata_copy);
+		NDB_DECLARE(char *, metadata_copy_raw);
+		NDB_ALLOC(metadata_copy_raw, char, metadata_size);
+		metadata_copy = (Jsonb *) metadata_copy_raw;
 
 		NDB_CHECK_ALLOC(metadata_copy, "metadata_copy");
 		memcpy(metadata_copy, metadata, metadata_size);
@@ -1659,7 +1705,7 @@ opq_gpu_deserialize(MLGpuModel * model, const bytea * payload,
 }
 
 static void
-opq_gpu_destroy(MLGpuModel * model)
+opq_gpu_destroy(MLGpuModel *model)
 {
 	OPQGpuModelState *state;
 

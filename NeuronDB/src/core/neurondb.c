@@ -568,7 +568,7 @@ array_to_vector(PG_FUNCTION_ARGS)
 				 errdetail("array_to_vector received array with %d dimensions", ARR_NDIM(array))));
 
 	elem_type = ARR_ELEMTYPE(array);
-	
+
 	/* Validate element type - must be a numeric type, not an array type */
 	if (get_element_type(elem_type) != InvalidOid)
 		ereport(ERROR,
@@ -578,7 +578,7 @@ array_to_vector(PG_FUNCTION_ARGS)
 				 errhint("Extract the nested array element first, or use array_to_vector on each nested array separately")));
 
 	get_typlenbyvalalign(elem_type, &typlen, &typbyval, &typalign);
-	
+
 	/* Validate type information before deconstructing */
 	if (typlen <= 0 && elem_type != FLOAT4OID && elem_type != FLOAT8OID)
 		ereport(ERROR,
@@ -669,6 +669,7 @@ vector_typmod_out(PG_FUNCTION_ARGS)
 	appendStringInfo(&buf, "(%d)", typmod);
 	PG_RETURN_CSTRING(buf.data);
 }
+
 Datum
 vector_to_array(PG_FUNCTION_ARGS)
 {

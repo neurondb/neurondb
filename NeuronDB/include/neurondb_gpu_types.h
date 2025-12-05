@@ -44,13 +44,13 @@ typedef enum NDBGpuBackendFeature
  */
 typedef struct NDBGpuDeviceInfo
 {
-	int device_id;
-	char name[256];
-	size_t total_memory_bytes;
-	size_t free_memory_bytes;
-	int compute_major;
-	int compute_minor;
-	bool is_available;
+	int			device_id;
+	char		name[256];
+	size_t		total_memory_bytes;
+	size_t		free_memory_bytes;
+	int			compute_major;
+	int			compute_minor;
+	bool		is_available;
 } NDBGpuDeviceInfo;
 
-#endif /* NEURONDB_GPU_TYPES_H */
+#endif							/* NEURONDB_GPU_TYPES_H */

@@ -81,7 +81,7 @@ static int	ndb_cuda_init(void);
 static void ndb_cuda_shutdown(void);
 static int	ndb_cuda_is_available(void);
 static int	ndb_cuda_device_count(void);
-static int	ndb_cuda_device_info(int device_id, NDBGpuDeviceInfo * info);
+static int	ndb_cuda_device_info(int device_id, NDBGpuDeviceInfo *info);
 static int	ndb_cuda_set_device(int device_id);
 static int	ndb_cuda_mem_alloc(void **ptr, size_t bytes);
 static int	ndb_cuda_mem_free(void *ptr);
@@ -271,7 +271,7 @@ ndb_cuda_device_count(void)
 }
 
 static int
-ndb_cuda_device_info(int device_id, NDBGpuDeviceInfo * info)
+ndb_cuda_device_info(int device_id, NDBGpuDeviceInfo *info)
 {
 	struct cudaDeviceProp prop;
 	size_t		free_mem = 0;

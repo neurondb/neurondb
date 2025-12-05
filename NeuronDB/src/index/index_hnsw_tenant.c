@@ -116,17 +116,21 @@ hnsw_tenant_search(PG_FUNCTION_ARGS)
 		int32		tenant_id;
 		int32		k;
 		int16		ef_search = 100;	/* Default for demonstration */
+
 		NDB_DECLARE(NdbSpiSession *, lookup_session);
 
-		/* Read function arguments according to SQL signature: table_name, query_vector, k, tenant_id */
+		/*
+		 * Read function arguments according to SQL signature: table_name,
+		 * query_vector, k, tenant_id
+		 */
 		table_name = PG_GETARG_TEXT_PP(0);
 		query = PG_GETARG_VECTOR_P(1);
 		k = PG_GETARG_INT32(2);
 		{
-			text *tenant_id_text = PG_GETARG_TEXT_PP(3);
-			char *tenant_id_str;
-			char *endptr;
-			long tenant_id_long;
+			text	   *tenant_id_text = PG_GETARG_TEXT_PP(3);
+			char	   *tenant_id_str;
+			char	   *endptr;
+			long		tenant_id_long;
 
 			if (tenant_id_text == NULL)
 				ereport(ERROR, (errmsg("tenant_id cannot be null")));
@@ -185,8 +189,9 @@ hnsw_tenant_search(PG_FUNCTION_ARGS)
 
 			if (ret == SPI_OK_SELECT && SPI_processed > 0)
 			{
-				bool isnull;
-				Datum col_datum = SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 1, &isnull);
+				bool		isnull;
+				Datum		col_datum = SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 1, &isnull);
+
 				if (!isnull)
 					col_str = text_to_cstring(DatumGetTextP(col_datum));
 			}
@@ -229,24 +234,29 @@ hnsw_tenant_search(PG_FUNCTION_ARGS)
 		{
 			NDB_DECLARE(NdbSpiSession *, session);
 			session = ndb_spi_session_begin(funcctx->multi_call_memory_ctx, false);
-		if (session == NULL)
-			elog(ERROR, "failed to begin SPI session");
+			if (session == NULL)
+				elog(ERROR, "failed to begin SPI session");
 
-		ret = ndb_spi_execute(session, sql.data, true, k);
-		if (ret != SPI_OK_SELECT && ret != SPI_OK_INSERT)
-		{
-			ndb_spi_session_end(&session);
-			elog(ERROR, "SPI query failed: %s", sql.data);
-		}
+			ret = ndb_spi_execute(session, sql.data, true, k);
+			if (ret != SPI_OK_SELECT && ret != SPI_OK_INSERT)
+			{
+				ndb_spi_session_end(&session);
+				elog(ERROR, "SPI query failed: %s", sql.data);
+			}
 
-		/* Save SPI tuptable and session for subsequent calls */
-		funcctx->max_calls = SPI_processed;
-		/* Store both session and tuptable - we need to keep session alive for tuptable access */
-		funcctx->user_fctx = session;  /* Store session to keep SPI connection alive */
+			/* Save SPI tuptable and session for subsequent calls */
+			funcctx->max_calls = SPI_processed;
 
-		MemoryContextSwitchTo(oldcontext);
+			/*
+			 * Store both session and tuptable - we need to keep session alive
+			 * for tuptable access
+			 */
+			funcctx->user_fctx = session;	/* Store session to keep SPI
+											 * connection alive */
 
-		NDB_FREE(index_tbl);
+			MemoryContextSwitchTo(oldcontext);
+
+			NDB_FREE(index_tbl);
 		}
 	}
 
@@ -260,8 +270,8 @@ hnsw_tenant_search(PG_FUNCTION_ARGS)
 		Datum		values[2];
 		bool		nulls[2];
 		HeapTuple	tup;
-		
-		(void) session;  /* May be unused in some code paths */
+
+		(void) session;			/* May be unused in some code paths */
 		tuptable = SPI_tuptable;
 
 		spi_tuple = tuptable->vals[funcctx->call_cntr];
@@ -433,28 +443,28 @@ maybe_build_hnsw_index(const char *tbl, const char *col, int32 tenant_id)
 	{
 		NDB_DECLARE(NdbSpiSession *, session);
 		session = ndb_spi_session_begin(CurrentMemoryContext, false);
-	if (session == NULL)
-		elog(ERROR, "failed to begin SPI session in maybe_build_hnsw_index");
+		if (session == NULL)
+			elog(ERROR, "failed to begin SPI session in maybe_build_hnsw_index");
 
-	initStringInfo(&sql);
+		initStringInfo(&sql);
 
-	appendStringInfo(&sql,
-					 "CREATE TABLE IF NOT EXISTS %s ("
-					 "id bigint, vector vector, tenant_id int, PRIMARY KEY (id))",
-					 idx_tbl);
+		appendStringInfo(&sql,
+						 "CREATE TABLE IF NOT EXISTS %s ("
+						 "id bigint, vector vector, tenant_id int, PRIMARY KEY (id))",
+						 idx_tbl);
 
-	ret = ndb_spi_execute(session, sql.data, false, 0);
-	if (ret != SPI_OK_UTILITY)
-	{
-		NDB_FREE(sql.data);
-		NDB_FREE(idx_tbl);
-		ndb_spi_session_end(&session);
-		elog(ERROR, "Failed creating index table: %s", sql.data);
-	}
-
-		NDB_FREE(sql.data);
-		ndb_spi_session_end(&session);
+		ret = ndb_spi_execute(session, sql.data, false, 0);
+		if (ret != SPI_OK_UTILITY)
+		{
+			NDB_FREE(sql.data);
+			NDB_FREE(idx_tbl);
+			ndb_spi_session_end(&session);
+			elog(ERROR, "Failed creating index table: %s", sql.data);
 		}
+
+		NDB_FREE(sql.data);
+		ndb_spi_session_end(&session);
+	}
 	NDB_FREE(idx_tbl);
 }
 
@@ -475,40 +485,40 @@ get_tenant_quota_json(int32 tenant_id, int32 * used, int32 * total)
 	{
 		NDB_DECLARE(NdbSpiSession *, session);
 		session = ndb_spi_session_begin(CurrentMemoryContext, false);
-	if (session == NULL)
-		elog(ERROR, "failed to begin SPI session in get_tenant_quota_json");
+		if (session == NULL)
+			elog(ERROR, "failed to begin SPI session in get_tenant_quota_json");
 
-	initStringInfo(&sql);
+		initStringInfo(&sql);
 
-	appendStringInfo(&sql,
-					 "SELECT quota_used, quota_max FROM %s WHERE tenant_id = %d LIMIT 1",
-					 HNSW_META_TABLE, tenant_id);
+		appendStringInfo(&sql,
+						 "SELECT quota_used, quota_max FROM %s WHERE tenant_id = %d LIMIT 1",
+						 HNSW_META_TABLE, tenant_id);
 
-	ret = ndb_spi_execute(session, sql.data, true, 1);
-	if (ret != SPI_OK_SELECT)
-	{
+		ret = ndb_spi_execute(session, sql.data, true, 1);
+		if (ret != SPI_OK_SELECT)
+		{
+			NDB_FREE(sql.data);
+			ndb_spi_session_end(&session);
+			elog(ERROR, "Failed to read quota for tenant %d", tenant_id);
+		}
+
+		if (SPI_processed == 1 && SPI_tuptable != NULL)
+		{
+			HeapTuple	tup = SPI_tuptable->vals[0];
+			bool		qnull,
+						tnull;
+
+			*used = DatumGetInt32(SPI_getbinval(tup, SPI_tuptable->tupdesc, 1, &qnull));
+			*total = DatumGetInt32(SPI_getbinval(tup, SPI_tuptable->tupdesc, 2, &tnull));
+		}
+		else
+		{
+			*used = 0;
+			*total = 0;
+		}
 		NDB_FREE(sql.data);
 		ndb_spi_session_end(&session);
-		elog(ERROR, "Failed to read quota for tenant %d", tenant_id);
 	}
-
-	if (SPI_processed == 1 && SPI_tuptable != NULL)
-	{
-		HeapTuple	tup = SPI_tuptable->vals[0];
-		bool		qnull,
-					tnull;
-
-		*used = DatumGetInt32(SPI_getbinval(tup, SPI_tuptable->tupdesc, 1, &qnull));
-		*total = DatumGetInt32(SPI_getbinval(tup, SPI_tuptable->tupdesc, 2, &tnull));
-	}
-	else
-	{
-		*used = 0;
-		*total = 0;
-	}
-	NDB_FREE(sql.data);
-		ndb_spi_session_end(&session);
-		}
 
 	/* Create JSONB object */
 	{

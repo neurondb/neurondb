@@ -174,6 +174,7 @@ create_policy(PG_FUNCTION_ARGS)
 	char	   *name_str = NULL;
 	char	   *rule_str = NULL;
 	volatile bool success = false;
+
 	NDB_DECLARE(NdbSpiSession *, session);
 
 	if (policy_name == NULL || policy_rule == NULL)
@@ -315,6 +316,7 @@ audit_log_query(PG_FUNCTION_ARGS)
 	char	   *hmac_hex = NULL;
 	char	   *hmac_key = NULL;
 	StringInfoData hmac_data;
+
 	NDB_DECLARE(NdbSpiSession *, session);
 
 	if (query_text == NULL || user_id == NULL || result_vectors == NULL)

@@ -24,7 +24,7 @@
 typedef struct MLGpuModelEntry
 {
 	char		algorithm[64];	/* Algorithm name as key */
-	const		MLGpuModelOps *ops;
+	const MLGpuModelOps *ops;
 }			MLGpuModelEntry;
 
 static HTAB * gpu_model_registry = NULL;
@@ -48,7 +48,7 @@ ndb_gpu_init_model_registry(void)
 }
 
 bool
-ndb_gpu_register_model_ops(const MLGpuModelOps * ops)
+ndb_gpu_register_model_ops(const MLGpuModelOps *ops)
 {
 	MLGpuModelEntry *entry;
 	bool		found;
@@ -74,7 +74,7 @@ ndb_gpu_register_model_ops(const MLGpuModelOps * ops)
 	return !found;
 }
 
-const		MLGpuModelOps *
+const MLGpuModelOps *
 ndb_gpu_lookup_model_ops(const char *algorithm)
 {
 	MLGpuModelEntry *entry;

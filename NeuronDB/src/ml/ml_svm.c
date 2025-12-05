@@ -66,7 +66,7 @@ static void svm_dataset_load(const char *quoted_tbl,
 							 SVMDataset * dataset,
 							 MemoryContext oldcontext);
 static bytea * svm_model_serialize(const SVMModel * model, uint8 training_backend);
-static SVMModel * svm_model_deserialize(const bytea * data, MemoryContext target_context, uint8 *training_backend_out);
+static SVMModel * svm_model_deserialize(const bytea * data, MemoryContext target_context, uint8 * training_backend_out);
 static bool svm_metadata_is_gpu(Jsonb * metadata);
 static double svm_decode_label_datum(Datum label_datum, Oid label_type_oid);
 static bool svm_try_gpu_predict_catalog(int32 model_id,
@@ -158,12 +158,13 @@ svm_dataset_load(const char *quoted_tbl,
 				 SVMDataset * dataset,
 				 MemoryContext oldcontext)
 {
-	NDB_DECLARE (NdbSpiSession *, load_spi_session);
+	NDB_DECLARE(NdbSpiSession *, load_spi_session);
 	int			ret;
 	int			nvec = 0;
 	int			dim = 0;
 	int			i;
-	NDB_DECLARE (char *, query_str);
+
+	NDB_DECLARE(char *, query_str);
 	size_t		query_len;
 
 	if (dataset == NULL)
@@ -211,7 +212,7 @@ svm_dataset_load(const char *quoted_tbl,
 	}
 
 	/* Safe access for complex types - validate before access */
-	if (nvec > 0 && SPI_tuptable != NULL && SPI_tuptable->vals != NULL && 
+	if (nvec > 0 && SPI_tuptable != NULL && SPI_tuptable->vals != NULL &&
 		SPI_tuptable->vals[0] != NULL && SPI_tuptable->tupdesc != NULL)
 	{
 		HeapTuple	tuple = SPI_tuptable->vals[0];
@@ -284,7 +285,7 @@ svm_dataset_load(const char *quoted_tbl,
 			bool		label_null;
 
 			/* Safe access to SPI_tuptable - validate before access */
-			if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL || 
+			if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL ||
 				i >= SPI_processed || SPI_tuptable->vals[i] == NULL)
 			{
 				continue;
@@ -469,7 +470,7 @@ svm_model_serialize(const SVMModel * model, uint8 training_backend)
  * svm_model_deserialize
  */
 static SVMModel *
-svm_model_deserialize(const bytea * data, MemoryContext target_context, uint8 *training_backend_out)
+svm_model_deserialize(const bytea * data, MemoryContext target_context, uint8 * training_backend_out)
 {
 	StringInfoData buf;
 	SVMModel   *model;
@@ -490,7 +491,7 @@ svm_model_deserialize(const bytea * data, MemoryContext target_context, uint8 *t
 
 	oldcontext = MemoryContextSwitchTo(target_context);
 
-	model = (SVMModel *) palloc(sizeof(SVMModel));
+	NDB_ALLOC(model, SVMModel, 1);
 	memset(model, 0, sizeof(SVMModel));
 
 	model->model_id = pq_getmsgint(&buf, 4);
@@ -528,7 +529,8 @@ svm_model_deserialize(const bytea * data, MemoryContext target_context, uint8 *t
 
 	if (model->n_support_vectors > 0)
 	{
-		model->alphas = (double *) palloc(
+		NDB_DECLARE(double *, alphas);
+		NDB_ALLOC(alphas, double,
 										  sizeof(double) * (size_t) model->n_support_vectors);
 		for (i = 0; i < model->n_support_vectors; i++)
 			model->alphas[i] = pq_getmsgfloat8(&buf);
@@ -536,9 +538,10 @@ svm_model_deserialize(const bytea * data, MemoryContext target_context, uint8 *t
 
 	if (model->n_support_vectors > 0 && model->n_features > 0)
 	{
-		model->support_vectors = (float *) palloc(sizeof(float)
-												  * (size_t) model->n_support_vectors
-												  * (size_t) model->n_features);
+		NDB_DECLARE(float *, support_vectors);
+		NDB_ALLOC(support_vectors, float,
+				  (size_t) model->n_support_vectors
+				  * (size_t) model->n_features);
 		for (i = 0; i < model->n_support_vectors * model->n_features;
 			 i++)
 			model->support_vectors[i] = pq_getmsgfloat4(&buf);
@@ -546,7 +549,8 @@ svm_model_deserialize(const bytea * data, MemoryContext target_context, uint8 *t
 
 	if (model->n_support_vectors > 0)
 	{
-		model->support_vector_indices = (int *) palloc(
+		NDB_DECLARE(int *, support_vector_indices);
+		NDB_ALLOC(support_vector_indices, int,
 													   sizeof(int) * (size_t) model->n_support_vectors);
 		for (i = 0; i < model->n_support_vectors; i++)
 			model->support_vector_indices[i] =
@@ -555,7 +559,8 @@ svm_model_deserialize(const bytea * data, MemoryContext target_context, uint8 *t
 
 	if (model->n_support_vectors > 0)
 	{
-		model->support_labels = (double *) palloc(
+		NDB_DECLARE(double *, support_labels);
+		NDB_ALLOC(support_labels, double,
 												  sizeof(double) * (size_t) model->n_support_vectors);
 		for (i = 0; i < model->n_support_vectors; i++)
 			model->support_labels[i] = pq_getmsgfloat8(&buf);
@@ -588,7 +593,7 @@ svm_metadata_is_gpu(Jsonb * metadata)
 		return false;
 
 	/* Check for training_backend integer in metrics */
-	it = JsonbIteratorInit((JsonbContainer *) &metadata->root);
+	it = JsonbIteratorInit((JsonbContainer *) & metadata->root);
 	while ((r = JsonbIteratorNext(&it, &v, true)) != WJB_DONE)
 	{
 		if (r == WJB_KEY && v.type == jbvString)
@@ -601,6 +606,7 @@ svm_metadata_is_gpu(Jsonb * metadata)
 				if (r == WJB_VALUE && v.type == jbvNumeric)
 				{
 					int			backend = DatumGetInt32(DirectFunctionCall1(numeric_int4, NumericGetDatum(v.val.numeric)));
+
 					is_gpu = (backend == 1);
 				}
 			}
@@ -759,6 +765,7 @@ train_svm_classifier(PG_FUNCTION_ARGS)
 	text	   *label_col;
 	double		c_param;
 	int			max_iters;
+
 	NDB_DECLARE(char *, tbl_str);
 	NDB_DECLARE(char *, feat_str);
 	NDB_DECLARE(char *, label_str);
@@ -772,10 +779,12 @@ train_svm_classifier(PG_FUNCTION_ARGS)
 	const char *quoted_feat;
 	const char *quoted_label;
 	MLGpuTrainResult gpu_result;
+
 	NDB_DECLARE(char *, gpu_err);
 	NDB_DECLARE(Jsonb *, gpu_hyperparams);
 	int32		model_id = 0;
 	SVMModel	model;
+
 	NDB_DECLARE(double *, alphas);
 	NDB_DECLARE(double *, errors);
 
@@ -962,8 +971,10 @@ train_svm_classifier(PG_FUNCTION_ARGS)
 			NDB_DECLARE(JsonbParseState *, state);
 			JsonbValue	jkey;
 			JsonbValue	jval;
+
 			NDB_DECLARE(JsonbValue *, final_value);
-			Numeric		C_num, max_iters_num;
+			Numeric		C_num,
+						max_iters_num;
 
 			PG_TRY();
 			{
@@ -989,17 +1000,18 @@ train_svm_classifier(PG_FUNCTION_ARGS)
 				(void) pushJsonbValue(&state, WJB_VALUE, &jval);
 
 				final_value = pushJsonbValue(&state, WJB_END_OBJECT, NULL);
-				
+
 				if (final_value == NULL)
 				{
 					elog(ERROR, "neurondb: train_svm: pushJsonbValue(WJB_END_OBJECT) returned NULL for hyperparameters");
 				}
-				
+
 				gpu_hyperparams = JsonbValueToJsonb(final_value);
 			}
 			PG_CATCH();
 			{
-				ErrorData *edata = CopyErrorData();
+				ErrorData  *edata = CopyErrorData();
+
 				elog(ERROR, "neurondb: train_svm: hyperparameters JSONB construction failed: %s", edata->message);
 				FlushErrorState();
 				gpu_hyperparams = NULL;
@@ -1031,7 +1043,8 @@ train_svm_classifier(PG_FUNCTION_ARGS)
 		{
 #ifdef NDB_GPU_CUDA
 			MLCatalogModelSpec spec;
-			SVMModel		svm_model;
+			SVMModel	svm_model;
+
 			NDB_DECLARE(bytea *, unified_model_data);
 			NDB_DECLARE(Jsonb *, updated_metrics);
 			char	   *base;
@@ -1067,7 +1080,10 @@ train_svm_classifier(PG_FUNCTION_ARGS)
 				memcpy(svm_model.alphas, alpha_src, sizeof(double) * svm_model.n_support_vectors);
 			}
 
-			/* Copy support vectors, converting from float to float (same type) */
+			/*
+			 * Copy support vectors, converting from float to float (same
+			 * type)
+			 */
 			if (svm_model.n_support_vectors > 0 && svm_model.n_features > 0)
 			{
 				NDB_ALLOC(svm_model.support_vectors, float, svm_model.n_support_vectors * svm_model.n_features);
@@ -1096,8 +1112,13 @@ train_svm_classifier(PG_FUNCTION_ARGS)
 					NDB_DECLARE(JsonbParseState *, state);
 					JsonbValue	jkey;
 					JsonbValue	jval;
+
 					NDB_DECLARE(JsonbValue *, final_value);
-					Numeric		n_features_num, n_samples_num, n_support_vectors_num, C_num, max_iters_num;
+					Numeric		n_features_num,
+								n_samples_num,
+								n_support_vectors_num,
+								C_num,
+								max_iters_num;
 
 					PG_TRY();
 					{
@@ -1166,17 +1187,18 @@ train_svm_classifier(PG_FUNCTION_ARGS)
 						(void) pushJsonbValue(&state, WJB_VALUE, &jval);
 
 						final_value = pushJsonbValue(&state, WJB_END_OBJECT, NULL);
-						
+
 						if (final_value == NULL)
 						{
 							elog(ERROR, "neurondb: train_svm: pushJsonbValue(WJB_END_OBJECT) returned NULL for metrics");
 						}
-						
+
 						updated_metrics = JsonbValueToJsonb(final_value);
 					}
 					PG_CATCH();
 					{
-						ErrorData *edata = CopyErrorData();
+						ErrorData  *edata = CopyErrorData();
+
 						elog(ERROR, "neurondb: train_svm: metrics JSONB construction failed: %s", edata->message);
 						FlushErrorState();
 						updated_metrics = NULL;
@@ -1221,7 +1243,10 @@ train_svm_classifier(PG_FUNCTION_ARGS)
 			if (spec.training_column == NULL)
 				spec.training_column = label_str;
 
-			/* Ensure parameters are set - use gpu_hyperparams if spec.parameters is NULL */
+			/*
+			 * Ensure parameters are set - use gpu_hyperparams if
+			 * spec.parameters is NULL
+			 */
 			if (spec.parameters == NULL)
 			{
 				spec.parameters = gpu_hyperparams;
@@ -1229,7 +1254,10 @@ train_svm_classifier(PG_FUNCTION_ARGS)
 			}
 			else
 			{
-				/* spec.parameters already set by GPU, but ensure it's valid JSONB */
+				/*
+				 * spec.parameters already set by GPU, but ensure it's valid
+				 * JSONB
+				 */
 				if (gpu_hyperparams != NULL)
 				{
 					NDB_FREE(gpu_hyperparams);
@@ -1245,8 +1273,13 @@ train_svm_classifier(PG_FUNCTION_ARGS)
 					NDB_DECLARE(JsonbParseState *, state);
 					JsonbValue	jkey;
 					JsonbValue	jval;
+
 					NDB_DECLARE(JsonbValue *, final_value);
-					Numeric		n_features_num, n_samples_num, n_support_vectors_num, C_num, max_iters_num;
+					Numeric		n_features_num,
+								n_samples_num,
+								n_support_vectors_num,
+								C_num,
+								max_iters_num;
 
 					PG_TRY();
 					{
@@ -1315,17 +1348,18 @@ train_svm_classifier(PG_FUNCTION_ARGS)
 						(void) pushJsonbValue(&state, WJB_VALUE, &jval);
 
 						final_value = pushJsonbValue(&state, WJB_END_OBJECT, NULL);
-						
+
 						if (final_value == NULL)
 						{
 							elog(ERROR, "neurondb: train_svm: pushJsonbValue(WJB_END_OBJECT) returned NULL for metrics");
 						}
-						
+
 						spec.metrics = JsonbValueToJsonb(final_value);
 					}
 					PG_CATCH();
 					{
-						ErrorData *edata = CopyErrorData();
+						ErrorData  *edata = CopyErrorData();
+
 						elog(ERROR, "neurondb: train_svm: metrics JSONB construction failed: %s", edata->message);
 						FlushErrorState();
 						spec.metrics = NULL;
@@ -1402,8 +1436,10 @@ train_svm_classifier(PG_FUNCTION_ARGS)
 		int			examine_all = 1;
 		double		eps = 1e-3;
 		int			sv_count = 0;
+
 		NDB_DECLARE(bytea *, serialized);
 		MLCatalogModelSpec spec;
+
 		NDB_DECLARE(Jsonb *, params_jsonb);
 		NDB_DECLARE(Jsonb *, metrics_jsonb);
 		int			correct = 0;
@@ -1424,8 +1460,9 @@ train_svm_classifier(PG_FUNCTION_ARGS)
 		/* Allocate memory for heuristic training algorithm */
 		alphas = (double *) palloc0(
 									sizeof(double) * (size_t) sample_limit);
-		errors =
-			(double *) palloc(sizeof(double) * (size_t) sample_limit);
+		NDB_DECLARE(double *, temp);
+		NDB_ALLOC(temp, double, sample_limit);
+		errors = temp;
 
 		/* Initialize errors: E_i = f(x_i) - y_i, where f(x_i) = 0 initially */
 		/* Also initialize alphas to small values to help convergence */
@@ -1652,14 +1689,17 @@ train_svm_classifier(PG_FUNCTION_ARGS)
 			model.n_support_vectors = sv_count;
 
 			/* Allocate support vectors and alphas */
-			model.alphas = (double *) palloc(
+			NDB_DECLARE(double *, alphas);
+			NDB_ALLOC(alphas, double,
 											 sizeof(double) * (size_t) sv_count);
 			model.support_vectors = (float *) palloc0(
 													  sizeof(float) * (size_t) sv_count * (size_t) dim);
-			model.support_vector_indices = (int32 *) palloc(
-															sizeof(int32) * (size_t) sv_count);
-			model.support_labels = (double *) palloc(
-													 sizeof(double) * (size_t) sv_count);
+			NDB_DECLARE(int32 *, support_vector_indices);
+			NDB_DECLARE(double *, support_labels);
+			NDB_ALLOC(support_vector_indices, int32, sv_count);
+			NDB_ALLOC(support_labels, double, sv_count);
+			model.support_vector_indices = support_vector_indices;
+			model.support_labels = support_labels;
 
 			if (model.alphas == NULL
 				|| model.support_vectors == NULL
@@ -1708,14 +1748,18 @@ train_svm_classifier(PG_FUNCTION_ARGS)
 			model.n_support_vectors = sv_count;
 
 			/* Allocate support vectors and alphas */
-			model.alphas = (double *) palloc(
+			NDB_DECLARE(double *, alphas);
+			NDB_ALLOC(alphas, double,
 											 sizeof(double) * (size_t) sv_count);
-			model.support_vectors = (float *) palloc(
+			NDB_DECLARE(float *, support_vectors);
+			NDB_ALLOC(support_vectors, float,
 													 sizeof(float) * (size_t) sv_count * (size_t) dim);
-			model.support_vector_indices = (int32 *) palloc(
-															sizeof(int32) * (size_t) sv_count);
-			model.support_labels = (double *) palloc(
-													 sizeof(double) * (size_t) sv_count);
+			NDB_DECLARE(int32 *, support_vector_indices);
+			NDB_DECLARE(double *, support_labels);
+			NDB_ALLOC(support_vector_indices, int32, sv_count);
+			NDB_ALLOC(support_labels, double, sv_count);
+			model.support_vector_indices = support_vector_indices;
+			model.support_labels = support_labels;
 
 			if (model.alphas == NULL
 				|| model.support_vectors == NULL
@@ -1909,8 +1953,10 @@ train_svm_classifier(PG_FUNCTION_ARGS)
 			NDB_DECLARE(JsonbParseState *, state);
 			JsonbValue	jkey;
 			JsonbValue	jval;
+
 			NDB_DECLARE(JsonbValue *, final_value);
-			Numeric		C_num, max_iters_num;
+			Numeric		C_num,
+						max_iters_num;
 
 			PG_TRY();
 			{
@@ -1936,17 +1982,18 @@ train_svm_classifier(PG_FUNCTION_ARGS)
 				(void) pushJsonbValue(&state, WJB_VALUE, &jval);
 
 				final_value = pushJsonbValue(&state, WJB_END_OBJECT, NULL);
-				
+
 				if (final_value == NULL)
 				{
 					elog(ERROR, "neurondb: train_svm: pushJsonbValue(WJB_END_OBJECT) returned NULL for hyperparameters");
 				}
-				
+
 				params_jsonb = JsonbValueToJsonb(final_value);
 			}
 			PG_CATCH();
 			{
-				ErrorData *edata = CopyErrorData();
+				ErrorData  *edata = CopyErrorData();
+
 				elog(ERROR, "neurondb: train_svm: hyperparameters JSONB construction failed: %s", edata->message);
 				FlushErrorState();
 				params_jsonb = NULL;
@@ -1996,8 +2043,16 @@ train_svm_classifier(PG_FUNCTION_ARGS)
 			NDB_DECLARE(JsonbParseState *, state);
 			JsonbValue	jkey;
 			JsonbValue	jval;
+
 			NDB_DECLARE(JsonbValue *, final_value);
-			Numeric		n_samples_num, n_features_num, n_support_vectors_num, C_num, max_iters_num, actual_iters_num, accuracy_num, bias_num;
+			Numeric		n_samples_num,
+						n_features_num,
+						n_support_vectors_num,
+						C_num,
+						max_iters_num,
+						actual_iters_num,
+						accuracy_num,
+						bias_num;
 
 			PG_TRY();
 			{
@@ -2084,17 +2139,18 @@ train_svm_classifier(PG_FUNCTION_ARGS)
 				(void) pushJsonbValue(&state, WJB_VALUE, &jval);
 
 				final_value = pushJsonbValue(&state, WJB_END_OBJECT, NULL);
-				
+
 				if (final_value == NULL)
 				{
 					elog(ERROR, "neurondb: train_svm: pushJsonbValue(WJB_END_OBJECT) returned NULL for metrics");
 				}
-				
+
 				metrics_jsonb = JsonbValueToJsonb(final_value);
 			}
 			PG_CATCH();
 			{
-				ErrorData *edata = CopyErrorData();
+				ErrorData  *edata = CopyErrorData();
+
 				elog(ERROR, "neurondb: train_svm: metrics JSONB construction failed: %s", edata->message);
 				FlushErrorState();
 				metrics_jsonb = NULL;
@@ -2197,6 +2253,7 @@ predict_svm_model_id(PG_FUNCTION_ARGS)
 {
 	int32		model_id;
 	Vector	   *features;
+
 	NDB_DECLARE(SVMModel *, model);
 	double		prediction;
 	int			i;
@@ -2465,8 +2522,10 @@ evaluate_svm_by_model_id(PG_FUNCTION_ARGS)
 	int			fn = 0;
 	MemoryContext oldcontext;
 	StringInfoData query;
+
 	NDB_DECLARE(SVMModel *, model);
 	StringInfoData jsonbuf;
+
 	NDB_DECLARE(Jsonb *, result_jsonb);
 	NDB_DECLARE(bytea *, gpu_payload);
 	NDB_DECLARE(Jsonb *, gpu_metrics);
@@ -2476,7 +2535,8 @@ evaluate_svm_by_model_id(PG_FUNCTION_ARGS)
 	NDB_DECLARE(float *, h_features);
 #endif
 	int			valid_rows = 0;
-	NDB_DECLARE (NdbSpiSession *, eval_spi_session);
+
+	NDB_DECLARE(NdbSpiSession *, eval_spi_session);
 
 	if (PG_ARGISNULL(0))
 		ereport(ERROR,
@@ -2619,7 +2679,7 @@ evaluate_svm_by_model_id(PG_FUNCTION_ARGS)
 	if (is_gpu_model && neurondb_gpu_is_available())
 	{
 #ifdef NDB_GPU_CUDA
-		const		NdbCudaSvmModelHeader *gpu_hdr;
+		const NdbCudaSvmModelHeader *gpu_hdr;
 		size_t		payload_size;
 
 		/* Defensive check: validate payload size */
@@ -2673,8 +2733,12 @@ evaluate_svm_by_model_id(PG_FUNCTION_ARGS)
 			{
 				MemoryContext saved_ctx = MemoryContextSwitchTo(oldcontext);
 
-				h_features = (float *) palloc(features_size);
-				h_labels = (int *) palloc(labels_size);
+				NDB_DECLARE(float *, h_features);
+				NDB_DECLARE(int *, h_labels);
+				NDB_ALLOC(h_features, char, features_size);
+				NDB_ALLOC(h_labels, char, labels_size);
+				h_features = (float *) h_features;
+				h_labels = (int *) h_labels;
 				MemoryContextSwitchTo(saved_ctx);	/* Switch back to SPI
 													 * context */
 			}
@@ -2829,6 +2893,7 @@ evaluate_svm_by_model_id(PG_FUNCTION_ARGS)
 		/* Use optimized GPU batch evaluation */
 		{
 			int			rc;
+
 			NDB_DECLARE(char *, gpu_errstr);
 
 			/* Defensive checks before GPU call */
@@ -2860,18 +2925,29 @@ evaluate_svm_by_model_id(PG_FUNCTION_ARGS)
 					Jsonb	   *result_copy;
 					MemoryContext spi_context;
 
-					/* End SPI session BEFORE creating JSONB to avoid context conflicts */
+					/*
+					 * End SPI session BEFORE creating JSONB to avoid context
+					 * conflicts
+					 */
 					ndb_spi_stringinfo_free(eval_spi_session, &query);
 					NDB_SPI_SESSION_END(eval_spi_session);
 
-					/* Switch to old context and build JSONB directly using JSONB API */
+					/*
+					 * Switch to old context and build JSONB directly using
+					 * JSONB API
+					 */
 					MemoryContextSwitchTo(oldcontext);
 					{
 						NDB_DECLARE(JsonbParseState *, state);
 						JsonbValue	jkey;
 						JsonbValue	jval;
+
 						NDB_DECLARE(JsonbValue *, final_value);
-						Numeric		accuracy_num, precision_num, recall_num, f1_score_num, n_samples_num;
+						Numeric		accuracy_num,
+									precision_num,
+									recall_num,
+									f1_score_num,
+									n_samples_num;
 
 						/* Suppress shadow warnings from nested PG_TRY blocks */
 #pragma GCC diagnostic push
@@ -2922,17 +2998,18 @@ evaluate_svm_by_model_id(PG_FUNCTION_ARGS)
 							(void) pushJsonbValue(&state, WJB_VALUE, &jval);
 
 							final_value = pushJsonbValue(&state, WJB_END_OBJECT, NULL);
-							
+
 							if (final_value == NULL)
 							{
 								elog(ERROR, "neurondb: evaluate_svm: pushJsonbValue(WJB_END_OBJECT) returned NULL");
 							}
-							
+
 							result_jsonb = JsonbValueToJsonb(final_value);
 						}
 						PG_CATCH();
 						{
-							ErrorData *edata = CopyErrorData();
+							ErrorData  *edata = CopyErrorData();
+
 							elog(ERROR, "neurondb: evaluate_svm: JSONB construction failed: %s", edata->message);
 							FlushErrorState();
 							result_jsonb = NULL;
@@ -3026,7 +3103,7 @@ cpu_evaluation_path:
 		else if (is_gpu_model && gpu_payload != NULL)
 		{
 			size_t		payload_size = VARSIZE(gpu_payload) - VARHDRSZ;
-			const		NdbCudaSvmModelHeader *gpu_hdr;
+			const NdbCudaSvmModelHeader *gpu_hdr;
 
 			if (payload_size < sizeof(NdbCudaSvmModelHeader))
 			{
@@ -3060,8 +3137,10 @@ cpu_evaluation_path:
 		{
 			MemoryContext saved_ctx = MemoryContextSwitchTo(oldcontext);
 
-			cpu_h_features = (float *) palloc(sizeof(float) * (size_t) nvec * (size_t) feat_dim);
-			cpu_h_labels = (double *) palloc(sizeof(double) * (size_t) nvec);
+			NDB_DECLARE(float *, cpu_h_features);
+			NDB_DECLARE(double *, cpu_h_labels);
+			NDB_ALLOC(cpu_h_features, float, nvec * feat_dim);
+			NDB_ALLOC(cpu_h_labels, double, nvec);
 			MemoryContextSwitchTo(saved_ctx);
 		}
 
@@ -3203,6 +3282,7 @@ cpu_evaluation_path:
 				double		prediction = 0.0;
 				double		actual = cpu_h_labels[i];
 				int			rc;
+
 				NDB_DECLARE(char *, gpu_err);
 				bool		prediction_made = false;
 
@@ -3411,105 +3491,91 @@ cpu_evaluation_path:
 					 f1_score,
 					 valid_rows);
 
-		/* End SPI session BEFORE creating JSONB to avoid context conflicts */
-		ndb_spi_stringinfo_free(eval_spi_session, &query);
-		NDB_SPI_SESSION_END(eval_spi_session);
+	/* End SPI session BEFORE creating JSONB to avoid context conflicts */
+	ndb_spi_stringinfo_free(eval_spi_session, &query);
+	NDB_SPI_SESSION_END(eval_spi_session);
 
-		/* Switch to old context and build JSONB directly using JSONB API */
-		MemoryContextSwitchTo(oldcontext);
+	/* Switch to old context and build JSONB directly using JSONB API */
+	MemoryContextSwitchTo(oldcontext);
+	{
+		NDB_DECLARE(JsonbParseState *, state);
+		JsonbValue	jkey;
+		JsonbValue	jval;
+
+		NDB_DECLARE(JsonbValue *, final_value);
+		Numeric		accuracy_num,
+					precision_num,
+					recall_num,
+					f1_score_num,
+					n_samples_num;
+
+		PG_TRY();
 		{
-			NDB_DECLARE(JsonbParseState *, state);
-			JsonbValue	jkey;
-			JsonbValue	jval;
-			NDB_DECLARE(JsonbValue *, final_value);
-			Numeric		accuracy_num, precision_num, recall_num, f1_score_num, n_samples_num;
+			(void) pushJsonbValue(&state, WJB_BEGIN_OBJECT, NULL);
 
-			PG_TRY();
+			jkey.type = jbvString;
+			jkey.val.string.val = "accuracy";
+			jkey.val.string.len = strlen("accuracy");
+			(void) pushJsonbValue(&state, WJB_KEY, &jkey);
+			accuracy_num = DatumGetNumeric(DirectFunctionCall1(float8_numeric, Float8GetDatum(accuracy)));
+			jval.type = jbvNumeric;
+			jval.val.numeric = accuracy_num;
+			(void) pushJsonbValue(&state, WJB_VALUE, &jval);
+
+			jkey.val.string.val = "precision";
+			jkey.val.string.len = strlen("precision");
+			(void) pushJsonbValue(&state, WJB_KEY, &jkey);
+			precision_num = DatumGetNumeric(DirectFunctionCall1(float8_numeric, Float8GetDatum(precision)));
+			jval.type = jbvNumeric;
+			jval.val.numeric = precision_num;
+			(void) pushJsonbValue(&state, WJB_VALUE, &jval);
+
+			jkey.val.string.val = "recall";
+			jkey.val.string.len = strlen("recall");
+			(void) pushJsonbValue(&state, WJB_KEY, &jkey);
+			recall_num = DatumGetNumeric(DirectFunctionCall1(float8_numeric, Float8GetDatum(recall)));
+			jval.type = jbvNumeric;
+			jval.val.numeric = recall_num;
+			(void) pushJsonbValue(&state, WJB_VALUE, &jval);
+
+			jkey.val.string.val = "f1_score";
+			jkey.val.string.len = strlen("f1_score");
+			(void) pushJsonbValue(&state, WJB_KEY, &jkey);
+			f1_score_num = DatumGetNumeric(DirectFunctionCall1(float8_numeric, Float8GetDatum(f1_score)));
+			jval.type = jbvNumeric;
+			jval.val.numeric = f1_score_num;
+			(void) pushJsonbValue(&state, WJB_VALUE, &jval);
+
+			jkey.val.string.val = "n_samples";
+			jkey.val.string.len = strlen("n_samples");
+			(void) pushJsonbValue(&state, WJB_KEY, &jkey);
+			n_samples_num = DatumGetNumeric(DirectFunctionCall1(int4_numeric, Int32GetDatum(valid_rows)));
+			jval.type = jbvNumeric;
+			jval.val.numeric = n_samples_num;
+			(void) pushJsonbValue(&state, WJB_VALUE, &jval);
+
+			final_value = pushJsonbValue(&state, WJB_END_OBJECT, NULL);
+
+			if (final_value == NULL)
 			{
-				(void) pushJsonbValue(&state, WJB_BEGIN_OBJECT, NULL);
-
-				jkey.type = jbvString;
-				jkey.val.string.val = "accuracy";
-				jkey.val.string.len = strlen("accuracy");
-				(void) pushJsonbValue(&state, WJB_KEY, &jkey);
-				accuracy_num = DatumGetNumeric(DirectFunctionCall1(float8_numeric, Float8GetDatum(accuracy)));
-				jval.type = jbvNumeric;
-				jval.val.numeric = accuracy_num;
-				(void) pushJsonbValue(&state, WJB_VALUE, &jval);
-
-				jkey.val.string.val = "precision";
-				jkey.val.string.len = strlen("precision");
-				(void) pushJsonbValue(&state, WJB_KEY, &jkey);
-				precision_num = DatumGetNumeric(DirectFunctionCall1(float8_numeric, Float8GetDatum(precision)));
-				jval.type = jbvNumeric;
-				jval.val.numeric = precision_num;
-				(void) pushJsonbValue(&state, WJB_VALUE, &jval);
-
-				jkey.val.string.val = "recall";
-				jkey.val.string.len = strlen("recall");
-				(void) pushJsonbValue(&state, WJB_KEY, &jkey);
-				recall_num = DatumGetNumeric(DirectFunctionCall1(float8_numeric, Float8GetDatum(recall)));
-				jval.type = jbvNumeric;
-				jval.val.numeric = recall_num;
-				(void) pushJsonbValue(&state, WJB_VALUE, &jval);
-
-				jkey.val.string.val = "f1_score";
-				jkey.val.string.len = strlen("f1_score");
-				(void) pushJsonbValue(&state, WJB_KEY, &jkey);
-				f1_score_num = DatumGetNumeric(DirectFunctionCall1(float8_numeric, Float8GetDatum(f1_score)));
-				jval.type = jbvNumeric;
-				jval.val.numeric = f1_score_num;
-				(void) pushJsonbValue(&state, WJB_VALUE, &jval);
-
-				jkey.val.string.val = "n_samples";
-				jkey.val.string.len = strlen("n_samples");
-				(void) pushJsonbValue(&state, WJB_KEY, &jkey);
-				n_samples_num = DatumGetNumeric(DirectFunctionCall1(int4_numeric, Int32GetDatum(valid_rows)));
-				jval.type = jbvNumeric;
-				jval.val.numeric = n_samples_num;
-				(void) pushJsonbValue(&state, WJB_VALUE, &jval);
-
-				final_value = pushJsonbValue(&state, WJB_END_OBJECT, NULL);
-				
-				if (final_value == NULL)
-				{
-					elog(ERROR, "neurondb: evaluate_svm: pushJsonbValue(WJB_END_OBJECT) returned NULL");
-				}
-				
-				result_jsonb = JsonbValueToJsonb(final_value);
+				elog(ERROR, "neurondb: evaluate_svm: pushJsonbValue(WJB_END_OBJECT) returned NULL");
 			}
-			PG_CATCH();
-			{
-				ErrorData *edata = CopyErrorData();
-				elog(ERROR, "neurondb: evaluate_svm: JSONB construction failed: %s", edata->message);
-				FlushErrorState();
-				result_jsonb = NULL;
-			}
-			PG_END_TRY();
+
+			result_jsonb = JsonbValueToJsonb(final_value);
 		}
-
-		if (result_jsonb == NULL)
+		PG_CATCH();
 		{
-			if (tbl_str)
-			{
-				NDB_FREE(tbl_str);
-				tbl_str = NULL;
-			}
-			if (feat_str)
-			{
-				NDB_FREE(feat_str);
-				feat_str = NULL;
-			}
-			if (targ_str)
-			{
-				NDB_FREE(targ_str);
-				targ_str = NULL;
-			}
-			ereport(ERROR,
-					(errcode(ERRCODE_INTERNAL_ERROR),
-					 errmsg("neurondb: evaluate_svm_by_model_id: JSONB result is NULL")));
-		}
+			ErrorData  *edata = CopyErrorData();
 
+			elog(ERROR, "neurondb: evaluate_svm: JSONB construction failed: %s", edata->message);
+			FlushErrorState();
+			result_jsonb = NULL;
+		}
+		PG_END_TRY();
+	}
+
+	if (result_jsonb == NULL)
+	{
 		if (tbl_str)
 		{
 			NDB_FREE(tbl_str);
@@ -3525,8 +3591,28 @@ cpu_evaluation_path:
 			NDB_FREE(targ_str);
 			targ_str = NULL;
 		}
+		ereport(ERROR,
+				(errcode(ERRCODE_INTERNAL_ERROR),
+				 errmsg("neurondb: evaluate_svm_by_model_id: JSONB result is NULL")));
+	}
 
-		PG_RETURN_JSONB_P(result_jsonb);
+	if (tbl_str)
+	{
+		NDB_FREE(tbl_str);
+		tbl_str = NULL;
+	}
+	if (feat_str)
+	{
+		NDB_FREE(feat_str);
+		feat_str = NULL;
+	}
+	if (targ_str)
+	{
+		NDB_FREE(targ_str);
+		targ_str = NULL;
+	}
+
+	PG_RETURN_JSONB_P(result_jsonb);
 }
 
 /*
@@ -3553,7 +3639,7 @@ svm_gpu_release_state(SVMGpuModelState * state)
 }
 
 static bool
-svm_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
+svm_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **errstr)
 {
 	SVMGpuModelState *state;
 	bytea	   *payload;
@@ -3613,7 +3699,7 @@ svm_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 }
 
 static bool
-svm_gpu_predict(const MLGpuModel * model,
+svm_gpu_predict(const MLGpuModel *model,
 				const float *input,
 				int input_dim,
 				float *output,
@@ -3661,13 +3747,14 @@ svm_gpu_predict(const MLGpuModel * model,
 }
 
 static bool
-svm_gpu_serialize(const MLGpuModel * model,
+svm_gpu_serialize(const MLGpuModel *model,
 				  bytea * *payload_out,
 				  Jsonb * *metadata_out,
 				  char **errstr)
 {
 	const		SVMGpuModelState *state;
 	SVMModel	svm_model;
+
 	NDB_DECLARE(bytea *, unified_payload);
 	char	   *base;
 	NdbCudaSvmModelHeader *hdr;
@@ -3706,7 +3793,7 @@ svm_gpu_serialize(const MLGpuModel * model,
 
 	/* Build SVMModel structure */
 	memset(&svm_model, 0, sizeof(SVMModel));
-	svm_model.model_id = 0; /* model_id not stored in GPU header */
+	svm_model.model_id = 0;		/* model_id not stored in GPU header */
 	svm_model.n_features = hdr->feature_dim;
 	svm_model.n_samples = hdr->n_samples;
 	svm_model.n_support_vectors = hdr->n_support_vectors;
@@ -3751,6 +3838,7 @@ svm_gpu_serialize(const MLGpuModel * model,
 	if (metadata_out != NULL)
 	{
 		StringInfoData metrics_buf;
+
 		initStringInfo(&metrics_buf);
 		appendStringInfo(&metrics_buf,
 						 "{\"algorithm\":\"svm\","
@@ -3776,7 +3864,7 @@ svm_gpu_serialize(const MLGpuModel * model,
 }
 
 static void
-svm_gpu_destroy(MLGpuModel * model)
+svm_gpu_destroy(MLGpuModel *model)
 {
 	if (model == NULL)
 		return;

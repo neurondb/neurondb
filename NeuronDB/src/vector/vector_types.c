@@ -1336,7 +1336,7 @@ binaryvec_in(PG_FUNCTION_ARGS)
 		{
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-						errmsg("binaryvec: empty array not allowed")));
+					 errmsg("binaryvec: empty array not allowed")));
 		}
 
 		result = (BinaryVec *) palloc0(BINARYVEC_SIZE(dim));
@@ -1389,7 +1389,7 @@ binaryvec_in(PG_FUNCTION_ARGS)
 		{
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-						errmsg("binaryvec: empty binary string not allowed")));
+					 errmsg("binaryvec: empty binary string not allowed")));
 		}
 
 		result = (BinaryVec *) palloc0(BINARYVEC_SIZE(dim));

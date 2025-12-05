@@ -121,6 +121,7 @@ learn_from_query(PG_FUNCTION_ARGS)
 	uint64		fingerprint = 5381ULL;	/* djb2 init */
 	int			i;
 	bool		found = false;
+
 	NDB_DECLARE(NdbSpiSession *, session);
 
 	/* Defensive: NULL checks */
@@ -164,15 +165,15 @@ learn_from_query(PG_FUNCTION_ARGS)
 
 	/* Always ensure the table exists. Safe for concurrency. */
 	if (ndb_spi_execute(session, "CREATE TABLE IF NOT EXISTS neurondb_query_history ("
-							 "  fingerprint  BIGINT PRIMARY KEY,"
-							 "  last_recall  REAL, "
-							 "  last_latency INTEGER, "
-							 "  seen_count   INTEGER, "
-							 "  ef_search    INTEGER, "
-							 "  beam_size    INTEGER"
-							 ")",
-							 false,
-							 0)
+						"  fingerprint  BIGINT PRIMARY KEY,"
+						"  last_recall  REAL, "
+						"  last_latency INTEGER, "
+						"  seen_count   INTEGER, "
+						"  ef_search    INTEGER, "
+						"  beam_size    INTEGER"
+						")",
+						false,
+						0)
 		!= SPI_OK_UTILITY)
 	{
 		ndb_spi_session_end(&session);
@@ -500,6 +501,7 @@ prefetch_entry_points(PG_FUNCTION_ARGS)
 	text	   *index_name;
 	char	   *idx_str = NULL;
 	int			prefetched_count = 0;
+
 	NDB_DECLARE(NdbSpiSession *, session);
 
 	if (PG_ARGISNULL(0))

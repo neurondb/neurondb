@@ -36,7 +36,7 @@ neurondb_gpu_onnx_inference(void *model_handle,
 							float *output,
 							int output_size)
 {
-	const		ndb_gpu_backend *backend;
+	const ndb_gpu_backend *backend;
 
 	(void) model_handle;
 	(void) input;

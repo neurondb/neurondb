@@ -333,7 +333,7 @@ ndb_get_image_format_name(ImageFormat format)
  *    Convert image metadata to JSON string
  */
 char *
-ndb_image_metadata_to_json(const ImageMetadata * meta)
+ndb_image_metadata_to_json(const ImageMetadata *meta)
 {
 	StringInfoData json;
 	char	   *format_name;

@@ -67,15 +67,18 @@ static int
 get_guc_int(const char *name, int default_val)
 {
 	const char *val = GetConfigOption(name, true, false);
+
 	return val ? atoi(val) : default_val;
 }
 
 /* Helper to get double GUC value */
 /* Unused function - kept for potential future use */
-static double __attribute__((unused))
+static double
+__attribute__((unused))
 get_guc_double(const char *name, double default_val)
 {
 	const char *val = GetConfigOption(name, true, false);
+
 	return val ? atof(val) : default_val;
 }
 
@@ -84,6 +87,7 @@ static bool
 get_guc_bool(const char *name, bool default_val)
 {
 	const char *val = GetConfigOption(name, true, false);
+
 	if (!val)
 		return default_val;
 	return (strcmp(val, "on") == 0 || strcmp(val, "true") == 0 || strcmp(val, "1") == 0);
@@ -124,6 +128,7 @@ neurandefrag_run(PG_FUNCTION_ARGS)
 	StringInfoData query;
 	int			n_indexes = 0;
 	bool		success = false;
+
 	NDB_DECLARE(NdbSpiSession *, session);
 
 	elog(DEBUG1, "neurondb: neurandefrag_run invoked");
@@ -549,27 +554,27 @@ neurandefrag_main(Datum main_arg)
 
 					NDB_FREE(sql.data);
 				}
-			PG_CATCH();
-			{
-				/* Clean up on error */
-				if (IsTransactionState())
-					AbortCurrentTransaction();
+				PG_CATCH();
+				{
+					/* Clean up on error */
+					if (IsTransactionState())
+						AbortCurrentTransaction();
 
-				EmitErrorReport();
-				FlushErrorState();
+					EmitErrorReport();
+					FlushErrorState();
 
-				/*
-				 * Ensure SPI is disconnected - safe to call even if not
-				 * connected
-				 */
+					/*
+					 * Ensure SPI is disconnected - safe to call even if not
+					 * connected
+					 */
+					ndb_spi_session_end(&nested_session);
+
+					elog(LOG,
+						 "neurondb: neurandefrag worker caught exception, all "
+						 "cleaned up. Restarting loop.");
+				}
+				PG_END_TRY();
 				ndb_spi_session_end(&nested_session);
-
-				elog(LOG,
-					 "neurondb: neurandefrag worker caught exception, all "
-					 "cleaned up. Restarting loop.");
-			}
-			PG_END_TRY();
-			ndb_spi_session_end(&nested_session);
 			}
 
 			/* Update shared state with statistics */

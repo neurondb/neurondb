@@ -204,6 +204,7 @@ vgraph_bfs(PG_FUNCTION_ARGS)
 		int32		i;
 		int32		current_node;
 		int32		max_result_size;
+
 		NDB_DECLARE(int32 *, visited);
 		NDB_DECLARE(int32 *, depth);
 		NDB_DECLARE(int32 *, parent);
@@ -367,6 +368,7 @@ vgraph_dfs(PG_FUNCTION_ARGS)
 		int32		current_node;
 		int32		i;
 		int32		max_result_size;
+
 		NDB_DECLARE(int32 *, visited);
 		NDB_DECLARE(int32 *, discovery_time);
 		NDB_DECLARE(int32 *, finish_time);
@@ -549,6 +551,7 @@ vgraph_pagerank(PG_FUNCTION_ARGS)
 		double		diff;
 		double		initial_score;
 		double		damping_sum;
+
 		NDB_DECLARE(double *, scores);
 		NDB_DECLARE(double *, new_scores);
 		NDB_DECLARE(int32 *, out_degree);
@@ -721,6 +724,7 @@ vgraph_community_detection(PG_FUNCTION_ARGS)
 		int32		iter;
 		double		total_edges;
 		double		modularity;
+
 		NDB_DECLARE(int32 *, communities);
 		NDB_DECLARE(int32 *, result_nodes);
 		NDB_DECLARE(int32 *, result_communities);

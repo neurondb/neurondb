@@ -419,7 +419,7 @@
  */
 #define NDB_SPI_COPY_BEFORE_FINISH \
 	/* CRITICAL: Copy all data from SPI context before SPI_finish() */ \
-	/* SPI_finish() deletes SPI memory context - any pointers become invalid */
+								/* SPI_finish() deletes SPI memory context -
+								 * any pointers become invalid */
 
-#endif	/* NEURONDB_VALIDATION_H */
-
+#endif							/* NEURONDB_VALIDATION_H */

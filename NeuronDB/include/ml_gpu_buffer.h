@@ -30,36 +30,36 @@ typedef enum MLGpuDType
 typedef struct MLGpuBuffer
 {
 	MLGpuContext *context;
-	void *host_ptr;
-	Size host_bytes;
-	bool host_owner;
-	void *device_ptr;
-	Size device_bytes;
-	bool device_owner;
-	int64 elem_count;
-	MLGpuDType dtype;
-	bool host_valid;
-	bool device_valid;
+	void	   *host_ptr;
+	Size		host_bytes;
+	bool		host_owner;
+	void	   *device_ptr;
+	Size		device_bytes;
+	bool		device_owner;
+	int64		elem_count;
+	MLGpuDType	dtype;
+	bool		host_valid;
+	bool		device_valid;
 } MLGpuBuffer;
 
 extern Size ml_gpu_dtype_size(MLGpuDType dtype);
 
 extern void ml_gpu_buffer_init_owner(MLGpuBuffer *buf,
-	MLGpuContext *ctx,
-	MLGpuDType dtype,
-	int64 elem_count,
-	bool zero);
+									 MLGpuContext *ctx,
+									 MLGpuDType dtype,
+									 int64 elem_count,
+									 bool zero);
 
 extern void ml_gpu_buffer_bind_host(MLGpuBuffer *buf,
-	MLGpuContext *ctx,
-	void *host_ptr,
-	Size host_bytes,
-	int64 elem_count,
-	MLGpuDType dtype);
+									MLGpuContext *ctx,
+									void *host_ptr,
+									Size host_bytes,
+									int64 elem_count,
+									MLGpuDType dtype);
 
 extern void ml_gpu_buffer_invalidate_device(MLGpuBuffer *buf);
 extern bool ml_gpu_buffer_ensure_device(MLGpuBuffer *buf, bool copy_from_host);
 extern bool ml_gpu_buffer_copy_to_host(MLGpuBuffer *buf);
 extern void ml_gpu_buffer_release(MLGpuBuffer *buf);
 
-#endif /* ML_GPU_BUFFER_H */
+#endif							/* ML_GPU_BUFFER_H */

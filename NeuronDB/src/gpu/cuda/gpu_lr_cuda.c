@@ -37,16 +37,17 @@
 #include "neurondb_constants.h"
 
 int
-ndb_cuda_lr_pack_model(const LRModel * model,
+ndb_cuda_lr_pack_model(const LRModel *model,
 					   bytea * *model_data,
 					   Jsonb * *metrics,
 					   char **errstr)
 {
 	size_t		payload_bytes;
-	bytea	   *blob;
 	char	   *base;
 	NdbCudaLrModelHeader *hdr;
 	float	   *weights_dest;
+	bytea	   *blob = NULL;
+	char	   *blob_raw = NULL;
 
 	if (errstr)
 		*errstr = NULL;
@@ -60,7 +61,8 @@ ndb_cuda_lr_pack_model(const LRModel * model,
 	payload_bytes = sizeof(NdbCudaLrModelHeader) +
 		sizeof(float) * (size_t) model->n_features;
 
-	blob = (bytea *) palloc(VARHDRSZ + payload_bytes);
+	NDB_ALLOC(blob_raw, char, VARHDRSZ + payload_bytes);
+	blob = (bytea *) blob_raw;
 	SET_VARSIZE(blob, VARHDRSZ + payload_bytes);
 	base = VARDATA(blob);
 
@@ -424,7 +426,7 @@ ndb_cuda_lr_train(const float *features,
 			*errstr = pstrdup("ndb_cuda_lr_train: palloc0 weights failed");
 		return -1;
 	}
-	grad_weights = (double *) palloc(sizeof(double) * (size_t) feature_dim);
+	NDB_ALLOC(grad_weights, double, feature_dim);
 	if (grad_weights == NULL)
 	{
 		NDB_FREE(weights);
@@ -565,9 +567,12 @@ ndb_cuda_lr_train(const float *features,
 	 */
 	/* Optimized: Use block-based conversion for better cache locality */
 	{
-		float	   *h_features_col = (float *) palloc(feature_bytes);
+		char	   *h_features_col_raw = NULL;
+		float	   *h_features_col;
 		int			conv_i;
 		const int	BLOCK_SIZE = 64;	/* Cache-friendly block size */
+		NDB_ALLOC(h_features_col_raw, char, feature_bytes);
+		h_features_col = (float *) h_features_col_raw;
 
 		if (h_features_col == NULL)
 		{
@@ -698,7 +703,7 @@ ndb_cuda_lr_train(const float *features,
 	}
 
 	/* Allocate host buffer for gradient weights (used only for fallback) */
-	h_grad_weights_float = (float *) palloc(sizeof(float) * (size_t) feature_dim);
+	NDB_ALLOC(h_grad_weights_float, float, feature_dim);
 	if (h_grad_weights_float == NULL)
 	{
 		goto gpu_fail;
@@ -707,7 +712,8 @@ ndb_cuda_lr_train(const float *features,
 	/* Initialize weights on device once (convert double to float) */
 	{
 		int			j;
-		float	   *h_weights_init = (float *) palloc(sizeof(float) * (size_t) feature_dim);
+		NDB_DECLARE(float *, h_weights_init);
+		NDB_ALLOC(h_weights_init, float, feature_dim);
 
 		if (h_weights_init == NULL)
 		{
@@ -1115,8 +1121,8 @@ ndb_cuda_lr_train(const float *features,
 				double	   *host_predictions;
 				float	   *h_weights_fallback = NULL;
 
-				host_predictions = (double *) palloc(sizeof(double) * (size_t) n_samples);
-				h_weights_fallback = (float *) palloc(sizeof(float) * (size_t) feature_dim);
+				NDB_ALLOC(host_predictions, double, n_samples);
+				NDB_ALLOC(h_weights_fallback, float, feature_dim);
 
 				/* Copy weights from device for fallback computation */
 				status = cudaMemcpy(h_weights_fallback, d_weights, weight_bytes_gpu, cudaMemcpyDeviceToHost);
@@ -1279,7 +1285,8 @@ ndb_cuda_lr_train(const float *features,
 
 	/* Copy final weights and bias back from device to host */
 	{
-		float	   *h_weights_final = (float *) palloc(sizeof(float) * (size_t) feature_dim);
+		NDB_DECLARE(float *, h_weights_final);
+		NDB_ALLOC(h_weights_final, float, feature_dim);
 
 		if (h_weights_final != NULL)
 		{
@@ -1312,10 +1319,12 @@ ndb_cuda_lr_train(const float *features,
 		char	   *base;
 		NdbCudaLrModelHeader *hdr;
 		float	   *weights_dest;
+		char	   *payload_raw = NULL;
 
 		payload_bytes = sizeof(NdbCudaLrModelHeader) +
 			sizeof(float) * (size_t) feature_dim;
-		payload = (bytea *) palloc(VARHDRSZ + payload_bytes);
+		NDB_ALLOC(payload_raw, char, VARHDRSZ + payload_bytes);
+		payload = (bytea *) payload_raw;
 		SET_VARSIZE(payload, VARHDRSZ + payload_bytes);
 		base = VARDATA(payload);
 
@@ -1344,7 +1353,7 @@ ndb_cuda_lr_train(const float *features,
 		 * Copy final predictions from GPU (they were computed in the last
 		 * iteration)
 		 */
-		host_preds = (double *) palloc(sizeof(double) * (size_t) n_samples);
+		NDB_ALLOC(host_preds, double, n_samples);
 		status = cudaMemcpy(host_preds,
 							d_predictions,
 							pred_bytes,
@@ -1531,7 +1540,7 @@ ndb_cuda_lr_predict(const bytea * model_data,
 					double *probability_out,
 					char **errstr)
 {
-	const		NdbCudaLrModelHeader *hdr;
+	const NdbCudaLrModelHeader *hdr;
 	const float *weights;
 	const		bytea *detoasted;
 	double		z;
@@ -1637,7 +1646,7 @@ ndb_cuda_lr_evaluate(const bytea * model_data,
 					 double *log_loss_out,
 					 char **errstr)
 {
-	const		NdbCudaLrModelHeader *hdr;
+	const NdbCudaLrModelHeader *hdr;
 	const float *weights;
 	const		bytea *detoasted;
 	cudaError_t cuda_err;
@@ -1836,7 +1845,8 @@ ndb_cuda_lr_evaluate(const bytea * model_data,
 
 	/* Convert weights from float to double and copy to GPU */
 	{
-		double	   *h_weights_double = (double *) palloc(sizeof(double) * (size_t) feature_dim);
+		NDB_DECLARE(double *, h_weights_double);
+		NDB_ALLOC(h_weights_double, double, feature_dim);
 
 		if (h_weights_double == NULL)
 		{
@@ -1974,7 +1984,7 @@ cleanup:
 #else							/* !NDB_GPU_CUDA */
 
 int
-ndb_cuda_lr_pack_model(const LRModel * model,
+ndb_cuda_lr_pack_model(const LRModel *model,
 					   bytea * *model_data,
 					   Jsonb * *metrics,
 					   char **errstr)

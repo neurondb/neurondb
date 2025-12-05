@@ -78,7 +78,7 @@ static int	ndb_metal_init(void);
 static void ndb_metal_shutdown(void);
 static int	ndb_metal_is_available(void);
 static int	ndb_metal_device_count(void);
-static int	ndb_metal_device_info(int device_id, NDBGpuDeviceInfo * info);
+static int	ndb_metal_device_info(int device_id, NDBGpuDeviceInfo *info);
 static int	ndb_metal_set_device(int device_id);
 static int	ndb_metal_mem_alloc(void **ptr, size_t bytes);
 static int	ndb_metal_mem_free(void *ptr);
@@ -251,7 +251,7 @@ metal_backend_get_device_count_impl(void)
 
 static bool
 __attribute__((unused))
-metal_backend_get_device_info_impl(int device_id, GPUDeviceInfo * info)
+metal_backend_get_device_info_impl(int device_id, GPUDeviceInfo *info)
 {
 	const char *device_name;
 	uint64_t	total_mem = 0;
@@ -1204,7 +1204,7 @@ typedef struct NdbCudaRfNode
 	int			left_child;
 	int			right_child;
 	float		value;
-}			NdbCudaRfNode;
+} NdbCudaRfNode;
 
 typedef struct NdbCudaRfModelHeader
 {
@@ -1214,7 +1214,7 @@ typedef struct NdbCudaRfModelHeader
 	int			sample_count;
 	int			majority_class;
 	double		majority_fraction;
-}			NdbCudaRfModelHeader;
+} NdbCudaRfModelHeader;
 
 typedef struct NdbCudaRfTreeHeader
 {
@@ -1222,7 +1222,7 @@ typedef struct NdbCudaRfTreeHeader
 	int			nodes_start;
 	int			root_index;
 	int			max_feature_index;
-}			NdbCudaRfTreeHeader;
+} NdbCudaRfTreeHeader;
 
 /* Metal LR model header (matches CUDA format) */
 typedef struct NdbCudaLrModelHeader
@@ -1233,11 +1233,11 @@ typedef struct NdbCudaLrModelHeader
 	double		learning_rate;
 	double		lambda;
 	double		bias;
-}			NdbCudaLrModelHeader;
+} NdbCudaLrModelHeader;
 
 /* Helper: Fill a single-node tree (leaf) */
 static void
-rf_fill_single_node_tree_metal(NdbCudaRfNode * node, int majority_class)
+rf_fill_single_node_tree_metal(NdbCudaRfNode *node, int majority_class)
 {
 	node->feature_idx = -1;
 	node->threshold = 0.0f;
@@ -1319,6 +1319,7 @@ ndb_metal_rf_train(const float *features,
 {
 	const int	default_n_trees = 32;
 	int			n_trees;
+
 	NDB_DECLARE(int *, label_ints);
 	NDB_DECLARE(int *, class_counts);
 	NDB_DECLARE(int *, best_left_counts);
@@ -1332,7 +1333,7 @@ ndb_metal_rf_train(const float *features,
 	double		gini_accumulator = 0.0;
 	size_t		class_bytes;
 	int			i;
-	
+
 	int			j = 0;
 	int			rc = -1;
 	NdbCudaRfModelHeader model_hdr;
@@ -1349,8 +1350,8 @@ ndb_metal_rf_train(const float *features,
 	ereport(DEBUG2,
 			(errmsg("ndb_metal_rf_train: function entry"),
 			 errdetail("features=%p, labels=%p, n_samples=%d, feature_dim=%d, class_count=%d",
-					  (void *)features, (void *)labels, n_samples, feature_dim, class_count)));
-	
+					   (void *) features, (void *) labels, n_samples, feature_dim, class_count)));
+
 	n_trees = default_n_trees;
 	label_ints = NULL;
 	class_counts = NULL;
@@ -1358,17 +1359,17 @@ ndb_metal_rf_train(const float *features,
 
 	if (errstr)
 		*errstr = NULL;
-	
+
 	ereport(DEBUG2,
 			(errmsg("ndb_metal_rf_train: validating parameters")));
-	
+
 	if (model_data == NULL || labels == NULL || n_samples <= 0
 		|| feature_dim <= 0 || class_count <= 0)
 	{
 		ereport(DEBUG2,
 				(errmsg("ndb_metal_rf_train: invalid input parameters"),
 				 errdetail("model_data=%p, labels=%p, n_samples=%d, feature_dim=%d, class_count=%d",
-						  (void *)model_data, (void *)labels, n_samples, feature_dim, class_count)));
+						   (void *) model_data, (void *) labels, n_samples, feature_dim, class_count)));
 		if (errstr)
 			*errstr = pstrdup("invalid input parameters for Metal RF train");
 		return -1;
@@ -1380,11 +1381,11 @@ ndb_metal_rf_train(const float *features,
 	(void) hyperparams;
 	if (n_trees <= 0)
 		n_trees = default_n_trees;
-	
+
 	ereport(DEBUG2,
 			(errmsg("ndb_metal_rf_train: about to allocate memory"),
 			 errdetail("n_trees=%d, n_samples=%d, class_count=%d", n_trees, n_samples, class_count)));
-	
+
 	if (class_count > 4096)
 	{
 		ereport(DEBUG2,
@@ -1396,13 +1397,13 @@ ndb_metal_rf_train(const float *features,
 
 	ereport(DEBUG2,
 			(errmsg("ndb_metal_rf_train: calculating class_bytes")));
-	
+
 	class_bytes = sizeof(int) * (size_t) class_count;
-	
+
 	ereport(DEBUG2,
 			(errmsg("ndb_metal_rf_train: class_bytes calculated"),
 			 errdetail("class_bytes=%zu, MaxAllocSize=%zu", class_bytes, MaxAllocSize)));
-	
+
 	if (class_bytes > MaxAllocSize)
 	{
 		ereport(DEBUG2,
@@ -1415,58 +1416,58 @@ ndb_metal_rf_train(const float *features,
 	ereport(DEBUG2,
 			(errmsg("ndb_metal_rf_train: about to allocate label_ints"),
 			 errdetail("size=%zu", sizeof(int) * (size_t) n_samples)));
-	
+
 	NDB_ALLOC(label_ints, int, n_samples);
-	
+
 	ereport(DEBUG2,
 			(errmsg("ndb_metal_rf_train: label_ints allocated"),
-			 errdetail("label_ints=%p", (void *)label_ints)));
-	
+			 errdetail("label_ints=%p", (void *) label_ints)));
+
 	ereport(DEBUG2,
 			(errmsg("ndb_metal_rf_train: about to allocate class_counts"),
 			 errdetail("class_bytes=%zu", class_bytes)));
-	
+
 	NDB_ALLOC(class_counts, int, class_bytes / sizeof(int));
-	
+
 	ereport(DEBUG2,
 			(errmsg("ndb_metal_rf_train: class_counts allocated"),
-			 errdetail("class_counts=%p", (void *)class_counts)));
-	
+			 errdetail("class_counts=%p", (void *) class_counts)));
+
 	ereport(DEBUG2,
 			(errmsg("ndb_metal_rf_train: about to allocate tmp_left_counts")));
-	
+
 	NDB_ALLOC(tmp_left_counts, int, class_bytes / sizeof(int));
-	
+
 	ereport(DEBUG2,
 			(errmsg("ndb_metal_rf_train: tmp_left_counts allocated"),
-			 errdetail("tmp_left_counts=%p", (void *)tmp_left_counts)));
-	
+			 errdetail("tmp_left_counts=%p", (void *) tmp_left_counts)));
+
 	ereport(DEBUG2,
 			(errmsg("ndb_metal_rf_train: about to allocate tmp_right_counts")));
-	
+
 	NDB_ALLOC(tmp_right_counts, int, class_bytes / sizeof(int));
-	
+
 	ereport(DEBUG2,
 			(errmsg("ndb_metal_rf_train: tmp_right_counts allocated"),
-			 errdetail("tmp_right_counts=%p", (void *)tmp_right_counts)));
-	
+			 errdetail("tmp_right_counts=%p", (void *) tmp_right_counts)));
+
 	ereport(DEBUG2,
 			(errmsg("ndb_metal_rf_train: about to allocate best_left_counts")));
-	
+
 	NDB_ALLOC(best_left_counts, int, class_bytes / sizeof(int));
-	
+
 	ereport(DEBUG2,
 			(errmsg("ndb_metal_rf_train: best_left_counts allocated"),
-			 errdetail("best_left_counts=%p", (void *)best_left_counts)));
-	
+			 errdetail("best_left_counts=%p", (void *) best_left_counts)));
+
 	ereport(DEBUG2,
 			(errmsg("ndb_metal_rf_train: about to allocate best_right_counts")));
-	
+
 	NDB_ALLOC(best_right_counts, int, class_bytes / sizeof(int));
-	
+
 	ereport(DEBUG2,
 			(errmsg("ndb_metal_rf_train: all allocations completed"),
-			 errdetail("best_right_counts=%p", (void *)best_right_counts)));
+			 errdetail("best_right_counts=%p", (void *) best_right_counts)));
 
 	if (label_ints == NULL || class_counts == NULL ||
 		tmp_left_counts == NULL || tmp_right_counts == NULL ||
@@ -1475,8 +1476,8 @@ ndb_metal_rf_train(const float *features,
 		ereport(DEBUG2,
 				(errmsg("ndb_metal_rf_train: palloc failed"),
 				 errdetail("label_ints=%p, class_counts=%p, tmp_left_counts=%p, tmp_right_counts=%p, best_left_counts=%p, best_right_counts=%p",
-						  (void *)label_ints, (void *)class_counts, (void *)tmp_left_counts,
-						  (void *)tmp_right_counts, (void *)best_left_counts, (void *)best_right_counts)));
+						   (void *) label_ints, (void *) class_counts, (void *) tmp_left_counts,
+						   (void *) tmp_right_counts, (void *) best_left_counts, (void *) best_right_counts)));
 		if (errstr)
 			*errstr = pstrdup("Metal RF train: palloc failed");
 		goto cleanup;
@@ -1484,7 +1485,7 @@ ndb_metal_rf_train(const float *features,
 
 	ereport(DEBUG2,
 			(errmsg("ndb_metal_rf_train: about to convert labels to integers"),
-			 errdetail("n_samples=%d, labels=%p", n_samples, (void *)labels)));
+			 errdetail("n_samples=%d, labels=%p", n_samples, (void *) labels)));
 
 	for (i = 0; i < n_samples; i++)
 	{
@@ -1512,7 +1513,7 @@ ndb_metal_rf_train(const float *features,
 	{
 		ereport(DEBUG2,
 				(errmsg("ndb_metal_rf_train: seeding RNG")));
-		
+
 		if (!pg_prng_strong_seed(&rng))
 		{
 			ereport(DEBUG2,
@@ -1520,7 +1521,7 @@ ndb_metal_rf_train(const float *features,
 			pg_prng_seed(&rng, (uint64) n_samples ^ (uint64) feature_dim);
 		}
 		seeded = true;
-		
+
 		ereport(DEBUG2,
 				(errmsg("ndb_metal_rf_train: RNG seeded")));
 	}
@@ -1537,11 +1538,11 @@ ndb_metal_rf_train(const float *features,
 			majority_class = i;
 		}
 	}
-	
+
 	ereport(DEBUG2,
 			(errmsg("ndb_metal_rf_train: majority class found"),
 			 errdetail("majority_class=%d, best_count=%d", majority_class, best_count)));
-	
+
 	majority_fraction = (n_samples > 0)
 		? ((double) best_count / (double) n_samples)
 		: 0.0;
@@ -1558,7 +1559,7 @@ ndb_metal_rf_train(const float *features,
 	ereport(DEBUG2,
 			(errmsg("ndb_metal_rf_train: payload sizes calculated"),
 			 errdetail("total_nodes=%d, header_bytes=%zu, payload_bytes=%zu, MaxAllocSize=%zu, VARHDRSZ=%d",
-					  total_nodes, header_bytes, payload_bytes, MaxAllocSize, VARHDRSZ)));
+					   total_nodes, header_bytes, payload_bytes, MaxAllocSize, VARHDRSZ)));
 
 	if (payload_bytes > MaxAllocSize || VARHDRSZ + payload_bytes > MaxAllocSize)
 	{
@@ -1576,10 +1577,10 @@ ndb_metal_rf_train(const float *features,
 	NDB_DECLARE(char *, payload_bytes_ptr);
 	NDB_ALLOC(payload_bytes_ptr, char, VARHDRSZ + payload_bytes);
 	payload = (bytea *) payload_bytes_ptr;
-	
+
 	ereport(DEBUG2,
 			(errmsg("ndb_metal_rf_train: payload allocated"),
-			 errdetail("payload=%p", (void *)payload)));
+			 errdetail("payload=%p", (void *) payload)));
 
 	if (payload == NULL)
 	{
@@ -1592,22 +1593,22 @@ ndb_metal_rf_train(const float *features,
 
 	ereport(DEBUG2,
 			(errmsg("ndb_metal_rf_train: about to initialize payload header"),
-			 errdetail("payload=%p", (void *)payload)));
-	
+			 errdetail("payload=%p", (void *) payload)));
+
 	SET_VARSIZE(payload, VARHDRSZ + payload_bytes);
-	
+
 	ereport(DEBUG2,
 			(errmsg("ndb_metal_rf_train: SET_VARSIZE completed")));
-	
+
 	base = VARDATA(payload);
-	
+
 	ereport(DEBUG2,
 			(errmsg("ndb_metal_rf_train: VARDATA obtained"),
-			 errdetail("base=%p", (void *)base)));
+			 errdetail("base=%p", (void *) base)));
 
 	ereport(DEBUG2,
 			(errmsg("ndb_metal_rf_train: about to set model_hdr fields")));
-	
+
 	model_hdr.tree_count = n_trees;
 	model_hdr.feature_dim = feature_dim;
 	model_hdr.class_count = class_count;
@@ -1617,19 +1618,19 @@ ndb_metal_rf_train(const float *features,
 
 	ereport(DEBUG2,
 			(errmsg("ndb_metal_rf_train: model_hdr fields set, about to memcpy"),
-			 errdetail("sizeof(model_hdr)=%zu, base=%p", sizeof(model_hdr), (void *)base)));
+			 errdetail("sizeof(model_hdr)=%zu, base=%p", sizeof(model_hdr), (void *) base)));
 
 	memcpy(base, &model_hdr, sizeof(model_hdr));
-	
+
 	ereport(DEBUG2,
 			(errmsg("ndb_metal_rf_train: memcpy completed, about to set tree_hdrs and nodes pointers")));
-	
+
 	tree_hdrs = (NdbCudaRfTreeHeader *) (base + sizeof(model_hdr));
 	nodes = (NdbCudaRfNode *) (base + header_bytes);
-	
+
 	ereport(DEBUG2,
 			(errmsg("ndb_metal_rf_train: tree_hdrs and nodes pointers set"),
-			 errdetail("tree_hdrs=%p, nodes=%p", (void *)tree_hdrs, (void *)nodes)));
+			 errdetail("tree_hdrs=%p, nodes=%p", (void *) tree_hdrs, (void *) nodes)));
 
 	ereport(DEBUG2,
 			(errmsg("ndb_metal_rf_train: about to start tree training loop"),
@@ -1646,11 +1647,11 @@ ndb_metal_rf_train(const float *features,
 		int			right_total;
 		int			node_offset;
 		double		noise;
-		
+
 		ereport(DEBUG2,
 				(errmsg("ndb_metal_rf_train: starting tree"),
 				 errdetail("i=%d of n_trees=%d", i, n_trees)));
-		
+
 		best_gini = DBL_MAX;
 		best_threshold = 0.0f;
 		best_feature = -1;
@@ -1659,11 +1660,11 @@ ndb_metal_rf_train(const float *features,
 		left_total = 0;
 		right_total = 0;
 		node_offset = i * 3;
-		
+
 		ereport(DEBUG2,
 				(errmsg("ndb_metal_rf_train: about to generate random noise"),
 				 errdetail("node_offset=%d", node_offset)));
-		
+
 		noise = pg_prng_double(&rng) - 0.5;
 
 		ereport(DEBUG2,
@@ -1672,7 +1673,7 @@ ndb_metal_rf_train(const float *features,
 
 		memset(best_left_counts, 0, class_bytes);
 		memset(best_right_counts, 0, class_bytes);
-		
+
 		ereport(DEBUG2,
 				(errmsg("ndb_metal_rf_train: memset completed, about to start feature loop"),
 				 errdetail("feature_dim=%d", feature_dim)));
@@ -1683,18 +1684,18 @@ ndb_metal_rf_train(const float *features,
 			double		sumsq_host;
 			double		variance;
 			float		threshold;
-			
+
 			ereport(DEBUG2,
 					(errmsg("ndb_metal_rf_train: processing feature"),
 					 errdetail("tree=%d, feature=%d of %d", i, j, feature_dim)));
-			
+
 			sum_host = 0.0;
 			sumsq_host = 0.0;
 
 			ereport(DEBUG2,
 					(errmsg("ndb_metal_rf_train: about to call rf_compute_feature_stats_metal"),
 					 errdetail("features=%p, n_samples=%d, feature_dim=%d, j=%d",
-							  (void *)features, n_samples, feature_dim, j)));
+							   (void *) features, n_samples, feature_dim, j)));
 
 			rf_compute_feature_stats_metal(features, n_samples,
 										   feature_dim, j, &sum_host, &sumsq_host);
@@ -1715,18 +1716,18 @@ ndb_metal_rf_train(const float *features,
 					 errdetail("sum_host=%f, sumsq_host=%f, n_samples=%d", sum_host, sumsq_host, n_samples)));
 
 			threshold = (float) (sum_host / (double) n_samples);
-			
+
 			ereport(DEBUG2,
 					(errmsg("ndb_metal_rf_train: threshold calculated"),
 					 errdetail("threshold=%f", threshold)));
-			
+
 			variance = (sumsq_host / (double) n_samples)
 				- ((double) threshold * (double) threshold);
-			
+
 			ereport(DEBUG2,
 					(errmsg("ndb_metal_rf_train: variance calculated"),
 					 errdetail("variance=%f", variance)));
-			
+
 			if (variance < 0.0)
 				variance = 0.0;
 			if (variance > 0.0)
@@ -1740,7 +1741,7 @@ ndb_metal_rf_train(const float *features,
 			ereport(DEBUG2,
 					(errmsg("ndb_metal_rf_train: about to call rf_compute_split_counts_metal"),
 					 errdetail("features=%p, label_ints=%p, n_samples=%d, feature_dim=%d, j=%d, threshold=%f, class_count=%d",
-							  (void *)features, (void *)label_ints, n_samples, feature_dim, j, threshold, class_count)));
+							   (void *) features, (void *) label_ints, n_samples, feature_dim, j, threshold, class_count)));
 
 			rf_compute_split_counts_metal(features, label_ints,
 										  n_samples, feature_dim, j, threshold,
@@ -1752,7 +1753,7 @@ ndb_metal_rf_train(const float *features,
 			ereport(DEBUG2,
 					(errmsg("ndb_metal_rf_train: about to call rf_split_gini"),
 					 errdetail("tmp_left_counts=%p, tmp_right_counts=%p, class_count=%d",
-							  (void *)tmp_left_counts, (void *)tmp_right_counts, class_count)));
+							   (void *) tmp_left_counts, (void *) tmp_right_counts, class_count)));
 
 			{
 				double		gini = rf_split_gini(tmp_left_counts,
@@ -1762,25 +1763,25 @@ ndb_metal_rf_train(const float *features,
 				ereport(DEBUG2,
 						(errmsg("ndb_metal_rf_train: rf_split_gini returned"),
 						 errdetail("gini=%f, best_gini=%f, left_total=%d, right_total=%d",
-								  gini, best_gini, left_total, right_total)));
+								   gini, best_gini, left_total, right_total)));
 
 				if (gini < best_gini && gini >= 0.0)
 				{
 					ereport(DEBUG2,
 							(errmsg("ndb_metal_rf_train: updating best split"),
 							 errdetail("gini=%f, best_feature=%d, j=%d", gini, best_feature, j)));
-					
+
 					best_gini = gini;
 					best_feature = j;
 					best_threshold = threshold;
-					
+
 					ereport(DEBUG2,
 							(errmsg("ndb_metal_rf_train: about to memcpy best counts"),
 							 errdetail("class_bytes=%zu", class_bytes)));
-					
+
 					memcpy(best_left_counts, tmp_left_counts, class_bytes);
 					memcpy(best_right_counts, tmp_right_counts, class_bytes);
-					
+
 					ereport(DEBUG2,
 							(errmsg("ndb_metal_rf_train: memcpy completed")));
 				}
@@ -1796,24 +1797,24 @@ ndb_metal_rf_train(const float *features,
 			ereport(DEBUG2,
 					(errmsg("ndb_metal_rf_train: best_feature < 0, filling single node tree"),
 					 errdetail("tree=%d, node_offset=%d, majority_class=%d", i, node_offset, majority_class)));
-			
+
 			ereport(DEBUG2,
 					(errmsg("ndb_metal_rf_train: about to set tree_hdrs[%d] fields", i)));
-			
+
 			tree_hdrs[i].node_count = 1;
 			tree_hdrs[i].nodes_start = node_offset;
 			tree_hdrs[i].root_index = 0;
 			tree_hdrs[i].max_feature_index = -1;
-			
+
 			ereport(DEBUG2,
 					(errmsg("ndb_metal_rf_train: about to call rf_fill_single_node_tree_metal"),
-					 errdetail("nodes[%d]=%p", node_offset, (void *)&nodes[node_offset])));
-			
+					 errdetail("nodes[%d]=%p", node_offset, (void *) &nodes[node_offset])));
+
 			rf_fill_single_node_tree_metal(&nodes[node_offset], majority_class);
-			
+
 			ereport(DEBUG2,
 					(errmsg("ndb_metal_rf_train: rf_fill_single_node_tree_metal completed, continuing to next tree")));
-			
+
 			continue;
 		}
 
@@ -1933,46 +1934,46 @@ ndb_metal_rf_train(const float *features,
 		ereport(DEBUG2,
 				(errmsg("ndb_metal_rf_train: all spec fields set, about to call rf_build_metrics_json"),
 				 errdetail("spec.storage=%s, spec.algorithm=%s, spec.tree_count=%d, spec.majority_class=%d, spec.majority_fraction=%f, spec.gini=%f, spec.oob_accuracy=%f",
-						  spec.storage ? spec.storage : "NULL",
-						  spec.algorithm ? spec.algorithm : "NULL",
-						  spec.tree_count,
-						  spec.majority_class,
-						  spec.majority_fraction,
-						  spec.gini,
-						  spec.oob_accuracy)));
+						   spec.storage ? spec.storage : "NULL",
+						   spec.algorithm ? spec.algorithm : "NULL",
+						   spec.tree_count,
+						   spec.majority_class,
+						   spec.majority_fraction,
+						   spec.gini,
+						   spec.oob_accuracy)));
 
 		metrics_json = rf_build_metrics_json(&spec);
 
 		ereport(DEBUG2,
 				(errmsg("ndb_metal_rf_train: rf_build_metrics_json returned"),
-				 errdetail("metrics_json=%p", (void *)metrics_json)));
+				 errdetail("metrics_json=%p", (void *) metrics_json)));
 	}
 
 	ereport(DEBUG2,
 			(errmsg("ndb_metal_rf_train: metrics JSON block completed, about to set return values"),
-			 errdetail("payload=%p, model_data=%p, metrics=%p", (void *)payload, (void *)model_data, (void *)metrics)));
+			 errdetail("payload=%p, model_data=%p, metrics=%p", (void *) payload, (void *) model_data, (void *) metrics)));
 
 	ereport(DEBUG2,
 			(errmsg("ndb_metal_rf_train: about to set *model_data"),
-			 errdetail("payload=%p", (void *)payload)));
+			 errdetail("payload=%p", (void *) payload)));
 
 	*model_data = payload;
 
 	ereport(DEBUG2,
 			(errmsg("ndb_metal_rf_train: *model_data set"),
-			 errdetail("*model_data=%p", (void *)*model_data)));
+			 errdetail("*model_data=%p", (void *) *model_data)));
 
 	if (metrics != NULL)
 	{
 		ereport(DEBUG2,
 				(errmsg("ndb_metal_rf_train: metrics is not NULL, about to set *metrics"),
-				 errdetail("metrics=%p, metrics_json=%p", (void *)metrics, (void *)metrics_json)));
+				 errdetail("metrics=%p, metrics_json=%p", (void *) metrics, (void *) metrics_json)));
 
 		*metrics = metrics_json;
 
 		ereport(DEBUG2,
 				(errmsg("ndb_metal_rf_train: *metrics set"),
-				 errdetail("*metrics=%p", (void *)*metrics)));
+				 errdetail("*metrics=%p", (void *) *metrics)));
 
 		metrics_json = NULL;
 
@@ -2055,10 +2056,10 @@ ndb_metal_rf_predict(const bytea * model_data,
 
 /* Helper: Copy tree nodes from GTree to flat Metal format */
 static void
-rf_copy_tree_nodes_metal(const GTree * tree, NdbCudaRfNode * dest,
+rf_copy_tree_nodes_metal(const GTree *tree, NdbCudaRfNode *dest,
 						 int *node_offset, int *max_feat_idx)
 {
-	const		GTreeNode *src_nodes;
+	const GTreeNode *src_nodes;
 	int			count;
 	int			i;
 	int			max_idx = -1;
@@ -2070,7 +2071,7 @@ rf_copy_tree_nodes_metal(const GTree * tree, NdbCudaRfNode * dest,
 	count = tree->count;
 	for (i = 0; i < count; i++)
 	{
-		const		GTreeNode *src = &src_nodes[i];
+		const GTreeNode *src = &src_nodes[i];
 		NdbCudaRfNode *dst = &dest[*node_offset + i];
 
 		dst->feature_idx = src->feature_idx;
@@ -2129,7 +2130,7 @@ ndb_metal_rf_pack(const struct RFModel *model,
 		tree_count = model->tree_count;
 		for (i = 0; i < model->tree_count; i++)
 		{
-			const		GTree *tree = model->trees[i];
+			const GTree *tree = model->trees[i];
 
 			if (tree != NULL)
 				total_nodes += tree->count;
@@ -2200,7 +2201,7 @@ ndb_metal_rf_pack(const struct RFModel *model,
 	node_cursor = 0;
 	for (i = 0; i < tree_count; i++)
 	{
-		const		GTree *tree =
+		const GTree *tree =
 			(model->tree_count > 0 && model->trees != NULL)
 			? model->trees[i]
 			: model->tree;
@@ -2250,6 +2251,7 @@ ndb_metal_lr_train(const float *features,
 	int			max_iters = default_max_iters;
 	double		learning_rate = default_learning_rate;
 	double		lambda = default_lambda;
+
 	NDB_DECLARE(double *, weights);
 	NDB_DECLARE(double *, grad_weights);
 	NDB_DECLARE(double *, predictions);
@@ -2387,8 +2389,8 @@ ndb_metal_lr_train(const float *features,
 		}
 
 		NDB_DECLARE(char *, blob_bytes);
-	NDB_ALLOC(blob_bytes, char, VARHDRSZ + payload_bytes);
-	blob = (bytea *) blob_bytes;
+		NDB_ALLOC(blob_bytes, char, VARHDRSZ + payload_bytes);
+		blob = (bytea *) blob_bytes;
 		if (blob == NULL)
 		{
 			if (errstr)
@@ -2464,7 +2466,7 @@ ndb_metal_lr_predict(const bytea * model_data,
 					 double *probability_out,
 					 char **errstr)
 {
-	const		NdbCudaLrModelHeader *hdr;
+	const NdbCudaLrModelHeader *hdr;
 	const float *weights;
 	const		bytea *detoasted;
 	double		z;
@@ -2598,7 +2600,7 @@ typedef struct NdbCudaLinRegModelHeader
 	double		r_squared;
 	double		mse;
 	double		mae;
-}			NdbCudaLinRegModelHeader;
+} NdbCudaLinRegModelHeader;
 
 static int
 ndb_metal_linreg_pack(const struct LinRegModel *model,
@@ -2676,6 +2678,7 @@ ndb_metal_linreg_pack(const struct LinRegModel *model,
 	if (metrics != NULL)
 	{
 		StringInfoData buf;
+
 		NDB_DECLARE(Jsonb *, metrics_json);
 
 		ereport(DEBUG2, (errmsg("ndb_metal_linreg_pack: creating metrics JSON")));
@@ -2695,7 +2698,11 @@ ndb_metal_linreg_pack(const struct LinRegModel *model,
 						 model->mae);
 
 		/* Create metrics JSON using safe wrapper function */
-		/* Use ndb_jsonb_in_cstring which properly handles memory context and error handling */
+
+		/*
+		 * Use ndb_jsonb_in_cstring which properly handles memory context and
+		 * error handling
+		 */
 		PG_TRY();
 		{
 			metrics_json = ndb_jsonb_in_cstring(buf.data);
@@ -2714,7 +2721,7 @@ ndb_metal_linreg_pack(const struct LinRegModel *model,
 			metrics_json = NULL;
 		}
 		PG_END_TRY();
-		
+
 		NDB_FREE(buf.data);
 		*metrics = metrics_json;
 	}
@@ -2753,13 +2760,13 @@ ndb_metal_linreg_train(const float *features,
 	ereport(DEBUG2,
 			(errmsg("ndb_metal_linreg_train: entry"),
 			 errdetail("n_samples=%d, feature_dim=%d, features=%p, targets=%p, model_data=%p, metrics=%p",
-					  n_samples,
-					  feature_dim,
-					  (void *) features,
-					  (void *) targets,
-					  (void *) model_data,
-					  (void *) metrics)));
-	
+					   n_samples,
+					   feature_dim,
+					   (void *) features,
+					   (void *) targets,
+					   (void *) model_data,
+					   (void *) metrics)));
+
 	if (errstr)
 		*errstr = NULL;
 
@@ -3145,15 +3152,15 @@ ndb_metal_linreg_train(const float *features,
 	NDB_FREE(h_beta);
 	ereport(DEBUG2, (errmsg("ndb_metal_linreg_train: memory cleaned up")));
 
-	ereport(DEBUG2, (errmsg("ndb_metal_linreg_train: checking return values, rc=%d, payload=%p", rc, (void*)payload)));
+	ereport(DEBUG2, (errmsg("ndb_metal_linreg_train: checking return values, rc=%d, payload=%p", rc, (void *) payload)));
 	if (rc == 0 && payload != NULL)
 	{
 		ereport(DEBUG2, (errmsg("ndb_metal_linreg_train: setting return values")));
 		*model_data = payload;
 		if (metrics != NULL)
 			*metrics = metrics_json;
-		elog(DEBUG1, "ndb_metal_linreg_train: training succeeded, payload=%p, metrics=%p", 
-			 (void*)payload, (void*)metrics_json);
+		elog(DEBUG1, "ndb_metal_linreg_train: training succeeded, payload=%p, metrics=%p",
+			 (void *) payload, (void *) metrics_json);
 		ereport(DEBUG2, (errmsg("ndb_metal_linreg_train: returning success")));
 		return 0;
 	}
@@ -3164,8 +3171,8 @@ ndb_metal_linreg_train(const float *features,
 	if (metrics_json != NULL)
 		NDB_FREE(metrics_json);
 
-	elog(DEBUG1, "ndb_metal_linreg_train: training failed, rc=%d, payload=%p, errstr=%s", 
-		 rc, (void*)payload, (errstr && *errstr) ? *errstr : "NULL");
+	elog(DEBUG1, "ndb_metal_linreg_train: training failed, rc=%d, payload=%p, errstr=%s",
+		 rc, (void *) payload, (errstr && *errstr) ? *errstr : "NULL");
 	return -1;
 }
 
@@ -3176,7 +3183,7 @@ ndb_metal_linreg_predict(const bytea * model_data,
 						 double *prediction_out,
 						 char **errstr)
 {
-	const		NdbCudaLinRegModelHeader *hdr;
+	const NdbCudaLinRegModelHeader *hdr;
 	const float *coefficients;
 	const		bytea *detoasted;
 	double		prediction;
@@ -3241,7 +3248,7 @@ typedef struct NdbCudaSvmModelHeader
 	int32	   *support_vector_indices; /* Array of n_support_vectors ints */
 	double		C;
 	int32		max_iters;
-}			NdbCudaSvmModelHeader;
+} NdbCudaSvmModelHeader;
 
 /*
  * Helper: Compute linear kernel K(x, y) = x · y
@@ -3360,6 +3367,7 @@ ndb_metal_svm_train(const float *features,
 {
 	double		C = 1.0;
 	int			max_iters = 1000;
+
 	NDB_DECLARE(float *, alphas);
 	NDB_DECLARE(float *, errors);
 	NDB_DECLARE(float *, kernel_matrix);
@@ -3420,7 +3428,8 @@ ndb_metal_svm_train(const float *features,
 		Numeric		num;
 
 		{
-			Jsonb *C_jsonb = ndb_jsonb_object_field((Jsonb *)hyperparams, "C");
+			Jsonb	   *C_jsonb = ndb_jsonb_object_field((Jsonb *) hyperparams, "C");
+
 			if (C_jsonb != NULL)
 			{
 				C_datum = JsonbPGetDatum(C_jsonb);
@@ -3736,7 +3745,7 @@ ndb_metal_svm_predict(const bytea * model_data,
 					  double *confidence_out,
 					  char **errstr)
 {
-	const		NdbCudaSvmModelHeader *hdr;
+	const NdbCudaSvmModelHeader *hdr;
 	const float *alphas;
 	const float *support_vectors;
 	const		bytea *detoasted;
@@ -3805,7 +3814,7 @@ typedef struct NdbCudaDtNode
 	int			right_child;
 	float		value;
 	bool		is_leaf;
-}			NdbCudaDtNode;
+} NdbCudaDtNode;
 
 typedef struct NdbCudaDtModelHeader
 {
@@ -3814,7 +3823,7 @@ typedef struct NdbCudaDtModelHeader
 	int32		max_depth;
 	int32		min_samples_split;
 	int32		node_count;
-}			NdbCudaDtModelHeader;
+} NdbCudaDtModelHeader;
 
 /*
  * Helper: Compute Gini impurity from class counts
@@ -3860,7 +3869,7 @@ dt_compute_variance_metal(double sum, double sumsq, int count)
  * Helper: Free tree recursively
  */
 static void
-dt_free_tree_metal(DTNode * node)
+dt_free_tree_metal(DTNode *node)
 {
 	if (node == NULL)
 		return;
@@ -3876,7 +3885,7 @@ dt_free_tree_metal(DTNode * node)
  * Helper: Count nodes in tree recursively
  */
 static int
-dt_count_nodes_metal(const DTNode * node)
+dt_count_nodes_metal(const DTNode *node)
 {
 	if (node == NULL)
 		return 0;
@@ -3889,7 +3898,7 @@ dt_count_nodes_metal(const DTNode * node)
  * Helper: Serialize tree nodes recursively
  */
 static int
-dt_serialize_node_recursive_metal(const DTNode * node, NdbCudaDtNode * dest, int *node_idx, int *max_idx)
+dt_serialize_node_recursive_metal(const DTNode *node, NdbCudaDtNode *dest, int *node_idx, int *max_idx)
 {
 	int			current_idx;
 	int			left_idx = -1;
@@ -3948,6 +3957,7 @@ dt_build_tree_metal(const float *features,
 	int			best_feature = -1;
 	float		best_threshold = 0.0f;
 	double		best_gain = -DBL_MAX;
+
 	NDB_DECLARE(int *, left_indices);
 	NDB_DECLARE(int *, right_indices);
 	int			left_count = 0;
@@ -4352,6 +4362,7 @@ ndb_metal_dt_train(const float *features,
 	int			min_samples_split = 2;
 	bool		is_classification = true;
 	int			class_count = 2;
+
 	NDB_DECLARE(DTModel *, model);
 	NDB_DECLARE(DTNode *, root);
 	NDB_DECLARE(int *, indices);
@@ -4555,7 +4566,7 @@ ndb_metal_dt_train(const float *features,
 	}
 
 	NDB_FREE(indices);
-	NDB_FREE(model); /* Note: root is now owned by packed model */
+	NDB_FREE(model);			/* Note: root is now owned by packed model */
 
 	rc = 0;
 	return rc;
@@ -4665,8 +4676,8 @@ ndb_metal_dt_predict(const bytea * model_data,
 					 double *prediction_out,
 					 char **errstr)
 {
-	const		NdbCudaDtModelHeader *hdr;
-	const		NdbCudaDtNode *nodes;
+	const NdbCudaDtModelHeader *hdr;
+	const NdbCudaDtNode *nodes;
 	const		bytea *detoasted;
 	int			node_idx = 0;
 
@@ -4710,7 +4721,7 @@ ndb_metal_dt_predict(const bytea * model_data,
 	/* Traverse tree to make prediction */
 	while (node_idx >= 0 && node_idx < hdr->node_count)
 	{
-		const		NdbCudaDtNode *node = &nodes[node_idx];
+		const NdbCudaDtNode *node = &nodes[node_idx];
 
 		if (node->is_leaf)
 		{
@@ -4740,7 +4751,7 @@ typedef struct NdbCudaRidgeModelHeader
 	double		r_squared;
 	double		mse;
 	double		mae;
-}			NdbCudaRidgeModelHeader;
+} NdbCudaRidgeModelHeader;
 
 static int
 ndb_metal_ridge_pack(const struct RidgeModel *model,
@@ -4834,6 +4845,7 @@ ndb_metal_ridge_train(const float *features,
 					  char **errstr)
 {
 	double		lambda = 0.01;	/* Default regularization */
+
 	NDB_DECLARE(double *, h_XtX);
 	NDB_DECLARE(double *, h_Xty);
 	NDB_DECLARE(double *, h_XtX_inv);
@@ -4904,6 +4916,7 @@ ndb_metal_ridge_train(const float *features,
 	for (i = 0; i < n_samples; i++)
 	{
 		const float *row = features + (i * feature_dim);
+
 		NDB_DECLARE(double *, xi);
 		NDB_ALLOC(xi, double, dim_with_intercept);
 
@@ -5105,7 +5118,7 @@ ndb_metal_ridge_predict(const bytea * model_data,
 						double *prediction_out,
 						char **errstr)
 {
-	const		NdbCudaRidgeModelHeader *hdr;
+	const NdbCudaRidgeModelHeader *hdr;
 	const float *coefficients;
 	const		bytea *detoasted;
 	double		prediction;
@@ -5155,7 +5168,7 @@ typedef struct NdbCudaLassoModelHeader
 	double		r_squared;
 	double		mse;
 	double		mae;
-}			NdbCudaLassoModelHeader;
+} NdbCudaLassoModelHeader;
 
 /*
  * Soft thresholding operator for Lasso
@@ -5267,10 +5280,12 @@ ndb_metal_lasso_train(const float *features,
 {
 	double		lambda = 0.01;	/* Default regularization */
 	int			max_iters = 1000;	/* Default iterations */
+
 	NDB_DECLARE(double *, weights);
 	NDB_DECLARE(double *, weights_old);
 	NDB_DECLARE(double *, residuals);
 	double		y_mean = 0.0;
+
 	NDB_DECLARE(bytea *, payload);
 	NDB_DECLARE(Jsonb *, metrics_json);
 	int			iter,
@@ -5495,7 +5510,7 @@ ndb_metal_lasso_predict(const bytea * model_data,
 						double *prediction_out,
 						char **errstr)
 {
-	const		NdbCudaLassoModelHeader *hdr;
+	const NdbCudaLassoModelHeader *hdr;
 	const float *coefficients;
 	const		bytea *detoasted;
 	double		prediction;
@@ -5551,7 +5566,7 @@ typedef struct NdbCudaNbModelHeader
 	int32		n_classes;
 	int32		n_features;
 	int32		n_samples;
-}			NdbCudaNbModelHeader;
+} NdbCudaNbModelHeader;
 
 static int
 ndb_metal_nb_pack(const struct GaussianNBModel *model,
@@ -5669,6 +5684,7 @@ ndb_metal_nb_train(const float *features,
 	NDB_DECLARE(double *, means);
 	NDB_DECLARE(double *, variances);
 	struct GaussianNBModel model;
+
 	NDB_DECLARE(bytea *, blob);
 	NDB_DECLARE(Jsonb *, metrics_json);
 	int			i,
@@ -5933,7 +5949,7 @@ typedef struct NdbCudaGmmModelHeader
 	int32		n_samples;
 	int32		max_iters;
 	double		tolerance;
-}			NdbCudaGmmModelHeader;
+} NdbCudaGmmModelHeader;
 
 #define GMM_MIN_PROB 1e-10
 #define GMM_EPSILON 1e-9
@@ -6052,15 +6068,18 @@ ndb_metal_gmm_train(const float *features,
 {
 	int			max_iters = 100;
 	double		tolerance = 1e-6;
+
 	NDB_DECLARE(double *, mixing_coeffs);
 	NDB_DECLARE(double *, means);
 	NDB_DECLARE(double *, variances);
 	double	  **means_2d = NULL;
 	double	  **variances_2d = NULL;
+
 	NDB_DECLARE(double *, responsibilities);
 	double		log_likelihood = 0.0;
 	double		prev_log_likelihood = -DBL_MAX;
 	struct GMMModel model;
+
 	NDB_DECLARE(bytea *, blob);
 	NDB_DECLARE(Jsonb *, metrics_json);
 	int			iter;
@@ -6446,7 +6465,7 @@ typedef struct NdbCudaKnnModelHeader
 	int32		n_features;
 	int32		k;
 	int32		task_type;		/* 0=classification, 1=regression */
-}			NdbCudaKnnModelHeader;
+} NdbCudaKnnModelHeader;
 
 static int
 ndb_metal_knn_pack(const struct KNNModel *model,
@@ -6541,6 +6560,7 @@ ndb_metal_knn_train(const float *features,
 					char **errstr)
 {
 	struct KNNModel model;
+
 	NDB_DECLARE(bytea *, blob);
 	NDB_DECLARE(Jsonb *, metrics_json);
 	NDB_DECLARE(float *, features_copy);
@@ -6660,6 +6680,7 @@ ndb_metal_knn_predict(const bytea * model_data,
 	NdbCudaKnnModelHeader *hdr;
 	const float *training_features;
 	const double *training_labels;
+
 	NDB_DECLARE(float *, distances);
 	NDB_DECLARE(int *, top_k_indices);
 	int			i,
@@ -6783,6 +6804,7 @@ ndb_metal_hf_embed(const char *model_name,
 	NDB_DECLARE(ONNXModelSession *, session);
 	NDB_DECLARE(int32 *, token_ids);
 	int32		token_length = 0;
+
 	NDB_DECLARE(ONNXTensor *, input_tensor);
 	NDB_DECLARE(ONNXTensor *, output_tensor);
 	NDB_DECLARE(float *, input_data);
@@ -7265,6 +7287,7 @@ neurondb_gpu_rf_predict_backend(const void *rf_hdr,
 	const		RFNodeFlat_Metal *blob_nodes;
 	int			n_trees;
 	int			n_classes;
+
 	NDB_DECLARE(int *, tally);
 	int			i;
 
@@ -7368,7 +7391,7 @@ ndb_metal_device_count(void)
 }
 
 static int
-ndb_metal_device_info(int device_id, NDBGpuDeviceInfo * info)
+ndb_metal_device_info(int device_id, NDBGpuDeviceInfo *info)
 {
 	uint64_t	total_mem = 0;
 	uint64_t	free_mem = 0;

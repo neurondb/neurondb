@@ -48,10 +48,10 @@ extern void neurandefrag_main(Datum main_arg);
 /*
  * Manual execution functions for operators
  */
-Datum neuranq_run_once(PG_FUNCTION_ARGS);
-Datum neuranmon_sample(PG_FUNCTION_ARGS);
-Datum neurandefrag_run(PG_FUNCTION_ARGS);
+Datum		neuranq_run_once(PG_FUNCTION_ARGS);
+Datum		neuranmon_sample(PG_FUNCTION_ARGS);
+Datum		neurandefrag_run(PG_FUNCTION_ARGS);
 
 /* Worker watchdog view - to be implemented separately if needed */
 
-#endif /* NEURONDB_BGWORKERS_H */
+#endif							/* NEURONDB_BGWORKERS_H */

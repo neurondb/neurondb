@@ -41,12 +41,12 @@ pg_prng_strong_seed(pg_prng_state *state)
 
 #ifdef HAVE_ARC4RANDOM
 	/* Use arc4random for strong seeding */
-	state->s[0] = (uint64)arc4random() << 32 | arc4random();
-	state->s[1] = (uint64)arc4random() << 32 | arc4random();
+	state->s[0] = (uint64) arc4random() << 32 | arc4random();
+	state->s[1] = (uint64) arc4random() << 32 | arc4random();
 #else
 	/* Fallback: use system time and process ID for seeding */
-	state->s[0] = (uint64)time(NULL) ^ ((uint64)getpid() << 32);
-	state->s[1] = (uint64)getpid() ^ ((uint64)time(NULL) << 32);
+	state->s[0] = (uint64) time(NULL) ^ ((uint64) getpid() << 32);
+	state->s[1] = (uint64) getpid() ^ ((uint64) time(NULL) << 32);
 #endif
 	return true;
 }
@@ -70,7 +70,7 @@ pg_prng_double(pg_prng_state *state)
 	uint64		result;
 
 	if (state == NULL)
-		return 0.5;		/* Safe default */
+		return 0.5;				/* Safe default */
 
 	/* Simple LCG */
 	state->s[0] = state->s[0] * 1103515245ULL + 12345ULL;
@@ -80,7 +80,7 @@ pg_prng_double(pg_prng_state *state)
 	result = (state->s[0] ^ state->s[1]);
 
 	/* Convert to double in [0.0, 1.0) */
-	return ((double)(result & 0x7FFFFFFFFFFFFFFFULL)) / 9.223372036854776e+18;
+	return ((double) (result & 0x7FFFFFFFFFFFFFFFULL)) / 9.223372036854776e+18;
 }
 
 /* Generate random uint64 */
@@ -110,17 +110,17 @@ pg_prng_uint64_range(pg_prng_state *state, uint64 max)
 static inline uint64
 pg_prng_uint64_range_inclusive(pg_prng_state *state, uint64 min, uint64 max)
 {
-	uint64 range;
-	
+	uint64		range;
+
 	if (state == NULL)
 		return min;
-	
+
 	if (min > max)
 		return min;
-	
+
 	if (min == max)
 		return min;
-	
+
 	range = max - min + 1;
 	return min + (pg_prng_uint64(state) % range);
 }
@@ -129,9 +129,8 @@ pg_prng_uint64_range_inclusive(pg_prng_state *state, uint64 min, uint64 max)
 static inline bool
 pg_prng_seed_check(pg_prng_state *state)
 {
-	(void) state;	/* unused */
+	(void) state;				/* unused */
 	return true;
 }
 
-#endif	/* PG_PRNG_H */
-
+#endif							/* PG_PRNG_H */

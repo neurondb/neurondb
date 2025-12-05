@@ -48,6 +48,7 @@ extern float fp16_to_float(uint16 h);
 #include "utils/builtins.h"
 #include "utils/memutils.h"
 #include "utils/rel.h"
+#include "optimizer/cost.h"
 #include "utils/typcache.h"
 #include "utils/syscache.h"
 #include "utils/lsyscache.h"
@@ -65,6 +66,17 @@ extern float fp16_to_float(uint16 h);
 
 /*
  * HNSW AM type definitions and constants
+ *
+ * IMPORTANT: HNSW index uses ONE NODE PER PAGE. This is a fundamental
+ * design constraint. Each page contains exactly one HnswNode structure.
+ * This assumption is used throughout the code for:
+ * - Page layout (PageIsEmpty checks before insert)
+ * - Node access (always uses FirstOffsetNumber)
+ * - Neighbor removal (assumes single item per page)
+ * - Bulk delete (assumes first item is the node)
+ *
+ * If this constraint is violated (e.g., by other code adding items
+ * to HNSW index pages), the index will become corrupted.
  */
 #define HNSW_DEFAULT_M			16
 #define HNSW_DEFAULT_EF_CONSTRUCTION	200
@@ -73,6 +85,14 @@ extern float fp16_to_float(uint16 h);
 #define HNSW_MAX_LEVEL			16
 #define HNSW_MAGIC_NUMBER		0x48534E57
 #define HNSW_VERSION			1
+
+/* Maximum and minimum values for m parameter */
+#define HNSW_MIN_M				2
+#define HNSW_MAX_M				128
+#define HNSW_MIN_EF_CONSTRUCTION	4
+#define HNSW_MAX_EF_CONSTRUCTION	10000
+#define HNSW_MIN_EF_SEARCH		4
+#define HNSW_MAX_EF_SEARCH		10000
 
 /* Reloption kind - registered in _PG_init() */
 extern int	relopt_kind_hnsw;
@@ -115,17 +135,57 @@ typedef struct HnswNodeData
 
 typedef HnswNodeData * HnswNode;
 
-#define HnswNodeSize(dim, level) \
-	(MAXALIGN(sizeof(HnswNodeData) + (dim) * sizeof(float4) \
-		+ ((level) + 1) * HNSW_DEFAULT_M * 2 * sizeof(BlockNumber)))
+/* Maximum visited array size to prevent excessive memory allocation */
+#define HNSW_MAX_VISITED_CAPACITY (1024 * 1024)  /* 1M entries max */
 
+/*
+ * HnswGetVector - Get vector data pointer from node
+ */
 #define HnswGetVector(node) \
 	((float4 *)((char *)(node) + MAXALIGN(sizeof(HnswNodeData))))
 
-#define HnswGetNeighbors(node, lev) \
+/*
+ * HnswGetNeighborsWithM - Get neighbors array pointer for a specific level.
+ *
+ * Node layout on disk is determined by the m value stored in the meta page
+ * when the node was created. All nodes in an index must use the same m value.
+ */
+#define HnswGetNeighborsWithM(node, lev, m) \
 	((BlockNumber *)((char *)(node) + MAXALIGN(sizeof(HnswNodeData)) \
 		+ (node)->dim * sizeof(float4) \
-		+ (lev) * HNSW_DEFAULT_M * 2 * sizeof(BlockNumber)))
+		+ (lev) * (m) * 2 * sizeof(BlockNumber)))
+
+/*
+ * HnswGetNeighborsSafe - Get neighbors array using m from meta page.
+ */
+static inline BlockNumber *
+HnswGetNeighborsSafe(HnswNode node, int level, int m)
+{
+	return (BlockNumber *)((char *)node + MAXALIGN(sizeof(HnswNodeData)) +
+						   node->dim * sizeof(float4) +
+						   level * m * 2 * sizeof(BlockNumber));
+}
+
+/*
+ * HnswNodeSizeWithM - Calculate node size with specific m value.
+ *
+ * Node size depends on the m parameter. All nodes in an index must use
+ * the same m value that matches meta->m.
+ */
+static inline Size
+HnswNodeSizeWithM(int dim, int level, int m)
+{
+	return MAXALIGN(sizeof(HnswNodeData) +
+					dim * sizeof(float4) +
+					(level + 1) * m * 2 * sizeof(BlockNumber));
+}
+
+/* Legacy macros - use HnswNodeSizeWithM and HnswGetNeighborsSafe instead */
+#define HnswNodeSize(dim, level) \
+	HnswNodeSizeWithM(dim, level, HNSW_DEFAULT_M)
+
+#define HnswGetNeighbors(node, lev) \
+	HnswGetNeighborsWithM(node, lev, HNSW_DEFAULT_M)
 
 /*
  * Build state for index build
@@ -135,9 +195,7 @@ typedef struct HnswBuildState
 	Relation	heap;
 	Relation	index;
 	IndexInfo  *indexInfo;
-	HnswMetaPage metaPage;
 	double		indtuples;
-	Buffer		metaBuffer;
 	MemoryContext tmpCtx;
 }			HnswBuildState;
 
@@ -164,7 +222,7 @@ typedef HnswScanOpaqueData * HnswScanOpaque;
  */
 static IndexBuildResult * hnswbuild(Relation heap, Relation index, IndexInfo * indexInfo);
 static void hnswbuildempty(Relation index);
-static bool hnswinsert(Relation index, Datum *values, bool *isnull, ItemPointer ht_ctid,
+static bool hnswinsert(Relation index, Datum * values, bool *isnull, ItemPointer ht_ctid,
 					   Relation heapRel, IndexUniqueCheck checkUnique,
 					   bool indexUnchanged, struct IndexInfo *indexInfo);
 static IndexBulkDeleteResult * hnswbulkdelete(IndexVacuumInfo * info,
@@ -173,9 +231,9 @@ static IndexBulkDeleteResult * hnswbulkdelete(IndexVacuumInfo * info,
 											  void *callback_state);
 static IndexBulkDeleteResult * hnswvacuumcleanup(IndexVacuumInfo * info,
 												 IndexBulkDeleteResult * stats);
-static bool hnswdelete(Relation index, ItemPointer tid, Datum *values, bool *isnull,
+static bool hnswdelete(Relation index, ItemPointer tid, Datum * values, bool *isnull,
 					   Relation heapRel, struct IndexInfo *indexInfo) __attribute__((unused));
-static bool hnswupdate(Relation index, ItemPointer tid, Datum *values, bool *isnull,
+static bool hnswupdate(Relation index, ItemPointer tid, Datum * values, bool *isnull,
 					   ItemPointer otid, Relation heapRel, struct IndexInfo *indexInfo) __attribute__((unused));
 static void hnswcostestimate(struct PlannerInfo *root, struct IndexPath *path, double loop_count,
 							 Cost * indexStartupCost, Cost * indexTotalCost,
@@ -192,6 +250,7 @@ static IndexScanDesc hnswbeginscan(Relation index, int nkeys, int norderbys);
 static void hnswrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int norderbys);
 static bool hnswgettuple(IndexScanDesc scan, ScanDirection dir);
 static void hnswendscan(IndexScanDesc scan);
+static void hnswLoadOptions(Relation index, HnswOptions *opts_out);
 
 static void hnswInitMetaPage(Buffer metaBuffer, int16 m, int16 efConstruction, int16 efSearch, float4 ml);
 static int	hnswGetRandomLevel(float4 ml);
@@ -203,8 +262,22 @@ static void hnswInsertNode(Relation index, HnswMetaPage metaPage,
 						   const float4 * vector, int dim, ItemPointer heapPtr);
 static float4 * hnswExtractVectorData(Datum value, Oid typeOid, int *out_dim, MemoryContext ctx);
 static Oid hnswGetKeyType(Relation index, int attno);
-static void hnswBuildCallback(Relation index, ItemPointer tid, Datum *values,
+static void hnswBuildCallback(Relation index, ItemPointer tid, Datum * values,
 							  bool *isnull, bool tupleIsAlive, void *state);
+
+/* Safety validation helpers */
+static int16 hnswValidateNeighborCount(int16 neighborCount, int m, int level);
+static bool hnswValidateLevelSafe(int level);  /* Returns false instead of ERROR */
+static bool hnswValidateBlockNumber(BlockNumber blkno, Relation index);
+static Size hnswComputeNodeSizeSafe(int dim, int level, int m, bool *overflow);
+static void hnswCacheTypeOids(void);
+
+/* Cached type OIDs - initialized once */
+static Oid cached_vectorOid = InvalidOid;
+static Oid cached_halfvecOid = InvalidOid;
+static Oid cached_sparsevecOid = InvalidOid;
+static Oid cached_bitOid = InvalidOid;
+static bool typeOidsCached = false;
 
 /*
  * SQL-callable handler function
@@ -270,10 +343,9 @@ hnsw_handler(PG_FUNCTION_ARGS)
 static IndexBuildResult *
 hnswbuild(Relation heap, Relation index, IndexInfo * indexInfo)
 {
-	IndexBuildResult *result;
 	HnswBuildState buildstate = {0};
 	Buffer		metaBuffer;
-	Page		metaPage;
+	Page		metaPage = NULL;  /* Suppress unused variable warning */
 	HnswOptions *options;
 	int			m,
 				ef_construction,
@@ -289,40 +361,36 @@ hnswbuild(Relation heap, Relation index, IndexInfo * indexInfo)
 											  "HNSW build temporary context",
 											  ALLOCSET_DEFAULT_SIZES);
 
-	metaBuffer = ReadBuffer(index, P_NEW);
+	/* Initialize metadata page on block 0 */
+	metaBuffer = ReadBuffer(index, 0);
+	if (!BufferIsValid(metaBuffer))
+	{
+		ereport(ERROR,
+				(errcode(ERRCODE_INTERNAL_ERROR),
+				 errmsg("neurondb: ReadBuffer failed")));
+	}
 	LockBuffer(metaBuffer, BUFFER_LOCK_EXCLUSIVE);
 	metaPage = BufferGetPage(metaBuffer);
+	if (PageIsNew(metaPage))
+		PageInit(metaPage, BufferGetPageSize(metaBuffer), sizeof(HnswMetaPageData));
 
 	options = (HnswOptions *) indexInfo->ii_AmCache;
 	if (options == NULL)
 	{
-		static const relopt_parse_elt tab[] = {
-			{"m", RELOPT_TYPE_INT, offsetof(HnswOptions, m)},
-			{"ef_construction", RELOPT_TYPE_INT, offsetof(HnswOptions, ef_construction)},
-			{"ef_search", RELOPT_TYPE_INT, offsetof(HnswOptions, ef_search)}
-		};
-		Datum		relopts = PointerGetDatum(index->rd_options);
+		HnswOptions opts;
 
-		/* Lazy initialization: ensure relopt_kind_hnsw is registered */
-		if (relopt_kind_hnsw == 0)
-		{
-			relopt_kind_hnsw = add_reloption_kind();
-			elog(DEBUG1, "neurondb: lazily registered relopt_kind_hnsw = %d", relopt_kind_hnsw);
-		}
-
-		options = (HnswOptions *) build_reloptions(relopts, false,
-												   relopt_kind_hnsw,
-												   sizeof(HnswOptions), tab, lengthof(tab));
+		HnswOptions *cached_opts = NULL;
+		hnswLoadOptions(index, &opts);
+		NDB_ALLOC(cached_opts, HnswOptions, 1);
+		*cached_opts = opts;
+		options = cached_opts;
 		indexInfo->ii_AmCache = (void *) options;
 	}
-	m = options ? options->m : HNSW_DEFAULT_M;
-	ef_construction = options ? options->ef_construction : HNSW_DEFAULT_EF_CONSTRUCTION;
-	ef_search = options ? options->ef_search : HNSW_DEFAULT_EF_SEARCH;
+	m = options->m;
+	ef_construction = options->ef_construction;
+	ef_search = options->ef_search;
 
 	hnswInitMetaPage(metaBuffer, m, ef_construction, ef_search, HNSW_DEFAULT_ML);
-
-	buildstate.metaBuffer = metaBuffer;
-	buildstate.metaPage = (HnswMetaPage) PageGetContents(metaPage);
 
 	MarkBufferDirty(metaBuffer);
 	UnlockReleaseBuffer(metaBuffer);
@@ -332,15 +400,18 @@ hnswbuild(Relation heap, Relation index, IndexInfo * indexInfo)
 												  true, true, hnswBuildCallback,
 												  (void *) &buildstate, NULL);
 
-	result = (IndexBuildResult *) palloc(sizeof(IndexBuildResult));
-	result->heap_tuples = buildstate.indtuples;
-	result->index_tuples = buildstate.indtuples;
+	{
+		NDB_DECLARE(IndexBuildResult *, result);
+		NDB_ALLOC(result, IndexBuildResult, 1);
+		result->heap_tuples = buildstate.indtuples;
+		result->index_tuples = buildstate.indtuples;
 
-	MemoryContextDelete(buildstate.tmpCtx);
-	elog(INFO, "neurondb: HNSW index build complete, indexed %.0f tuples",
-		 buildstate.indtuples);
+		MemoryContextDelete(buildstate.tmpCtx);
+		elog(INFO, "neurondb: HNSW index build complete, indexed %.0f tuples",
+			 buildstate.indtuples);
 
-	return result;
+		return result;
+	}
 }
 
 /*
@@ -360,7 +431,7 @@ hnswbuild(Relation heap, Relation index, IndexInfo * indexInfo)
  * construction operations.
  */
 static void
-hnswBuildCallback(Relation index, ItemPointer tid, Datum *values,
+hnswBuildCallback(Relation index, ItemPointer tid, Datum * values,
 				  bool *isnull, bool tupleIsAlive, void *state)
 {
 	HnswBuildState *buildstate = (HnswBuildState *) state;
@@ -375,14 +446,29 @@ static void
 hnswbuildempty(Relation index)
 {
 	Buffer		metaBuffer;
+	Page		metaPage;
+	HnswOptions opts;
 
-	metaBuffer = ReadBuffer(index, P_NEW);
+	/* Load options from relation to match CREATE INDEX reloptions */
+	hnswLoadOptions(index, &opts);
+
+	/* Initialize metadata page on block 0 */
+	metaBuffer = ReadBuffer(index, 0);
+	if (!BufferIsValid(metaBuffer))
+	{
+		ereport(ERROR,
+				(errcode(ERRCODE_INTERNAL_ERROR),
+				 errmsg("neurondb: ReadBuffer failed")));
+	}
 	LockBuffer(metaBuffer, BUFFER_LOCK_EXCLUSIVE);
+	metaPage = BufferGetPage(metaBuffer);
+	if (PageIsNew(metaPage))
+		PageInit(metaPage, BufferGetPageSize(metaBuffer), sizeof(HnswMetaPageData));
 
 	hnswInitMetaPage(metaBuffer,
-					 HNSW_DEFAULT_M,
-					 HNSW_DEFAULT_EF_CONSTRUCTION,
-					 HNSW_DEFAULT_EF_SEARCH,
+					 opts.m,
+					 opts.ef_construction,
+					 opts.ef_search,
 					 HNSW_DEFAULT_ML);
 
 	MarkBufferDirty(metaBuffer);
@@ -391,7 +477,7 @@ hnswbuildempty(Relation index)
 
 static bool
 hnswinsert(Relation index,
-		   Datum *values,
+		   Datum * values,
 		   bool *isnull,
 		   ItemPointer ht_ctid,
 		   Relation heapRel,
@@ -481,7 +567,12 @@ hnswbulkdelete(IndexVacuumInfo * info,
 	ItemId		itemId;
 
 	if (stats == NULL)
-		stats = (IndexBulkDeleteResult *) palloc0(sizeof(IndexBulkDeleteResult));
+	{
+		NDB_DECLARE(IndexBulkDeleteResult *, new_stats);
+		NDB_ALLOC(new_stats, IndexBulkDeleteResult, 1);
+		memset(new_stats, 0, sizeof(IndexBulkDeleteResult));
+		stats = new_stats;
+	}
 
 	/* Read metadata page */
 	metaBuffer = ReadBuffer(index, 0);
@@ -512,21 +603,33 @@ hnswbulkdelete(IndexVacuumInfo * info,
 				continue;
 
 			node = (HnswNode) PageGetItem(nodePage, itemId);
+			if (node == NULL)
+				continue;
+
+			/* Validate node level */
+			if (!hnswValidateLevelSafe(node->level))
+			{
+				elog(WARNING, "hnsw: invalid node level %d in bulk delete at block %u, skipping",
+					 node->level, blkno);
+				continue;
+			}
 
 			/* Check callback to see if this tuple should be deleted */
 			if (callback(&node->heapPtr, callback_state))
 			{
 				/* Remove node from graph structure */
-				/* For each level where this node exists */
 				for (level = 0; level <= node->level; level++)
 				{
-					neighbors = HnswGetNeighbors(node, level);
+					neighbors = HnswGetNeighborsSafe(node, level, meta->m);
 					neighborCount = node->neighborCount[level];
 
-					/* Remove this node from each neighbor's neighbor list */
+					/* Validate and clamp neighborCount */
+					neighborCount = hnswValidateNeighborCount(neighborCount, meta->m, level);
+
 					for (i = 0; i < neighborCount; i++)
 					{
-						if (neighbors[i] != InvalidBlockNumber)
+						if (neighbors[i] != InvalidBlockNumber &&
+							hnswValidateBlockNumber(neighbors[i], index))
 						{
 							hnswRemoveNodeFromNeighbor(index,
 													   neighbors[i],
@@ -536,25 +639,26 @@ hnswbulkdelete(IndexVacuumInfo * info,
 					}
 				}
 
-				/* Update entry point if this node was the entry point */
 				if (meta->entryPoint == blkno)
 				{
 					foundNewEntry = false;
 
-					/* Find a new entry point from neighbors at highest level */
 					for (level = node->level;
 						 level >= 0 && !foundNewEntry;
 						 level--)
 					{
-						neighbors = HnswGetNeighbors(node, level);
+						neighbors = HnswGetNeighborsSafe(node, level, meta->m);
 						neighborCount = node->neighborCount[level];
+
+						/* Validate and clamp neighborCount */
+						neighborCount = hnswValidateNeighborCount(neighborCount, meta->m, level);
+
 						for (i = 0; i < neighborCount && !foundNewEntry; i++)
 						{
-							if (neighbors[i] != InvalidBlockNumber)
+							if (neighbors[i] != InvalidBlockNumber &&
+								hnswValidateBlockNumber(neighbors[i], index))
 							{
 								/* Use first valid neighbor as new entry point */
-								meta->entryPoint = neighbors[i];
-								/* Find actual level of neighbor */
 								{
 									Buffer		tmpBuf;
 									Page		tmpPage;
@@ -568,11 +672,15 @@ hnswbulkdelete(IndexVacuumInfo * info,
 										tmpNode = (HnswNode) PageGetItem(tmpPage,
 																		 PageGetItemId(tmpPage,
 																					   FirstOffsetNumber));
-										meta->entryLevel = tmpNode->level;
+										if (tmpNode != NULL && hnswValidateLevelSafe(tmpNode->level))
+										{
+											meta->entryPoint = neighbors[i];
+											meta->entryLevel = tmpNode->level;
+											foundNewEntry = true;
+										}
 									}
 									UnlockReleaseBuffer(tmpBuf);
 								}
-								foundNewEntry = true;
 							}
 						}
 					}
@@ -589,7 +697,6 @@ hnswbulkdelete(IndexVacuumInfo * info,
 				ItemIdSetDead(itemId);
 				MarkBufferDirty(nodeBuf);
 
-				/* Update statistics */
 				stats->tuples_removed++;
 				meta->insertedVectors--;
 				if (meta->insertedVectors < 0)
@@ -600,7 +707,6 @@ hnswbulkdelete(IndexVacuumInfo * info,
 		UnlockReleaseBuffer(nodeBuf);
 	}
 
-	/* Update metadata if changed */
 	if (stats->tuples_removed > 0)
 		MarkBufferDirty(metaBuffer);
 
@@ -616,7 +722,12 @@ static IndexBulkDeleteResult *
 hnswvacuumcleanup(IndexVacuumInfo * info, IndexBulkDeleteResult * stats)
 {
 	if (stats == NULL)
-		stats = (IndexBulkDeleteResult *) palloc0(sizeof(IndexBulkDeleteResult));
+	{
+		NDB_DECLARE(IndexBulkDeleteResult *, new_stats);
+		NDB_ALLOC(new_stats, IndexBulkDeleteResult, 1);
+		memset(new_stats, 0, sizeof(IndexBulkDeleteResult));
+		stats = new_stats;
+	}
 	return stats;
 }
 
@@ -630,11 +741,43 @@ hnswcostestimate(struct PlannerInfo *root,
 				 double *indexCorrelation,
 				 double *indexPages)
 {
-	*indexStartupCost = 50.0;
-	*indexTotalCost = 100.0;
-	*indexSelectivity = 0.01;
-	*indexCorrelation = 0.0;
-	*indexPages = 10;
+	Relation	index;
+	BlockNumber numPages;
+	double		numTuples;
+	double		efSearch = 64.0;	/* Default, can be improved by reading from meta */
+	double		cpu_cost = 0.0025;	/* Default CPU operator cost */
+
+	/* Get relation from index OID */
+	index = index_open(path->indexinfo->indexoid, AccessShareLock);
+
+	/* Get index size */
+	numPages = RelationGetNumberOfBlocks(index);
+	numTuples = index->rd_rel->reltuples;
+	if (numTuples < 1.0)
+		numTuples = 1.0;
+
+	/* Estimate pages based on actual index size */
+	*indexPages = (double) numPages;
+
+	/* Startup cost: reading meta page + initial search setup */
+	*indexStartupCost = 1.0;
+
+	/* Total cost: based on ef_search and index size
+	 * HNSW search typically examines ef_search candidates
+	 * Cost per tuple is roughly log(numTuples) * ef_search operations
+	 */
+	*indexTotalCost = *indexStartupCost + (log(numTuples) * efSearch * cpu_cost);
+
+	/* Release lock */
+	index_close(index, AccessShareLock);
+
+	/* Selectivity: approximate based on k / total tuples */
+	if (path->indexselectivity > 0.0)
+		*indexSelectivity = path->indexselectivity;
+	else
+		*indexSelectivity = Min(1.0, 10.0 / numTuples);	/* Default k=10 */
+
+	*indexCorrelation = 0.0;	/* HNSW is not correlated with physical order */
 }
 
 static bytea *
@@ -645,17 +788,74 @@ hnswoptions(Datum reloptions, bool validate)
 		{"ef_construction", RELOPT_TYPE_INT, offsetof(HnswOptions, ef_construction)},
 		{"ef_search", RELOPT_TYPE_INT, offsetof(HnswOptions, ef_search)}
 	};
+	HnswOptions *opts;
+	bytea	   *result;
 
 	/* Lazy initialization: ensure relopt_kind_hnsw is registered */
 	if (relopt_kind_hnsw == 0)
 	{
 		relopt_kind_hnsw = add_reloption_kind();
-		elog(DEBUG1, "neurondb: lazily registered relopt_kind_hnsw = %d", relopt_kind_hnsw);
 	}
 
-	return (bytea *) build_reloptions(reloptions, validate, relopt_kind_hnsw,
-									  sizeof(HnswOptions),
-									  tab, lengthof(tab));
+	result = (bytea *) build_reloptions(reloptions, validate, relopt_kind_hnsw,
+									   sizeof(HnswOptions),
+									   tab, lengthof(tab));
+
+	/* Validate parameter ranges if validate is true */
+	if (validate && result != NULL)
+	{
+		opts = (HnswOptions *) VARDATA(result);
+
+		/* Validate m */
+		if (opts->m < HNSW_MIN_M || opts->m > HNSW_MAX_M)
+		{
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					 errmsg("hnsw: parameter m must be between %d and %d, got %d",
+							HNSW_MIN_M, HNSW_MAX_M, opts->m)));
+		}
+
+		/* Validate ef_construction */
+		if (opts->ef_construction < HNSW_MIN_EF_CONSTRUCTION ||
+			opts->ef_construction > HNSW_MAX_EF_CONSTRUCTION)
+		{
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					 errmsg("hnsw: parameter ef_construction must be between %d and %d, got %d",
+							HNSW_MIN_EF_CONSTRUCTION, HNSW_MAX_EF_CONSTRUCTION,
+							opts->ef_construction)));
+		}
+
+		/* Validate ef_search */
+		if (opts->ef_search < HNSW_MIN_EF_SEARCH ||
+			opts->ef_search > HNSW_MAX_EF_SEARCH)
+		{
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					 errmsg("hnsw: parameter ef_search must be between %d and %d, got %d",
+							HNSW_MIN_EF_SEARCH, HNSW_MAX_EF_SEARCH, opts->ef_search)));
+		}
+
+		/* Ensure ef_construction >= m */
+		if (opts->ef_construction < opts->m)
+		{
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					 errmsg("hnsw: parameter ef_construction (%d) must be >= m (%d)",
+							opts->ef_construction, opts->m)));
+		}
+
+		/* Ensure ef_search >= m */
+		if (opts->ef_search < opts->m)
+		{
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					 errmsg("hnsw: parameter ef_search (%d) must be >= m (%d)",
+							opts->ef_search, opts->m)));
+		}
+	}
+
+	return result;
 }
 
 static bool
@@ -673,13 +873,20 @@ static IndexScanDesc
 hnswbeginscan(Relation index, int nkeys, int norderbys)
 {
 	IndexScanDesc scan;
-	HnswScanOpaque so;
+
+	NDB_DECLARE(HnswScanOpaque, so);
 
 	scan = RelationGetIndexScan(index, nkeys, norderbys);
-	so = (HnswScanOpaque) palloc0(sizeof(HnswScanOpaqueData));
+	NDB_ALLOC(so, HnswScanOpaqueData, 1);
 	so->efSearch = HNSW_DEFAULT_EF_SEARCH;
 	so->strategy = 1;
 	so->firstCall = true;
+	so->k = 0;
+	so->queryVector = NULL;
+	so->results = NULL;
+	so->distances = NULL;
+	so->resultCount = 0;
+	so->currentResult = 0;
 
 	scan->opaque = so;
 
@@ -708,17 +915,23 @@ hnswrescan(IndexScanDesc scan,
 	if (neurondb_hnsw_ef_search > 0)
 		so->efSearch = neurondb_hnsw_ef_search;
 	else
-	{
-		Buffer		metaBuffer = ReadBuffer(scan->indexRelation, 0);
-		Page		metaPage;
-		HnswMetaPage meta;
+		{
+			Buffer		metaBuffer = ReadBuffer(scan->indexRelation, 0);
+			Page		metaPage;
+			HnswMetaPage meta;
 
-		LockBuffer(metaBuffer, BUFFER_LOCK_SHARE);
-		metaPage = BufferGetPage(metaBuffer);
-		meta = (HnswMetaPage) PageGetContents(metaPage);
-		so->efSearch = meta->efSearch;
-		UnlockReleaseBuffer(metaBuffer);
-	}
+			LockBuffer(metaBuffer, BUFFER_LOCK_SHARE);
+			metaPage = BufferGetPage(metaBuffer); 
+			meta = (HnswMetaPage) PageGetContents(metaPage);
+			so->efSearch = meta->efSearch;
+			UnlockReleaseBuffer(metaBuffer);
+		}
+
+		if (so->efSearch > 100000)
+		{
+			elog(WARNING, "hnsw: ef_search %d exceeds maximum, clamping to 100000", so->efSearch);
+			so->efSearch = 100000;
+		}
 
 	if (norderbys > 0 && orderbys[0].sk_argument != 0)
 	{
@@ -735,19 +948,25 @@ hnswrescan(IndexScanDesc scan,
 
 		if (vectorData != NULL)
 		{
+			char	   *queryVector_raw = NULL;
 			if (so->queryVector)
 			{
 				NDB_FREE(so->queryVector);
 				so->queryVector = NULL;
 			}
-			so->queryVector = (Vector *) palloc(VECTOR_SIZE(dim));
+			NDB_ALLOC(queryVector_raw, char, VECTOR_SIZE(dim));
+			so->queryVector = (Vector *) queryVector_raw;
 			SET_VARSIZE(so->queryVector, VECTOR_SIZE(dim));
 			so->queryVector->dim = dim;
 			memcpy(so->queryVector->data, vectorData, dim * sizeof(float4));
 			NDB_FREE(vectorData);
 			vectorData = NULL;
 		}
-		so->k = 10;
+		/* Get k from GUC or default to 10 */
+		{
+			extern int neurondb_hnsw_k;
+			so->k = (neurondb_hnsw_k > 0) ? neurondb_hnsw_k : 10;
+		}
 	}
 }
 
@@ -790,15 +1009,37 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		Page		page;
 		HnswNode	node;
 
+		if (!hnswValidateBlockNumber(resultBlkno, scan->indexRelation))
+		{
+			elog(WARNING, "hnsw: invalid result block %u in gettuple, skipping", resultBlkno);
+			so->currentResult++;
+			return false;
+		}
+
 		/* Read the node to get its heap pointer */
 		buf = ReadBuffer(scan->indexRelation, resultBlkno);
 		LockBuffer(buf, BUFFER_LOCK_SHARE);
 		page = BufferGetPage(buf);
 
-		if (!PageIsEmpty(page))
+		/* If page is empty, skip this result and try next */
+		if (PageIsEmpty(page))
 		{
-			node = (HnswNode) PageGetItem(page, PageGetItemId(page, FirstOffsetNumber));
+			UnlockReleaseBuffer(buf);
+			so->currentResult++;
+			return false;
+		}
+
+		node = (HnswNode) PageGetItem(page, PageGetItemId(page, FirstOffsetNumber));
+		if (node != NULL)
+		{
 			scan->xs_heaptid = node->heapPtr;
+		}
+		else
+		{
+			elog(WARNING, "hnsw: null node at block %u in gettuple", resultBlkno);
+			UnlockReleaseBuffer(buf);
+			so->currentResult++;
+			return false;
 		}
 
 		UnlockReleaseBuffer(buf);
@@ -837,8 +1078,10 @@ hnswendscan(IndexScanDesc scan)
 	so = NULL;
 }
 
-/* ------- HNSW Core Operations: Node/MetaPage/Distance/Search/Insert/Update/Delete ------- */
 
+/*
+ * hnswInitMetaPage - Initialize HNSW metadata page.
+ */
 static void
 hnswInitMetaPage(Buffer metaBuffer, int16 m, int16 efConstruction, int16 efSearch, float4 ml)
 {
@@ -861,6 +1104,37 @@ hnswInitMetaPage(Buffer metaBuffer, int16 m, int16 efConstruction, int16 efSearc
 	meta->insertedVectors = 0;
 }
 
+/*
+ * Load HNSW index options from relation, with defaults if not set
+ */
+static void
+hnswLoadOptions(Relation index, HnswOptions *opts_out)
+{
+	static const relopt_parse_elt tab[] = {
+		{"m", RELOPT_TYPE_INT, offsetof(HnswOptions, m)},
+		{"ef_construction", RELOPT_TYPE_INT, offsetof(HnswOptions, ef_construction)},
+		{"ef_search", RELOPT_TYPE_INT, offsetof(HnswOptions, ef_search)}
+	};
+	HnswOptions *opts;
+	Datum		relopts = PointerGetDatum(index->rd_options);
+
+	/* Lazy initialization: ensure relopt_kind_hnsw is registered */
+	if (relopt_kind_hnsw == 0)
+	{
+		relopt_kind_hnsw = add_reloption_kind();
+	}
+
+	opts = (HnswOptions *) build_reloptions(relopts, false,
+										   relopt_kind_hnsw,
+										   sizeof(HnswOptions),
+										   tab, lengthof(tab));
+
+	/* Copy to output with defaults */
+	opts_out->m = opts ? opts->m : HNSW_DEFAULT_M;
+	opts_out->ef_construction = opts ? opts->ef_construction : HNSW_DEFAULT_EF_CONSTRUCTION;
+	opts_out->ef_search = opts ? opts->ef_search : HNSW_DEFAULT_EF_SEARCH;
+}
+
 static int
 hnswGetRandomLevel(float4 ml)
 {
@@ -879,6 +1153,141 @@ hnswGetRandomLevel(float4 ml)
 		level = 0;
 
 	return level;
+}
+
+/*
+ * Validate and clamp neighborCount to prevent array bounds violations.
+ * Returns a safe neighborCount value clamped to [0, m*2].
+ */
+static int16
+hnswValidateNeighborCount(int16 neighborCount, int m, int level)
+{
+	int16		maxNeighbors = m * 2;
+
+	if (neighborCount < 0)
+	{
+		elog(WARNING, "hnsw: invalid negative neighborCount %d at level %d, clamping to 0",
+			 neighborCount, level);
+		return 0;
+	}
+	if (neighborCount > maxNeighbors)
+	{
+		elog(WARNING, "hnsw: neighborCount %d exceeds maximum %d at level %d, clamping",
+			 neighborCount, maxNeighbors, level);
+		return maxNeighbors;
+	}
+	return neighborCount;
+}
+
+/*
+ * hnswValidateLevelSafe - Validate level value against HNSW_MAX_LEVEL.
+ *
+ * Returns true if valid, false otherwise. Does not raise ERROR to avoid
+ * issues when called with held locks. Callers should check return value
+ * and handle errors appropriately, releasing locks before raising errors.
+ */
+static bool
+hnswValidateLevelSafe(int level)
+{
+	if (level < 0 || level >= HNSW_MAX_LEVEL)
+	{
+		return false;
+	}
+	return true;
+}
+
+/*
+ * Validate level and raise ERROR if invalid.
+ * Use this only when not holding locks.
+ */
+static void __attribute__((unused))
+hnswValidateLevel(int level)
+{
+	if (!hnswValidateLevelSafe(level))
+	{
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_CORRUPTED),
+				 errmsg("hnsw: invalid node level %d (valid range: 0-%d)",
+						level, HNSW_MAX_LEVEL - 1)));
+	}
+}
+
+/*
+ * Validate block number is within valid range for the index.
+ * Returns true if valid, false otherwise.
+ */
+static bool
+hnswValidateBlockNumber(BlockNumber blkno, Relation index)
+{
+	BlockNumber maxBlocks = RelationGetNumberOfBlocks(index);
+
+	if (blkno == InvalidBlockNumber)
+		return false;
+
+	if (blkno >= maxBlocks)
+	{
+		elog(WARNING, "hnsw: block number %u exceeds index size %u",
+			 blkno, maxBlocks);
+		return false;
+	}
+	return true;
+}
+
+/*
+ * hnswComputeNodeSizeSafe - Compute node size with overflow checking.
+ *
+ * Returns the computed size and sets *overflow to true if overflow detected.
+ * Uses the m parameter from meta page, not HNSW_DEFAULT_M.
+ */
+static Size
+hnswComputeNodeSizeSafe(int dim, int level, int m, bool *overflow)
+{
+	size_t		vectorSize;
+	size_t		neighborSize;
+	size_t		totalSize;
+	Size		result;
+
+	*overflow = false;
+
+	/* Validate m parameter */
+	if (m < HNSW_MIN_M || m > HNSW_MAX_M)
+	{
+		*overflow = true;
+		return 0;
+	}
+
+	/* Check vector size overflow */
+	vectorSize = (size_t) dim * sizeof(float4);
+	if (vectorSize / sizeof(float4) != (size_t) dim)
+	{
+		*overflow = true;
+		return 0;
+	}
+
+	/* Check neighbor size overflow - uses m parameter */
+	neighborSize = (size_t)(level + 1) * m * 2 * sizeof(BlockNumber);
+	if (neighborSize / sizeof(BlockNumber) != (size_t)(level + 1) * m * 2)
+	{
+		*overflow = true;
+		return 0;
+	}
+
+	/* Check total size overflow */
+	totalSize = sizeof(HnswNodeData) + vectorSize + neighborSize;
+	if (totalSize < sizeof(HnswNodeData) || totalSize < vectorSize || totalSize < neighborSize)
+	{
+		*overflow = true;
+		return 0;
+	}
+
+	result = MAXALIGN(totalSize);
+	if (result < totalSize)  /* MAXALIGN overflow */
+	{
+		*overflow = true;
+		return 0;
+	}
+
+	return result;
 }
 
 /*
@@ -931,7 +1340,59 @@ hnswComputeDistance(const float4 * vec1, const float4 * vec2, int dim, int strat
 }
 
 /*
- * Extract vector from datum for type OID (vector/halfvec/sparsevec/bit)
+ * Cache type OIDs once to avoid expensive lookups on every call
+ */
+static void
+hnswCacheTypeOids(void)
+{
+	if (typeOidsCached)
+		return;
+
+	{
+		List	   *names;
+
+		names = list_make2(makeString("public"), makeString("vector"));
+		cached_vectorOid = LookupTypeNameOid(NULL, makeTypeNameFromNameList(names), true);
+		if (!OidIsValid(cached_vectorOid))
+		{
+			ereport(ERROR,
+					(errcode(ERRCODE_UNDEFINED_OBJECT),
+					 errmsg("hnsw requires public.vector type from pgvector extension"),
+					 errhint("Install the pgvector extension: CREATE EXTENSION vector")));
+		}
+		list_free(names);
+		names = list_make2(makeString("public"), makeString("halfvec"));
+		cached_halfvecOid = LookupTypeNameOid(NULL, makeTypeNameFromNameList(names), true);
+		if (!OidIsValid(cached_halfvecOid))
+		{
+			ereport(ERROR,
+					(errcode(ERRCODE_UNDEFINED_OBJECT),
+					 errmsg("hnsw requires public.halfvec type from pgvector extension"),
+					 errhint("Install the pgvector extension: CREATE EXTENSION vector")));
+		}
+		list_free(names);
+		names = list_make2(makeString("public"), makeString("sparsevec"));
+		cached_sparsevecOid = LookupTypeNameOid(NULL, makeTypeNameFromNameList(names), true);
+		if (!OidIsValid(cached_sparsevecOid))
+		{
+			ereport(ERROR,
+					(errcode(ERRCODE_UNDEFINED_OBJECT),
+					 errmsg("hnsw requires public.sparsevec type from pgvector extension"),
+					 errhint("Install the pgvector extension: CREATE EXTENSION vector")));
+		}
+		list_free(names);
+		cached_bitOid = BITOID;
+	}
+
+	typeOidsCached = true;
+}
+
+/*
+ * hnswExtractVectorData - Extract vector from datum for type OID.
+ *
+ * Supports vector, halfvec, sparsevec, and bit types. For sparsevec, the
+ * result buffer is zero-initialized before populating non-zero entries to
+ * ensure correct distance computations.
  */
 static float4 *
 hnswExtractVectorData(Datum value, Oid typeOid, int *out_dim, MemoryContext ctx)
@@ -941,25 +1402,19 @@ hnswExtractVectorData(Datum value, Oid typeOid, int *out_dim, MemoryContext ctx)
 				halfvecOid,
 				sparsevecOid,
 				bitOid;
-	float4	   *result = NULL;
+
+	NDB_DECLARE(float4 *, result);
 	int			i;
 
+	/* Cache OIDs on first call */
+	hnswCacheTypeOids();
+
+	vectorOid = cached_vectorOid;
+	halfvecOid = cached_halfvecOid;
+	sparsevecOid = cached_sparsevecOid;
+	bitOid = cached_bitOid;
+
 	oldctx = MemoryContextSwitchTo(ctx);
-
-	{
-		List	   *names;
-
-		names = list_make2(makeString("public"), makeString("vector"));
-		vectorOid = LookupTypeNameOid(NULL, makeTypeNameFromNameList(names), false);
-		list_free(names);
-		names = list_make2(makeString("public"), makeString("halfvec"));
-		halfvecOid = LookupTypeNameOid(NULL, makeTypeNameFromNameList(names), false);
-		list_free(names);
-		names = list_make2(makeString("public"), makeString("sparsevec"));
-		sparsevecOid = LookupTypeNameOid(NULL, makeTypeNameFromNameList(names), false);
-		list_free(names);
-		bitOid = BITOID;
-	}
 
 	if (typeOid == vectorOid)
 	{
@@ -968,7 +1423,7 @@ hnswExtractVectorData(Datum value, Oid typeOid, int *out_dim, MemoryContext ctx)
 		NDB_CHECK_VECTOR_VALID(v);
 		*out_dim = v->dim;
 		NDB_CHECK_ALLOC_SIZE((size_t) v->dim * sizeof(float4), "vector data");
-		result = (float4 *) palloc(v->dim * sizeof(float4));
+		NDB_ALLOC(result, float4, v->dim);
 		NDB_CHECK_ALLOC(result, "vector data");
 		for (i = 0; i < v->dim; i++)
 			result[i] = v->data[i];
@@ -984,7 +1439,7 @@ hnswExtractVectorData(Datum value, Oid typeOid, int *out_dim, MemoryContext ctx)
 					 errmsg("hnsw: invalid halfvec dimension %d", hv->dim)));
 		*out_dim = hv->dim;
 		NDB_CHECK_ALLOC_SIZE((size_t) hv->dim * sizeof(float4), "halfvec data");
-		result = (float4 *) palloc(hv->dim * sizeof(float4));
+		NDB_ALLOC(result, float4, hv->dim);
 		NDB_CHECK_ALLOC(result, "halfvec data");
 		for (i = 0; i < hv->dim; i++)
 			result[i] = fp16_to_float(hv->data[i]);
@@ -1004,8 +1459,13 @@ hnswExtractVectorData(Datum value, Oid typeOid, int *out_dim, MemoryContext ctx)
 
 			*out_dim = sv->total_dim;
 			NDB_CHECK_ALLOC_SIZE((size_t) sv->total_dim * sizeof(float4), "sparsevec data");
-			result = (float4 *) palloc0(sv->total_dim * sizeof(float4));
+			NDB_ALLOC(result, float4, sv->total_dim);
 			NDB_CHECK_ALLOC(result, "sparsevec data");
+
+			/* Zero-initialize buffer: sparsevec only stores non-zero entries */
+			memset(result, 0, sv->total_dim * sizeof(float4));
+
+			/* Populate non-zero entries */
 			for (i = 0; i < sv->nnz; i++)
 			{
 				if (indices[i] >= 0 && indices[i] < sv->total_dim)
@@ -1030,7 +1490,7 @@ hnswExtractVectorData(Datum value, Oid typeOid, int *out_dim, MemoryContext ctx)
 			bit_data = VARBITS(bit_vec);
 			*out_dim = nbits;
 			NDB_CHECK_ALLOC_SIZE((size_t) nbits * sizeof(float4), "bit vector data");
-			result = (float4 *) palloc(nbits * sizeof(float4));
+			NDB_ALLOC(result, float4, nbits);
 			NDB_CHECK_ALLOC(result, "bit vector data");
 			for (i = 0; i < nbits; i++)
 			{
@@ -1099,19 +1559,24 @@ hnswSearch(Relation index,
 	int			level;
 	int			i,
 				j;
-	BlockNumber *candidates = NULL;
-	float4	   *candidateDists = NULL;
+
+	NDB_DECLARE(BlockNumber *, candidates);
+	NDB_DECLARE(float4 *, candidateDists);
 	int			candidateCount = 0;
-	BlockNumber *visited = NULL;
+
+	NDB_DECLARE(BlockNumber *, visited);
 	int			visitedCount = 0;
 	int			visitedCapacity = 0;
-	bool	   *visitedSet = NULL;
+
+	NDB_DECLARE(bool *, visitedSet);
 	BlockNumber *neighbors;
 	int16		neighborCount;
-	BlockNumber *topK = NULL;
-	float4	   *topKDists = NULL;
+
+	NDB_DECLARE(BlockNumber *, topK);
+	NDB_DECLARE(float4 *, topKDists);
 	int			topKCount = 0;
-	int		   *indices = NULL;
+
+	NDB_DECLARE(int *, indices);
 	int			minIdx,
 				temp;
 	int			l,
@@ -1130,19 +1595,41 @@ hnswSearch(Relation index,
 
 	PG_TRY();
 	{
+		BlockNumber numBlocks;	/* Computed once and reused throughout function */
+
 		current = metaPage->entryPoint;
 		currentLevel = metaPage->entryLevel;
 
+		/* Validate entry level */
+		if (currentLevel < 0 || currentLevel >= HNSW_MAX_LEVEL)
+		{
+			elog(WARNING, "hnsw: invalid entryLevel %d, resetting to 0", currentLevel);
+			currentLevel = 0;
+		}
+
 		visitedCapacity = (efSearch > 1 ? efSearch * 2 : 32);
-		visited = (BlockNumber *) palloc(visitedCapacity * sizeof(BlockNumber));
-		visitedSet = (bool *) palloc0(RelationGetNumberOfBlocks(index) * sizeof(bool));
+		NDB_ALLOC(visited, BlockNumber, visitedCapacity);
+
+		/* Allocate visitedSet with overflow checking */
+		numBlocks = RelationGetNumberOfBlocks(index);
+		{
+			size_t visitedSetSize = (size_t) numBlocks * sizeof(bool);
+			if (visitedSetSize / sizeof(bool) != (size_t) numBlocks)
+			{
+				ereport(ERROR,
+						(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+						 errmsg("hnsw: visitedSet size calculation overflow (%u blocks)",
+								numBlocks)));
+			}
+			NDB_ALLOC(visitedSet, bool, numBlocks);
+			memset(visitedSet, 0, visitedSetSize);
+		}
 		visitedCount = 0;
 
-		candidates = (BlockNumber *) palloc(efSearch * sizeof(BlockNumber));
-		candidateDists = (float4 *) palloc(efSearch * sizeof(float4));
+		NDB_ALLOC(candidates, BlockNumber, efSearch);
+		NDB_ALLOC(candidateDists, float4, efSearch);
 		candidateCount = 0;
 
-		/* Step 1: Greedy search - entry at top down to level 1 */
 		for (level = currentLevel; level > 0; level--)
 		{
 			bool		foundBetter;
@@ -1150,18 +1637,53 @@ hnswSearch(Relation index,
 			do
 			{
 				foundBetter = false;
+				if (!hnswValidateBlockNumber(current, index))
+				{
+					elog(WARNING, "hnsw: invalid current block %u in greedy search", current);
+					break;
+				}
+
 				nodeBuf = ReadBuffer(index, current);
 				LockBuffer(nodeBuf, BUFFER_LOCK_SHARE);
 				nodePage = BufferGetPage(nodeBuf);
+
+				if (PageIsNew(nodePage) || PageIsEmpty(nodePage))
+				{
+					UnlockReleaseBuffer(nodeBuf);
+					break;
+				}
+
 				node = (HnswNode) PageGetItem(nodePage,
 											  PageGetItemId(nodePage, FirstOffsetNumber));
+				if (node == NULL)
+				{
+					UnlockReleaseBuffer(nodeBuf);
+					break;
+				}
+
+				/* Validate node level */
+				if (!hnswValidateLevelSafe(node->level))
+				{
+					UnlockReleaseBuffer(nodeBuf);
+					break;
+				}
+
 				nodeVector = HnswGetVector(node);
+				if (nodeVector == NULL)
+				{
+					UnlockReleaseBuffer(nodeBuf);
+					break;
+				}
+
 				currentDist = hnswComputeDistance(query, nodeVector, dim, strategy);
 
 				if (node->level >= level)
 				{
-					neighbors = HnswGetNeighbors(node, level);
+					neighbors = HnswGetNeighborsSafe(node, level, metaPage->m);
 					neighborCount = node->neighborCount[level];
+
+					/* Validate and clamp neighborCount */
+					neighborCount = hnswValidateNeighborCount(neighborCount, metaPage->m, level);
 
 					for (i = 0; i < neighborCount; i++)
 					{
@@ -1174,12 +1696,38 @@ hnswSearch(Relation index,
 						if (neighbors[i] == InvalidBlockNumber)
 							continue;
 
+						if (!hnswValidateBlockNumber(neighbors[i], index))
+						{
+							elog(WARNING, "hnsw: invalid neighbor block %u at level %d",
+								 neighbors[i], level);
+							continue;
+						}
+
 						neighborBuf = ReadBuffer(index, neighbors[i]);
 						LockBuffer(neighborBuf, BUFFER_LOCK_SHARE);
 						neighborPage = BufferGetPage(neighborBuf);
+
+						if (PageIsNew(neighborPage) || PageIsEmpty(neighborPage))
+						{
+							UnlockReleaseBuffer(neighborBuf);
+							continue;
+						}
+
 						neighbor = (HnswNode) PageGetItem(neighborPage,
 														  PageGetItemId(neighborPage, FirstOffsetNumber));
+						if (neighbor == NULL)
+						{
+							UnlockReleaseBuffer(neighborBuf);
+							continue;
+						}
+
 						neighborVector = HnswGetVector(neighbor);
+						if (neighborVector == NULL)
+						{
+							UnlockReleaseBuffer(neighborBuf);
+							continue;
+						}
+
 						neighborDist = hnswComputeDistance(query, neighborVector, dim, strategy);
 
 						if (neighborDist < currentDist)
@@ -1196,32 +1744,126 @@ hnswSearch(Relation index,
 			} while (foundBetter);
 		}
 
-		/* Step 2: ef-search at level 0 */
+		if (!hnswValidateBlockNumber(current, index))
+		{
+			elog(WARNING, "hnsw: invalid current block %u for level 0 search", current);
+			*results = NULL;
+			*distances = NULL;
+			*resultCount = 0;
+			NDB_FREE(visited);
+			NDB_FREE(visitedSet);
+			NDB_FREE(candidates);
+			NDB_FREE(candidateDists);
+			return;
+		}
+
 		candidates[0] = current;
 		nodeBuf = ReadBuffer(index, current);
 		LockBuffer(nodeBuf, BUFFER_LOCK_SHARE);
 		nodePage = BufferGetPage(nodeBuf);
+
+		if (PageIsNew(nodePage) || PageIsEmpty(nodePage))
+		{
+			UnlockReleaseBuffer(nodeBuf);
+			*results = NULL;
+			*distances = NULL;
+			*resultCount = 0;
+			NDB_FREE(visited);
+			NDB_FREE(visitedSet);
+			NDB_FREE(candidates);
+			NDB_FREE(candidateDists);
+			return;
+		}
+
 		node = (HnswNode) PageGetItem(nodePage,
 									  PageGetItemId(nodePage, FirstOffsetNumber));
+		if (node == NULL)
+		{
+			UnlockReleaseBuffer(nodeBuf);
+			*results = NULL;
+			*distances = NULL;
+			*resultCount = 0;
+			NDB_FREE(visited);
+			NDB_FREE(visitedSet);
+			NDB_FREE(candidates);
+			NDB_FREE(candidateDists);
+			return;
+		}
+
+		if (!hnswValidateLevelSafe(node->level))
+		{
+			UnlockReleaseBuffer(nodeBuf);
+			*results = NULL;
+			*distances = NULL;
+			*resultCount = 0;
+			NDB_FREE(visited);
+			NDB_FREE(visitedSet);
+			NDB_FREE(candidates);
+			NDB_FREE(candidateDists);
+			return;
+		}
+
 		nodeVector = HnswGetVector(node);
+		if (nodeVector == NULL)
+		{
+			UnlockReleaseBuffer(nodeBuf);
+			*results = NULL;
+			*distances = NULL;
+			*resultCount = 0;
+			NDB_FREE(visited);
+			NDB_FREE(visitedSet);
+			NDB_FREE(candidates);
+			NDB_FREE(candidateDists);
+			return;
+		}
+
 		candidateDists[0] = hnswComputeDistance(query, nodeVector, dim, strategy);
 		candidateCount = 1;
 		visited[visitedCount++] = current;
-		if (current < RelationGetNumberOfBlocks(index))
-			visitedSet[current] = true;
+			/* Use numBlocks from outer scope - computed once at function start */
+			if (current < numBlocks)
+				visitedSet[current] = true;
 		UnlockReleaseBuffer(nodeBuf);
 
 		for (i = 0; i < candidateCount && candidateCount < efSearch; i++)
 		{
 			BlockNumber candidate = candidates[i];
 
+			if (!hnswValidateBlockNumber(candidate, index))
+			{
+				elog(WARNING, "hnsw: invalid candidate block %u, skipping", candidate);
+				continue;
+			}
+
 			nodeBuf = ReadBuffer(index, candidate);
 			LockBuffer(nodeBuf, BUFFER_LOCK_SHARE);
 			nodePage = BufferGetPage(nodeBuf);
+
+			if (PageIsNew(nodePage) || PageIsEmpty(nodePage))
+			{
+				UnlockReleaseBuffer(nodeBuf);
+				continue;
+			}
+
 			node = (HnswNode) PageGetItem(nodePage,
 										  PageGetItemId(nodePage, FirstOffsetNumber));
-			neighbors = HnswGetNeighbors(node, 0);
+			if (node == NULL)
+			{
+				UnlockReleaseBuffer(nodeBuf);
+				continue;
+			}
+
+			if (!hnswValidateLevelSafe(node->level))
+			{
+				UnlockReleaseBuffer(nodeBuf);
+				continue;
+			}
+
+			neighbors = HnswGetNeighborsSafe(node, 0, metaPage->m);
 			neighborCount = node->neighborCount[0];
+
+			/* Validate and clamp neighborCount */
+			neighborCount = hnswValidateNeighborCount(neighborCount, metaPage->m, 0);
 
 			for (j = 0; j < neighborCount; j++)
 			{
@@ -1234,29 +1876,70 @@ hnswSearch(Relation index,
 				if (neighbors[j] == InvalidBlockNumber)
 					continue;
 
-				if (neighbors[j] < RelationGetNumberOfBlocks(index) &&
-					visitedSet[neighbors[j]])
+				if (!hnswValidateBlockNumber(neighbors[j], index))
+				{
+					elog(WARNING, "hnsw: invalid neighbor block %u, skipping", neighbors[j]);
+					continue;
+				}
+
+				/* Check visitedSet with bounds validation */
+				if (neighbors[j] < numBlocks && visitedSet[neighbors[j]])
 					continue;
 
 				neighborBuf = ReadBuffer(index, neighbors[j]);
 				LockBuffer(neighborBuf, BUFFER_LOCK_SHARE);
 				neighborPage = BufferGetPage(neighborBuf);
+
+				if (PageIsNew(neighborPage) || PageIsEmpty(neighborPage))
+				{
+					UnlockReleaseBuffer(neighborBuf);
+					continue;
+				}
+
 				neighbor = (HnswNode) PageGetItem(neighborPage,
 												  PageGetItemId(neighborPage, FirstOffsetNumber));
+				if (neighbor == NULL)
+				{
+					UnlockReleaseBuffer(neighborBuf);
+					continue;
+				}
+
 				neighborVector = HnswGetVector(neighbor);
+				if (neighborVector == NULL)
+				{
+					UnlockReleaseBuffer(neighborBuf);
+					continue;
+				}
+
 				neighborDist = hnswComputeDistance(query, neighborVector, dim, strategy);
 				UnlockReleaseBuffer(neighborBuf);
 
-				if (neighbors[j] < RelationGetNumberOfBlocks(index))
+				if (neighbors[j] < numBlocks)
 					visitedSet[neighbors[j]] = true;
+
 				visited[visitedCount++] = neighbors[j];
 				if (visitedCount >= visitedCapacity)
 				{
-					visitedCapacity = Max(32, visitedCapacity * 2);
-					visited = (BlockNumber *) repalloc(visited,
-													   visitedCapacity * sizeof(BlockNumber));
+					/* Limit reallocation to prevent excessive memory usage */
+					if (visitedCapacity >= HNSW_MAX_VISITED_CAPACITY)
+					{
+						elog(WARNING, "hnsw: visited array reached maximum capacity %d, stopping expansion",
+							 HNSW_MAX_VISITED_CAPACITY);
+						/* Continue without expanding - may miss some neighbors but prevents OOM */
+					}
+					else
+					{
+						int newCapacity = Min(visitedCapacity * 2, HNSW_MAX_VISITED_CAPACITY);
+						if (newCapacity > visitedCapacity)
+						{
+							visitedCapacity = newCapacity;
+							visited = (BlockNumber *) repalloc(visited,
+															   visitedCapacity * sizeof(BlockNumber));
+						}
+					}
 				}
 
+				/* Ensure candidateCount doesn't exceed efSearch */
 				if (candidateCount < efSearch)
 				{
 					candidates[candidateCount] = neighbors[j];
@@ -1267,7 +1950,7 @@ hnswSearch(Relation index,
 				{
 					worstIdx = 0;
 					worstDist = candidateDists[0];
-					for (l = 1; l < candidateCount; l++)
+					for (l = 1; l < candidateCount && l < efSearch; l++)
 					{
 						if (candidateDists[l] > worstDist)
 						{
@@ -1286,8 +1969,7 @@ hnswSearch(Relation index,
 			UnlockReleaseBuffer(nodeBuf);
 		}
 
-		/* Step 3: Partial selection sort for top-k */
-		indices = (int *) palloc(candidateCount * sizeof(int));
+		NDB_ALLOC(indices, int, candidateCount);
 		for (i = 0; i < candidateCount; i++)
 		{
 			CHECK_FOR_INTERRUPTS();
@@ -1317,8 +1999,8 @@ hnswSearch(Relation index,
 		}
 
 		topKCount = Min(k, candidateCount);
-		topK = (BlockNumber *) palloc(topKCount * sizeof(BlockNumber));
-		topKDists = (float4 *) palloc(topKCount * sizeof(float4));
+		NDB_ALLOC(topK, BlockNumber, topKCount);
+		NDB_ALLOC(topKDists, float4, topKCount);
 		for (i = 0; i < topKCount; i++)
 		{
 			topK[i] = candidates[indices[i]];
@@ -1393,24 +2075,13 @@ hnswSearch(Relation index,
 }
 
 /*
- * hnswInsertNode
- *    Insert a vector into the HNSW graph structure with proper link maintenance.
+ * hnswInsertNode - Insert a vector into the HNSW graph structure.
  *
- * This function implements the core insertion algorithm for HNSW graphs, which
- * maintains a probabilistic multi-layer graph structure for efficient approximate
- * nearest neighbor search. The insertion process begins by assigning the new node
- * to a random level using an exponential distribution, where higher levels are
- * exponentially less likely, creating a hierarchical structure with few nodes at
- * high levels and many nodes at low levels. The algorithm then searches for the
- * nearest neighbors at the assigned level and all lower levels, starting from the
- * entry point and using a greedy search strategy that follows the closest neighbor
- * at each step. Once candidate neighbors are found, bidirectional links are
- * established between the new node and its nearest neighbors, maintaining the
- * small-world property that ensures short paths between any two nodes. The link
- * maintenance ensures that each node has at most M bidirectional connections at
- * each level, preserving the graph's navigability and search efficiency. If the
- * new node is assigned to a level higher than the current maximum level, it becomes
- * the new entry point for searches starting at higher levels.
+ * Assigns the new node to a random level using exponential distribution,
+ * searches for nearest neighbors at each level starting from entry point,
+ * and establishes bidirectional links maintaining at most M connections
+ * per level. If the new node is at a level higher than the current maximum,
+ * it becomes the new entry point.
  */
 static void
 hnswInsertNode(Relation index,
@@ -1422,10 +2093,11 @@ hnswInsertNode(Relation index,
 	int			level;
 	Buffer		buf = InvalidBuffer;
 	Page		page;
-	HnswNode	node;
 	BlockNumber blkno;
 	Size		nodeSize;
 	int			i;
+	HnswNode	node = NULL;
+	char	   *node_raw = NULL;
 
 	level = hnswGetRandomLevel(metaPage->ml);
 
@@ -1433,16 +2105,47 @@ hnswInsertNode(Relation index,
 	if (level >= HNSW_MAX_LEVEL)
 		level = HNSW_MAX_LEVEL - 1;
 
-	/* Step 2: Allocate and initialize the node */
-	nodeSize = HnswNodeSize(dim, level);
-	node = (HnswNode) palloc0(nodeSize);
-	ItemPointerCopy(heapPtr, &node->heapPtr);
-	node->level = level;
-	node->dim = dim;
-	for (i = 0; i < HNSW_MAX_LEVEL; i++)
-		node->neighborCount[i] = 0;
-	memcpy(HnswGetVector(node), vector, dim * sizeof(float4));
-	/* Neighbors will be assigned below */
+	/* Validate level */
+	if (!hnswValidateLevelSafe(level))
+	{
+		ereport(ERROR,
+				(errcode(ERRCODE_INTERNAL_ERROR),
+				 errmsg("hnsw: failed to generate valid level")));
+	}
+
+	{
+		bool		overflow = false;
+		int			m = metaPage->m;  /* Use m from meta page */
+		BlockNumber *neighbors;
+		int			l;
+
+		nodeSize = hnswComputeNodeSizeSafe(dim, level, m, &overflow);
+		if (overflow || nodeSize == 0)
+		{
+			ereport(ERROR,
+					(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
+					 errmsg("hnsw: node size calculation overflow (dim=%d, level=%d, m=%d)",
+							dim, level, m)));
+		}
+		NDB_ALLOC(node_raw, char, nodeSize);
+		node = (HnswNode) node_raw;
+		ItemPointerCopy(heapPtr, &node->heapPtr);
+		node->level = level;
+		node->dim = dim;
+		for (i = 0; i < HNSW_MAX_LEVEL; i++)
+			node->neighborCount[i] = 0;
+		memcpy(HnswGetVector(node), vector, dim * sizeof(float4));
+
+		/* Initialize neighbor arrays to InvalidBlockNumber for safety */
+		for (l = 0; l <= level; l++)
+		{
+			node->neighborCount[l] = 0;
+			neighbors = HnswGetNeighborsSafe(node, l, m);
+			memset(neighbors, 0xFF, m * 2 * sizeof(BlockNumber));	/* InvalidBlockNumber */
+		}
+		for (; l < HNSW_MAX_LEVEL; l++)
+			node->neighborCount[l] = 0;
+	}
 
 	/* Step 3: Find insertion point by greedy search from entry point */
 	{
@@ -1465,18 +2168,52 @@ hnswInsertNode(Relation index,
 				improved = false;
 				iterations++;
 
+				if (!hnswValidateBlockNumber(bestEntry, index))
+				{
+					elog(WARNING, "hnsw: invalid bestEntry block %u in insert", bestEntry);
+					break;
+				}
+
 				entryBuf = ReadBuffer(index, bestEntry);
 				LockBuffer(entryBuf, BUFFER_LOCK_SHARE);
 				entryPage = BufferGetPage(entryBuf);
+
+				if (PageIsNew(entryPage) || PageIsEmpty(entryPage))
+				{
+					UnlockReleaseBuffer(entryBuf);
+					break;
+				}
+
 				entryNode = (HnswNode) PageGetItem(entryPage,
 												   PageGetItemId(entryPage, FirstOffsetNumber));
+				if (entryNode == NULL)
+				{
+					UnlockReleaseBuffer(entryBuf);
+					break;
+				}
+
+				/* Validate entry node level */
+				if (!hnswValidateLevelSafe(entryNode->level))
+				{
+					UnlockReleaseBuffer(entryBuf);
+					break;
+				}
 
 				if (entryNode->level >= level)
 				{
 					entryVector = HnswGetVector(entryNode);
+					if (entryVector == NULL)
+					{
+						UnlockReleaseBuffer(entryBuf);
+						break;
+					}
+
 					bestDist = hnswComputeDistance(vector, entryVector, dim, 1);
-					entryNeighbors = HnswGetNeighbors(entryNode, level);
+					entryNeighbors = HnswGetNeighborsSafe(entryNode, level, metaPage->m);
 					entryNeighborCount = entryNode->neighborCount[level];
+
+					/* Validate and clamp neighborCount */
+					entryNeighborCount = hnswValidateNeighborCount(entryNeighborCount, metaPage->m, level);
 
 					for (i = 0; i < entryNeighborCount; i++)
 					{
@@ -1594,150 +2331,159 @@ hnswInsertNode(Relation index,
 		int			entryLevel = metaPage->entryLevel;
 		int			m = metaPage->m;
 		int			efConstruction = metaPage->efConstruction;
-		BlockNumber *candidates = NULL;
-		float4	   *candidateDistances = NULL;
-		int			candidateCount = 0;
-		int			currentLevel;
-		BlockNumber *newNodeNeighbors;
-		Buffer		newNodeBuf;
-		Page		newNodePage;
-		HnswNode	newNode;
-		int			idx,
-					j;
 
 		/* Skip neighbor linking if this is the first node in the index */
-		if (metaPage->entryPoint == InvalidBlockNumber || entryLevel < 0)
+		if (metaPage->entryPoint != InvalidBlockNumber && entryLevel >= 0)
 		{
-			/* No neighbors to link yet - this is the first node */
-			goto skip_neighbor_linking;
-		}
+			NDB_DECLARE(BlockNumber **, selectedNeighborsPerLevel);
+			NDB_DECLARE(int *, selectedCountPerLevel);
+			int			currentLevel;
+			int			maxLevel = Min(level, entryLevel);
+			Buffer		newNodeBuf = InvalidBuffer;
+			Page		newNodePage;
+			HnswNode	newNode;
+			int			idx,
+						j;
 
-		if (blkno == InvalidBlockNumber ||
-			blkno >= RelationGetNumberOfBlocks(index))
-		{
-			ereport(ERROR,
-					(errcode(ERRCODE_INTERNAL_ERROR),
-					 errmsg("hnsw: invalid block number %u after insert", blkno)));
-		}
-
-		newNodeBuf = ReadBuffer(index, blkno);
-		LockBuffer(newNodeBuf, BUFFER_LOCK_EXCLUSIVE);
-		newNodePage = BufferGetPage(newNodeBuf);
-		if (PageIsNew(newNodePage) || PageIsEmpty(newNodePage))
-		{
-			UnlockReleaseBuffer(newNodeBuf);
-			ereport(ERROR,
-					(errcode(ERRCODE_INTERNAL_ERROR),
-					 errmsg("hnsw: newly inserted page is empty at block %u", blkno)));
-		}
-		newNode = (HnswNode) PageGetItem(newNodePage,
-										 PageGetItemId(newNodePage, FirstOffsetNumber));
-		if (newNode == NULL)
-		{
-			UnlockReleaseBuffer(newNodeBuf);
-			ereport(ERROR,
-					(errcode(ERRCODE_INTERNAL_ERROR),
-					 errmsg("hnsw: null node at newly inserted block %u", blkno)));
-		}
-
-		for (currentLevel = Min(level, entryLevel);
-			 currentLevel >= 0;
-			 currentLevel--)
-		{
-			BlockNumber *selectedNeighbors;
-			int			selectedCount;
-			float4	   *selectedDistances;
-
-			/* Skip search if index is empty (first insertion) */
-			if (metaPage->entryPoint == InvalidBlockNumber)
+			if (blkno == InvalidBlockNumber ||
+				blkno >= RelationGetNumberOfBlocks(index))
 			{
-				candidateCount = 0;
-				candidates = NULL;
-				candidateDistances = NULL;
+				ereport(ERROR,
+						(errcode(ERRCODE_INTERNAL_ERROR),
+						 errmsg("hnsw: invalid block number %u after insert", blkno)));
 			}
-			else
+
+			NDB_ALLOC(selectedNeighborsPerLevel, BlockNumber *, maxLevel + 1);
+			NDB_ALLOC(selectedCountPerLevel, int, maxLevel + 1);
+
+			/* Step 5a: Search for neighbors at each level */
+			for (currentLevel = maxLevel; currentLevel >= 0; currentLevel--)
 			{
+				NDB_DECLARE(BlockNumber *, candidates);
+				NDB_DECLARE(float4 *, candidateDistances);
+				NDB_DECLARE(BlockNumber *, selectedNeighbors);
+				NDB_DECLARE(float4 *, selectedDistances);
+				int			candidateCount = 0;
+				int			selectedCount;
+
 				/* Find neighbor candidates for this level */
 				hnswSearch(index,
 						   metaPage,
 						   vector,
 						   dim,
-						   1,		/* L2 distance */
+						   1,	/* L2 distance */
 						   efConstruction,
 						   efConstruction,
 						   &candidates,
 						   &candidateDistances,
 						   &candidateCount);
-			}
 
-			selectedCount = Min(m, candidateCount);
-			if (selectedCount > 0)
-			{
-				selectedNeighbors = (BlockNumber *) palloc(selectedCount * sizeof(BlockNumber));
-				selectedDistances = (float4 *) palloc(selectedCount * sizeof(float4));
-			}
-			else
-			{
-				selectedNeighbors = NULL;
-				selectedDistances = NULL;
-			}
-
-			/* Sort by distance: select top m */
-			for (idx = 0; idx < selectedCount && candidates != NULL && candidateDistances != NULL; idx++)
-			{
-				int			bestIdx = idx;
-				float4		bestDist = candidateDistances[idx];
-
-				for (j = idx + 1; j < candidateCount; j++)
+				selectedCount = Min(m, candidateCount);
+				if (selectedCount > 0)
 				{
-					if (candidateDistances[j] < bestDist)
+					NDB_ALLOC(selectedNeighbors, BlockNumber, selectedCount);
+					NDB_ALLOC(selectedDistances, float4, selectedCount);
+				}
+				else
+				{
+					selectedNeighbors = NULL;
+					selectedDistances = NULL;
+				}
+
+				/* Sort by distance: select top m */
+				for (idx = 0; idx < selectedCount && candidates != NULL && candidateDistances != NULL; idx++)
+				{
+					int			bestIdx = idx;
+					float4		bestDist = candidateDistances[idx];
+
+					for (j = idx + 1; j < candidateCount; j++)
 					{
-						bestDist = candidateDistances[j];
-						bestIdx = j;
+						if (candidateDistances[j] < bestDist)
+						{
+							bestDist = candidateDistances[j];
+							bestIdx = j;
+						}
 					}
+					if (bestIdx != idx)
+					{
+						BlockNumber tempBlk = candidates[idx];
+						float4		tempDist = candidateDistances[idx];
+
+						candidates[idx] = candidates[bestIdx];
+						candidateDistances[idx] = candidateDistances[bestIdx];
+						candidates[bestIdx] = tempBlk;
+						candidateDistances[bestIdx] = tempDist;
+					}
+					selectedNeighbors[idx] = candidates[idx];
+					selectedDistances[idx] = candidateDistances[idx];
 				}
-				if (bestIdx != idx)
+
+				/* Now lock newNodeBuf and write neighbors */
+				newNodeBuf = ReadBuffer(index, blkno);
+				LockBuffer(newNodeBuf, BUFFER_LOCK_EXCLUSIVE);
+				newNodePage = BufferGetPage(newNodeBuf);
+				if (PageIsNew(newNodePage) || PageIsEmpty(newNodePage))
 				{
-					BlockNumber tempBlk = candidates[idx];
-					float4		tempDist = candidateDistances[idx];
-
-					candidates[idx] = candidates[bestIdx];
-					candidateDistances[idx] = candidateDistances[bestIdx];
-					candidates[bestIdx] = tempBlk;
-					candidateDistances[bestIdx] = tempDist;
+					UnlockReleaseBuffer(newNodeBuf);
+					ereport(ERROR,
+							(errcode(ERRCODE_INTERNAL_ERROR),
+							 errmsg("hnsw: newly inserted page is empty at block %u", blkno)));
 				}
-				selectedNeighbors[idx] = candidates[idx];
-				selectedDistances[idx] = candidateDistances[idx];
-			}
-
-			/*
-			 * Link new node to neighbors, and each neighbor back
-			 * (bidirectional)
-			 */
-			newNodeNeighbors = HnswGetNeighbors(newNode, currentLevel);
-			for (idx = 0; idx < selectedCount; idx++)
-			{
-				Buffer		neighborBuf;
-				Page		neighborPage;
-				HnswNode	neighborNode;
-				BlockNumber *neighborNeighbors;
-				int16		neighborNeighborCount;
-				int			insertPos;
-				bool		needsPruning = false;
-
-				if (idx < m)
+				newNode = (HnswNode) PageGetItem(newNodePage,
+												 PageGetItemId(newNodePage, FirstOffsetNumber));
+				if (newNode == NULL)
 				{
-					newNodeNeighbors[idx] = selectedNeighbors[idx];
-					newNode->neighborCount[currentLevel] = idx + 1;
+					UnlockReleaseBuffer(newNodeBuf);
+					ereport(ERROR,
+							(errcode(ERRCODE_INTERNAL_ERROR),
+							 errmsg("hnsw: null node at newly inserted block %u", blkno)));
 				}
 
-				neighborBuf = ReadBuffer(index, selectedNeighbors[idx]);
+				/*
+				 * Link new node to neighbors, and each neighbor back
+				 * (bidirectional)
+				 */
+				{
+					BlockNumber *newNodeNeighbors = HnswGetNeighborsSafe(newNode, currentLevel, m);
+					for (idx = 0; idx < selectedCount; idx++)
+					{
+						Buffer		neighborBuf;
+						Page		neighborPage;
+						HnswNode	neighborNode;
+						BlockNumber *neighborNeighbors;
+						int16		neighborNeighborCount;
+						int			insertPos;
+						bool		needsPruning = false;
+
+						if (idx < m)
+						{
+							newNodeNeighbors[idx] = selectedNeighbors[idx];
+							newNode->neighborCount[currentLevel] = idx + 1;
+						}
+
+						neighborBuf = ReadBuffer(index, selectedNeighbors[idx]);
 				LockBuffer(neighborBuf, BUFFER_LOCK_EXCLUSIVE);
 				neighborPage = BufferGetPage(neighborBuf);
 				neighborNode = (HnswNode)
 					PageGetItem(neighborPage, PageGetItemId(neighborPage, FirstOffsetNumber));
-				neighborNeighbors = HnswGetNeighbors(neighborNode, currentLevel);
+				if (neighborNode == NULL)
+				{
+					UnlockReleaseBuffer(neighborBuf);
+					continue;
+				}
+
+				/* Validate neighbor node level */
+				if (!hnswValidateLevelSafe(neighborNode->level))
+				{
+					UnlockReleaseBuffer(neighborBuf);
+					continue;
+				}
+
+				neighborNeighbors = HnswGetNeighborsSafe(neighborNode, currentLevel, m);
 				neighborNeighborCount = neighborNode->neighborCount[currentLevel];
+
+				/* Validate and clamp neighborCount */
+				neighborNeighborCount = hnswValidateNeighborCount(neighborNeighborCount, m, currentLevel);
 
 				insertPos = neighborNeighborCount;
 				for (j = 0; j < neighborNeighborCount; j++)
@@ -1764,12 +2510,20 @@ hnswInsertNode(Relation index,
 				if (needsPruning)
 				{
 					float4	   *neighborVector = HnswGetVector(neighborNode);
-					float4	   *neighborDists = (float4 *)
-						palloc(neighborNode->neighborCount[currentLevel] * sizeof(float4));
-					int		   *neighborIndices = (int *)
-						palloc(neighborNode->neighborCount[currentLevel] * sizeof(int));
+					int16		pruneCount = neighborNode->neighborCount[currentLevel];
+					float4	   *neighborDists = NULL;
+					int		   *neighborIndices = NULL;
 
-					for (j = 0; j < neighborNode->neighborCount[currentLevel]; j++)
+					/* Ensure pruneCount is within valid bounds */
+					if (pruneCount > m * 2)
+						pruneCount = m * 2;
+					if (pruneCount < 0)
+						pruneCount = 0;
+
+					NDB_ALLOC(neighborDists, float4, pruneCount);
+					NDB_ALLOC(neighborIndices, int, pruneCount);
+
+					for (j = 0; j < pruneCount; j++)
 					{
 						if (neighborNeighbors[j] == InvalidBlockNumber)
 							break;
@@ -1783,22 +2537,49 @@ hnswInsertNode(Relation index,
 							HnswNode	otherNode;
 							float4	   *otherVector;
 
+							if (!hnswValidateBlockNumber(neighborNeighbors[j], index))
+							{
+								neighborDists[j] = FLT_MAX;  /* Mark as invalid */
+								continue;
+							}
+
 							otherBuf = ReadBuffer(index, neighborNeighbors[j]);
 							LockBuffer(otherBuf, BUFFER_LOCK_SHARE);
 							otherPage = BufferGetPage(otherBuf);
+
+							if (PageIsNew(otherPage) || PageIsEmpty(otherPage))
+							{
+								UnlockReleaseBuffer(otherBuf);
+								neighborDists[j] = FLT_MAX;  /* Mark as invalid */
+								continue;
+							}
+
 							otherNode = (HnswNode)
 								PageGetItem(otherPage, PageGetItemId(otherPage, FirstOffsetNumber));
+							if (otherNode == NULL)
+							{
+								UnlockReleaseBuffer(otherBuf);
+								neighborDists[j] = FLT_MAX;  /* Mark as invalid */
+								continue;
+							}
+
 							otherVector = HnswGetVector(otherNode);
+							if (otherVector == NULL)
+							{
+								UnlockReleaseBuffer(otherBuf);
+								neighborDists[j] = FLT_MAX;  /* Mark as invalid */
+								continue;
+							}
 
 							neighborDists[j] = hnswComputeDistance(neighborVector, otherVector, dim, 1);
 							UnlockReleaseBuffer(otherBuf);
 						}
 					}
-					for (j = 0; j < neighborNode->neighborCount[currentLevel] - 1; j++)
+					for (j = 0; j < pruneCount - 1; j++)
 					{
 						int			k;
 
-						for (k = j + 1; k < neighborNode->neighborCount[currentLevel]; k++)
+						for (k = j + 1; k < pruneCount; k++)
 						{
 							if (neighborDists[k] < neighborDists[j])
 							{
@@ -1815,8 +2596,8 @@ hnswInsertNode(Relation index,
 					neighborNode->neighborCount[currentLevel] = m * 2;
 					for (j = 0; j < m * 2; j++)
 						neighborNeighbors[j] = neighborNeighbors[neighborIndices[j]];
-					for (j = m * 2; j < HNSW_DEFAULT_M * 2; j++)
-						neighborNeighbors[j] = InvalidBlockNumber;
+					/* Neighbors array for this level has exactly m*2 slots,
+					 * so no need to clear beyond that. */
 
 					NDB_FREE(neighborDists);
 					neighborDists = NULL;
@@ -1825,7 +2606,8 @@ hnswInsertNode(Relation index,
 					MarkBufferDirty(neighborBuf);
 				}
 				UnlockReleaseBuffer(neighborBuf);
-			}
+					}
+				}
 
 			if (selectedNeighbors)
 			{
@@ -1848,22 +2630,32 @@ hnswInsertNode(Relation index,
 				NDB_FREE(candidateDistances);
 				candidateDistances = NULL;
 			}
+			}
+			if (BufferIsValid(newNodeBuf))
+			{
+				MarkBufferDirty(newNodeBuf);
+				UnlockReleaseBuffer(newNodeBuf);
+				newNodeBuf = InvalidBuffer;
+			}
 		}
-		MarkBufferDirty(newNodeBuf);
-		UnlockReleaseBuffer(newNodeBuf);
-
-skip_neighbor_linking:
-		;	/* Empty statement to satisfy C syntax */
 	}
 
 	/* Step 6: Update entry point and meta info if necessary */
 	if (metaPage->entryPoint == InvalidBlockNumber || level > metaPage->entryLevel)
 	{
-		metaPage->entryPoint = blkno;
-		metaPage->entryLevel = level;
+		if (hnswValidateBlockNumber(blkno, index))
+		{
+			metaPage->entryPoint = blkno;
+			metaPage->entryLevel = level;
+		}
+		else
+		{
+			ereport(ERROR,
+					(errcode(ERRCODE_INTERNAL_ERROR),
+					 errmsg("hnsw: invalid block number %u for entry point", blkno)));
+		}
 	}
 
-	/* Step 7: Update meta statistics */
 	metaPage->insertedVectors++;
 	if (level > metaPage->maxLevel)
 		metaPage->maxLevel = level;
@@ -1873,13 +2665,10 @@ skip_neighbor_linking:
 }
 
 /*
- * Delete vector from HNSW index.
- * Implementation: Removes node from graph, updates neighbor connections,
- * and handles entry point reassignment if needed.
- */
-/*
- * Helper: Find HNSW node by ItemPointer
- * Returns the block number and offset if found, InvalidBlockNumber otherwise
+ * hnswFindNodeByTid - Find HNSW node by ItemPointer.
+ *
+ * Scans all pages in the index to locate the node matching the given
+ * ItemPointer. Returns true if found, setting *outBlkno and *outOffset.
  */
 static bool
 hnswFindNodeByTid(Relation index,
@@ -1911,6 +2700,16 @@ hnswFindNodeByTid(Relation index,
 		}
 
 		maxoff = PageGetMaxOffsetNumber(page);
+
+		/* Enforce one-node-per-page invariant */
+		if (maxoff != FirstOffsetNumber)
+		{
+			elog(WARNING, "hnsw: page %u has %d items, expected 1 (one-node-per-page invariant violated)",
+				 blkno, maxoff);
+			UnlockReleaseBuffer(buf);
+			continue;
+		}
+
 		for (offnum = FirstOffsetNumber; offnum <= maxoff; offnum = OffsetNumberNext(offnum))
 		{
 			ItemId		itemId = PageGetItemId(page, offnum);
@@ -1954,6 +2753,18 @@ hnswRemoveNodeFromNeighbor(Relation index,
 				j;
 	bool		found = false;
 
+	if (!hnswValidateBlockNumber(neighborBlkno, index))
+	{
+		elog(WARNING, "hnsw: invalid neighbor block %u in RemoveNodeFromNeighbor", neighborBlkno);
+		return;
+	}
+
+	if (!hnswValidateLevelSafe(level))
+	{
+		elog(WARNING, "hnsw: invalid level %d in RemoveNodeFromNeighbor", level);
+		return;
+	}
+
 	buf = ReadBuffer(index, neighborBlkno);
 	LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
 	page = BufferGetPage(buf);
@@ -1966,10 +2777,41 @@ hnswRemoveNodeFromNeighbor(Relation index,
 	}
 
 	neighbor = (HnswNode) PageGetItem(page, PageGetItemId(page, FirstOffsetNumber));
-	neighbors = HnswGetNeighbors(neighbor, level);
-	neighborCount = neighbor->neighborCount[level];
+	if (neighbor == NULL)
+	{
+		UnlockReleaseBuffer(buf);
+		return;
+	}
 
-	/* Find and remove nodeBlkno from neighbors */
+	/* Validate neighbor level */
+	if (!hnswValidateLevelSafe(neighbor->level))
+	{
+		elog(WARNING, "hnsw: invalid neighbor level %d in RemoveNodeFromNeighbor", neighbor->level);
+		UnlockReleaseBuffer(buf);
+		return;
+	}
+
+	/* Get m from meta page - we need to read it */
+	{
+		Buffer		metaBuf;
+		Page		metaPage;
+		HnswMetaPage meta;
+		int			m;
+
+		metaBuf = ReadBuffer(index, 0);
+		LockBuffer(metaBuf, BUFFER_LOCK_SHARE);
+		metaPage = BufferGetPage(metaBuf);
+		meta = (HnswMetaPage) PageGetContents(metaPage);
+		m = meta->m;
+		UnlockReleaseBuffer(metaBuf);
+
+		neighbors = HnswGetNeighborsSafe(neighbor, level, m);
+		neighborCount = neighbor->neighborCount[level];
+
+		/* Validate and clamp neighborCount */
+		neighborCount = hnswValidateNeighborCount(neighborCount, m, level);
+	}
+
 	for (i = 0; i < neighborCount; i++)
 	{
 		if (neighbors[i] == nodeBlkno)
@@ -1995,7 +2837,7 @@ hnswRemoveNodeFromNeighbor(Relation index,
 static bool
 hnswdelete(Relation index,
 		   ItemPointer tid,
-		   Datum *values,
+		   Datum * values,
 		   bool *isnull,
 		   Relation heapRel,
 		   struct IndexInfo *indexInfo)
@@ -2013,7 +2855,6 @@ hnswdelete(Relation index,
 	BlockNumber *neighbors;
 	int16		neighborCount;
 
-	/* Find the node by ItemPointer */
 	if (!hnswFindNodeByTid(index, tid, &nodeBlkno, &nodeOffset))
 	{
 		/* Node not found - already deleted or never existed */
@@ -2032,40 +2873,56 @@ hnswdelete(Relation index,
 	nodePage = BufferGetPage(nodeBuf);
 	node = (HnswNode) PageGetItem(nodePage, PageGetItemId(nodePage, nodeOffset));
 
+	/* Validate node level */
+	if (!hnswValidateLevelSafe(node->level))
+	{
+		UnlockReleaseBuffer(nodeBuf);
+		UnlockReleaseBuffer(metaBuffer);
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_CORRUPTED),
+				 errmsg("hnsw: invalid node level %d in delete", node->level)));
+	}
+
 	/*
 	 * For each level where this node exists, remove it from neighbor
 	 * connections
 	 */
 	for (level = 0; level <= node->level; level++)
 	{
-		neighbors = HnswGetNeighbors(node, level);
+		neighbors = HnswGetNeighborsSafe(node, level, meta->m);
 		neighborCount = node->neighborCount[level];
 
-		/* Remove this node from each neighbor's neighbor list */
+		/* Validate and clamp neighborCount */
+		neighborCount = hnswValidateNeighborCount(neighborCount, meta->m, level);
+
 		for (i = 0; i < neighborCount; i++)
 		{
-			if (neighbors[i] != InvalidBlockNumber)
+			if (neighbors[i] != InvalidBlockNumber &&
+				hnswValidateBlockNumber(neighbors[i], index))
 			{
 				hnswRemoveNodeFromNeighbor(index, neighbors[i], nodeBlkno, level);
 			}
 		}
 	}
 
-	/* Update entry point if this node was the entry point */
 	if (meta->entryPoint == nodeBlkno)
 	{
 		bool		foundNewEntry = false;
 		int			bestLevel = -1;
 		BlockNumber bestEntry = InvalidBlockNumber;
 
-		/* Find the highest level neighbor to use as new entry point */
 		for (level = node->level; level >= 0; level--)
 		{
-			neighbors = HnswGetNeighbors(node, level);
+			neighbors = HnswGetNeighborsSafe(node, level, meta->m);
 			neighborCount = node->neighborCount[level];
+
+			/* Validate and clamp neighborCount */
+			neighborCount = hnswValidateNeighborCount(neighborCount, meta->m, level);
+
 			for (i = 0; i < neighborCount; i++)
 			{
-				if (neighbors[i] != InvalidBlockNumber)
+				if (neighbors[i] != InvalidBlockNumber &&
+					hnswValidateBlockNumber(neighbors[i], index))
 				{
 					/* Check the actual level of this neighbor */
 					Buffer		neighborBuf;
@@ -2083,7 +2940,9 @@ hnswdelete(Relation index,
 						if (ItemIdIsValid(neighborItemId))
 						{
 							neighborNode = (HnswNode) PageGetItem(neighborPage, neighborItemId);
-							if (neighborNode->level > bestLevel)
+							if (neighborNode != NULL &&
+								hnswValidateLevelSafe(neighborNode->level) &&
+								neighborNode->level > bestLevel)
 							{
 								bestLevel = neighborNode->level;
 								bestEntry = neighbors[i];
@@ -2123,7 +2982,6 @@ hnswdelete(Relation index,
 		}
 	}
 
-	/* Update metadata */
 	meta->insertedVectors--;
 	if (meta->insertedVectors < 0)
 		meta->insertedVectors = 0;
@@ -2143,7 +3001,7 @@ hnswdelete(Relation index,
 static bool
 hnswupdate(Relation index,
 		   ItemPointer tid,
-		   Datum *values,
+		   Datum * values,
 		   bool *isnull,
 		   ItemPointer otid,
 		   Relation heapRel,
@@ -2178,3 +3036,4 @@ hnswupdate(Relation index,
 	 */
 	return insertResult;
 }
+

@@ -60,16 +60,17 @@ extern cudaError_t launch_linreg_eval_kernel(const float *features,
 											 long long *count_out);
 
 int
-ndb_cuda_linreg_pack_model(const LinRegModel * model,
+ndb_cuda_linreg_pack_model(const LinRegModel *model,
 						   bytea * *model_data,
 						   Jsonb * *metrics,
 						   char **errstr)
 {
 	size_t		payload_bytes;
-	bytea	   *blob;
 	char	   *base;
 	NdbCudaLinRegModelHeader *hdr;
 	float	   *coef_dest;
+	NDB_DECLARE(bytea *, blob);
+	NDB_DECLARE(char *, blob_raw);
 
 	if (errstr)
 		*errstr = NULL;
@@ -82,8 +83,8 @@ ndb_cuda_linreg_pack_model(const LinRegModel * model,
 
 	payload_bytes = sizeof(NdbCudaLinRegModelHeader)
 		+ sizeof(float) * (size_t) model->n_features;
-
-	blob = (bytea *) palloc(VARHDRSZ + payload_bytes);
+	NDB_ALLOC(blob_raw, char, VARHDRSZ + payload_bytes);
+	blob = (bytea *) blob_raw;
 	SET_VARSIZE(blob, VARHDRSZ + payload_bytes);
 	base = VARDATA(blob);
 
@@ -150,10 +151,10 @@ ndb_cuda_linreg_train(const float *features,
 	double	   *d_Xty = NULL;
 	double	   *d_XtX_inv __attribute__((unused)) = NULL;
 	double	   *d_beta __attribute__((unused)) = NULL;
-	double	   *h_XtX = NULL;
-	double	   *h_Xty = NULL;
-	double	   *h_XtX_inv = NULL;
-	double	   *h_beta = NULL;
+	NDB_DECLARE(double *, h_XtX);
+	NDB_DECLARE(double *, h_Xty);
+	NDB_DECLARE(double *, h_XtX_inv);
+	NDB_DECLARE(double *, h_beta);
 	bytea	   *payload = NULL;
 	Jsonb	   *metrics_json = NULL;
 	cudaError_t status __attribute__((unused)) = cudaSuccess;
@@ -161,7 +162,6 @@ ndb_cuda_linreg_train(const float *features,
 	size_t		target_bytes __attribute__((unused));
 	size_t		XtX_bytes;
 	size_t		Xty_bytes;
-	size_t		beta_bytes;
 	int			dim_with_intercept;
 	int			i,
 				j,
@@ -194,12 +194,11 @@ ndb_cuda_linreg_train(const float *features,
 	XtX_bytes = sizeof(double) * (size_t) dim_with_intercept
 		* (size_t) dim_with_intercept;
 	Xty_bytes = sizeof(double) * (size_t) dim_with_intercept;
-	beta_bytes = sizeof(double) * (size_t) dim_with_intercept;
 
-	h_XtX = (double *) palloc0(XtX_bytes);
-	h_Xty = (double *) palloc0(Xty_bytes);
-	h_XtX_inv = (double *) palloc(XtX_bytes);
-	h_beta = (double *) palloc(beta_bytes);
+	NDB_ALLOC(h_XtX, double, dim_with_intercept * dim_with_intercept);
+	NDB_ALLOC(h_Xty, double, dim_with_intercept);
+	NDB_ALLOC(h_XtX_inv, double, dim_with_intercept * dim_with_intercept);
+	NDB_ALLOC(h_beta, double, dim_with_intercept);
 
 	/* Compute X'X and X'y on GPU */
 	{
@@ -384,7 +383,8 @@ cpu_fallback:
 		for (i = 0; i < n_samples; i++)
 		{
 			const float *row = features + (i * feature_dim);
-			double	   *xi = (double *) palloc(sizeof(double) * dim_with_intercept);
+			NDB_DECLARE(double *, xi);
+			NDB_ALLOC(xi, double, dim_with_intercept);
 
 			xi[0] = 1.0;		/* intercept */
 			for (k = 1; k < dim_with_intercept; k++)
@@ -500,7 +500,7 @@ cpu_fallback:
 		}
 
 		/* Create working copy of X'X for Cholesky (don't modify original) */
-		XtX_work = (double *) palloc(sizeof(double) * (size_t) dim_with_intercept * (size_t) dim_with_intercept);
+		NDB_ALLOC(XtX_work, double, dim_with_intercept * dim_with_intercept);
 		if (XtX_work == NULL)
 		{
 			if (errstr)
@@ -600,7 +600,7 @@ cpu_fallback:
 		}
 
 		/* Forward substitution: L * y = X'y, solve for y */
-		y_work = (double *) palloc(sizeof(double) * dim_with_intercept);
+		NDB_ALLOC(y_work, double, dim_with_intercept);
 		for (row = 0; row < dim_with_intercept; row++)
 		{
 			double		sum = h_Xty[row];
@@ -676,12 +676,13 @@ cpu_fallback:
 		double		ss_res = 0.0;
 		double		mse = 0.0;
 		double		mae = 0.0;
+		NDB_DECLARE(double *, model_coefficients);
 
 		model.n_features = feature_dim;
 		model.n_samples = n_samples;
 		model.intercept = h_beta[0];
-		model.coefficients =
-			(double *) palloc(sizeof(double) * feature_dim);
+		NDB_ALLOC(model_coefficients, double, feature_dim);
+		model.coefficients = model_coefficients;
 		for (i = 0; i < feature_dim; i++)
 			model.coefficients[i] = h_beta[i + 1];
 
@@ -751,7 +752,7 @@ ndb_cuda_linreg_predict(const bytea * model_data,
 						double *prediction_out,
 						char **errstr)
 {
-	const		NdbCudaLinRegModelHeader *hdr;
+	const NdbCudaLinRegModelHeader *hdr;
 	const float *coefficients;
 	const		bytea *detoasted;
 	double		prediction;
@@ -846,7 +847,7 @@ ndb_cuda_linreg_evaluate(const bytea * model_data,
 						 double *r_squared_out,
 						 char **errstr)
 {
-	const		NdbCudaLinRegModelHeader *hdr;
+	const NdbCudaLinRegModelHeader *hdr;
 	const float *coefficients;
 	const		bytea *detoasted;
 	cudaError_t cuda_err;
@@ -1070,7 +1071,8 @@ ndb_cuda_linreg_evaluate(const bytea * model_data,
 
 	/* Convert coefficients from float to double and copy to GPU */
 	{
-		double	   *h_coefficients_double = (double *) palloc(sizeof(double) * (size_t) feature_dim);
+		NDB_DECLARE(double *, h_coefficients_double);
+		NDB_ALLOC(h_coefficients_double, double, feature_dim);
 
 		if (h_coefficients_double == NULL)
 		{

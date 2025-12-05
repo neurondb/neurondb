@@ -36,7 +36,7 @@ typedef struct VectorPacked
 	uint8		flags;			/* Reserved for future use */
 	uint16		unused;			/* Alignment padding */
 	float4		data[FLEXIBLE_ARRAY_MEMBER];
-}			VectorPacked;
+} VectorPacked;
 
 /*
  * vecmap: Sparse high-dimensional map
@@ -50,7 +50,7 @@ typedef struct VectorMap
 	int32		total_dim;		/* Total dimensionality */
 	int32		nnz;			/* Number of non-zero entries */
 	/* Followed by parallel arrays: int32 indices[], float4 values[] */
-}			VectorMap;
+} VectorMap;
 
 /*
  * rtext: Retrievable text with token metadata
@@ -70,7 +70,7 @@ typedef struct RetrievableText
 	 * Layout: - char text[text_len] - uint32 token_offsets[num_tokens] -
 	 * uint16 section_ids[num_tokens]
 	 */
-}			RetrievableText;
+} RetrievableText;
 
 /*
  * vgraph: Compact graph storage
@@ -90,7 +90,7 @@ typedef struct VectorGraph
 	 * Layout: - int64 node_ids[num_nodes] - Edge edges[num_edges] (src, dst,
 	 * type, weight) - char type_labels[][16]
 	 */
-}			VectorGraph;
+} VectorGraph;
 
 typedef struct GraphEdge
 {
@@ -99,7 +99,7 @@ typedef struct GraphEdge
 	uint16		edge_type;
 	uint16		unused;
 	float4		weight;
-}			GraphEdge;
+} GraphEdge;
 
 #define VECTORP_SIZE(dim) \
 	(offsetof(VectorPacked, data) + sizeof(float4) * (dim))

@@ -92,7 +92,7 @@ neurondb_chunk_text(PG_FUNCTION_ARGS)
 	/* Conservative estimate of number of chunks */
 	if (input_len == 0)
 	{
-		chunk_datums = (Datum *) palloc(sizeof(Datum));
+		NDB_ALLOC(chunk_datums, Datum, 1);
 		chunk_datums[0] = CStringGetTextDatum("");
 		result_array = construct_array(
 									   chunk_datums, 1, TEXTOID, -1, false, TYPALIGN_INT);
@@ -105,7 +105,7 @@ neurondb_chunk_text(PG_FUNCTION_ARGS)
 	if (max_chunks < 1)
 		max_chunks = 1;
 
-	chunk_datums = (Datum *) palloc0(sizeof(Datum) * max_chunks);
+	NDB_ALLOC(chunk_datums, Datum, max_chunks);
 
 	start = 0;
 	while (start < input_len)
@@ -139,7 +139,8 @@ neurondb_chunk_text(PG_FUNCTION_ARGS)
 			break;
 
 		{
-			char	   *chunk_buf = (char *) palloc(chunk_len + 1);
+			NDB_DECLARE(char *, chunk_buf);
+			NDB_ALLOC(chunk_buf, char, chunk_len + 1);
 
 			memcpy(chunk_buf, input_str + start, chunk_len);
 			chunk_buf[chunk_len] = '\0';
@@ -179,6 +180,7 @@ neurondb_embed_text(PG_FUNCTION_ARGS)
 	char	   *input_str;
 	NdbLLMConfig cfg;
 	NdbLLMCallOptions call_opts;
+
 	NDB_DECLARE(float *, vec_data);
 	NDB_DECLARE(Vector *, result);
 	int			dim = 0;
@@ -234,7 +236,9 @@ neurondb_embed_text(PG_FUNCTION_ARGS)
 	}
 
 	/* Create result vector */
-	result = (Vector *) palloc(VARHDRSZ + sizeof(int16) * 2 + dim * sizeof(float));
+	NDB_DECLARE(char *, result_raw);
+	NDB_ALLOC(result_raw, char, VARHDRSZ + sizeof(int16) * 2 + dim * sizeof(float));
+	result = (Vector *) result_raw;
 	SET_VARSIZE(result, VARHDRSZ + sizeof(int16) * 2 + dim * sizeof(float));
 	result->dim = dim;
 	result->unused = 0;
@@ -347,8 +351,10 @@ levenshtein(const char *s1, const char *s2)
 {
 	int			len1 = strlen(s1),
 				len2 = strlen(s2);
-	int		   *v0 = (int *) palloc(sizeof(int) * (len2 + 1));
-	int		   *v1 = (int *) palloc(sizeof(int) * (len2 + 1));
+	NDB_DECLARE(int *, v0);
+	NDB_DECLARE(int *, v1);
+	NDB_ALLOC(v0, int, len2 + 1);
+	NDB_ALLOC(v1, int, len2 + 1);
 
 	int			i,
 				j,
@@ -472,7 +478,7 @@ neurondb_rank_documents(PG_FUNCTION_ARGS)
 					  &elem_values,
 					  &elem_nulls,
 					  &nelems);
-	ranklist = (doc_with_score *) palloc0(nelems * sizeof(doc_with_score));
+	NDB_ALLOC(ranklist, doc_with_score, nelems);
 	for (i = 0; i < nelems; i++)
 	{
 		if (elem_nulls[i])
@@ -548,6 +554,7 @@ neurondb_transform_data(PG_FUNCTION_ARGS)
 				nelems,
 			   *dims;
 	Oid			element_type;
+
 	NDB_DECLARE(Datum *, elem_values);
 	NDB_DECLARE(bool *, elem_nulls);
 	float8	   *transformed_data;
@@ -611,8 +618,8 @@ neurondb_transform_data(PG_FUNCTION_ARGS)
 	mean = sum / nelems;
 	stddev = sqrt((sum_sq / nelems) - (mean * mean));
 
-	transformed_data = (float8 *) palloc0(sizeof(float8) * nelems);
-	result_datums = (Datum *) palloc0(sizeof(Datum) * nelems);
+	NDB_ALLOC(transformed_data, float8, nelems);
+	NDB_ALLOC(result_datums, Datum, nelems);
 
 	if (strcmp(pipeline_name, "normalize") == 0)
 	{

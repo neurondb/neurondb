@@ -133,6 +133,7 @@ create_ab_test(PG_FUNCTION_ARGS)
 		StringInfoData sql;
 		Jsonb	   *experiment_config;
 		StringInfoData config_json;
+
 		NDB_DECLARE(NdbSpiSession *, spi_session);
 		MemoryContext oldcontext = CurrentMemoryContext;
 
@@ -284,6 +285,7 @@ log_prediction(PG_FUNCTION_ARGS)
 	StringInfoData sql;
 	Jsonb	   *input_jsonb;
 	StringInfoData input_json;
+
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext;
 
@@ -411,6 +413,7 @@ monitor_model_performance(PG_FUNCTION_ARGS)
 	{
 		int			ret;
 		StringInfoData sql;
+
 		NDB_DECLARE(NdbSpiSession *, spi_session);
 		MemoryContext oldcontext = CurrentMemoryContext;
 
@@ -448,21 +451,35 @@ monitor_model_performance(PG_FUNCTION_ARGS)
 		if (ret == SPI_OK_SELECT && SPI_processed > 0)
 		{
 			bool		isnull;
-			/* Note: ndb_spi_get_* doesn't have float8, so we need to access SPI_tuptable directly for numeric types */
-			/* This is acceptable as SPI_tuptable is still accessible, we just use the session for connection management */
+
+			/*
+			 * Note: ndb_spi_get_* doesn't have float8, so we need to access
+			 * SPI_tuptable directly for numeric types
+			 */
+
+			/*
+			 * This is acceptable as SPI_tuptable is still accessible, we just
+			 * use the session for connection management
+			 */
 			/* Safe access for complex types - validate before access */
-			if (SPI_tuptable != NULL && SPI_tuptable->tupdesc != NULL && 
+			if (SPI_tuptable != NULL && SPI_tuptable->tupdesc != NULL &&
 				SPI_tuptable->vals != NULL && SPI_processed > 0 && SPI_tuptable->vals[0] != NULL)
 			{
 				Datum		avg_datum = SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 1, &isnull);
+
 				if (!isnull)
 					avg_latency = (float) DatumGetFloat8(avg_datum);
 				else
 					avg_latency = 0.0f;
-				/* Safe access for p95 - validate tupdesc has at least 2 columns */
+
+				/*
+				 * Safe access for p95 - validate tupdesc has at least 2
+				 * columns
+				 */
 				if (SPI_tuptable->tupdesc->natts >= 2)
 				{
 					Datum		p95_datum = SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 2, &isnull);
+
 					if (!isnull)
 						p95_latency = (float) DatumGetFloat8(p95_datum);
 				}
@@ -572,6 +589,7 @@ detect_model_drift(PG_FUNCTION_ARGS)
 		StringInfoData sql;
 		float		baseline_accuracy = 0.0f;
 		float		current_accuracy = 0.0f;
+
 		NDB_DECLARE(NdbSpiSession *, spi_session);
 		MemoryContext oldcontext = CurrentMemoryContext;
 
@@ -600,14 +618,16 @@ detect_model_drift(PG_FUNCTION_ARGS)
 		if (ret == SPI_OK_SELECT && SPI_processed > 0)
 		{
 			bool		isnull;
+
 			/* Safe access for complex types - validate before access */
-			if (SPI_tuptable != NULL && SPI_tuptable->tupdesc != NULL && 
+			if (SPI_tuptable != NULL && SPI_tuptable->tupdesc != NULL &&
 				SPI_tuptable->vals != NULL && SPI_processed > 0 && SPI_tuptable->vals[0] != NULL)
 			{
 				Datum		baseline_datum = SPI_getbinval(SPI_tuptable->vals[0],
-																	 SPI_tuptable->tupdesc,
-																	 1,
-																	 &isnull);
+														   SPI_tuptable->tupdesc,
+														   1,
+														   &isnull);
+
 				if (!isnull)
 					baseline_accuracy = (float) DatumGetFloat8(baseline_datum);
 				else
@@ -637,14 +657,16 @@ detect_model_drift(PG_FUNCTION_ARGS)
 		if (ret == SPI_OK_SELECT && SPI_processed > 0)
 		{
 			bool		isnull;
+
 			/* Safe access for complex types - validate before access */
-			if (SPI_tuptable != NULL && SPI_tuptable->tupdesc != NULL && 
+			if (SPI_tuptable != NULL && SPI_tuptable->tupdesc != NULL &&
 				SPI_tuptable->vals != NULL && SPI_processed > 0 && SPI_tuptable->vals[0] != NULL)
 			{
 				Datum		current_datum = SPI_getbinval(SPI_tuptable->vals[0],
-																	SPI_tuptable->tupdesc,
-																	1,
-																	&isnull);
+														  SPI_tuptable->tupdesc,
+														  1,
+														  &isnull);
+
 				if (!isnull)
 					current_accuracy = (float) DatumGetFloat8(current_datum);
 				else

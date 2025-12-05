@@ -97,7 +97,8 @@ cluster_gmm(PG_FUNCTION_ARGS)
 	float	  **data;
 	int			nvec,
 				dim;
-	GMMModel	model;
+	GMMModel	model = {0};
+
 	NDB_DECLARE(double **, responsibilities);
 	double		log_likelihood,
 				prev_log_likelihood;
@@ -144,10 +145,10 @@ cluster_gmm(PG_FUNCTION_ARGS)
 		/* Free data array and rows if data is not NULL */
 		if (data != NULL)
 		{
-			for (int i = 0; i < nvec; i++)
+			for (int idx = 0; idx < nvec; idx++)
 			{
-				if (data[i] != NULL)
-					NDB_FREE(data[i]);
+				if (data[idx] != NULL)
+					NDB_FREE(data[idx]);
 			}
 			NDB_FREE(data);
 		}
@@ -347,6 +348,7 @@ gmm_model_serialize_to_bytea(const GMMModel * model, uint8 training_backend)
 				j;
 	int			total_size;
 	bytea	   *result;
+
 	NDB_DECLARE(char *, result_bytes);
 
 	/* Validate training_backend */
@@ -391,7 +393,7 @@ gmm_model_serialize_to_bytea(const GMMModel * model, uint8 training_backend)
  * Deserialize GMMModel from bytea
  */
 static GMMModel *
-gmm_model_deserialize_from_bytea(const bytea * data, uint8 *training_backend_out)
+gmm_model_deserialize_from_bytea(const bytea * data, uint8 * training_backend_out)
 {
 	GMMModel   *model = NULL;
 	const char *buf;
@@ -483,6 +485,7 @@ train_gmm_model_id(PG_FUNCTION_ARGS)
 	int			nvec,
 				dim;
 	GMMModel	model;
+
 	NDB_DECLARE(double **, responsibilities);
 	double		log_likelihood,
 				prev_log_likelihood;
@@ -530,10 +533,10 @@ train_gmm_model_id(PG_FUNCTION_ARGS)
 		/* Free data array and rows if data is not NULL */
 		if (data != NULL)
 		{
-			for (int i = 0; i < nvec; i++)
+			for (int idx = 0; idx < nvec; idx++)
 			{
-				if (data[i] != NULL)
-					NDB_FREE(data[i]);
+				if (data[idx] != NULL)
+					NDB_FREE(data[idx]);
 			}
 			NDB_FREE(data);
 		}
@@ -737,8 +740,10 @@ predict_gmm_model_id(PG_FUNCTION_ARGS)
 	if (model_data != NULL)
 	{
 		int			data_len = VARSIZE(model_data);
+
 		NDB_DECLARE(char *, copy_bytes);
 		bytea	   *copy;
+
 		NDB_ALLOC(copy_bytes, char, data_len);
 		copy = (bytea *) copy_bytes;
 
@@ -863,14 +868,17 @@ evaluate_gmm_by_model_id(PG_FUNCTION_ARGS)
 				c;
 	float	  **data = NULL;
 	int			dim = 0;
+
 	NDB_DECLARE(GMMModel *, model);
 	NDB_DECLARE(int *, assignments);
 	NDB_DECLARE(int *, cluster_sizes);
 	double		inertia = 0.0;
 	double		silhouette = 0.0;
+
 	NDB_DECLARE(double *, a_scores);
 	NDB_DECLARE(double *, b_scores);
 	MemoryContext oldcontext;
+
 	NDB_DECLARE(Jsonb *, result_jsonb);
 	NDB_DECLARE(bytea *, model_payload);
 	NDB_DECLARE(Jsonb *, model_metrics);
@@ -1148,8 +1156,16 @@ evaluate_gmm_by_model_id(PG_FUNCTION_ARGS)
 		NDB_FREE(model_metrics);
 
 	/* Build JSONB in SPI context first (like naive_bayes does) */
-	/* This ensures the JSONB is accessible when called via SPI from neurondb.evaluate() */
-	/* Use the same pattern as naive_bayes: build JSON string, then parse with jsonb_in */
+
+	/*
+	 * This ensures the JSONB is accessible when called via SPI from
+	 * neurondb.evaluate()
+	 */
+
+	/*
+	 * Use the same pattern as naive_bayes: build JSON string, then parse with
+	 * jsonb_in
+	 */
 	{
 		StringInfoData jsonbuf;
 		double		safe_inertia = inertia;
@@ -1161,12 +1177,15 @@ evaluate_gmm_by_model_id(PG_FUNCTION_ARGS)
 		if (!isfinite(safe_silhouette))
 			safe_silhouette = 0.0;
 
-		/* End SPI session BEFORE creating JSONB to avoid memory context issues */
+		/*
+		 * End SPI session BEFORE creating JSONB to avoid memory context
+		 * issues
+		 */
 		NDB_SPI_SESSION_END(spi_session);
-		
+
 		/* Switch to oldcontext to create JSONB */
 		MemoryContextSwitchTo(oldcontext);
-		
+
 		initStringInfo(&jsonbuf);
 		appendStringInfo(&jsonbuf,
 						 "{\"inertia\":%.6f,\"silhouette_score\":%.6f,\"n_samples\":%d}",
@@ -1176,7 +1195,7 @@ evaluate_gmm_by_model_id(PG_FUNCTION_ARGS)
 		result_jsonb = ndb_jsonb_in_cstring(jsonbuf.data);
 		NDB_FREE(jsonbuf.data);
 		jsonbuf.data = NULL;
-		
+
 		if (result_jsonb == NULL)
 		{
 			NDB_FREE(tbl_str);
@@ -1232,15 +1251,15 @@ gmm_gpu_release_state(GmmGpuModelState * state)
 }
 
 static bool
-gmm_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
+gmm_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **errstr)
 {
-	GmmGpuModelState *state;
+	GmmGpuModelState *state = NULL;
 	bytea	   *payload;
 	Jsonb	   *metrics;
 	int			rc;
 	int			n_components = 2;
 	int			max_iters = 100;
-	const		ndb_gpu_backend *backend;
+	const ndb_gpu_backend *backend;
 
 	if (errstr != NULL)
 		*errstr = NULL;
@@ -1354,7 +1373,7 @@ gmm_gpu_train(MLGpuModel * model, const MLGpuTrainSpec * spec, char **errstr)
 }
 
 static bool
-gmm_gpu_predict(const MLGpuModel * model,
+gmm_gpu_predict(const MLGpuModel *model,
 				const float *input,
 				int input_dim,
 				float *output,
@@ -1365,7 +1384,7 @@ gmm_gpu_predict(const MLGpuModel * model,
 	int			cluster_out;
 	double		probability_out;
 	int			rc;
-	const		ndb_gpu_backend *backend;
+	const ndb_gpu_backend *backend;
 
 	if (errstr != NULL)
 		*errstr = NULL;
@@ -1402,9 +1421,9 @@ gmm_gpu_predict(const MLGpuModel * model,
 }
 
 static bool
-gmm_gpu_evaluate(const MLGpuModel * model,
-				 const MLGpuEvalSpec * spec,
-				 MLGpuMetrics * out,
+gmm_gpu_evaluate(const MLGpuModel *model,
+				 const MLGpuEvalSpec *spec,
+				 MLGpuMetrics *out,
 				 char **errstr)
 {
 	const		GmmGpuModelState *state;
@@ -1444,7 +1463,7 @@ gmm_gpu_evaluate(const MLGpuModel * model,
 }
 
 static bool
-gmm_gpu_serialize(const MLGpuModel * model,
+gmm_gpu_serialize(const MLGpuModel *model,
 				  bytea * *payload_out,
 				  Jsonb * *metadata_out,
 				  char **errstr)
@@ -1491,7 +1510,7 @@ gmm_gpu_serialize(const MLGpuModel * model,
 }
 
 static bool
-gmm_gpu_deserialize(MLGpuModel * model,
+gmm_gpu_deserialize(MLGpuModel *model,
 					const bytea * payload,
 					const Jsonb * metadata,
 					char **errstr)
@@ -1528,7 +1547,7 @@ gmm_gpu_deserialize(MLGpuModel * model,
 }
 
 static void
-gmm_gpu_destroy(MLGpuModel * model)
+gmm_gpu_destroy(MLGpuModel *model)
 {
 	if (model == NULL)
 		return;

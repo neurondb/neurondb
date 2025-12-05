@@ -167,11 +167,11 @@ temporal_in_window(TimestampTz docTime, TemporalConfig * config)
  * Takes a set of results and re-orders them by combined vector+temporal score.
  */
 static void
-temporal_rerank_results(ItemPointer *items,
-						float4 *distances,
-						TimestampTz *timestamps,
+temporal_rerank_results(ItemPointer * items,
+						float4 * distances,
+						TimestampTz * timestamps,
 						int count,
-						TemporalConfig *config)
+						TemporalConfig * config)
 {
 	float4	   *scores;
 	int			i,
@@ -340,12 +340,12 @@ temporal_create_config(float4 decayRate, float4 recencyWeight)
  */
 void
 temporal_integrate_hnsw_search(Relation heapRel,
-								ItemPointer *items,
-								float4 *distances,
-								int resultCount,
-								float4 decayRate,
-								float4 recencyWeight,
-								const char *timestampColumnName)
+							   ItemPointer * items,
+							   float4 * distances,
+							   int resultCount,
+							   float4 decayRate,
+							   float4 recencyWeight,
+							   const char *timestampColumnName)
 {
 	TimestampTz *timestamps;
 	TemporalConfig *config;
@@ -408,6 +408,7 @@ temporal_integrate_hnsw_search(Relation heapRel,
 		if (timestamp_attnum > 0)
 		{
 			Oid			atttype;
+
 			datum = heap_getattr(tuple, timestamp_attnum, tupdesc, &isnull);
 			if (!isnull)
 			{
@@ -421,6 +422,7 @@ temporal_integrate_hnsw_search(Relation heapRel,
 				else if (atttype == TIMESTAMPOID)
 				{
 					Timestamp	ts = DatumGetTimestamp(datum);
+
 					timestamps[i] = DatumGetTimestampTz(DirectFunctionCall1(timestamp_timestamptz, TimestampGetDatum(ts)));
 				}
 				else

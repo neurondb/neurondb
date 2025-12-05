@@ -555,7 +555,10 @@ vector_quantize_binary(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
 				 errmsg("vector size exceeds maximum allocation")));
 
-	/* Variable-length type requires custom size - use palloc0 but ensure proper cleanup */
+	/*
+	 * Variable-length type requires custom size - use palloc0 but ensure
+	 * proper cleanup
+	 */
 	/* Note: For variable-length PostgreSQL types, palloc0 is standard */
 	result = (BinaryVec *) palloc0(size);
 	if (result == NULL)

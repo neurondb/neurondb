@@ -91,11 +91,13 @@ monitor_drift_timeseries(PG_FUNCTION_ARGS)
 	StringInfoData sql;
 	MemoryContext oldcontext;
 	MemoryContext drift_context;
+
 	NDB_DECLARE(Vector *, baseline_centroid);
 	NDB_DECLARE(Vector *, current_centroid);
 	float		drift_distance = 0.0f;
 	int			n_baseline = 0;
 	int			n_current = 0;
+
 	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext_spi;
 
@@ -129,7 +131,7 @@ monitor_drift_timeseries(PG_FUNCTION_ARGS)
 										  ALLOCSET_DEFAULT_SIZES);
 	elog(DEBUG1, "drift monitoring context created");
 	oldcontext_spi = CurrentMemoryContext;
-	
+
 	oldcontext = MemoryContextSwitchTo(drift_context);
 
 	/* Connect to SPI */
@@ -165,25 +167,33 @@ monitor_drift_timeseries(PG_FUNCTION_ARGS)
 		bool		isnull;
 		Datum		centroid_datum;
 		Datum		cnt_datum;
-		/* Note: Vector type doesn't have direct ndb_spi_get_* function, so we access SPI_tuptable directly */
+
+		/*
+		 * Note: Vector type doesn't have direct ndb_spi_get_* function, so we
+		 * access SPI_tuptable directly
+		 */
 		/* Safe access for complex types - validate before access */
-		if (SPI_tuptable != NULL && SPI_tuptable->tupdesc != NULL && 
+		if (SPI_tuptable != NULL && SPI_tuptable->tupdesc != NULL &&
 			SPI_tuptable->vals != NULL && SPI_processed > 0 && SPI_tuptable->vals[0] != NULL)
 		{
 			centroid_datum = SPI_getbinval(SPI_tuptable->vals[0],
-									   SPI_tuptable->tupdesc,
-									   1,
-									   &isnull);
+										   SPI_tuptable->tupdesc,
+										   1,
+										   &isnull);
 			if (!isnull)
 			{
 				baseline_centroid = DatumGetVector(centroid_datum);
-				/* Safe access for count - validate tupdesc has at least 2 columns */
+
+				/*
+				 * Safe access for count - validate tupdesc has at least 2
+				 * columns
+				 */
 				if (SPI_tuptable->tupdesc->natts >= 2)
 				{
 					cnt_datum = SPI_getbinval(SPI_tuptable->vals[0],
-									  SPI_tuptable->tupdesc,
-									  2,
-									  &isnull);
+											  SPI_tuptable->tupdesc,
+											  2,
+											  &isnull);
 					if (!isnull)
 						n_baseline = DatumGetInt64(cnt_datum);
 				}
@@ -219,25 +229,33 @@ monitor_drift_timeseries(PG_FUNCTION_ARGS)
 		bool		isnull;
 		Datum		centroid_datum;
 		Datum		cnt_datum;
-		/* Note: Vector type doesn't have direct ndb_spi_get_* function, so we access SPI_tuptable directly */
+
+		/*
+		 * Note: Vector type doesn't have direct ndb_spi_get_* function, so we
+		 * access SPI_tuptable directly
+		 */
 		/* Safe access for complex types - validate before access */
-		if (SPI_tuptable != NULL && SPI_tuptable->tupdesc != NULL && 
+		if (SPI_tuptable != NULL && SPI_tuptable->tupdesc != NULL &&
 			SPI_tuptable->vals != NULL && SPI_processed > 0 && SPI_tuptable->vals[0] != NULL)
 		{
 			centroid_datum = SPI_getbinval(SPI_tuptable->vals[0],
-									   SPI_tuptable->tupdesc,
-									   1,
-									   &isnull);
+										   SPI_tuptable->tupdesc,
+										   1,
+										   &isnull);
 			if (!isnull)
 			{
 				current_centroid = DatumGetVector(centroid_datum);
-				/* Safe access for count - validate tupdesc has at least 2 columns */
+
+				/*
+				 * Safe access for count - validate tupdesc has at least 2
+				 * columns
+				 */
 				if (SPI_tuptable->tupdesc->natts >= 2)
 				{
 					cnt_datum = SPI_getbinval(SPI_tuptable->vals[0],
-								  SPI_tuptable->tupdesc,
-								  2,
-								  &isnull);
+											  SPI_tuptable->tupdesc,
+											  2,
+											  &isnull);
 					if (!isnull)
 						n_current = DatumGetInt64(cnt_datum);
 				}
