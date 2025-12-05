@@ -57,10 +57,70 @@ func RegisterAllTools(registry *ToolRegistry, db *database.Database, logger *log
 
 	// Hybrid search tools
 	registry.Register(NewHybridSearchTool(db, logger))
+	registry.Register(NewReciprocalRankFusionTool(db, logger))
+	registry.Register(NewSemanticKeywordSearchTool(db, logger))
+	registry.Register(NewMultiVectorSearchTool(db, logger))
+	registry.Register(NewFacetedVectorSearchTool(db, logger))
+	registry.Register(NewTemporalVectorSearchTool(db, logger))
+	registry.Register(NewDiverseVectorSearchTool(db, logger))
+
+	// Reranking tools
+	registry.Register(NewRerankCrossEncoderTool(db, logger))
+	registry.Register(NewRerankLLMTool(db, logger))
+	registry.Register(NewRerankCohereTool(db, logger))
+	registry.Register(NewRerankColBERTTool(db, logger))
+	registry.Register(NewRerankLTRTool(db, logger))
+	registry.Register(NewRerankEnsembleTool(db, logger))
+
+	// Advanced vector operations
+	registry.Register(NewVectorArithmeticTool(db, logger))
+	registry.Register(NewVectorDistanceTool(db, logger))
+	registry.Register(NewVectorSimilarityUnifiedTool(db, logger))
+
+	// Quantization tools
+	registry.Register(NewVectorQuantizationTool(db, logger))
+	registry.Register(NewQuantizationAnalysisTool(db, logger))
+
+	// Complete embedding tools
+	registry.Register(NewEmbedImageTool(db, logger))
+	registry.Register(NewEmbedMultimodalTool(db, logger))
+	registry.Register(NewEmbedCachedTool(db, logger))
+	registry.Register(NewConfigureEmbeddingModelTool(db, logger))
+	registry.Register(NewGetEmbeddingModelConfigTool(db, logger))
+	registry.Register(NewListEmbeddingModelConfigsTool(db, logger))
+	registry.Register(NewDeleteEmbeddingModelConfigTool(db, logger))
+
+	// Quality metrics, drift detection, topic discovery
+	registry.Register(NewQualityMetricsTool(db, logger))
+	registry.Register(NewDriftDetectionTool(db, logger))
+	registry.Register(NewTopicDiscoveryTool(db, logger))
+
+	// Time series, AutoML, ONNX
+	registry.Register(NewTimeSeriesTool(db, logger))
+	registry.Register(NewAutoMLTool(db, logger))
+	registry.Register(NewONNXTool(db, logger))
+
+	// Vector graph operations
+	registry.Register(NewVectorGraphTool(db, logger))
+
+	// Vecmap operations
+	registry.Register(NewVecmapOperationsTool(db, logger))
+
+	// Dataset loading
+	registry.Register(NewDatasetLoadingTool(db, logger))
+
+	// Workers and GPU
+	registry.Register(NewWorkerManagementTool(db, logger))
+	registry.Register(NewGPUMonitoringTool(db, logger))
 
 	// PostgreSQL tools
 	registry.Register(NewPostgreSQLVersionTool(db, logger))
 	registry.Register(NewPostgreSQLStatsTool(db, logger))
 	registry.Register(NewPostgreSQLDatabaseListTool(db, logger))
+	registry.Register(NewPostgreSQLConnectionsTool(db, logger))
+	registry.Register(NewPostgreSQLLocksTool(db, logger))
+	registry.Register(NewPostgreSQLReplicationTool(db, logger))
+	registry.Register(NewPostgreSQLSettingsTool(db, logger))
+	registry.Register(NewPostgreSQLExtensionsTool(db, logger))
 }
 

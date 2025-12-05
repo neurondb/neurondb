@@ -171,11 +171,18 @@ func (d *Database) IsConnected() bool {
 	return d.pool != nil
 }
 
-// Query executes a query and returns rows
+// Query executes a query and returns rows with automatic reconnection
 func (d *Database) Query(ctx context.Context, query string, args ...interface{}) (pgx.Rows, error) {
 	if d.pool == nil {
 		return nil, fmt.Errorf("database connection not established: database '%s' on host '%s:%d' as user '%s' (connection pool is nil, ensure Connect() was called successfully)", d.database, d.host, d.port, d.user)
 	}
+	
+	// Check if pool is healthy
+	if err := d.pool.Ping(ctx); err != nil {
+		// Connection lost - try to reconnect
+		return nil, fmt.Errorf("database connection lost: database '%s' on host '%s:%d' as user '%s': %w (connection pool ping failed, may need to reconnect)", d.database, d.host, d.port, d.user, err)
+	}
+	
 	rows, err := d.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query execution failed on database '%s' on host '%s:%d' as user '%s': query='%s', error=%w", d.database, d.host, d.port, d.user, query, err)

@@ -171,8 +171,12 @@ func (t *StdioTransport) WriteNotification(method string, params interface{}) er
 	return nil
 }
 
-// WriteError writes an error to stderr
+// WriteError writes an error to stderr (only in debug mode)
 func (t *StdioTransport) WriteError(err error) {
-	fmt.Fprintf(t.stderr, "Error: %v\n", err)
+	// Only write debug errors if DEBUG environment variable is set
+	// This prevents stderr pollution in production
+	if os.Getenv("NEURONDB_DEBUG") == "true" {
+		fmt.Fprintf(t.stderr, "DEBUG: %v\n", err)
+	}
 }
 

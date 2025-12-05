@@ -171,16 +171,29 @@ See `mcp-config.json.example` for complete configuration structure. Environment 
 
 ## Tools
 
-NeuronMCP provides the following tools:
+NeuronMCP provides comprehensive tools covering all NeuronDB capabilities:
 
 | Tool Category | Tools |
 |---------------|-------|
-| **Vector Operations** | `vector_search`, `vector_similarity`, `generate_embedding`, `create_vector_index` |
-| **ML Operations** | `train_model`, `predict`, `evaluate_model`, `list_models` |
-| **Analytics** | `analyze_data`, `cluster_data`, `reduce_dimensionality` |
-| **RAG Operations** | `process_document`, `retrieve_context`, `generate_response` |
+| **Vector Operations** | `vector_search`, `vector_search_l2`, `vector_search_cosine`, `vector_search_inner_product`, `vector_similarity`, `vector_arithmetic`, `vector_distance`, `vector_similarity_unified` |
+| **Vector Quantization** | `vector_quantize`, `quantization_analyze` (int8, fp16, binary, uint8, ternary, int4) |
+| **Embeddings** | `generate_embedding`, `batch_embedding`, `embed_image`, `embed_multimodal`, `embed_cached`, `configure_embedding_model`, `get_embedding_model_config`, `list_embedding_model_configs`, `delete_embedding_model_config` |
+| **Hybrid Search** | `hybrid_search`, `reciprocal_rank_fusion`, `semantic_keyword_search`, `multi_vector_search`, `faceted_vector_search`, `temporal_vector_search`, `diverse_vector_search` |
+| **Reranking** | `rerank_cross_encoder`, `rerank_llm`, `rerank_cohere`, `rerank_colbert`, `rerank_ltr`, `rerank_ensemble` |
+| **ML Operations** | `train_model`, `predict`, `predict_batch`, `evaluate_model`, `list_models`, `get_model_info`, `delete_model`, `export_model` |
+| **Analytics** | `analyze_data`, `cluster_data`, `reduce_dimensionality`, `detect_outliers`, `quality_metrics`, `detect_drift`, `topic_discovery` |
+| **Time Series** | `timeseries_analysis` (ARIMA, forecasting, seasonal decomposition) |
+| **AutoML** | `automl` (model selection, hyperparameter tuning, auto training) |
+| **ONNX** | `onnx_model` (import, export, info, predict) |
+| **Index Management** | `create_hnsw_index`, `create_ivf_index`, `index_status`, `drop_index`, `tune_hnsw_index`, `tune_ivf_index` |
+| **RAG Operations** | `process_document`, `retrieve_context`, `generate_response`, `chunk_document` |
+| **Workers & GPU** | `worker_management`, `gpu_info` |
+| **Vector Graph** | `vector_graph` (BFS, DFS, PageRank, community detection) |
+| **Vecmap Operations** | `vecmap_operations` (distances, arithmetic, norm on sparse vectors) |
+| **Dataset Loading** | `load_dataset` (HuggingFace datasets) |
+| **PostgreSQL** | `postgresql_version`, `postgresql_stats`, `postgresql_databases`, `postgresql_connections`, `postgresql_locks`, `postgresql_replication`, `postgresql_settings`, `postgresql_extensions` |
 
-See tool documentation for complete parameter lists and examples.
+See [TOOLS_REFERENCE.md](TOOLS_REFERENCE.md) for complete parameter lists and examples.
 
 ## Resources
 
@@ -197,6 +210,8 @@ NeuronMCP exposes the following resources:
 
 ## Using with Claude Desktop
 
+NeuronMCP is fully compatible with Claude Desktop on macOS, Windows, and Linux.
+
 Create Claude Desktop configuration file:
 
 **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
@@ -204,6 +219,8 @@ Create Claude Desktop configuration file:
 **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
 
 **Linux:** `~/.config/Claude/claude_desktop_config.json`
+
+See [Setup Guide](SETUP_GUIDE.md) for platform-specific configuration examples.
 
 Example configuration:
 
@@ -311,6 +328,9 @@ docker run -i --rm \
 
 | Document | Description |
 |----------|-------------|
+| [Tools Reference](TOOLS_REFERENCE.md) | Complete tool reference with parameters and examples |
+| [Setup Guide](SETUP_GUIDE.md) | Installation and configuration guide for all platforms |
+| [PostgreSQL Tools](POSTGRESQL_TOOLS.md) | PostgreSQL monitoring tools documentation |
 | [Docker Guide](docker/README.md) | Container deployment guide |
 | [MCP Specification](https://modelcontextprotocol.io/) | Model Context Protocol documentation |
 

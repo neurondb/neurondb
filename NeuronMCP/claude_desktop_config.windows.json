@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "neurondb": {
+      "command": "C:\\path\\to\\neurondb-mcp.exe",
+      "env": {
+        "NEURONDB_HOST": "localhost",
+        "NEURONDB_PORT": "5432",
+        "NEURONDB_DATABASE": "neurondb",
+        "NEURONDB_USER": "neurondb",
+        "NEURONDB_PASSWORD": "your_password",
+        "NEURONDB_LOG_LEVEL": "info",
+        "NEURONDB_LOG_FORMAT": "text",
+        "NEURONDB_LOG_OUTPUT": "stderr"
+      }
+    }
+  }
+}
+
