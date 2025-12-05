@@ -27,12 +27,12 @@ def main():
     
     profile = get_default_profile('research_assistant')
     if profile:
-        print(f"\n📋 Profile: {profile.name}")
+        print(f"\n Profile: {profile.name}")
         print(f"   Description: {profile.description}")
         print(f"   Tools: {profile.enabled_tools}")
         
         agent = agent_mgr.create_from_profile(profile)
-        print(f"✅ Agent created: {agent['id']}")
+        print(f"✓ Agent created: {agent['id']}")
     
     # Method 2: Load from file
     print("\n" + "=" * 60)
@@ -42,7 +42,7 @@ def main():
     config_file = os.path.join(os.path.dirname(__file__), '..', 'agent_configs.json')
     if os.path.exists(config_file):
         profiles = load_profiles_from_file(config_file)
-        print(f"\n📚 Loaded {len(profiles)} profiles")
+        print(f"\n Loaded {len(profiles)} profiles")
         
         for name, profile in profiles.items():
             print(f"\n  - {name}: {profile.description}")
@@ -51,7 +51,7 @@ def main():
         if 'data_analyst' in profiles:
             profile = profiles['data_analyst']
             agent = agent_mgr.create_from_profile(profile)
-            print(f"\n✅ Created agent from profile: {agent['name']}")
+            print(f"\n✓ Created agent from profile: {agent['name']}")
     
     # Method 3: Create custom profile
     print("\n" + "=" * 60)
@@ -71,9 +71,9 @@ def main():
     )
     
     agent = agent_mgr.create_from_profile(custom_profile)
-    print(f"✅ Custom agent created: {agent['id']}")
+    print(f"✓ Custom agent created: {agent['id']}")
     
-    print("\n✅ Example completed!")
+    print("\n✓ Example completed!")
 
 if __name__ == "__main__":
     main()

@@ -249,7 +249,7 @@ def main():
     if not client.health_check():
         logger.error("Server is not healthy. Exiting.")
         sys.exit(1)
-    logger.info("✅ Server is healthy")
+    logger.info("✓ Server is healthy")
     
     # Create a specialized agent
     logger.info("Creating research assistant agent...")
@@ -317,7 +317,7 @@ Always verify information and provide reliable answers.""",
         logger.info(f"  Assistant: {msg['assistant'][:200]}...")
         logger.info(f"  Tokens: {msg['tokens']}")
     
-    logger.info("\n✅ Example completed successfully!")
+    logger.info("\n✓ Example completed successfully!")
 
 
 if __name__ == "__main__":
@@ -327,6 +327,6 @@ if __name__ == "__main__":
         logger.info("\n⚠️  Interrupted by user")
         sys.exit(0)
     except Exception as e:
-        logger.error(f"❌ Fatal error: {e}", exc_info=True)
+        logger.error(f"✗ Fatal error: {e}", exc_info=True)
         sys.exit(1)
 

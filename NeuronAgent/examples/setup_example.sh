@@ -16,14 +16,14 @@ NC='\033[0m' # No Color
 
 # Check if Python is installed
 if ! command -v python3 &> /dev/null; then
-    echo -e "${RED}❌ Python 3 is not installed${NC}"
+    echo -e "${RED}✗ Python 3 is not installed${NC}"
     exit 1
 fi
-echo -e "${GREEN}✅ Python 3 found${NC}"
+echo -e "${GREEN}✓ Python 3 found${NC}"
 
 # Check if Go is installed (for Go example)
 if command -v go &> /dev/null; then
-    echo -e "${GREEN}✅ Go found${NC}"
+    echo -e "${GREEN}✓ Go found${NC}"
     GO_AVAILABLE=true
 else
     echo -e "${YELLOW}⚠️  Go not found (Go example will be skipped)${NC}"
@@ -35,7 +35,7 @@ echo ""
 echo "Installing Python dependencies..."
 if [ -f "requirements.txt" ]; then
     pip3 install -r requirements.txt
-    echo -e "${GREEN}✅ Python dependencies installed${NC}"
+    echo -e "${GREEN}✓ Python dependencies installed${NC}"
 else
     echo -e "${YELLOW}⚠️  requirements.txt not found${NC}"
 fi
@@ -54,16 +54,16 @@ if [ -z "$NEURONAGENT_API_KEY" ]; then
         exit 1
     fi
 else
-    echo -e "${GREEN}✅ API key is set${NC}"
+    echo -e "${GREEN}✓ API key is set${NC}"
 fi
 
 # Check if server is running
 echo ""
 echo "Checking if NeuronAgent server is running..."
 if curl -s http://localhost:8080/health > /dev/null 2>&1; then
-    echo -e "${GREEN}✅ Server is running${NC}"
+    echo -e "${GREEN}✓ Server is running${NC}"
 else
-    echo -e "${RED}❌ Server is not responding${NC}"
+    echo -e "${RED}✗ Server is not responding${NC}"
     echo "Make sure NeuronAgent server is running:"
     echo "  cd .. && go run cmd/agent-server/main.go"
     echo "  or"

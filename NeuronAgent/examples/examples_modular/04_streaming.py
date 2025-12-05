@@ -20,7 +20,7 @@ def main():
     agent_mgr = AgentManager(client)
     
     # Create agent
-    print("📝 Creating agent...")
+    print(" Creating agent...")
     agent = agent_mgr.create(
         name="streaming-example-agent",
         system_prompt="You are a helpful assistant. Provide detailed explanations.",
@@ -31,8 +31,8 @@ def main():
     conversation = ConversationManager(client, agent_id=agent['id'])
     conversation.start()
     
-    print("\n💭 Streaming query: Explain how neural networks work")
-    print("\n📡 Streaming response:")
+    print("\n Streaming query: Explain how neural networks work")
+    print("\n Streaming response:")
     print("-" * 60)
     
     full_response = []
@@ -45,7 +45,7 @@ def main():
     def on_complete(response: str):
         """Handle completion"""
         print("\n" + "-" * 60)
-        print(f"✅ Stream complete. Total length: {len(response)} chars")
+        print(f"✓ Stream complete. Total length: {len(response)} chars")
     
     # Stream the message
     conversation.stream(
@@ -57,10 +57,10 @@ def main():
     # Show history
     history = conversation.get_history()
     if history:
-        print(f"\n📜 Messages in history: {len(history)}")
+        print(f"\n Messages in history: {len(history)}")
     
     conversation.close()
-    print("\n✅ Example completed!")
+    print("\n✓ Example completed!")
 
 if __name__ == "__main__":
     main()

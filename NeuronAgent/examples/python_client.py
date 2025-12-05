@@ -256,13 +256,13 @@ def example_basic_agent():
     
     # Check server health
     if not client.health_check():
-        print("❌ Server is not healthy. Make sure NeuronAgent is running.")
+        print("✗ Server is not healthy. Make sure NeuronAgent is running.")
         return
     
-    print("✅ Server is healthy")
+    print("✓ Server is healthy")
     
     # Create an agent
-    print("\n📝 Creating agent...")
+    print("\n Creating agent...")
     agent = client.create_agent(
         name="example-assistant",
         system_prompt="You are a helpful, knowledgeable assistant. Answer questions clearly and concisely.",
@@ -274,18 +274,18 @@ def example_basic_agent():
             'max_tokens': 1500
         }
     )
-    print(f"✅ Agent created: {agent['id']}")
+    print(f"✓ Agent created: {agent['id']}")
     print(f"   Name: {agent['name']}")
     print(f"   Model: {agent['model_name']}")
     
     # Create a session
-    print("\n💬 Creating session...")
+    print("\n Creating session...")
     session = client.create_session(
         agent_id=agent['id'],
         external_user_id="example-user-123",
         metadata={'source': 'example'}
     )
-    print(f"✅ Session created: {session['id']}")
+    print(f"✓ Session created: {session['id']}")
     
     # Send messages
     messages = [
@@ -295,19 +295,19 @@ def example_basic_agent():
     ]
     
     for i, message in enumerate(messages, 1):
-        print(f"\n💭 Sending message {i}: {message[:50]}...")
+        print(f"\n Sending message {i}: {message[:50]}...")
         response = client.send_message(
             session_id=session['id'],
             content=message
         )
-        print(f"🤖 Agent response: {response['response'][:200]}...")
+        print(f" Agent response: {response['response'][:200]}...")
         print(f"   Tokens used: {response.get('tokens_used', 'N/A')}")
         time.sleep(1)  # Small delay between messages
     
     # Get conversation history
-    print("\n📜 Retrieving conversation history...")
+    print("\n Retrieving conversation history...")
     history = client.get_messages(session['id'], limit=10)
-    print(f"✅ Retrieved {len(history)} messages")
+    print(f"✓ Retrieved {len(history)} messages")
     for msg in history[-3:]:  # Show last 3
         print(f"   [{msg['role']}]: {msg['content'][:80]}...")
 
@@ -321,7 +321,7 @@ def example_research_agent():
     client = NeuronAgentClient()
     
     # Create a research-focused agent
-    print("\n📝 Creating research agent...")
+    print("\n Creating research agent...")
     agent = client.create_agent(
         name="research-assistant",
         system_prompt="""You are a research assistant. When users ask questions, you can:
@@ -340,25 +340,25 @@ Always be thorough and verify information from multiple sources when possible.""
             'top_p': 0.95
         }
     )
-    print(f"✅ Research agent created: {agent['id']}")
+    print(f"✓ Research agent created: {agent['id']}")
     
     # Create session
     session = client.create_session(agent_id=agent['id'])
-    print(f"✅ Session created: {session['id']}")
+    print(f"✓ Session created: {session['id']}")
     
     # Example research query
     query = "What are the latest developments in AI agent frameworks?"
-    print(f"\n🔍 Research query: {query}")
+    print(f"\n Research query: {query}")
     print("   (Note: This will use HTTP tools if configured)")
     
     response = client.send_message(
         session_id=session['id'],
         content=query
     )
-    print(f"\n📊 Research response:")
+    print(f"\n Research response:")
     print(f"   {response['response'][:300]}...")
     if response.get('tool_calls'):
-        print(f"\n🔧 Tools used: {len(response['tool_calls'])}")
+        print(f"\n Tools used: {len(response['tool_calls'])}")
         for tool_call in response['tool_calls']:
             print(f"   - {tool_call.get('name', 'unknown')}")
 
@@ -372,7 +372,7 @@ def example_data_analyst_agent():
     client = NeuronAgentClient()
     
     # Create a data analyst agent
-    print("\n📝 Creating data analyst agent...")
+    print("\n Creating data analyst agent...")
     agent = client.create_agent(
         name="data-analyst",
         system_prompt="""You are a data analyst. You help users:
@@ -390,21 +390,21 @@ Always validate SQL queries before execution and explain your findings clearly."
             'max_tokens': 2000
         }
     )
-    print(f"✅ Data analyst agent created: {agent['id']}")
+    print(f"✓ Data analyst agent created: {agent['id']}")
     
     # Create session
     session = client.create_session(agent_id=agent['id'])
-    print(f"✅ Session created: {session['id']}")
+    print(f"✓ Session created: {session['id']}")
     
     # Example data query
     query = "Can you help me write a SQL query to find the top 10 customers by revenue?"
-    print(f"\n💾 Data query: {query}")
+    print(f"\n Data query: {query}")
     
     response = client.send_message(
         session_id=session['id'],
         content=query
     )
-    print(f"\n📈 Analyst response:")
+    print(f"\n Analyst response:")
     print(f"   {response['response'][:400]}...")
 
 
@@ -430,12 +430,12 @@ def example_streaming():
     
     # Create session
     session = client.create_session(agent_id=agent['id'])
-    print(f"✅ Session created: {session['id']}")
+    print(f"✓ Session created: {session['id']}")
     
     # Stream a message
     query = "Explain how neural networks work in detail."
-    print(f"\n💭 Streaming query: {query}")
-    print("\n📡 Streaming response:")
+    print(f"\n Streaming query: {query}")
+    print("\n Streaming response:")
     print("-" * 60)
     
     full_response = []
@@ -448,7 +448,7 @@ def example_streaming():
                 full_response.append(content)
         if data.get('complete'):
             print("\n" + "-" * 60)
-            print(f"✅ Stream complete. Total length: {len(''.join(full_response))} chars")
+            print(f"✓ Stream complete. Total length: {len(''.join(full_response))} chars")
     
     client.stream_message(
         session_id=session['id'],
@@ -468,7 +468,7 @@ def example_error_handling():
         client = NeuronAgentClient(api_key="invalid-key")
         client.list_agents()
     except requests.exceptions.HTTPError as e:
-        print(f"✅ Caught expected authentication error: {e.response.status_code}")
+        print(f"✓ Caught expected authentication error: {e.response.status_code}")
     
     try:
         # Try with valid client but invalid session
@@ -478,9 +478,9 @@ def example_error_handling():
             content="Hello"
         )
     except requests.exceptions.HTTPError as e:
-        print(f"✅ Caught expected session error: {e.response.status_code}")
+        print(f"✓ Caught expected session error: {e.response.status_code}")
     
-    print("\n✅ Error handling examples completed")
+    print("\n✓ Error handling examples completed")
 
 
 def main():
@@ -494,7 +494,7 @@ def main():
     
     # Check if API key is set
     if not os.getenv('NEURONAGENT_API_KEY'):
-        print("\n❌ Error: NEURONAGENT_API_KEY environment variable not set")
+        print("\n✗ Error: NEURONAGENT_API_KEY environment variable not set")
         print("   Set it with: export NEURONAGENT_API_KEY=your_api_key")
         print("   Or generate one using: ./scripts/generate_api_keys.sh")
         sys.exit(1)
@@ -516,13 +516,13 @@ def main():
         example_error_handling()
         
         print("\n" + "="*60)
-        print("✅ All examples completed successfully!")
+        print("✓ All examples completed successfully!")
         print("="*60)
         
     except KeyboardInterrupt:
         print("\n\n⚠️  Examples interrupted by user")
     except Exception as e:
-        print(f"\n❌ Error running examples: {e}")
+        print(f"\n✗ Error running examples: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)

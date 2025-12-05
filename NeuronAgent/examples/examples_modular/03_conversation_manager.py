@@ -20,7 +20,7 @@ def main():
     agent_mgr = AgentManager(client)
     
     # Create agent
-    print("📝 Creating agent...")
+    print(" Creating agent...")
     agent = agent_mgr.create(
         name="conversation-example-agent",
         system_prompt="You are a helpful assistant. Keep responses concise.",
@@ -28,7 +28,7 @@ def main():
     )
     
     # Create conversation manager
-    print("\n💬 Starting conversation...")
+    print("\n Starting conversation...")
     conversation = ConversationManager(
         client=client,
         agent_id=agent['id'],
@@ -37,7 +37,7 @@ def main():
     )
     
     conversation.start()
-    print(f"✅ Conversation started: {conversation.session['id']}")
+    print(f"✓ Conversation started: {conversation.session['id']}")
     
     # Send multiple messages
     messages = [
@@ -67,11 +67,11 @@ def main():
     
     # Show total tokens
     total_tokens = conversation.get_total_tokens()
-    print(f"\n📊 Total tokens used: {total_tokens}")
+    print(f"\n Total tokens used: {total_tokens}")
     
     # Cleanup
     conversation.close()
-    print("\n✅ Example completed!")
+    print("\n✓ Example completed!")
 
 if __name__ == "__main__":
     main()

@@ -14,9 +14,9 @@ echo "=========================================="
 echo -n "1. Checking server health... "
 HEALTH=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health)
 if [ "$HEALTH" = "200" ]; then
-    echo "✅ Server is healthy"
+    echo "✓ Server is healthy"
 else
-    echo "❌ Server not responding (status: $HEALTH)"
+    echo "✗ Server not responding (status: $HEALTH)"
     exit 1
 fi
 
@@ -40,9 +40,9 @@ AGENT_RESPONSE=$(curl -s -X POST "$BASE_URL/api/v1/agents" \
 
 if echo "$AGENT_RESPONSE" | grep -q "id"; then
     AGENT_ID=$(echo "$AGENT_RESPONSE" | grep -o '"id":"[^"]*"' | cut -d'"' -f4)
-    echo "✅ Agent created: $AGENT_ID"
+    echo "✓ Agent created: $AGENT_ID"
 else
-    echo "❌ Failed to create agent"
+    echo "✗ Failed to create agent"
     echo "   Response: $AGENT_RESPONSE"
     exit 1
 fi
@@ -56,9 +56,9 @@ SESSION_RESPONSE=$(curl -s -X POST "$BASE_URL/api/v1/sessions" \
 
 if echo "$SESSION_RESPONSE" | grep -q "id"; then
     SESSION_ID=$(echo "$SESSION_RESPONSE" | grep -o '"id":"[^"]*"' | cut -d'"' -f4)
-    echo "✅ Session created: $SESSION_ID"
+    echo "✓ Session created: $SESSION_ID"
 else
-    echo "❌ Failed to create session"
+    echo "✗ Failed to create session"
     echo "   Response: $SESSION_RESPONSE"
     exit 1
 fi
@@ -71,7 +71,7 @@ MESSAGE_RESPONSE=$(curl -s -X POST "$BASE_URL/api/v1/sessions/$SESSION_ID/messag
     -d '{"content": "Hello! This is a test message.", "role": "user"}')
 
 if echo "$MESSAGE_RESPONSE" | grep -q "response\|error"; then
-    echo "✅ Message sent"
+    echo "✓ Message sent"
     echo "   Response preview: $(echo "$MESSAGE_RESPONSE" | head -c 100)..."
 else
     echo "⚠️  Unexpected response format"
@@ -80,7 +80,7 @@ fi
 
 echo ""
 echo "=========================================="
-echo "✅ Basic tests completed!"
+echo "✓ Basic tests completed!"
 echo "=========================================="
 echo ""
 echo "Agent ID: $AGENT_ID"

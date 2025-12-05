@@ -40,10 +40,10 @@ def main():
     print("=" * 60)
     agent = agent_mgr.find_by_name("basic-example-agent")
     if agent:
-        print(f"\n✅ Found agent: {agent['id']}")
+        print(f"\n✓ Found agent: {agent['id']}")
         print(f"   Description: {agent.get('description', 'N/A')}")
     else:
-        print("\n❌ Agent not found")
+        print("\n✗ Agent not found")
     
     # Create a new agent
     print("\n" + "=" * 60)
@@ -61,7 +61,7 @@ def main():
             'top_p': 0.95
         }
     )
-    print(f"✅ Created: {new_agent['id']}")
+    print(f"✓ Created: {new_agent['id']}")
     
     # Update the agent
     print("\n" + "=" * 60)
@@ -75,7 +75,7 @@ def main():
             'max_tokens': 3000
         }
     )
-    print(f"✅ Updated: {updated['id']}")
+    print(f"✓ Updated: {updated['id']}")
     print(f"   New description: {updated.get('description')}")
     print(f"   New temperature: {updated['config'].get('temperature')}")
     
@@ -99,11 +99,11 @@ def main():
     response = input(f"\nDelete agent '{new_agent['name']}'? (y/n): ")
     if response.lower() == 'y':
         agent_mgr.delete(new_agent['id'])
-        print(f"✅ Agent deleted")
+        print(f"✓ Agent deleted")
     else:
         print("Agent kept")
     
-    print("\n✅ Example completed!")
+    print("\n✓ Example completed!")
 
 if __name__ == "__main__":
     main()

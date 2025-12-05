@@ -43,19 +43,19 @@ def main():
     
     try:
         # Health check with retry
-        print("🔍 Checking server health...")
+        print(" Checking server health...")
         if not client.health_check():
-            print("❌ Server is not healthy")
+            print("✗ Server is not healthy")
             return
         
-        print("✅ Server is healthy")
+        print("✓ Server is healthy")
         metrics.increment("health_checks", 1)
         
         # Create agent manager
         agent_mgr = AgentManager(client)
         
         # Create agent with error handling
-        print("\n📝 Creating agent...")
+        print("\n Creating agent...")
         try:
             agent = agent_mgr.create(
                 name="production-example-agent",
@@ -68,14 +68,14 @@ def main():
                 }
             )
             metrics.increment("agents_created", 1)
-            print(f"✅ Agent created: {agent['id']}")
+            print(f"✓ Agent created: {agent['id']}")
         except Exception as e:
-            print(f"❌ Failed to create agent: {e}")
+            print(f"✗ Failed to create agent: {e}")
             metrics.increment("agent_errors", 1)
             return
         
         # Create conversation with error handling
-        print("\n💬 Starting conversation...")
+        print("\n Starting conversation...")
         conversation = ConversationManager(
             client=client,
             agent_id=agent['id'],
@@ -84,7 +84,7 @@ def main():
         
         try:
             conversation.start()
-            print(f"✅ Conversation started")
+            print(f"✓ Conversation started")
             metrics.increment("conversations_started", 1)
             
             # Send messages with error handling
@@ -97,14 +97,14 @@ def main():
                 start_time = time.time()
                 
                 try:
-                    print(f"\n💭 Sending message {i}...")
+                    print(f"\n Sending message {i}...")
                     response = conversation.send(msg)
                     
                     duration = time.time() - start_time
                     metrics.timer("message_duration", duration)
                     metrics.increment("messages_sent", 1)
                     
-                    print(f"✅ Response received ({duration:.2f}s)")
+                    print(f"✓ Response received ({duration:.2f}s)")
                     print(f"   {response[:150]}...")
                     
                     # Track tokens if available
@@ -116,12 +116,12 @@ def main():
                             metrics.record("tokens_used", tokens)
                     
                 except ServerError as e:
-                    print(f"❌ Server error: {e}")
+                    print(f"✗ Server error: {e}")
                     metrics.increment("message_errors", 1)
                     # Could implement retry logic here
                     break
                 except Exception as e:
-                    print(f"❌ Error: {e}")
+                    print(f"✗ Error: {e}")
                     metrics.increment("message_errors", 1)
                     break
                 
@@ -138,13 +138,13 @@ def main():
         finally:
             # Always cleanup
             conversation.close()
-            print("\n🧹 Conversation closed")
+            print("\n Conversation closed")
         
     except AuthenticationError as e:
-        print(f"❌ Authentication failed: {e}")
+        print(f"✗ Authentication failed: {e}")
         metrics.increment("auth_errors", 1)
     except Exception as e:
-        print(f"❌ Unexpected error: {e}")
+        print(f"✗ Unexpected error: {e}")
         metrics.increment("unexpected_errors", 1)
     finally:
         # Show metrics
@@ -175,7 +175,7 @@ def main():
         
         # Cleanup
         client.close()
-        print("\n✅ Example completed!")
+        print("\n✓ Example completed!")
 
 if __name__ == "__main__":
     main()
