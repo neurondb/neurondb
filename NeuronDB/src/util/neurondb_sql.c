@@ -21,39 +21,24 @@
 #include "neurondb_macros.h"
 #include "neurondb_sql.h"
 
-/*-------------------------------------------------------------------------
- * SQL Query Templates for Linear Regression
- *-------------------------------------------------------------------------
- */
-
-/* Query: Load full dataset for training */
 #define LINREG_SQL_LOAD_DATASET \
 	"SELECT %s, %s FROM %s"
 
-/* Query: Load limited dataset with NULL filtering */
 #define LINREG_SQL_LOAD_DATASET_LIMITED \
 	"SELECT %s, %s FROM %s WHERE %s IS NOT NULL AND %s IS NOT NULL LIMIT %d"
 
-/* Query: Load dataset chunk for streaming processing */
 #define LINREG_SQL_LOAD_DATASET_CHUNK \
 	"SELECT %s, %s FROM %s LIMIT %d OFFSET %d"
 
-/* Query: Check if dataset has valid rows */
 #define LINREG_SQL_CHECK_DATASET \
 	"SELECT %s, %s FROM %s WHERE %s IS NOT NULL AND %s IS NOT NULL LIMIT 1"
 
-/* Query: Count valid rows in dataset */
 #define LINREG_SQL_COUNT_DATASET \
 	"SELECT COUNT(*) FROM %s WHERE %s IS NOT NULL AND %s IS NOT NULL"
 
-/* Query: Load dataset for evaluation */
 #define LINREG_SQL_EVAL_DATASET \
 	"SELECT %s, %s FROM %s WHERE %s IS NOT NULL AND %s IS NOT NULL"
 
-/*-------------------------------------------------------------------------
- * Get formatted query: Load full dataset
- *-------------------------------------------------------------------------
- */
 const char *
 ndb_sql_get_load_dataset(const char *quoted_feat_col,
 						 const char *quoted_target_col,
@@ -75,10 +60,6 @@ ndb_sql_get_load_dataset(const char *quoted_feat_col,
 	return result;
 }
 
-/*-------------------------------------------------------------------------
- * Get formatted query: Load limited dataset
- *-------------------------------------------------------------------------
- */
 const char *
 ndb_sql_get_load_dataset_limited(const char *quoted_feat_col,
 								 const char *quoted_target_col,
@@ -104,10 +85,6 @@ ndb_sql_get_load_dataset_limited(const char *quoted_feat_col,
 	return result;
 }
 
-/*-------------------------------------------------------------------------
- * Get formatted query: Load dataset chunk
- *-------------------------------------------------------------------------
- */
 const char *
 ndb_sql_get_load_dataset_chunk(const char *quoted_feat_col,
 							   const char *quoted_target_col,
@@ -133,10 +110,6 @@ ndb_sql_get_load_dataset_chunk(const char *quoted_feat_col,
 	return result;
 }
 
-/*-------------------------------------------------------------------------
- * Get formatted query: Check dataset validity
- *-------------------------------------------------------------------------
- */
 const char *
 ndb_sql_get_check_dataset(const char *quoted_feat_col,
 						  const char *quoted_target_col,
@@ -160,10 +133,6 @@ ndb_sql_get_check_dataset(const char *quoted_feat_col,
 	return result;
 }
 
-/*-------------------------------------------------------------------------
- * Get formatted query: Count dataset rows
- *-------------------------------------------------------------------------
- */
 const char *
 ndb_sql_get_count_dataset(const char *quoted_feat_col,
 						  const char *quoted_target_col,
@@ -185,9 +154,9 @@ ndb_sql_get_count_dataset(const char *quoted_feat_col,
 	return result;
 }
 
-/*-------------------------------------------------------------------------
- * Get formatted query: Load dataset for evaluation
- *-------------------------------------------------------------------------
+
+/*
+ * ndb_sql_get_eval_dataset - Get formatted SQL query to load dataset for evaluation
  */
 const char *
 ndb_sql_get_eval_dataset(const char *quoted_feat_col,

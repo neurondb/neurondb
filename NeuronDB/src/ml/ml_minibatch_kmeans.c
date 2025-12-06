@@ -44,8 +44,24 @@ static int	kmeans_model_deserialize_from_bytea(const bytea * data, float ***cent
 bool		minibatch_kmeans_gpu_serialize(const MLGpuModel *model, bytea * *payload_out, Jsonb * *metadata_out, char **errstr);
 
 /*
- * KMeans++ initialization for better centroid seeding
- * Uses D² weighting to select initial centroids
+ * minibatch_kmeans_pp_init - Initialize centroids using K-means++ algorithm
+ *
+ * Implements K-means++ initialization for mini-batch K-means clustering.
+ * Uses D² weighting to select centroids that are far from existing centroids,
+ * improving convergence and final cluster quality.
+ *
+ * Parameters:
+ *   data - 2D array of nvec vectors, each of dimension dim
+ *   nvec - Number of training vectors
+ *   dim - Dimension of each vector
+ *   k - Number of centroids to initialize
+ *   centroids - Output array of k centroid vectors
+ *
+ * Notes:
+ *   The first centroid is selected randomly. Subsequent centroids are
+ *   selected with probability proportional to the squared distance from
+ *   the nearest existing centroid. This improves initial cluster quality
+ *   compared to random initialization.
  */
 static void
 minibatch_kmeans_pp_init(float **data,
@@ -63,7 +79,6 @@ minibatch_kmeans_pp_init(float **data,
 	selected = (bool *) palloc0(sizeof(bool) * nvec);
 	NDB_ALLOC(dist, double, nvec);
 
-	/* Select first centroid randomly */
 	{
 		int			first = rand() % nvec;
 
@@ -86,14 +101,12 @@ minibatch_kmeans_pp_init(float **data,
 		dist[i] = acc;
 	}
 
-	/* Select remaining k-1 centroids using D² weighting */
 	for (c = 1; c < k; c++)
 	{
 		double		sum = 0.0;
 		double		r;
 		int			picked = -1;
 
-		/* Compute sum of squared distances */
 		for (i = 0; i < nvec; i++)
 			if (!selected[i])
 				sum += dist[i];
@@ -828,11 +841,6 @@ evaluate_minibatch_kmeans_by_model_id(PG_FUNCTION_ARGS)
 
 	PG_RETURN_JSONB_P(result);
 }
-
-/*-------------------------------------------------------------------------
- * GPU Model Ops Registration for Mini-batch K-Means
- *-------------------------------------------------------------------------
- */
 
 /* Helper functions for model serialization (reuse k-means format) */
 static bytea *

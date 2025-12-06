@@ -183,7 +183,25 @@ find_model(const char *name)
 	return NULL;
 }
 
-/* ---- Backend Model Management ---- */
+/*
+ * model_backend_load - Load a model using the appropriate backend
+ *
+ * Loads a machine learning model from disk using the backend specified by
+ * the model type. Supports ONNX, TensorFlow, and PyTorch models. Validates
+ * file existence and readability before attempting to load.
+ *
+ * Parameters:
+ *   path - File system path to the model file
+ *   type - Type of model (ONNX, TensorFlow, or PyTorch)
+ *
+ * Returns:
+ *   Pointer to ModelHandle structure on success
+ *
+ * Notes:
+ *   The function validates that the path exists, is a regular file, and is
+ *   readable before attempting to load. Errors are reported via ereport if
+ *   validation fails. The model handle must be freed when no longer needed.
+ */
 static ModelHandle *
 model_backend_load(const char *path, ModelType type)
 {
@@ -390,8 +408,6 @@ model_backend_unload(ModelHandle * hdl, ModelType type)
 		NDB_FREE(hdl);
 	}
 }
-
-/* ---- PostgreSQL SQL-callable Functions ---- */
 
 PG_FUNCTION_INFO_V1(load_model);
 

@@ -35,21 +35,6 @@
 #include "neurondb_safe_memory.h"
 #include "neurondb_macros.h"
 
-/*
- * vector_time_travel
- *
- * Implements detailed, robust MVCC-aware time-travel queries for vector tables.
- * Performs thorough existence checks, full input validation, deep error handling,
- * logs all activity, and returns a historical snapshot at the specified timestamp.
- *
- * Args:
- *		table_name: text - name of the table to query
- *		system_time: timestamptz - point in time to query
- *
- * Returns:
- *		text - summary of time-travel query execution
- *
- */
 PG_FUNCTION_INFO_V1(vector_time_travel);
 Datum
 vector_time_travel(PG_FUNCTION_ARGS)
@@ -73,7 +58,6 @@ vector_time_travel(PG_FUNCTION_ARGS)
 
 	NDB_DECLARE(NdbSpiSession *, session);
 
-	/* Get arguments and validate nulls */
 	if (PG_ARGISNULL(0))
 		ereport(ERROR,
 				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
@@ -88,7 +72,6 @@ vector_time_travel(PG_FUNCTION_ARGS)
 	table_name = PG_GETARG_TEXT_PP(0);
 	system_time = PG_GETARG_TIMESTAMPTZ(1);
 
-	/* Convert table name */
 	tbl_str = text_to_cstring(table_name);
 
 	elog(INFO,
@@ -97,7 +80,6 @@ vector_time_travel(PG_FUNCTION_ARGS)
 		 tbl_str,
 		 (int64) system_time);
 
-	/* Format system_time into buffer (ISO 8601) */
 	if (timestamp2tm(system_time, NULL, &tm, &fsec, NULL, NULL) != 0)
 		ereport(ERROR,
 				(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE),
@@ -112,17 +94,15 @@ vector_time_travel(PG_FUNCTION_ARGS)
 			 tm.tm_mday,
 			 tm.tm_hour,
 			 tm.tm_min,
-			 tm.tm_sec);
+	tm.tm_sec);
 
 	elog(DEBUG2, "neurondb: formatted time for time-travel: %s", timebuf);
 
-	/* Start a temporary memory context for this function execution */
 	tmpcontext = AllocSetContextCreate(CurrentMemoryContext,
 									   "vector_time_travel temporary context",
 									   ALLOCSET_DEFAULT_SIZES);
 	oldcontext = MemoryContextSwitchTo(tmpcontext);
 
-	/* Check that table exists */
 	session = ndb_spi_session_begin(tmpcontext, false);
 	if (session == NULL)
 	{
@@ -162,11 +142,6 @@ vector_time_travel(PG_FUNCTION_ARGS)
 		 "neurondb: table '%s' verified to exist for time-travel query",
 		 tbl_str);
 
-	/*
-	 * Construct and execute the time-travel query Use temporal columns
-	 * 'valid_from' and 'valid_to' for bitemporal versioning Return the total
-	 * count of valid rows as of the given system_time
-	 */
 	initStringInfo(&sql);
 	appendStringInfo(&sql,
 					 "SELECT COUNT(*) FROM %s "
@@ -222,23 +197,7 @@ vector_time_travel(PG_FUNCTION_ARGS)
 }
 
 /*
- * compress_cold_tier
- *
- * Compresses and moves vectors older than the user-specified age from the main table
- * to a dedicated cold tier storage table. This implementation is highly detailed:
- *   - Inspects metadata and verifies the destination cold table,
- *   - Logs all SQL execution steps,
- *   - Attempts up to 1000 compress/move records per call,
- *   - Applies base64 encoding as an alternative to PQ compression,
- *   - Updates per-row metadata and marks rows as compressed,
- *   - Handles corner cases for missing columns and failure modes.
- *
- * Args:
- *		table_name: text - table containing vectors
- *		age_days: int4 - compress vectors older than this many days
- *
- * Returns:
- *		int8 - number of vectors compressed
+ * compress_cold_tier - Compress and move vectors to cold tier storage
  */
 PG_FUNCTION_INFO_V1(compress_cold_tier);
 Datum
@@ -496,21 +455,7 @@ compress_cold_tier(PG_FUNCTION_ARGS)
 }
 
 /*
- * vacuum_vectors
- *
- * Comprehensive VACUUM operation for vector tables. Performs:
- *   - Validation and deep inspection of table statistics,
- *   - Orphaned/invalid vector tuple removal,
- *   - Optionally VACUUM FULL,
- *   - Vector statistics gathering (including centroid and dimensions),
- *   - Logging, error catch at each step, and metadata persistence.
- *
- * Args:
- *		table_name: text - table to vacuum
- *		full: bool - perform VACUUM FULL if true
- *
- * Returns:
- *		int8 - number of dead tuples cleaned
+ * vacuum_vectors - Comprehensive VACUUM operation for vector tables
  */
 PG_FUNCTION_INFO_V1(vacuum_vectors);
 Datum
@@ -736,21 +681,7 @@ vacuum_vectors(PG_FUNCTION_ARGS)
 }
 
 /*
- * rebalance_index
- *
- * Steps:
- *   - Validate parameters and index existence,
- *   - Record current HNSW index structure,
- *   - Simulate edge (neighbor link) redistribution,
- *   - Update metadata table with rebalance stats,
- *   - Full logging, errors on parameter/domain violations.
- *
- * Args:
- *		index_name: text - name of the index to rebalance
- *		target_balance: float4 - desired balance factor (0.5-1.0)
- *
- * Returns:
- *		bool - true if rebalancing succeeded
+ * rebalance_index - Rebalance HNSW index structure
  */
 PG_FUNCTION_INFO_V1(rebalance_index);
 Datum

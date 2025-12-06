@@ -52,8 +52,23 @@ typedef struct DBSCANState
 }			DBSCANState;
 
 /*
- * dbscan_region_query
- *	  Find neighbors within eps
+ * dbscan_region_query - Find neighbors within epsilon distance
+ *
+ * Finds all data points within epsilon distance of a given point for DBSCAN
+ * clustering. Uses L2 distance squared for efficiency, then takes square root
+ * for comparison.
+ *
+ * Parameters:
+ *   state - DBSCAN state containing data and parameters
+ *   idx - Index of the query point
+ *   neighbor_count - Output parameter to receive number of neighbors found
+ *
+ * Returns:
+ *   Dynamically allocated array of neighbor indices, caller must free
+ *
+ * Notes:
+ *   The function dynamically grows the neighbors array as needed. Memory
+ *   is allocated in CurrentMemoryContext and must be freed by the caller.
  */
 static int *
 dbscan_region_query(const DBSCANState * state, int idx, int *neighbor_count)
@@ -88,8 +103,23 @@ dbscan_region_query(const DBSCANState * state, int idx, int *neighbor_count)
 }
 
 /*
- * dbscan_expand_cluster
- *	  Expand cluster from seed point
+ * dbscan_expand_cluster - Expand cluster from seed point
+ *
+ * Recursively expands a DBSCAN cluster starting from a seed point by finding
+ * all density-reachable points. Marks points as belonging to the cluster and
+ * continues expansion from newly found core points.
+ *
+ * Parameters:
+ *   state - DBSCAN state containing data, labels, and parameters
+ *   point_idx - Index of seed point to start expansion from
+ *   neighbors - Array of neighbor indices
+ *   neighbor_count - Number of neighbors
+ *   cluster_id - Cluster ID to assign to points
+ *
+ * Notes:
+ *   This function implements the core DBSCAN cluster expansion algorithm.
+ *   It recursively processes neighbors and expands the cluster until no
+ *   more density-reachable points are found.
  */
 static void
 dbscan_expand_cluster(DBSCANState * state,
@@ -688,10 +718,6 @@ evaluate_dbscan_by_model_id(PG_FUNCTION_ARGS)
 	PG_RETURN_JSONB_P(result);
 }
 
-/*-------------------------------------------------------------------------
- * GPU Model Ops Registration for DBSCAN
- *-------------------------------------------------------------------------
- */
 #include "neurondb_gpu_model.h"
 #include "neurondb_validation.h"
 #include "neurondb_safe_memory.h"

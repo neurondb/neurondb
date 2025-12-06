@@ -74,7 +74,20 @@ typedef struct SentimentResult
 }			SentimentResult;
 
 /*
- * Helper: Tokenize input into lowercase word tokens only, using PostgreSQL memory context allocations.
+ * simple_tokenize - Tokenize input into lowercase word tokens
+ *
+ * Tokenizes an input string into lowercase alphanumeric word tokens.
+ * Skips non-alphanumeric characters and converts all tokens to lowercase.
+ *
+ * Parameters:
+ *   input - Input string to tokenize
+ *   tokens - Output array of token strings (allocated in CurrentMemoryContext)
+ *   num_tokens - Output parameter to receive number of tokens found
+ *
+ * Notes:
+ *   Memory for tokens is allocated in CurrentMemoryContext. The function
+ *   limits the number of tokens to MAX_TOKENS and token length to MAX_TOKEN_LEN.
+ *   Caller is responsible for freeing token memory.
  */
 static void
 simple_tokenize(const char *input, char **tokens, int *num_tokens)
@@ -946,10 +959,6 @@ neurondb_text_summarize(PG_FUNCTION_ARGS)
 	PG_RETURN_TEXT_P(cstring_to_text(summary));
 }
 
-/*-------------------------------------------------------------------------
- * GPU Model Ops Registration for Text
- *-------------------------------------------------------------------------
- */
 #include "neurondb_gpu_model.h"
 #include "ml_gpu_registry.h"
 

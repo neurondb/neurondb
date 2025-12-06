@@ -36,10 +36,6 @@
 #include "neurondb_safe_memory.h"
 #include "neurondb_macros.h"
 
-/*-------------------------------------------------------------------------
- * Helper: Copy a Datum to current memory context
- *-------------------------------------------------------------------------
- */
 static Datum
 datumCopy(Datum value, int typlen, bool typbyval)
 {
@@ -49,22 +45,6 @@ datumCopy(Datum value, int typlen, bool typbyval)
 		return PointerGetDatum(PG_DETOAST_DATUM_COPY(value));
 }
 
-/*-------------------------------------------------------------------------
- * Safe SPI execution wrapper
- *-------------------------------------------------------------------------
- */
-
-/*
- * ndb_spi_execute_safe - Execute SPI query with error handling
- *
- * Wraps ndb_spi_execute_safe() with:
-	NDB_CHECK_SPI_TUPTABLE();
- * - Return code validation
- * - Error handling via PG_TRY/PG_CATCH
- * - Proper error messages
- *
- * Returns SPI return code, or -1 on error
- */
 int
 ndb_spi_execute_safe(const char *query, bool read_only, long tcount)
 {
@@ -78,8 +58,6 @@ ndb_spi_execute_safe(const char *query, bool read_only, long tcount)
 		return -1;
 	}
 
-	/* Check SPI connection - SPI_processed == -1 means not connected */
-	/* If not connected, try to connect automatically */
 	if (SPI_processed == -1)
 	{
 		int			connect_ret = SPI_connect();
@@ -94,24 +72,30 @@ ndb_spi_execute_safe(const char *query, bool read_only, long tcount)
 		elog(DEBUG1, "neurondb: ndb_spi_execute_safe auto-connected SPI");
 	}
 
-	/* Save current context for error handling */
+	/*
+	 * Save current memory context before PG_TRY block. If an error occurs,
+	 * the catch handler needs a valid context to allocate error data. The
+	 * saved context must not be ErrorContext since that context cannot
+	 * be used for allocations during error processing.
+	 */
 	save_context = CurrentMemoryContext;
 
-	/* Execute with error handling */
 	PG_TRY();
 	{
 		ret = SPI_execute(query, read_only ? 1 : 0, tcount);
 
 		/*
-		 * If SPI_execute returns SPI_ERROR_UNCONNECTED, try to connect and
-		 * retry once
+		 * Handle SPI_ERROR_UNCONNECTED by attempting to connect and retry.
+		 * This can occur if SPI connection was lost between calls or if
+		 * the initial connection check above was insufficient. We retry
+		 * the query after connecting to avoid failing on transient
+		 * connection state issues.
 		 */
 		if (ret == SPI_ERROR_UNCONNECTED)
 		{
 			elog(DEBUG1, "neurondb: SPI_execute returned SPI_ERROR_UNCONNECTED, attempting to connect and retry");
 			if (SPI_connect() == SPI_OK_CONNECT)
 			{
-				/* Retry the query */
 				ret = SPI_execute(query, read_only ? 1 : 0, tcount);
 				elog(DEBUG1, "neurondb: retry after SPI_connect returned %d", ret);
 			}
@@ -124,14 +108,12 @@ ndb_spi_execute_safe(const char *query, bool read_only, long tcount)
 			}
 		}
 
-		/* Only check SPI_tuptable for SELECT queries that return result sets */
 		if (ret == SPI_OK_SELECT || ret == SPI_OK_SELINTO ||
 			ret == SPI_OK_INSERT_RETURNING || ret == SPI_OK_UPDATE_RETURNING ||
 			ret == SPI_OK_DELETE_RETURNING)
 		{
 			NDB_CHECK_SPI_TUPTABLE();
 		}
-		/* Check for SPI error codes */
 		if (ret < 0)
 		{
 			const char *error_msg = "unknown SPI error";
@@ -162,17 +144,14 @@ ndb_spi_execute_safe(const char *query, bool read_only, long tcount)
 	}
 	PG_CATCH();
 	{
-		/* Preserve the original error message instead of discarding it */
 		ErrorData  *edata;
 
 		/*
-		 * Switch OUT of ErrorContext before CopyErrorData(). CopyErrorData()
-		 * allocates memory and must NOT be called while in ErrorContext, as
-		 * that context is only for error reporting and will be reset, causing
-		 * memory leaks or corruption.
+		 * Select a safe memory context for error handling. ErrorContext
+		 * cannot be used for allocations during error processing. If the
+		 * saved context is ErrorContext or NULL, fall back to TopMemoryContext
+		 * which is always valid and persists for the session lifetime.
 		 */
-
-		/* Choose a safe context to switch to */
 		MemoryContext safe_context = save_context;
 
 		if (safe_context == ErrorContext || safe_context == NULL)
@@ -180,6 +159,11 @@ ndb_spi_execute_safe(const char *query, bool read_only, long tcount)
 			safe_context = TopMemoryContext;
 		}
 
+		/*
+		 * Switch to the safe context before allocating error data. This
+		 * ensures CopyErrorData and subsequent allocations succeed even
+		 * if the original context was destroyed or is invalid.
+		 */
 		MemoryContextSwitchTo(safe_context);
 
 		if (CurrentMemoryContext != ErrorContext)
@@ -187,7 +171,6 @@ ndb_spi_execute_safe(const char *query, bool read_only, long tcount)
 			edata = CopyErrorData();
 			FlushErrorState();
 
-			/* Re-throw with original error details plus query context */
 			ereport(ERROR,
 					(errcode(edata->sqlerrcode),
 					 errmsg("%s", edata->message ? edata->message : "SPI_execute failed"),
@@ -199,7 +182,6 @@ ndb_spi_execute_safe(const char *query, bool read_only, long tcount)
 		}
 		else
 		{
-			/* Fallback if we can't switch contexts */
 			FlushErrorState();
 			ereport(ERROR,
 					(errcode(ERRCODE_INTERNAL_ERROR),
@@ -212,14 +194,6 @@ ndb_spi_execute_safe(const char *query, bool read_only, long tcount)
 	return ret;
 }
 
-/*
- * ndb_spi_execute_and_validate - Execute and validate SPI query
- *
- * Executes query and validates return code matches expected value.
- * Also checks SPI_processed if min_rows is specified.
- *
- * Returns true on success, false on failure
- */
 bool
 ndb_spi_execute_and_validate(const char *query,
 							 bool read_only,
@@ -282,24 +256,6 @@ ndb_spi_execute_and_validate(const char *query,
 
 /*
  * ndb_spi_exec_select_one_row_safe - Execute SELECT and copy single row result
- *
- * Executes SELECT query, verifies SPI_processed == 1, copies TupleDesc and
- * Datum out of SPI context into caller memory context, then calls SPI_finish.
- *
- * Main rule: Never touch SPI_tuptable after SPI_finish. This function
- * enforces that by copying all data before calling SPI_finish.
- *
- * Parameters:
- *   query - SQL SELECT query to execute
- *   read_only - true if read-only query
- *   dest_context - Memory context to copy results into (NULL = CurrentMemoryContext)
- *   out_tupdesc - Pointer to receive copied TupleDesc (can be NULL)
- *   out_datum - Pointer to receive copied Datum array (can be NULL)
- *   out_isnull - Pointer to receive isnull array (can be NULL)
- *   out_natts - Pointer to receive number of attributes (can be NULL)
- *
- * Returns:
- *   true on success, false on failure (raises ERROR on failure)
  */
 bool
 ndb_spi_exec_select_one_row_safe(const char *query,
@@ -333,17 +289,14 @@ ndb_spi_exec_select_one_row_safe(const char *query,
 		return false;
 	}
 
-	/* Determine destination context */
 	if (dest_context == NULL)
 		dest_context = CurrentMemoryContext;
 	else
 		oldcontext = MemoryContextSwitchTo(dest_context);
 
-	/* Execute query */
 	PG_TRY();
 	{
 		ret = ndb_spi_execute_safe(query, read_only, 0);
-		/* Only check SPI_tuptable if this is a SELECT query */
 		if (ret == SPI_OK_SELECT)
 			NDB_CHECK_SPI_TUPTABLE();
 	}
@@ -359,7 +312,6 @@ ndb_spi_exec_select_one_row_safe(const char *query,
 	}
 	PG_END_TRY();
 
-	/* Validate return code */
 	if (ret != SPI_OK_SELECT)
 	{
 		if (dest_context != CurrentMemoryContext)
@@ -370,7 +322,6 @@ ndb_spi_exec_select_one_row_safe(const char *query,
 		return false;
 	}
 
-	/* Verify exactly one row */
 	if (SPI_processed != 1)
 	{
 		if (dest_context != CurrentMemoryContext)
@@ -382,7 +333,6 @@ ndb_spi_exec_select_one_row_safe(const char *query,
 		return false;
 	}
 
-	/* Validate SPI_tuptable */
 	if (SPI_tuptable == NULL || SPI_tuptable->tupdesc == NULL ||
 		SPI_tuptable->vals == NULL || SPI_tuptable->vals[0] == NULL)
 	{
@@ -394,7 +344,6 @@ ndb_spi_exec_select_one_row_safe(const char *query,
 		return false;
 	}
 
-	/* Get tuple descriptor and number of attributes */
 	temp_tupdesc = SPI_tuptable->tupdesc;
 	natts = temp_tupdesc->natts;
 
@@ -405,7 +354,6 @@ ndb_spi_exec_select_one_row_safe(const char *query,
 	if (out_tupdesc != NULL)
 		*out_tupdesc = CreateTupleDescCopy(temp_tupdesc);
 
-	/* Copy datum and isnull arrays to destination context */
 	if (out_datum != NULL || out_isnull != NULL)
 	{
 		if (out_datum != NULL)
@@ -419,13 +367,11 @@ ndb_spi_exec_select_one_row_safe(const char *query,
 			bool		temp_isnull;
 			Oid			type;
 
-			/* Get datum from SPI result (still in SPI context) */
 			temp_datum = SPI_getbinval(SPI_tuptable->vals[0],
 									   temp_tupdesc,
-									   i + 1,	/* column numbers are 1-based */
+									   i + 1,
 									   &temp_isnull);
 
-			/* Copy datum to destination context */
 			if (!temp_isnull)
 			{
 				type = SPI_gettypeid(temp_tupdesc, i + 1);
@@ -447,20 +393,13 @@ ndb_spi_exec_select_one_row_safe(const char *query,
 	if (out_natts != NULL)
 		*out_natts = natts;
 
-	/* Now safe to call SPI_finish - all data is copied */
 	SPI_finish();
 
-	/* Switch back if needed */
 	if (dest_context != CurrentMemoryContext)
 		MemoryContextSwitchTo(oldcontext);
 
 	return true;
 }
-
-/*-------------------------------------------------------------------------
- * Safe SPI result extraction
- *-------------------------------------------------------------------------
- */
 
 /*
  * ndb_spi_get_result_safe - Safely extract result from SPI_tuptable
@@ -526,11 +465,6 @@ ndb_spi_get_result_safe(int row_idx,
 
 /*
  * ndb_spi_get_jsonb_safe - Safely extract JSONB from SPI result
- *
- * Extracts JSONB from SPI result and copies it to caller's context
- * before SPI context is cleaned up.
- *
- * Returns Jsonb pointer in caller's context, or NULL on error.
  */
 Jsonb *
 ndb_spi_get_jsonb_safe(int row_idx, int col_idx, MemoryContext dest_context)
@@ -561,7 +495,6 @@ ndb_spi_get_jsonb_safe(int row_idx, int col_idx, MemoryContext dest_context)
 		return NULL;
 	}
 
-	/* Validate pointer */
 	if (DatumGetPointer(result_datum) == NULL)
 	{
 		MemoryContextSwitchTo(oldcontext);
@@ -570,10 +503,8 @@ ndb_spi_get_jsonb_safe(int row_idx, int col_idx, MemoryContext dest_context)
 		return NULL;
 	}
 
-	/* Get JSONB from datum (still in SPI context) */
 	temp_jsonb = DatumGetJsonbP(result_datum);
 
-	/* Validate JSONB structure */
 	if (temp_jsonb == NULL || VARSIZE(temp_jsonb) < sizeof(Jsonb))
 	{
 		MemoryContextSwitchTo(oldcontext);
@@ -582,14 +513,9 @@ ndb_spi_get_jsonb_safe(int row_idx, int col_idx, MemoryContext dest_context)
 		return NULL;
 	}
 
-	/*
-	 * Copy JSONB to caller's context before SPI context cleanup. SPI_finish()
-	 * will delete the SPI memory context, so we must copy the data out first.
-	 */
 	MemoryContextSwitchTo(dest_context);
 	result = (Jsonb *) PG_DETOAST_DATUM_COPY((Datum) temp_jsonb);
 
-	/* Validate copy */
 	if (result == NULL || VARSIZE(result) < sizeof(Jsonb))
 	{
 		if (result != NULL)
@@ -606,10 +532,6 @@ ndb_spi_get_jsonb_safe(int row_idx, int col_idx, MemoryContext dest_context)
 
 /*
  * ndb_spi_get_text_safe - Safely extract text from SPI result
- *
- * Extracts text from SPI result and copies it to caller's context.
- *
- * Returns text pointer in caller's context, or NULL on error.
  */
 text *
 ndb_spi_get_text_safe(int row_idx, int col_idx, MemoryContext dest_context)
@@ -640,10 +562,8 @@ ndb_spi_get_text_safe(int row_idx, int col_idx, MemoryContext dest_context)
 		return NULL;
 	}
 
-	/* Get text from datum (still in SPI context) */
 	temp_text = DatumGetTextP(result_datum);
 
-	/* Validate text */
 	if (temp_text == NULL)
 	{
 		MemoryContextSwitchTo(oldcontext);
@@ -652,13 +572,9 @@ ndb_spi_get_text_safe(int row_idx, int col_idx, MemoryContext dest_context)
 		return NULL;
 	}
 
-	/*
-	 * Copy text to caller's context before SPI context cleanup.
-	 */
 	MemoryContextSwitchTo(dest_context);
 	result = (text *) PG_DETOAST_DATUM_COPY((Datum) temp_text);
 
-	/* Validate copy */
 	if (result == NULL)
 	{
 		MemoryContextSwitchTo(oldcontext);
@@ -671,11 +587,6 @@ ndb_spi_get_text_safe(int row_idx, int col_idx, MemoryContext dest_context)
 	return result;
 }
 
-/*-------------------------------------------------------------------------
- * SPI context cleanup helpers
- *-------------------------------------------------------------------------
- */
-
 /*
  * ndb_spi_finish_safe - Safely finish SPI connection
  *
@@ -687,11 +598,9 @@ ndb_spi_finish_safe(MemoryContext oldcontext)
 {
 	if (SPI_processed == -1)
 	{
-		/* Already finished or never connected */
 		return;
 	}
 
-	/* Ensure we're not in SPI context */
 	if (oldcontext != NULL)
 		MemoryContextSwitchTo(oldcontext);
 
@@ -700,9 +609,6 @@ ndb_spi_finish_safe(MemoryContext oldcontext)
 
 /*
  * ndb_spi_cleanup_safe - Comprehensive SPI cleanup
- *
- * Cleans up SPI and associated memory contexts safely.
- * This matches the pattern used in ml_unified_api.c
  */
 void
 ndb_spi_cleanup_safe(MemoryContext oldcontext, MemoryContext callcontext, bool finish_spi)
@@ -710,7 +616,6 @@ ndb_spi_cleanup_safe(MemoryContext oldcontext, MemoryContext callcontext, bool f
 	if (finish_spi)
 		ndb_spi_finish_safe(oldcontext);
 
-	/* Ensure we're in oldcontext before deleting callcontext */
 	if (oldcontext != NULL)
 		MemoryContextSwitchTo(oldcontext);
 
@@ -718,18 +623,8 @@ ndb_spi_cleanup_safe(MemoryContext oldcontext, MemoryContext callcontext, bool f
 		MemoryContextDelete(callcontext);
 }
 
-/*-------------------------------------------------------------------------
- * SPI result iteration helpers
- *-------------------------------------------------------------------------
- */
-
 /*
  * ndb_spi_iterate_safe - Safely iterate over SPI results
- *
- * Iterates over SPI_tuptable results with bounds checking.
- * Calls user callback for each row.
- *
- * Returns number of rows processed, or -1 on error.
  */
 int
 ndb_spi_iterate_safe(bool (*callback) (int row_idx, HeapTuple tuple, TupleDesc tupdesc, void *userdata),

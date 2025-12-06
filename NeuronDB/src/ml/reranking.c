@@ -34,10 +34,6 @@
 
 /* NOTE: PG_MODULE_MAGIC should reside only in the main extension file, not here. */
 
-/*-------------------------------------------------------------------------
- * RerankState - Holds state across multi-call SRF invocations.
- *-------------------------------------------------------------------------
- */
 typedef struct RerankState
 {
 	char	   *query;			/* User query string for conditioning reranker */
@@ -49,10 +45,6 @@ typedef struct RerankState
 	int			ncandidates;	/* Number of provided candidates */
 }			RerankState;
 
-/*-------------------------------------------------------------------------
- * Internal: Utility to perform descending sort of scores/indices in tandem.
- *-------------------------------------------------------------------------
- */
 static void
 sort_rerank_desc(float *scores, int *indices, int n)
 {
@@ -77,16 +69,25 @@ sort_rerank_desc(float *scores, int *indices, int n)
 	}
 }
 
-/*-------------------------------------------------------------------------
- * rerank_cross_encoder
- *    Perform cross-encoder reranking given (query, candidate_array, model_name, top_k).
- *    Returns SRF: (idx INT, score FLOAT4)
- *-------------------------------------------------------------------------
- *   query     = user query (TEXT)
- *   candidates = array of candidate TEXT documents
- *   model     = cross-encoder model name/identifier (TEXT, optional)
- *   top_k     = number of results to return (INT)
- *-------------------------------------------------------------------------
+/*
+ * rerank_cross_encoder - Perform cross-encoder reranking on candidate documents
+ *
+ * User-facing set-returning function that reranks candidate documents using
+ * a cross-encoder model. Returns the top-k results with their relevance scores.
+ *
+ * Parameters:
+ *   query - User query string (text)
+ *   candidates - Array of candidate text documents to rerank (text[])
+ *   model - Cross-encoder model name/identifier (text, optional)
+ *   top_k - Number of top results to return (int32)
+ *
+ * Returns:
+ *   SETOF (idx int, score float4) - Set of result tuples with indices and scores
+ *
+ * Notes:
+ *   This function is a set-returning function (SRF) that performs multi-call
+ *   execution. It uses either a specified model or falls back to a default
+ *   reranking method. Results are sorted by score in descending order.
  */
 PG_FUNCTION_INFO_V1(rerank_cross_encoder);
 Datum
@@ -113,7 +114,6 @@ rerank_cross_encoder(PG_FUNCTION_ARGS)
 
 		NDB_DECLARE(float *, scores);
 
-		/*-- Prepare multi-call context --*/
 		funcctx = SRF_FIRSTCALL_INIT();
 		oldcontext =
 			MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
@@ -135,7 +135,6 @@ rerank_cross_encoder(PG_FUNCTION_ARGS)
 						  &candidate_nulls,
 						  &ncandidates);
 
-		/* Robustly limit for top_k edge cases */
 		if (top_k < 1)
 			ereport(ERROR,
 					(errmsg("top_k must be positive (got %d)",
@@ -145,7 +144,6 @@ rerank_cross_encoder(PG_FUNCTION_ARGS)
 					(errmsg("candidate array cannot be empty")));
 		max_calls = (ncandidates < top_k) ? ncandidates : top_k;
 
-		/*--- 2. Allocate Rerank State ---*/
 		state = (RerankState *) palloc0(sizeof(RerankState));
 		state->query = query_str;
 		state->candidates = candidate_datums;
@@ -154,7 +152,6 @@ rerank_cross_encoder(PG_FUNCTION_ARGS)
 		state->indices = (int *) palloc0(ncandidates * sizeof(int));
 		state->ncandidates = ncandidates;
 
-		/*--- 3. Rerank via API or fallback ---*/
 		if (model_text)
 		{
 			NDB_DECLARE(char *, model_str);
@@ -197,7 +194,6 @@ rerank_cross_encoder(PG_FUNCTION_ARGS)
 			call_opts.require_gpu = cfg.require_gpu;
 			call_opts.fail_open = neurondb_llm_fail_open;
 
-			/* --- Prepare docs array for API call --- */
 			NDB_ALLOC(docs, const char *, ncandidates);
 			for (i = 0; i < ncandidates; i++)
 			{
@@ -210,7 +206,6 @@ rerank_cross_encoder(PG_FUNCTION_ARGS)
 					docs[i] = "";
 			}
 
-			/* --- Try remote rerank using external API --- */
 			api_result = ndb_llm_route_rerank(&cfg,
 											  &call_opts,
 											  query_str,
@@ -245,7 +240,6 @@ rerank_cross_encoder(PG_FUNCTION_ARGS)
 						 errdetail("Reranking failed. Cannot return dummy scores.")));
 			}
 
-			/* --- Free allocated (detached) strings in docs[] --- */
 			for (i = 0; i < ncandidates; i++)
 			{
 				if (docs[i][0] != '\0')
@@ -317,12 +311,11 @@ rerank_cross_encoder(PG_FUNCTION_ARGS)
 	}
 }
 
-/*-------------------------------------------------------------------------
+/*
  * rerank_llm
  *    Advanced: LLM-completion-based reranking (zero-/few-shot, instruction prompt).
  *    Synthesizes a prompt with query and candidates, invokes LLM completion,
  *    parses response to extract scores/indices, returns reranked results.
- *-------------------------------------------------------------------------
  */
 PG_FUNCTION_INFO_V1(rerank_llm);
 Datum
@@ -594,10 +587,9 @@ rerank_llm(PG_FUNCTION_ARGS)
 	}
 }
 
-/*-------------------------------------------------------------------------
+/*
  * rerank_cohere
  *    Cohere API-style reranking (external API or compatible endpoint).
- *-------------------------------------------------------------------------
  */
 PG_FUNCTION_INFO_V1(rerank_cohere);
 Datum
@@ -751,11 +743,10 @@ rerank_cohere(PG_FUNCTION_ARGS)
 	}
 }
 
-/*-------------------------------------------------------------------------
+/*
  * rerank_colbert
  *    ColBERT architecture reranking with late interaction.
  *    Uses token-level embeddings and MaxSim scoring.
- *-------------------------------------------------------------------------
  */
 PG_FUNCTION_INFO_V1(rerank_colbert);
 Datum
@@ -946,11 +937,10 @@ rerank_colbert(PG_FUNCTION_ARGS)
 	}
 }
 
-/*-------------------------------------------------------------------------
+/*
  * rerank_ltr
  *    Learning-to-Rank model reranking (LambdaMART, RankNet, etc.).
  *    Uses feature-based ranking with learned models.
- *-------------------------------------------------------------------------
  */
 PG_FUNCTION_INFO_V1(rerank_ltr);
 Datum
@@ -1133,11 +1123,10 @@ rerank_ltr(PG_FUNCTION_ARGS)
 	}
 }
 
-/*-------------------------------------------------------------------------
+/*
  * rerank_ensemble
  *    Ensemble reranking across multiple models/strategies.
  *    Combines scores from multiple reranking methods.
- *-------------------------------------------------------------------------
  */
 PG_FUNCTION_INFO_V1(rerank_ensemble);
 Datum

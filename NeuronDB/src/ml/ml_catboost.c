@@ -44,8 +44,22 @@ PG_FUNCTION_INFO_V1(predict_catboost);
 PG_FUNCTION_INFO_V1(evaluate_catboost_by_model_id);
 
 /*
- * get_column_index
- *      Helper function to get column index in a query result by name.
+ * get_column_index - Get column index in query result by name
+ *
+ * Helper function that searches for a column by name in a SPI tuple table
+ * and returns its index. Reports an error if the column is not found.
+ *
+ * Parameters:
+ *   tuptable - SPI tuple table from query result
+ *   tupdesc - Tuple descriptor
+ *   colname - Name of column to find
+ *
+ * Returns:
+ *   Zero-based column index, or -1 if not found (though function errors before returning)
+ *
+ * Notes:
+ *   This function is currently marked as unused. It performs case-sensitive
+ *   string matching on column names.
  */
 __attribute__((unused)) static int
 get_column_index(SPITupleTable * tuptable,
@@ -68,8 +82,24 @@ get_column_index(SPITupleTable * tuptable,
 }
 
 /*
- * write_csv_from_spi
- *      Helper to write training data to CSV for CatBoost.
+ * write_csv_from_spi - Write training data from SPI result to CSV file
+ *
+ * Helper function that writes training data from a SPI tuple table to a CSV
+ * file for use with CatBoost. Extracts feature columns and label column
+ * and writes them in CSV format.
+ *
+ * Parameters:
+ *   csv_path - File system path for output CSV file
+ *   tuptable - SPI tuple table containing training data
+ *   tupdesc - Tuple descriptor
+ *   feature_idxs - Array of feature column indices
+ *   n_features - Number of feature columns
+ *   label_idx - Index of label column
+ *
+ * Notes:
+ *   This function is currently marked as unused. It writes a CSV header
+ *   with feature column names and then writes all rows. Errors are reported
+ *   if file operations fail.
  */
 __attribute__((unused)) static void
 write_csv_from_spi(char *csv_path,
@@ -932,10 +962,6 @@ evaluate_catboost_by_model_id(PG_FUNCTION_ARGS)
 #endif
 }
 
-/*-------------------------------------------------------------------------
- * GPU Model Ops Registration for CatBoost
- *-------------------------------------------------------------------------
- */
 #include "neurondb_gpu_model.h"
 #include "ml_gpu_registry.h"
 #include "neurondb_validation.h"

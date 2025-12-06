@@ -57,20 +57,24 @@ typedef struct PQCodebook
 }			PQCodebook;
 
 /*
- * train_subspace_kmeans
- * ---------------------
- * Internal function for fitting a k-means codebook on a batch of subspace vectors.
+ * train_subspace_kmeans - Fit k-means codebook on a batch of subspace vectors
  *
- * Args:
- *   subspace_data: 2D array of nvec vectors, each of dimension dsub, for this subspace.
- *   nvec:          Number of training vectors.
- *   dsub:          Dimension of each vector in this subspace.
- *   k:             Number of clusters/centroids for k-means (ksub).
- *   centroids:     Output: centroids[k][dsub].
- *   max_iters:     Maximum number of Lloyd iterations.
+ * Internal function for fitting a k-means codebook on a batch of subspace
+ * vectors using Lloyd's algorithm. Performs iterative assignment and update
+ * steps until convergence or maximum iterations reached.
  *
- * Returns:
- *   void (centroids array is modified in-place)
+ * Parameters:
+ *   subspace_data - 2D array of nvec vectors, each of dimension dsub, for this subspace
+ *   nvec - Number of training vectors
+ *   dsub - Dimension of each vector in this subspace
+ *   k - Number of clusters/centroids for k-means (ksub)
+ *   centroids - Output: centroids[k][dsub] (modified in-place)
+ *   max_iters - Maximum number of Lloyd iterations
+ *
+ * Notes:
+ *   The function uses random initialization of centroids from the dataset.
+ *   Centroids are updated as the mean of assigned points in each iteration.
+ *   The algorithm stops early if no assignments change (convergence).
  */
 static void
 train_subspace_kmeans(float **subspace_data,
@@ -80,24 +84,17 @@ train_subspace_kmeans(float **subspace_data,
 					  float **centroids,
 					  int max_iters)
 {
-	int		   *assignments =
-		NULL;					/* Assignment for each vector (index of
-								 * centroid) */
+	int		   *assignments = NULL;
 
-	NDB_DECLARE(int *, counts); /* Number of points assigned to each centroid */
+	NDB_DECLARE(int *, counts);
 	bool		changed = true;
 	int			iter,
 				i,
 				c,
 				d;
 
-	/*
-	 * Allocate assignment array, initialize to zeros (or later random if
-	 * desired)
-	 */
 	assignments = (int *) palloc0(sizeof(int) * nvec);
 
-	/* Random initialization of centroids from dataset */
 	for (c = 0; c < k; c++)
 	{
 		int			idx = rand() % nvec;
@@ -105,12 +102,10 @@ train_subspace_kmeans(float **subspace_data,
 		memcpy(centroids[c], subspace_data[idx], sizeof(float) * dsub);
 	}
 
-	/* Lloyd's k-means main loop */
 	for (iter = 0; iter < max_iters; iter++)
 	{
 		changed = false;
 
-		/* Assignment step: assign each vector to the nearest centroid */
 		for (i = 0; i < nvec; i++)
 		{
 			double		min_dist = DBL_MAX;
@@ -120,7 +115,6 @@ train_subspace_kmeans(float **subspace_data,
 			{
 				double		dist = 0.0;
 
-				/* Compute squared L2 distance */
 				for (d = 0; d < dsub; d++)
 				{
 					double		diff =
@@ -135,7 +129,6 @@ train_subspace_kmeans(float **subspace_data,
 					best = c;
 				}
 			}
-			/* Only record if assignment has changed */
 			if (assignments[i] != best)
 			{
 				assignments[i] = best;
@@ -144,9 +137,8 @@ train_subspace_kmeans(float **subspace_data,
 		}
 
 		if (!changed)
-			break;				/* Converged */
+			break;
 
-		/* Update step: recompute centroids as mean of assigned points */
 		counts = (int *) palloc0(sizeof(int) * k);
 		for (c = 0; c < k; c++)
 			memset(centroids[c], 0, sizeof(float) * dsub);
@@ -448,16 +440,14 @@ pq_encode_vector(PG_FUNCTION_ARGS)
 	bool		typbyval;
 	char		typalign;
 
-	/* ----- Parse Inputs ----- */
-	vec_array = PG_GETARG_ARRAYTYPE_P(0);
+		vec_array = PG_GETARG_ARRAYTYPE_P(0);
 	codebook_bytea = PG_GETARG_BYTEA_PP(1);
 
 	dim = ARR_DIMS(
 				   vec_array)[0];	/* Expect one-dimensional packed float4[] */
 	vec_data = (float4 *) ARR_DATA_PTR(vec_array);
 
-	/* ----- Deserialize Codebook ----- */
-	cb_ptr = VARDATA(codebook_bytea);
+		cb_ptr = VARDATA(codebook_bytea);
 	memcpy(&m, cb_ptr, sizeof(int));
 	cb_ptr += sizeof(int);
 	memcpy(&ksub, cb_ptr, sizeof(int));
@@ -473,8 +463,7 @@ pq_encode_vector(PG_FUNCTION_ARGS)
 						m,
 						dsub)));
 
-	/* ----- Reconstruct centroids 3D array from codebook bytea ----- */
-	NDB_ALLOC(centroids, float **, m);
+		NDB_ALLOC(centroids, float **, m);
 	for (sub = 0; sub < m; sub++)
 	{
 		NDB_DECLARE(float **, sub_centroids);
@@ -490,8 +479,7 @@ pq_encode_vector(PG_FUNCTION_ARGS)
 		}
 	}
 
-	/* ----- Compute PQ codes for each subspace ----- */
-	NDB_ALLOC(codes, int16, m);
+		NDB_ALLOC(codes, int16, m);
 	for (sub = 0; sub < m; sub++)
 	{
 		int			start_dim = sub * dsub;
@@ -518,8 +506,7 @@ pq_encode_vector(PG_FUNCTION_ARGS)
 		codes[sub] = (int16) best;
 	}
 
-	/* ----- Build int2[] result array ----- */
-	NDB_ALLOC(result_datums, Datum, m);
+		NDB_ALLOC(result_datums, Datum, m);
 	for (sub = 0; sub < m; sub++)
 		result_datums[sub] = Int16GetDatum(codes[sub]);
 
@@ -527,8 +514,7 @@ pq_encode_vector(PG_FUNCTION_ARGS)
 	result = construct_array(
 							 result_datums, m, INT2OID, typlen, typbyval, typalign);
 
-	/* ----- Clean up c-allocated memory ----- */
-	for (sub = 0; sub < m; sub++)
+		for (sub = 0; sub < m; sub++)
 	{
 		for (c = 0; c < ksub; c++)
 			NDB_FREE(centroids[sub][c]);
@@ -1035,8 +1021,7 @@ pq_asymmetric_distance(PG_FUNCTION_ARGS)
 				d;
 	int16		code;
 
-	/* ----- Parse arguments and extract data ----- */
-	query_array = PG_GETARG_ARRAYTYPE_P(0);
+		query_array = PG_GETARG_ARRAYTYPE_P(0);
 	codes_array = PG_GETARG_ARRAYTYPE_P(1);
 	codebook_bytea = PG_GETARG_BYTEA_PP(2);
 
@@ -1044,8 +1029,7 @@ pq_asymmetric_distance(PG_FUNCTION_ARGS)
 	query_data = (float4 *) ARR_DATA_PTR(query_array);
 	codes = (int16 *) ARR_DATA_PTR(codes_array);
 
-	/* ----- Deserialize codebook header and centroids ----- */
-	cb_ptr = VARDATA(codebook_bytea);
+		cb_ptr = VARDATA(codebook_bytea);
 	memcpy(&m, cb_ptr, sizeof(int));
 	cb_ptr += sizeof(int);
 	memcpy(&ksub, cb_ptr, sizeof(int));
@@ -1077,8 +1061,7 @@ pq_asymmetric_distance(PG_FUNCTION_ARGS)
 		}
 	}
 
-	/* ----- Compute asymmetric (query-to-product) distance ----- */
-	total_dist = 0.0;
+		total_dist = 0.0;
 	for (sub = 0; sub < m; sub++)
 	{
 		int			start_dim = sub * dsub;
@@ -1102,8 +1085,7 @@ pq_asymmetric_distance(PG_FUNCTION_ARGS)
 		}
 	}
 
-	/* ----- Free memory for reconstructed centroids ----- */
-	for (sub = 0; sub < m; sub++)
+		for (sub = 0; sub < m; sub++)
 	{
 		for (int c = 0; c < ksub; c++)
 			NDB_FREE(centroids[sub][c]);
@@ -1114,10 +1096,6 @@ pq_asymmetric_distance(PG_FUNCTION_ARGS)
 	PG_RETURN_FLOAT4((float4) sqrt(total_dist));
 }
 
-/*-------------------------------------------------------------------------
- * GPU Model Ops Registration for Product Quantization
- *-------------------------------------------------------------------------
- */
 #include "neurondb_gpu_model.h"
 
 typedef struct ProductQuantizationGpuModelState

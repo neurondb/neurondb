@@ -55,7 +55,6 @@ auto_route_query(PG_FUNCTION_ARGS)
 	char	   *query_str = NULL;
 	bool		use_ann = false;
 
-	/* Validate input, crash-safe */
 	if (PG_ARGISNULL(0))
 		ereport(ERROR,
 				(errmsg("auto_route_query: input query text is NULL")));
@@ -66,7 +65,6 @@ auto_route_query(PG_FUNCTION_ARGS)
 	query = PG_GETARG_TEXT_PP(0);
 	embedding_length = PG_GETARG_INT32(1);
 
-	/* Convert query to C string safely */
 	query_str = text_to_cstring(query);
 
 	if (query_str == NULL)
@@ -74,7 +72,6 @@ auto_route_query(PG_FUNCTION_ARGS)
 				(errmsg("auto_route_query: failed to convert query "
 						"text to C string")));
 
-	/* Rugged ANN heuristic logic: case-insensitive, no undefined behaviour */
 	if (embedding_length > 128
 		|| (strcasestr(query_str, "similarity") != NULL)
 		|| (strcasestr(query_str, "vector") != NULL))
@@ -87,7 +84,6 @@ auto_route_query(PG_FUNCTION_ARGS)
 		 use_ann ? "ANN" : "FTS",
 		 embedding_length);
 
-	/* Free non-null query_str */
 	if (query_str)
 		NDB_FREE(query_str);
 
@@ -95,20 +91,7 @@ auto_route_query(PG_FUNCTION_ARGS)
 }
 
 /*
- * learn_from_query:
- * Records fingerprint and statistics for queries; tunes ANN parameterization on a self-learning basis.
- * Table: neurondb_query_history
- *
- * Inputs:
- *      query:           query text to fingerprint
- *      actual_recall:   float4, last recall (quality)
- *      latency_ms:      int32, observed latency in ms
- *
- * Actions:
- *  - If fingerprint already exists, updates stats/params (ef_search, beam_size) defensively and atomically.
- *  - On new query, initializes entry with defaults.
- *
- * 100% robust: all errors logged, all allocations checked, never leaks SPI.
+ * learn_from_query - Records fingerprint and statistics for queries
  */
 PG_FUNCTION_INFO_V1(learn_from_query);
 Datum
@@ -124,7 +107,6 @@ learn_from_query(PG_FUNCTION_ARGS)
 
 	NDB_DECLARE(NdbSpiSession *, session);
 
-	/* Defensive: NULL checks */
 	if (PG_ARGISNULL(0))
 		ereport(ERROR, (errmsg("learn_from_query: query is NULL")));
 	if (PG_ARGISNULL(1))
@@ -145,7 +127,6 @@ learn_from_query(PG_FUNCTION_ARGS)
 				(errmsg("learn_from_query: failed to convert query to "
 						"C string")));
 
-	/* Compute a robust DJB2 hash, no overflows */
 	for (i = 0; query_str[i] != '\0'; i++)
 		fingerprint = ((fingerprint << 5) + fingerprint)
 			+ (unsigned char) query_str[i];
@@ -156,14 +137,12 @@ learn_from_query(PG_FUNCTION_ARGS)
 		 actual_recall,
 		 latency_ms);
 
-	/* SPI connect - recover/exit safely */
 	session = ndb_spi_session_begin(CurrentMemoryContext, false);
 	if (session == NULL)
 		ereport(ERROR,
 				(errcode(ERRCODE_INTERNAL_ERROR),
 				 errmsg("learn_from_query: failed to begin SPI session")));
 
-	/* Always ensure the table exists. Safe for concurrency. */
 	if (ndb_spi_execute(session, "CREATE TABLE IF NOT EXISTS neurondb_query_history ("
 						"  fingerprint  BIGINT PRIMARY KEY,"
 						"  last_recall  REAL, "
@@ -182,7 +161,6 @@ learn_from_query(PG_FUNCTION_ARGS)
 						"neurondb_query_history")));
 	}
 
-	/* Check for existing fingerprint */
 	{
 		StringInfoData sql;
 
@@ -205,7 +183,6 @@ learn_from_query(PG_FUNCTION_ARGS)
 
 	if (found)
 	{
-		/* Defensive extraction of columns */
 		int32		seen_count = 0;
 		int32		ef_search = 0;
 		int32		beam_size = 0;
@@ -240,7 +217,6 @@ learn_from_query(PG_FUNCTION_ARGS)
 			? 1
 			: seen_count + 1;	/* avoid underflow */
 
-		/* Rugged heuristic parameter tuning branch */
 		if (actual_recall < 0.90f && ef_search < 128)
 			ef_search += 8;
 		if (actual_recall > 0.99f && ef_search > 24)
@@ -251,7 +227,6 @@ learn_from_query(PG_FUNCTION_ARGS)
 		else if (latency_ms < 15 && beam_size < 32)
 			beam_size += 2;
 
-		/* Ensure params stay in sensible bounds */
 		if (ef_search < 8)
 			ef_search = 8;
 		if (ef_search > 256)
@@ -261,7 +236,6 @@ learn_from_query(PG_FUNCTION_ARGS)
 		if (beam_size > 64)
 			beam_size = 64;
 
-		/* Update the tuple defensively */
 		{
 			StringInfoData usql;
 
@@ -297,7 +271,6 @@ learn_from_query(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		/* Robust INSERT for new tuple */
 		StringInfoData isql;
 
 		initStringInfo(&isql);
@@ -354,7 +327,6 @@ quantize_to_int8(const float4 * src, int8_t * dst, int len)
 	{
 		float		x = src[i];
 
-		/* Saturate input robustly */
 		if (isnan(x))
 			x = 0.0f;
 		if (x > 127.0f)
@@ -367,8 +339,7 @@ quantize_to_int8(const float4 * src, int8_t * dst, int len)
 }
 
 /*
- * quantize_to_float16()
- * Simulated quantization: rounds to one decimal (float16-like) for demonstration - robust
+ * quantize_to_float16 - Simulated quantization to float16
  */
 static void
 quantize_to_float16(const float4 * src, float4 * dst, int len)
@@ -392,9 +363,7 @@ quantize_to_float16(const float4 * src, float4 * dst, int len)
 }
 
 /*
- * scale_precision()
- * Dynamically scales precision of a Vector* in-place, based on system memory pressure and recall requirements.
- * Defensive: never leaks, allocates robustly, and all error paths are clean.
+ * scale_precision - Dynamically scales precision of a Vector
  */
 PG_FUNCTION_INFO_V1(scale_precision);
 Datum
@@ -424,7 +393,6 @@ scale_precision(PG_FUNCTION_ARGS)
 		ereport(ERROR,
 				(errmsg("scale_precision: input vector is missing")));
 
-	/* Defensive: validate dim (max for int16 is 32767) */
 	{
 		int			dim = (int) input->dim;
 
@@ -434,7 +402,6 @@ scale_precision(PG_FUNCTION_ARGS)
 							"dimension")));
 	}
 
-	/* Decision logic (100% robust, never produces weird values) */
 	if (memory_pressure > 0.8f || recall_target < 0.85f)
 		target_precision = 8;	/* Quantize to int8 */
 	else if (memory_pressure > 0.6f || recall_target < 0.90f)
@@ -448,7 +415,6 @@ scale_precision(PG_FUNCTION_ARGS)
 		 memory_pressure,
 		 recall_target);
 
-	/* Defensive instantiation of output vector */
 	result = new_vector(input->dim);
 	if (result == NULL)
 		ereport(ERROR,
@@ -513,7 +479,6 @@ prefetch_entry_points(PG_FUNCTION_ARGS)
 						"NULL")));
 
 	index_name = PG_GETARG_TEXT_PP(0);
-	/* query_vector not currently used in this implementation */
 	(void) PG_GETARG_POINTER(1);
 
 	idx_str = text_to_cstring(index_name);
@@ -531,10 +496,6 @@ prefetch_entry_points(PG_FUNCTION_ARGS)
 				(errmsg("prefetch_entry_points: failed to begin SPI session")));
 	}
 
-	/*
-	 * Query index statistics -- limit all dynamic stats lookups, always
-	 * deallocate SQL buffers
-	 */
 	{
 		StringInfoData sql;
 		int			ret;
@@ -547,7 +508,6 @@ prefetch_entry_points(PG_FUNCTION_ARGS)
 						 "WHERE c.relname = %s",
 						 quote_literal_cstr(idx_str));
 
-		/* Defensive: forcibly limit row count (~max 10) */
 		ret = ndb_spi_execute(session, sql.data, true, 10);
 		if (ret == SPI_OK_SELECT && SPI_processed > 0)
 		{
@@ -570,7 +530,7 @@ prefetch_entry_points(PG_FUNCTION_ARGS)
 					if (pages < 0)
 						pages = 0;
 					if (pages > 128)
-						pages = 128;	/* robust cap */
+						pages = 128;
 					prefetched_count += pages;
 				}
 			}

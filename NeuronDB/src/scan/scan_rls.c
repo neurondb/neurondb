@@ -69,7 +69,6 @@ typedef struct RLSFilterState
 	Oid			userId;
 } RLSFilterState;
 
-/* Forward declarations */
 static List * ndb_get_row_security_policies(Relation rel, Oid userId);
 static ExprState * ndb_compile_rls_policies(List * policies, Relation rel, EState * estate);
 
@@ -85,7 +84,6 @@ ndb_rls_init(Relation rel, EState * estate)
 	state->rel = rel;
 	state->userId = GetUserId();
 
-	/* Check if relation has RLS enabled */
 	state->hasRLS = (rel->rd_rel->relrowsecurity
 					 && rel->rd_rel->relforcerowsecurity);
 
@@ -95,14 +93,11 @@ ndb_rls_init(Relation rel, EState * estate)
 			 "neurondb: RLS enabled for relation %s",
 			 RelationGetRelationName(rel));
 
-		/* Get active RLS policies for current user */
 		state->policies = ndb_get_row_security_policies(rel, state->userId);
 
-		/* Compile policies into filter expression */
 		if (state->policies != NIL)
 		{
 			state->filterExpr = ndb_compile_rls_policies(state->policies, rel, estate);
-			/* Create tuple slot and expression context for evaluation */
 			state->slot = MakeSingleTupleTableSlot(RelationGetDescr(rel), &TTSOpsHeapTuple);
 			state->econtext = CreateExprContext(estate);
 			state->econtext->ecxt_scantuple = state->slot;
@@ -119,28 +114,23 @@ ndb_rls_init(Relation rel, EState * estate)
 }
 
 /*
- * Check if a tuple passes RLS policies
+ * ndb_rls_check_tuple - Check if a tuple passes RLS policies
  */
 bool
 ndb_rls_check_tuple(RLSFilterState *state, TupleTableSlot * slot)
 {
 	bool		result = true;
 
-	/* If no RLS, all tuples pass */
 	if (!state->hasRLS)
 		return true;
 
-	/* Superuser bypasses RLS */
 	if (superuser_arg(state->userId))
 		return true;
 
-	/* Evaluate filter expression */
 	if (state->filterExpr != NULL && state->slot != NULL && state->econtext != NULL)
 	{
-		/* Store tuple in slot */
 		ExecCopySlot(state->slot, slot);
 
-		/* Evaluate expression */
 		result = ExecQual(state->filterExpr, state->econtext);
 
 		if (!result)
@@ -172,7 +162,6 @@ ndb_rls_check_item(RLSFilterState *state, ItemPointer tid)
 	if (superuser_arg(state->userId))
 		return true;
 
-	/* Fetch heap tuple */
 	snapshot = GetActiveSnapshot();
 	found = heap_fetch(state->rel, snapshot, tuple, NULL, false);
 	if (!found || !HeapTupleIsValid(tuple))

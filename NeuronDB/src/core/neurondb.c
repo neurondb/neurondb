@@ -37,9 +37,22 @@ PG_MODULE_MAGIC;
 
 extern void neurondb_worker_fini(void);
 
-/* ------------------------
- *	Vector Construction
- * ------------------------
+/*
+ * new_vector - Allocate a new vector structure
+ *
+ * Allocates and initializes a new Vector structure with the specified
+ * dimension. Validates dimension bounds and allocates memory for the
+ * vector data.
+ *
+ * Parameters:
+ *   dim - Dimension of the vector (must be between 1 and VECTOR_MAX_DIM)
+ *
+ * Returns:
+ *   Pointer to newly allocated Vector structure
+ *
+ * Notes:
+ *   Memory is allocated in CurrentMemoryContext. The vector is zero-initialized.
+ *   Errors are reported if dimension is out of valid range.
  */
 Vector *
 new_vector(int dim)
@@ -66,6 +79,22 @@ new_vector(int dim)
 	return result;
 }
 
+/*
+ * copy_vector - Create a copy of a vector
+ *
+ * Creates a deep copy of the input vector by allocating new memory and
+ * copying all vector data. Validates the input vector structure before copying.
+ *
+ * Parameters:
+ *   vector - Vector to copy (must not be NULL)
+ *
+ * Returns:
+ *   Pointer to newly allocated copy of the vector
+ *
+ * Notes:
+ *   Memory is allocated in CurrentMemoryContext. The function validates
+ *   the vector size to ensure it's within valid bounds before copying.
+ */
 Vector *
 copy_vector(Vector *vector)
 {
@@ -79,6 +108,14 @@ copy_vector(Vector *vector)
 
 	size = VARSIZE_ANY(vector);
 
+	/*
+	 * Validate vector size before copying. The size must be at least
+	 * the size of the Vector structure up to the data array (offsetof
+	 * gives the byte offset of the data field). The upper bound ensures
+	 * the vector does not exceed VECTOR_MAX_DIM elements, preventing
+	 * buffer overflows from corrupted or malicious input. This check
+	 * protects against reading beyond the allocated vector memory.
+	 */
 	if (size < (int) offsetof(Vector, data) || size > (int) (offsetof(Vector, data) + sizeof(float4) * VECTOR_MAX_DIM))
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_CORRUPTED),
@@ -89,9 +126,23 @@ copy_vector(Vector *vector)
 	return result;
 }
 
-/* ------------------------
- *	Vector I/O Functions
- * ------------------------
+/*
+ * vector_in_internal - Parse vector from string representation
+ *
+ * Parses a vector from its string representation (e.g., "[1,2,3]") and
+ * optionally validates the result. Handles whitespace and various formats.
+ *
+ * Parameters:
+ *   str - String representation of the vector
+ *   out_dim - Output parameter to receive the vector dimension
+ *   check - If true, perform validation checks on the parsed vector
+ *
+ * Returns:
+ *   Pointer to newly allocated Vector structure
+ *
+ * Notes:
+ *   Memory is allocated in CurrentMemoryContext. The function parses
+ *   comma-separated numeric values enclosed in square brackets.
  */
 Vector *
 vector_in_internal(char *str, int *out_dim, bool check)
@@ -180,10 +231,6 @@ vector_out_internal(Vector *vector)
 	return buf.data;
 }
 
-/* ------------------------
- *	SQL-Callable Functions
- * ------------------------
- */
 PG_FUNCTION_INFO_V1(vector_in);
 Datum
 vector_in(PG_FUNCTION_ARGS)

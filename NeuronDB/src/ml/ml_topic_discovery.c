@@ -32,37 +32,26 @@
 #include <float.h>
 
 /*
- * discover_topics_simple
- * ----------------------
- * Simple topic discovery: K-means clustering on embeddings.
+ * discover_topics_simple - Discover topics using K-means clustering on embeddings
  *
- * SQL Arguments:
- *   table_name    - Source table
- *   vector_column - Embedding column
- *   num_topics    - Number of topics to discover (default: 10)
- *   max_iters     - K-means iterations (default: 50)
+ * User-facing function that discovers latent topics in document embeddings
+ * by performing K-means clustering. Returns topic assignments (cluster IDs)
+ * for each document.
+ *
+ * Parameters:
+ *   table_name - Name of source table containing documents (text)
+ *   vector_column - Name of embedding column (text)
+ *   num_topics - Number of topics to discover (int32, optional, default 10)
+ *   max_iters - Maximum K-means iterations (int32, optional, default 50)
  *
  * Returns:
- *   Array of topic assignments (cluster IDs) for each document
- *
- * Example Usage:
- *   -- Discover 5 topics:
- *   CREATE TABLE doc_topics AS
- *   SELECT
- *     id,
- *     (discover_topics_simple('documents', 'embedding', 5, 50))[row_number() OVER ()] AS topic
- *   FROM documents;
- *
- *   -- Count documents per topic:
- *   SELECT topic, COUNT(*)
- *   FROM doc_topics
- *   GROUP BY topic
- *   ORDER BY topic;
+ *   Array of topic assignments (cluster IDs) as int32[] for each document
  *
  * Notes:
- *   - This is K-means clustering with a topic-focused interface
- *   - For term extraction, combine with text analysis
- *   - Consider preprocessing: remove stopwords, normalize
+ *   This function uses K-means clustering with a topic-focused interface.
+ *   For term extraction, combine with text analysis. Consider preprocessing
+ *   steps like removing stopwords and normalizing text before generating
+ *   embeddings.
  */
 PG_FUNCTION_INFO_V1(discover_topics_simple);
 
@@ -257,10 +246,6 @@ discover_topics_simple(PG_FUNCTION_ARGS)
 	PG_RETURN_ARRAYTYPE_P(result);
 }
 
-/*-------------------------------------------------------------------------
- * GPU Model Ops Registration for Topic Discovery
- *-------------------------------------------------------------------------
- */
 #include "neurondb_gpu_model.h"
 #include "ml_gpu_registry.h"
 #include "neurondb_safe_memory.h"

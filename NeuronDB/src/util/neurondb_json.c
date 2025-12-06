@@ -50,12 +50,6 @@
 #include <math.h>
 #include <stdarg.h>
 
-/*-------------------------------------------------------------------------
- * Static Function OID Caching for Performance
- *-------------------------------------------------------------------------
- */
-
-/* Cached function OIDs and FmgrInfo structures */
 static Oid jsonb_object_field_oid = InvalidOid;
 static Oid jsonb_array_element_oid = InvalidOid;
 static Oid jsonb_extract_path_oid = InvalidOid;
@@ -68,13 +62,8 @@ static FmgrInfo jsonb_extract_path_flinfo;
 static FmgrInfo jsonb_extract_path_text_flinfo;
 static FmgrInfo jsonb_typeof_flinfo;
 
-/* Flag to track if OIDs have been initialized */
 static bool jsonb_oids_initialized = false;
 
-/*-------------------------------------------------------------------------
- * Initialize Function OIDs (called once)
- *-------------------------------------------------------------------------
- */
 static void
 ndb_jsonb_init_oids(void)
 {
@@ -84,10 +73,6 @@ ndb_jsonb_init_oids(void)
 	if (jsonb_oids_initialized)
 		return;
 
-	/* jsonb_in and jsonb_out are called directly via DirectFunctionCall1 */
-	/* No need to cache their OIDs */
-
-	/* Lookup jsonb_object_field(jsonb, text) */
 	funcname = list_make1(makeString("jsonb_object_field"));
 	argtypes[0] = JSONBOID;
 	argtypes[1] = TEXTOID;
@@ -97,7 +82,6 @@ ndb_jsonb_init_oids(void)
 	fmgr_info_cxt(jsonb_object_field_oid, &jsonb_object_field_flinfo, TopMemoryContext);
 	list_free(funcname);
 
-	/* Lookup jsonb_array_element(jsonb, int) */
 	funcname = list_make1(makeString("jsonb_array_element"));
 	argtypes[0] = JSONBOID;
 	argtypes[1] = INT4OID;
@@ -107,7 +91,6 @@ ndb_jsonb_init_oids(void)
 	fmgr_info_cxt(jsonb_array_element_oid, &jsonb_array_element_flinfo, TopMemoryContext);
 	list_free(funcname);
 
-	/* Lookup jsonb_extract_path(jsonb, text[]) */
 	funcname = list_make1(makeString("jsonb_extract_path"));
 	argtypes[0] = JSONBOID;
 	argtypes[1] = TEXTARRAYOID;
@@ -117,7 +100,6 @@ ndb_jsonb_init_oids(void)
 	fmgr_info_cxt(jsonb_extract_path_oid, &jsonb_extract_path_flinfo, TopMemoryContext);
 	list_free(funcname);
 
-	/* Lookup jsonb_extract_path_text(jsonb, text[]) */
 	funcname = list_make1(makeString("jsonb_extract_path_text"));
 	argtypes[0] = JSONBOID;
 	argtypes[1] = TEXTARRAYOID;
@@ -127,7 +109,6 @@ ndb_jsonb_init_oids(void)
 	fmgr_info_cxt(jsonb_extract_path_text_oid, &jsonb_extract_path_text_flinfo, TopMemoryContext);
 	list_free(funcname);
 
-	/* Lookup jsonb_typeof(jsonb) */
 	funcname = list_make1(makeString("jsonb_typeof"));
 	argtypes[0] = JSONBOID;
 	jsonb_typeof_oid = LookupFuncName(funcname, 1, argtypes, false);
@@ -139,15 +120,6 @@ ndb_jsonb_init_oids(void)
 	jsonb_oids_initialized = true;
 }
 
-/*-------------------------------------------------------------------------
- * DirectFunctionCall Wrappers for JSONB Functions
- *-------------------------------------------------------------------------
- */
-
-/*
- * ndb_jsonb_in - Convert text to JSONB
- * Wrapper for DirectFunctionCall1(jsonb_in, cstring_datum)
- */
 Jsonb *
 ndb_jsonb_in(text * json_text)
 {
@@ -157,11 +129,8 @@ ndb_jsonb_in(text * json_text)
 	NDB_DECLARE(Jsonb *, result);
 
 	if (json_text == NULL)
-	{
 		return NULL;
-	}
 
-	/* Initialize OIDs if needed */
 	if (!jsonb_oids_initialized)
 		ndb_jsonb_init_oids();
 
@@ -184,10 +153,6 @@ ndb_jsonb_in(text * json_text)
 	return result;
 }
 
-/*
- * ndb_jsonb_in_cstring - Convert C string to JSONB
- * Convenience wrapper that converts C string to text first
- */
 Jsonb *
 ndb_jsonb_in_cstring(const char *json_str)
 {
@@ -196,9 +161,7 @@ ndb_jsonb_in_cstring(const char *json_str)
 	NDB_DECLARE(Jsonb *, result);
 
 	if (json_str == NULL)
-	{
 		return NULL;
-	}
 
 	json_text = cstring_to_text(json_str);
 	result = ndb_jsonb_in(json_text);
@@ -209,8 +172,20 @@ ndb_jsonb_in_cstring(const char *json_str)
 
 /*
  * ndb_jsonb_out - Convert JSONB to text
- * Wrapper for DirectFunctionCall1(jsonb_out, jsonb_datum)
- * jsonb_out returns cstring, which we convert to text
+ *
+ * Converts a JSONB value to a PostgreSQL text value using DirectFunctionCall1
+ * to invoke the built-in jsonb_out function. The jsonb_out function returns
+ * a cstring which is then converted to a text value.
+ *
+ * Parameters:
+ *   jsonb - Input JSONB value to convert
+ *
+ * Returns:
+ *   Text pointer containing JSON string representation, NULL on error or
+ *   if input is NULL
+ *
+ * Notes:
+ *   Memory for the returned text is allocated in CurrentMemoryContext.
  */
 text *
 ndb_jsonb_out(Jsonb * jsonb)
@@ -244,7 +219,6 @@ ndb_jsonb_out(Jsonb * jsonb)
 
 /*
  * ndb_jsonb_out_cstring - Convert JSONB to C string
- * Convenience wrapper that returns C string
  */
 char *
 ndb_jsonb_out_cstring(Jsonb * jsonb)
@@ -268,7 +242,6 @@ ndb_jsonb_out_cstring(Jsonb * jsonb)
 
 /*
  * ndb_jsonb_object_field - Extract field from JSONB object
- * Wrapper for DirectFunctionCall2(jsonb_object_field, jsonb_datum, text_datum)
  */
 Jsonb *
 ndb_jsonb_object_field(Jsonb * jsonb, const char *field_name)
@@ -283,7 +256,6 @@ ndb_jsonb_object_field(Jsonb * jsonb, const char *field_name)
 	if (jsonb == NULL || field_name == NULL)
 		return NULL;
 
-	/* Initialize OIDs if needed */
 	if (!jsonb_oids_initialized)
 		ndb_jsonb_init_oids();
 
@@ -296,10 +268,7 @@ ndb_jsonb_object_field(Jsonb * jsonb, const char *field_name)
 		result_datum = FunctionCall2(&jsonb_object_field_flinfo,
 									 jsonb_datum, text_datum);
 		if (!DatumGetPointer(result_datum))
-		{
-			/* NULL result means field not found */
 			result = NULL;
-		}
 		else
 		{
 			result = DatumGetJsonbP(result_datum);
@@ -319,7 +288,6 @@ ndb_jsonb_object_field(Jsonb * jsonb, const char *field_name)
 
 /*
  * ndb_jsonb_array_element - Extract element from JSONB array
- * Wrapper for DirectFunctionCall2(jsonb_array_element, jsonb_datum, int_datum)
  */
 Jsonb *
 ndb_jsonb_array_element(Jsonb * jsonb, int index)
@@ -333,7 +301,6 @@ ndb_jsonb_array_element(Jsonb * jsonb, int index)
 	if (jsonb == NULL || index < 0)
 		return NULL;
 
-	/* Initialize OIDs if needed */
 	if (!jsonb_oids_initialized)
 		ndb_jsonb_init_oids();
 
@@ -345,10 +312,7 @@ ndb_jsonb_array_element(Jsonb * jsonb, int index)
 		result_datum = FunctionCall2(&jsonb_array_element_flinfo,
 									 jsonb_datum, int_datum);
 		if (!DatumGetPointer(result_datum))
-		{
-			/* NULL result means index out of bounds */
 			result = NULL;
-		}
 		else
 		{
 			result = DatumGetJsonbP(result_datum);
@@ -366,7 +330,10 @@ ndb_jsonb_array_element(Jsonb * jsonb, int index)
 
 /*
  * ndb_jsonb_extract_path - Extract value by path
- * Wrapper for DirectFunctionCall2(jsonb_extract_path, jsonb_datum, text_array_datum)
+ */
+Jsonb *
+ndb_jsonb_extract_path(Jsonb * jsonb, const char **path, int path_len)
+ *   from the path components. The function initializes OID caches if needed.
  */
 Jsonb *
 ndb_jsonb_extract_path(Jsonb * jsonb, const char **path, int path_len)
@@ -378,6 +345,7 @@ ndb_jsonb_extract_path(Jsonb * jsonb, const char **path, int path_len)
 	int			i;
 
 	NDB_DECLARE(Jsonb *, result);
+	NDB_DECLARE(text * *, path_texts);
 
 	if (jsonb == NULL || path == NULL || path_len <= 0)
 		return NULL;
@@ -387,7 +355,6 @@ ndb_jsonb_extract_path(Jsonb * jsonb, const char **path, int path_len)
 		ndb_jsonb_init_oids();
 
 	/* Build text array from path strings */
-	NDB_DECLARE(text * *, path_texts);
 	NDB_ALLOC(path_texts, text *, path_len);
 	for (i = 0; i < path_len; i++)
 	{
@@ -434,7 +401,6 @@ ndb_jsonb_extract_path(Jsonb * jsonb, const char **path, int path_len)
 
 /*
  * ndb_jsonb_extract_path_text - Extract text value by path
- * Wrapper for DirectFunctionCall2(jsonb_extract_path_text, jsonb_datum, text_array_datum)
  */
 text *
 ndb_jsonb_extract_path_text(Jsonb * jsonb, const char **path, int path_len)
@@ -446,6 +412,7 @@ ndb_jsonb_extract_path_text(Jsonb * jsonb, const char **path, int path_len)
 	int			i;
 
 	NDB_DECLARE(text *, result);
+	NDB_DECLARE(text * *, path_texts);
 
 	if (jsonb == NULL || path == NULL || path_len <= 0)
 		return NULL;
@@ -455,7 +422,6 @@ ndb_jsonb_extract_path_text(Jsonb * jsonb, const char **path, int path_len)
 		ndb_jsonb_init_oids();
 
 	/* Build text array from path strings */
-	NDB_DECLARE(text * *, path_texts);
 	NDB_ALLOC(path_texts, text *, path_len);
 	for (i = 0; i < path_len; i++)
 	{
@@ -502,7 +468,6 @@ ndb_jsonb_extract_path_text(Jsonb * jsonb, const char **path, int path_len)
 
 /*
  * ndb_jsonb_extract_path_cstring - Extract C string value by path
- * Convenience wrapper that returns C string
  */
 char *
 ndb_jsonb_extract_path_cstring(Jsonb * jsonb, const char **path, int path_len)
@@ -526,7 +491,20 @@ ndb_jsonb_extract_path_cstring(Jsonb * jsonb, const char **path, int path_len)
 
 /*
  * ndb_jsonb_typeof - Get JSONB type
- * Wrapper for DirectFunctionCall1(jsonb_typeof, jsonb_datum)
+ *
+ * Returns the type of a JSONB value as a text string. Possible return values
+ * are "object", "array", "string", "number", "boolean", or "null". Uses cached
+ * function OID and FmgrInfo for efficient function calls.
+ *
+ * Parameters:
+ *   jsonb - Input JSONB value
+ *
+ * Returns:
+ *   Text pointer containing the type name, NULL if input is NULL or on error
+ *
+ * Notes:
+ *   Memory for the returned text is allocated in CurrentMemoryContext.
+ *   The function initializes OID caches if needed.
  */
 text *
 ndb_jsonb_typeof(Jsonb * jsonb)
@@ -539,7 +517,6 @@ ndb_jsonb_typeof(Jsonb * jsonb)
 	if (jsonb == NULL)
 		return NULL;
 
-	/* Initialize OIDs if needed */
 	if (!jsonb_oids_initialized)
 		ndb_jsonb_init_oids();
 
@@ -562,7 +539,6 @@ ndb_jsonb_typeof(Jsonb * jsonb)
 
 /*
  * ndb_jsonb_typeof_cstring - Get JSONB type as C string
- * Convenience wrapper that returns C string
  */
 char *
 ndb_jsonb_typeof_cstring(Jsonb * jsonb)
@@ -585,7 +561,17 @@ ndb_jsonb_typeof_cstring(Jsonb * jsonb)
 }
 
 /*
- * ndb_jsonb_to_text - Convert JSONB to text (alias for jsonb_out)
+ * ndb_jsonb_to_text - Convert JSONB to text
+ *
+ * Alias for ndb_jsonb_out that converts a JSONB value to a text representation.
+ * Provided for API consistency and clarity.
+ *
+ * Parameters:
+ *   jsonb - Input JSONB value to convert
+ *
+ * Returns:
+ *   Text pointer containing JSON string representation, NULL on error or
+ *   if input is NULL
  */
 text *
 ndb_jsonb_to_text(Jsonb * jsonb)
@@ -593,14 +579,24 @@ ndb_jsonb_to_text(Jsonb * jsonb)
 	return ndb_jsonb_out(jsonb);
 }
 
-/*-------------------------------------------------------------------------
- * JSON String Quoting and Escaping
- *-------------------------------------------------------------------------
- */
-
 /*
  * ndb_json_quote_string - Quote and escape a C string for JSON
- * Returns JSON-quoted string with proper escaping
+ *
+ * Quotes and escapes a C string according to JSON string encoding rules.
+ * Handles all standard JSON escape sequences including control characters,
+ * quotes, backslashes, and Unicode escapes.
+ *
+ * Parameters:
+ *   str - Input C string to quote and escape
+ *
+ * Returns:
+ *   Newly allocated C string containing the quoted and escaped JSON string.
+ *   Returns "null" (without quotes) if input is NULL.
+ *
+ * Notes:
+ *   Memory for the returned string is allocated in CurrentMemoryContext.
+ *   Caller is responsible for freeing using pfree or NDB_FREE.
+ *   Control characters (0x00-0x1F) are escaped as \uXXXX sequences.
  */
 char *
 ndb_json_quote_string(const char *str)
@@ -661,7 +657,6 @@ ndb_json_quote_string(const char *str)
 
 /*
  * ndb_json_quote_string_buf - Quote and escape into StringInfo buffer
- * Appends quoted string to existing buffer
  */
 void
 ndb_json_quote_string_buf(StringInfo buf, const char *str)
@@ -722,7 +717,23 @@ ndb_json_quote_string_buf(StringInfo buf, const char *str)
 
 /*
  * ndb_json_unescape_string - Unescape a JSON string
- * Converts escaped JSON string back to normal string
+ *
+ * Converts an escaped JSON string back to a normal C string by processing
+ * all JSON escape sequences including \n, \t, \r, \\, \/, \", and \uXXXX
+ * Unicode escapes. Handles surrogate pairs for proper UTF-8 encoding.
+ *
+ * Parameters:
+ *   json_str - Input JSON string (may include opening/closing quotes)
+ *
+ * Returns:
+ *   Newly allocated C string containing the unescaped result, NULL if input
+ *   is NULL or empty
+ *
+ * Notes:
+ *   Memory for the returned string is allocated in CurrentMemoryContext.
+ *   Caller is responsible for freeing using pfree or NDB_FREE.
+ *   The function automatically skips opening and closing quotes if present.
+ *   Invalid Unicode escapes are replaced with the replacement character (U+FFFD).
  */
 char *
 ndb_json_unescape_string(const char *json_str)
@@ -738,14 +749,11 @@ ndb_json_unescape_string(const char *json_str)
 	if (!json_str || json_str[0] == '\0')
 		return NULL;
 
-	/* Find the string boundaries (assumes it's already extracted from JSON) */
 	p = json_str;
 
-	/* Skip opening quote if present */
 	if (*p == '"')
 		p++;
 
-	/* Calculate length and check for closing quote */
 	q = p;
 	len = 0;
 	while (*q)
@@ -765,10 +773,7 @@ ndb_json_unescape_string(const char *json_str)
 			continue;
 		}
 		if (*q == '"')
-		{
-			/* Found closing quote (not escaped) */
 			break;
-		}
 		len++;
 		q++;
 	}
@@ -776,12 +781,10 @@ ndb_json_unescape_string(const char *json_str)
 	if (len == 0)
 		return pstrdup("");
 
-	/* Allocate and copy string */
 	NDB_ALLOC(result, char, len + 1);
 	unescaped = result;
 	q = p;
 
-	/* Copy and unescape */
 	while (q < p + len)
 	{
 		if (*q == '\\' && q + 1 < p + len)
@@ -813,7 +816,6 @@ ndb_json_unescape_string(const char *json_str)
 					q += 2;
 					break;
 				case 'u':
-					/* Unicode escape - full UTF-8 encoding */
 					if (q + 5 < p + len && isxdigit((unsigned char) q[2]) &&
 						isxdigit((unsigned char) q[3]) &&
 						isxdigit((unsigned char) q[4]) &&
@@ -823,26 +825,20 @@ ndb_json_unescape_string(const char *json_str)
 
 						sscanf(q + 2, "%4x", &code);
 						if (code < 0x80)
-						{
-							/* ASCII: single byte */
 							*unescaped++ = (char) code;
-						}
 						else if (code < 0x800)
 						{
-							/* 2-byte UTF-8 */
 							*unescaped++ = (char) (0xC0 | (code >> 6));
 							*unescaped++ = (char) (0x80 | (code & 0x3F));
 						}
 						else if (code < 0xD800 || code >= 0xE000)
 						{
-							/* 3-byte UTF-8 (excluding surrogates) */
 							*unescaped++ = (char) (0xE0 | (code >> 12));
 							*unescaped++ = (char) (0x80 | ((code >> 6) & 0x3F));
 							*unescaped++ = (char) (0x80 | (code & 0x3F));
 						}
 						else
 						{
-							/* Surrogate pair - check for second part */
 							if (code >= 0xD800 && code < 0xDC00 && q + 11 < p + len &&
 								q[6] == '\\' && q[7] == 'u' &&
 								isxdigit((unsigned char) q[8]) &&
@@ -855,21 +851,16 @@ ndb_json_unescape_string(const char *json_str)
 								sscanf(q + 8, "%4x", &code2);
 								if (code2 >= 0xDC00 && code2 < 0xE000)
 								{
-									/* Valid surrogate pair - 4-byte UTF-8 */
 									unsigned int full_code = 0x10000 + ((code - 0xD800) << 10) + (code2 - 0xDC00);
 
 									*unescaped++ = (char) (0xF0 | (full_code >> 18));
 									*unescaped++ = (char) (0x80 | ((full_code >> 12) & 0x3F));
 									*unescaped++ = (char) (0x80 | ((full_code >> 6) & 0x3F));
 									*unescaped++ = (char) (0x80 | (full_code & 0x3F));
-									q += 6; /* Skip second \uXXXX */
+									q += 6;
 								}
 								else
 								{
-									/*
-									 * Invalid surrogate pair - use
-									 * replacement character
-									 */
 									*unescaped++ = 0xEF;
 									*unescaped++ = 0xBF;
 									*unescaped++ = 0xBD;
@@ -877,10 +868,6 @@ ndb_json_unescape_string(const char *json_str)
 							}
 							else
 							{
-								/*
-								 * Invalid surrogate - use replacement
-								 * character
-								 */
 								*unescaped++ = 0xEF;
 								*unescaped++ = 0xBF;
 								*unescaped++ = 0xBD;
@@ -894,7 +881,6 @@ ndb_json_unescape_string(const char *json_str)
 					}
 					break;
 				default:
-					/* Unknown escape, keep both characters */
 					*unescaped++ = *q++;
 					*unescaped++ = *q++;
 					break;
@@ -910,15 +896,25 @@ ndb_json_unescape_string(const char *json_str)
 	return result;
 }
 
-/*-------------------------------------------------------------------------
- * JSON Parsing Utilities
- *-------------------------------------------------------------------------
- */
-
 /*
  * ndb_json_find_key - Find value for a key in JSON object
- * Returns pointer to value string or NULL if not found
- * Uses simple string search for basic cases, JSONB for robust parsing
+ *
+ * Searches for a key in a JSON object and returns its value as a C string.
+ * First attempts to parse the JSON using JSONB for robust handling, then
+ * falls back to simple string-based search if JSONB parsing fails.
+ *
+ * Parameters:
+ *   json_str - Input JSON string
+ *   key - Key name to search for
+ *
+ * Returns:
+ *   Newly allocated C string containing the value, NULL if key not found,
+ *   input is NULL, or on error
+ *
+ * Notes:
+ *   Memory for the returned string is allocated in CurrentMemoryContext.
+ *   Caller is responsible for freeing using pfree or NDB_FREE.
+ *   The fallback string search is limited and may not handle all edge cases.
  */
 char *
 ndb_json_find_key(const char *json_str, const char *key)
@@ -933,7 +929,6 @@ ndb_json_find_key(const char *json_str, const char *key)
 	if (json_str == NULL || key == NULL)
 		return NULL;
 
-	/* Try JSONB parsing first for robustness */
 	PG_TRY();
 	{
 		jsonb = ndb_jsonb_in_cstring(json_str);
@@ -969,11 +964,9 @@ ndb_json_find_key(const char *json_str, const char *key)
 			NDB_FREE(jsonb_ptr);
 			jsonb = NULL;
 		}
-		/* Fall back to string-based search */
 	}
 	PG_END_TRY();
 
-	/* Fallback to simple string search if JSONB parsing failed */
 	if (result == NULL)
 	{
 		const char *p;
@@ -981,26 +974,21 @@ ndb_json_find_key(const char *json_str, const char *key)
 		const char *value_end;
 		size_t		key_len;
 
-		/*
-		 * Build key pattern: "key": Note: key must not contain quotes for
-		 * this simple pattern to work. For keys with quotes, use JSONB
-		 * parsing path instead.
-		 */
-		key_len = strlen(key);
 		NDB_DECLARE(char *, key_pattern);
+
+		key_len = strlen(key);
 		NDB_ALLOC(key_pattern, char, key_len + 4);
 		snprintf(key_pattern, key_len + 4, "\"%s\":", key);
 
 		p = strstr(json_str, key_pattern);
 		if (p != NULL)
 		{
-			p += key_len + 2;	/* Skip past "key": */
+			p += key_len + 2;
 			while (*p && (isspace((unsigned char) *p) || *p == ':'))
 				p++;
 
 			if (*p == '"')
 			{
-				/* String value */
 				value_start = p + 1;
 				value_end = value_start;
 				while (*value_end && *value_end != '"')
@@ -1014,7 +1002,6 @@ ndb_json_find_key(const char *json_str, const char *key)
 				{
 					char	   *temp_result = pnstrdup(value_start, value_end - value_start);
 
-					/* Unescape if needed */
 					if (strchr(temp_result, '\\') != NULL)
 					{
 						char	   *unescaped = ndb_json_unescape_string(temp_result);
@@ -1030,14 +1017,12 @@ ndb_json_find_key(const char *json_str, const char *key)
 			}
 			else
 			{
-				/* Non-string value - extract until comma or closing brace */
 				value_start = p;
 				value_end = value_start;
 				while (*value_end && *value_end != ',' && *value_end != '}' && *value_end != ']')
 				{
 					if (*value_end == '"')
 					{
-						/* Skip quoted string */
 						value_end++;
 						while (*value_end && *value_end != '"')
 						{
@@ -1052,7 +1037,6 @@ ndb_json_find_key(const char *json_str, const char *key)
 					else
 						value_end++;
 				}
-				/* Trim whitespace */
 				while (value_end > value_start && isspace((unsigned char) value_end[-1]))
 					value_end--;
 				result = (volatile char *) pnstrdup(value_start, value_end - value_start);
@@ -1066,7 +1050,17 @@ ndb_json_find_key(const char *json_str, const char *key)
 
 /*
  * ndb_json_extract_string - Extract string value by key
- * Returns allocated string or NULL
+ *
+ * Alias for ndb_json_find_key that extracts a string value from a JSON object
+ * by key name. Provided for API clarity and consistency.
+ *
+ * Parameters:
+ *   json_str - Input JSON string
+ *   key - Key name to extract
+ *
+ * Returns:
+ *   Newly allocated C string containing the value, NULL if key not found,
+ *   input is NULL, or on error
  */
 char *
 ndb_json_extract_string(const char *json_str, const char *key)
@@ -1076,7 +1070,24 @@ ndb_json_extract_string(const char *json_str, const char *key)
 
 /*
  * ndb_json_extract_number - Extract numeric value by key
- * Returns numeric value, sets found flag
+ *
+ * Extracts a numeric value from a JSON object by key name and converts it
+ * to a double. Uses strtod for parsing with proper error checking.
+ *
+ * Parameters:
+ *   json_str - Input JSON string
+ *   key - Key name to extract
+ *   found - Optional pointer to boolean flag set to true if key was found
+ *           and value was successfully parsed
+ *
+ * Returns:
+ *   Numeric value as double, 0.0 if key not found, parsing failed, or
+ *   input is NULL
+ *
+ * Notes:
+ *   If found is not NULL, it is set to true only if the key exists and
+ *   the value is a valid number. The function handles all standard numeric
+ *   formats including integers, floats, and scientific notation.
  */
 double
 ndb_json_extract_number(const char *json_str, const char *key, bool *found)
@@ -1109,7 +1120,23 @@ ndb_json_extract_number(const char *json_str, const char *key, bool *found)
 
 /*
  * ndb_json_extract_bool - Extract boolean value by key
- * Returns boolean value, sets found flag
+ *
+ * Extracts a boolean value from a JSON object by key name. Recognizes
+ * "true", "false", and their case variations (TRUE, True, FALSE, False).
+ *
+ * Parameters:
+ *   json_str - Input JSON string
+ *   key - Key name to extract
+ *   found - Optional pointer to boolean flag set to true if key was found
+ *           and value was a valid boolean
+ *
+ * Returns:
+ *   Boolean value, false if key not found, value is not a boolean,
+ *   or input is NULL
+ *
+ * Notes:
+ *   If found is not NULL, it is set to true only if the key exists and
+ *   the value is a recognized boolean string.
  */
 bool
 ndb_json_extract_bool(const char *json_str, const char *key, bool *found)
@@ -1148,7 +1175,23 @@ ndb_json_extract_bool(const char *json_str, const char *key, bool *found)
 
 /*
  * ndb_json_extract_int - Extract integer value by key
- * Returns integer value, sets found flag
+ *
+ * Extracts a numeric value from a JSON object by key name and converts it
+ * to an integer. Uses ndb_json_extract_number internally and casts the
+ * result to int.
+ *
+ * Parameters:
+ *   json_str - Input JSON string
+ *   key - Key name to extract
+ *   found - Optional pointer to boolean flag set to true if key was found
+ *           and value was successfully parsed
+ *
+ * Returns:
+ *   Integer value, 0 if key not found, parsing failed, or input is NULL
+ *
+ * Notes:
+ *   Floating point values are truncated to integers. If found is not NULL,
+ *   it is set based on whether the numeric extraction succeeded.
  */
 int
 ndb_json_extract_int(const char *json_str, const char *key, bool *found)
@@ -1167,7 +1210,23 @@ ndb_json_extract_int(const char *json_str, const char *key, bool *found)
 
 /*
  * ndb_json_extract_float - Extract float value by key
- * Returns float value, sets found flag
+ *
+ * Extracts a numeric value from a JSON object by key name and converts it
+ * to a float. Uses ndb_json_extract_number internally and casts the result
+ * to float.
+ *
+ * Parameters:
+ *   json_str - Input JSON string
+ *   key - Key name to extract
+ *   found - Optional pointer to boolean flag set to true if key was found
+ *           and value was successfully parsed
+ *
+ * Returns:
+ *   Float value, 0.0 if key not found, parsing failed, or input is NULL
+ *
+ * Notes:
+ *   Precision may be lost when converting from double to float. If found is
+ *   not NULL, it is set based on whether the numeric extraction succeeded.
  */
 float
 ndb_json_extract_float(const char *json_str, const char *key, bool *found)
@@ -1184,15 +1243,8 @@ ndb_json_extract_float(const char *json_str, const char *key, bool *found)
 	return result;
 }
 
-/*-------------------------------------------------------------------------
- * Specialized JSON Parsers
- *-------------------------------------------------------------------------
- */
-
 /*
  * ndb_json_parse_gen_params - Parse generation parameters from JSON
- * Unified parser for LLM generation parameters
- * Returns 0 on success, -1 on error (sets errstr)
  */
 int
 ndb_json_parse_gen_params(const char *params_json,
@@ -1233,23 +1285,19 @@ ndb_json_parse_gen_params(const char *params_json,
 	gen_params->logit_bias_tokens = NULL;
 	gen_params->logit_bias_values = NULL;
 
-	/* Skip empty JSON */
 	if (strlen(params_json) == 0 || strcmp(params_json, "{}") == 0)
 		return 0;
 
-	/* Try JSONB parsing first for robustness */
 	PG_TRY();
 	{
 		jsonb = ndb_jsonb_in_cstring(params_json);
 
 		if (jsonb != NULL)
 		{
-			/* Extract values using JSONB API */
 			Jsonb	   *field;
 			text	   *field_text;
 			char	   *value_str;
 
-			/* temperature */
 			field = ndb_jsonb_object_field((Jsonb *) jsonb, "temperature");
 			if (field != NULL)
 			{
@@ -1266,7 +1314,6 @@ ndb_json_parse_gen_params(const char *params_json,
 				NDB_FREE(field);
 			}
 
-			/* top_p */
 			field = ndb_jsonb_object_field((Jsonb *) jsonb, "top_p");
 			if (field != NULL)
 			{
@@ -1283,7 +1330,6 @@ ndb_json_parse_gen_params(const char *params_json,
 				NDB_FREE(field);
 			}
 
-			/* top_k */
 			field = ndb_jsonb_object_field((Jsonb *) jsonb, "top_k");
 			if (field != NULL)
 			{
@@ -1300,7 +1346,6 @@ ndb_json_parse_gen_params(const char *params_json,
 				NDB_FREE(field);
 			}
 
-			/* max_tokens / max_length */
 			field = ndb_jsonb_object_field((Jsonb *) jsonb, "max_tokens");
 			if (field == NULL)
 				field = ndb_jsonb_object_field((Jsonb *) jsonb, "max_length");
@@ -1319,7 +1364,6 @@ ndb_json_parse_gen_params(const char *params_json,
 				NDB_FREE(field);
 			}
 
-			/* min_tokens / min_length */
 			field = ndb_jsonb_object_field((Jsonb *) jsonb, "min_tokens");
 			if (field == NULL)
 				field = ndb_jsonb_object_field((Jsonb *) jsonb, "min_length");
@@ -1338,7 +1382,6 @@ ndb_json_parse_gen_params(const char *params_json,
 				NDB_FREE(field);
 			}
 
-			/* repetition_penalty */
 			field = ndb_jsonb_object_field((Jsonb *) jsonb, "repetition_penalty");
 			if (field != NULL)
 			{
@@ -1355,7 +1398,6 @@ ndb_json_parse_gen_params(const char *params_json,
 				NDB_FREE(field);
 			}
 
-			/* do_sample */
 			field = ndb_jsonb_object_field((Jsonb *) jsonb, "do_sample");
 			if (field != NULL)
 			{
@@ -1373,7 +1415,6 @@ ndb_json_parse_gen_params(const char *params_json,
 				NDB_FREE(field);
 			}
 
-			/* return_prompt */
 			field = ndb_jsonb_object_field((Jsonb *) jsonb, "return_prompt");
 			if (field != NULL)
 			{
@@ -1391,7 +1432,6 @@ ndb_json_parse_gen_params(const char *params_json,
 				NDB_FREE(field);
 			}
 
-			/* seed */
 			field = ndb_jsonb_object_field((Jsonb *) jsonb, "seed");
 			if (field != NULL)
 			{
@@ -1408,7 +1448,6 @@ ndb_json_parse_gen_params(const char *params_json,
 				NDB_FREE(field);
 			}
 
-			/* streaming / stream */
 			field = ndb_jsonb_object_field((Jsonb *) jsonb, "streaming");
 			if (field == NULL)
 				field = ndb_jsonb_object_field((Jsonb *) jsonb, "stream");
@@ -1428,13 +1467,13 @@ ndb_json_parse_gen_params(const char *params_json,
 				NDB_FREE(field);
 			}
 
-			/* stop_sequences - array of strings */
 			field = ndb_jsonb_object_field((Jsonb *) jsonb, "stop_sequences");
 			if (field != NULL)
 			{
-				NDB_DECLARE(char *, tmp);
 				char	  **stop_seqs = NULL;
 				int			count = 0;
+
+				NDB_DECLARE(char *, tmp);
 
 				tmp = ndb_jsonb_out_cstring(field);
 				if (tmp != NULL)
@@ -1450,21 +1489,19 @@ ndb_json_parse_gen_params(const char *params_json,
 				NDB_FREE(field);
 			}
 
-			/* logit_bias - object mapping token IDs to bias values */
 			field = ndb_jsonb_object_field((Jsonb *) jsonb, "logit_bias");
 			if (field == NULL)
 				field = ndb_jsonb_object_field((Jsonb *) jsonb, "bias");
 			if (field != NULL)
 			{
-				/* Parse logit bias object */
 				JsonbIterator *it;
 				JsonbValue	v;
 				JsonbIteratorToken type;
+				int			capacity = 16;
+				int			count = 0;
 
 				NDB_DECLARE(int32 *, tokens);
 				NDB_DECLARE(float *, biases);
-				int			capacity = 16;
-				int			count = 0;
 
 				NDB_ALLOC(tokens, int32, capacity);
 				NDB_ALLOC(biases, float, capacity);
@@ -1474,7 +1511,6 @@ ndb_json_parse_gen_params(const char *params_json,
 				{
 					if (type == WJB_KEY && v.type == jbvString)
 					{
-						/* Token ID as key */
 						char	   *token_str = pnstrdup(v.val.string.val, v.val.string.len);
 						int32		token_id = (int32) strtol(token_str, &endptr, 10);
 
@@ -1482,7 +1518,6 @@ ndb_json_parse_gen_params(const char *params_json,
 
 						if (endptr != token_str && token_id >= 0)
 						{
-							/* Get bias value */
 							type = JsonbIteratorNext(&it, &v, true);
 							if (type == WJB_VALUE)
 							{
@@ -1522,7 +1557,6 @@ ndb_json_parse_gen_params(const char *params_json,
 				NDB_FREE(field);
 			}
 		}
-		/* Free jsonb after use */
 		if (jsonb != NULL)
 		{
 			Jsonb	   *jsonb_ptr = (Jsonb *) jsonb;
@@ -1534,7 +1568,6 @@ ndb_json_parse_gen_params(const char *params_json,
 	PG_CATCH();
 	{
 		FlushErrorState();
-		/* Free jsonb if it was allocated */
 		if (jsonb != NULL)
 		{
 			Jsonb	   *jsonb_ptr = (Jsonb *) jsonb;
@@ -1542,32 +1575,25 @@ ndb_json_parse_gen_params(const char *params_json,
 			NDB_FREE(jsonb_ptr);
 			jsonb = NULL;
 		}
-		/* Fall back to string-based parsing */
 	}
 	PG_END_TRY();
 
-	/* Fallback to string-based parsing if JSONB failed */
 	if (gen_params->num_stop_sequences == 0 && gen_params->num_logit_bias == 0)
 	{
-		/* Simple JSON parsing - find key-value pairs */
 		json_copy = pstrdup(params_json);
 		p = json_copy;
 
-		/* Skip whitespace and opening brace */
 		while (*p && (isspace((unsigned char) *p) || *p == '{'))
 			p++;
 
-		/* Parse key-value pairs */
 		while (*p && *p != '}')
 		{
-			/* Skip whitespace and commas */
 			while (*p && (isspace((unsigned char) *p) || *p == ','))
 				p++;
 
 			if (*p == '}' || *p == '\0')
 				break;
 
-			/* Find key */
 			if (*p != '"')
 			{
 				NDB_FREE(json_copy);
@@ -1575,7 +1601,7 @@ ndb_json_parse_gen_params(const char *params_json,
 					*errstr = pstrdup("invalid JSON format: expected key");
 				return -1;
 			}
-			p++;				/* Skip opening quote */
+			p++;
 			key = p;
 			while (*p && *p != '"')
 				p++;
@@ -1586,14 +1612,12 @@ ndb_json_parse_gen_params(const char *params_json,
 					*errstr = pstrdup("invalid JSON format: unterminated key");
 				return -1;
 			}
-			*p = '\0';			/* Null-terminate key */
-			p++;				/* Skip closing quote */
+			*p = '\0';
+			p++;
 
-			/* Skip colon */
 			while (*p && (isspace((unsigned char) *p) || *p == ':'))
 				p++;
 
-			/* Parse value based on key - use existing extraction functions */
 			if (strcmp(key, "temperature") == 0)
 			{
 				float_val = strtof(p, &endptr);
@@ -1658,7 +1682,6 @@ ndb_json_parse_gen_params(const char *params_json,
 					gen_params->streaming = false;
 			}
 
-			/* Skip to next key or closing brace */
 			while (*p && *p != ',' && *p != '}')
 			{
 				if (*p == '"')
@@ -1671,7 +1694,6 @@ ndb_json_parse_gen_params(const char *params_json,
 				}
 				else if (*p == '[')
 				{
-					/* Skip array */
 					int			depth = 1;
 
 					p++;
@@ -1686,7 +1708,6 @@ ndb_json_parse_gen_params(const char *params_json,
 				}
 				else if (*p == '{')
 				{
-					/* Skip object */
 					int			depth = 1;
 
 					p++;
@@ -1712,6 +1733,16 @@ ndb_json_parse_gen_params(const char *params_json,
 
 /*
  * ndb_json_parse_gen_params_free - Free allocated resources in NdbGenParams
+ *
+ * Frees all dynamically allocated memory in an NdbGenParams structure,
+ * including stop_sequences array and logit_bias arrays. Resets counts to zero.
+ *
+ * Parameters:
+ *   gen_params - Structure to free resources from
+ *
+ * Notes:
+ *   Safe to call with NULL pointer. After calling this function, the structure
+ *   should not be used unless re-initialized.
  */
 void
 ndb_json_parse_gen_params_free(NdbGenParams *gen_params)
@@ -1750,8 +1781,24 @@ ndb_json_parse_gen_params_free(NdbGenParams *gen_params)
 
 /*
  * ndb_json_extract_openai_response - Extract OpenAI API response
- * Parses OpenAI chat completion or embedding response
- * Returns 0 on success, -1 on error
+ *
+ * Parses an OpenAI API response (chat completion or embedding) and extracts
+ * the generated text, token counts, and error messages. Handles both successful
+ * responses and error responses from the OpenAI API.
+ *
+ * Parameters:
+ *   json_str - Input JSON string from OpenAI API
+ *   response - Output structure to populate with extracted data
+ *
+ * Returns:
+ *   0 on success, -1 on error
+ *
+ * Notes:
+ *   The function initializes the response structure before parsing.
+ *   Memory for text and error_message is allocated in CurrentMemoryContext.
+ *   The function first attempts JSONB parsing for robustness, then falls
+ *   back to string-based extraction if needed. For chat completions, extracts
+ *   text from choices[0].message.content. For embeddings, extracts data array.
  */
 int
 ndb_json_extract_openai_response(const char *json_str,
@@ -1770,14 +1817,12 @@ ndb_json_extract_openai_response(const char *json_str,
 	if (json_str == NULL || response == NULL)
 		return -1;
 
-	/* Initialize response structure */
 	memset(response, 0, sizeof(NdbOpenAIResponse));
 	response->text = NULL;
 	response->tokens_in = 0;
 	response->tokens_out = 0;
 	response->error_message = NULL;
 
-	/* Check for error response */
 	if (strncmp(json_str, "{\"error\"", 8) == 0)
 	{
 		NDB_DECLARE(Jsonb *, error_field);
@@ -1792,7 +1837,6 @@ ndb_json_extract_openai_response(const char *json_str,
 				NDB_DECLARE(Jsonb *, msg_field);
 				NDB_DECLARE(text *, msg_text);
 
-				/* Try to extract error.message first */
 				msg_field = ndb_jsonb_object_field(error_field, "message");
 				if (msg_field != NULL)
 				{
@@ -1806,7 +1850,6 @@ ndb_json_extract_openai_response(const char *json_str,
 				}
 				else
 				{
-					/* Fallback to full error object text */
 					error_text = ndb_jsonb_out(error_field);
 					if (error_text != NULL)
 					{
@@ -1827,13 +1870,11 @@ ndb_json_extract_openai_response(const char *json_str,
 		return -1;
 	}
 
-	/* Try JSONB parsing first */
 	PG_TRY();
 	{
 		jsonb = ndb_jsonb_in_cstring(json_str);
 		if (jsonb != NULL)
 		{
-			/* Extract text from choices[0].message.content */
 			choices = ndb_jsonb_object_field((Jsonb *) jsonb, "choices");
 			if (choices != NULL)
 			{
@@ -1850,14 +1891,12 @@ ndb_json_extract_openai_response(const char *json_str,
 							if (content_text != NULL)
 							{
 								content_str = text_to_cstring(content_text);
-								/* Remove quotes if present */
 								if (content_str[0] == '"' && content_str[strlen(content_str) - 1] == '"')
 								{
 									char	   *temp = pnstrdup(content_str + 1, strlen(content_str) - 2);
 
 									NDB_FREE(content_str);
 									content_str = temp;
-									/* Unescape if needed */
 									if (strchr(content_str, '\\') != NULL)
 									{
 										char	   *unescaped = ndb_json_unescape_string(content_str);
@@ -1878,7 +1917,6 @@ ndb_json_extract_openai_response(const char *json_str,
 				NDB_FREE(choices);
 			}
 
-			/* Extract token counts from usage object */
 			usage = ndb_jsonb_object_field((Jsonb *) jsonb, "usage");
 			if (usage != NULL)
 			{
@@ -1904,11 +1942,11 @@ ndb_json_extract_openai_response(const char *json_str,
 					NDB_FREE(prompt_tokens_field);
 				}
 
+				NDB_DECLARE(text *, tokens_text);
+				NDB_DECLARE(char *, tokens_str);
+
 				if (completion_tokens_field != NULL)
 				{
-					NDB_DECLARE(text *, tokens_text);
-					NDB_DECLARE(char *, tokens_str);
-
 					tokens_text = ndb_jsonb_out(completion_tokens_field);
 					if (tokens_text != NULL)
 					{
@@ -1922,7 +1960,6 @@ ndb_json_extract_openai_response(const char *json_str,
 				NDB_FREE(usage);
 			}
 		}
-		/* Free jsonb after use */
 		if (jsonb != NULL)
 		{
 			Jsonb	   *jsonb_ptr = (Jsonb *) jsonb;
@@ -1934,7 +1971,6 @@ ndb_json_extract_openai_response(const char *json_str,
 	PG_CATCH();
 	{
 		FlushErrorState();
-		/* Free jsonb if it was allocated */
 		if (jsonb != NULL)
 		{
 			Jsonb	   *jsonb_ptr = (Jsonb *) jsonb;
@@ -1942,11 +1978,9 @@ ndb_json_extract_openai_response(const char *json_str,
 			NDB_FREE(jsonb_ptr);
 			jsonb = NULL;
 		}
-		/* Fall back to string-based extraction */
 	}
 	PG_END_TRY();
 
-	/* Fallback to string-based extraction if JSONB failed */
 	if (response->text == NULL)
 	{
 		const char *p;
@@ -1957,19 +1991,13 @@ ndb_json_extract_openai_response(const char *json_str,
 		NDB_DECLARE(char *, unescaped);
 		int			escape_next = 0;
 
-		/*
-		 * Look for "content" field - handle nested structure:
-		 * choices[0].message.content
-		 */
 		p = strstr(json_str, "\"choices\"");
 		if (p != NULL)
 		{
-			/* Find opening bracket of choices array */
 			p = strchr(p, '[');
 			if (p != NULL)
 			{
 				p++;
-				/* Skip whitespace and find first object */
 				while (*p && (isspace((unsigned char) *p) || *p == '{'))
 				{
 					if (*p == '{')
@@ -1978,20 +2006,16 @@ ndb_json_extract_openai_response(const char *json_str,
 				}
 				if (*p == '{')
 				{
-					/* Now look for "message" within this choice object */
 					p = strstr(p, "\"message\"");
 					if (p != NULL)
 					{
-						/* Find opening brace of message object */
 						p = strchr(p, '{');
 						if (p != NULL)
 						{
 							p++;
-							/* Look for "content" within message */
 							p = strstr(p, "\"content\"");
 							if (p != NULL)
 							{
-								/* Find colon after "content" */
 								p = strchr(p, ':');
 								if (p != NULL)
 								{
@@ -1999,18 +2023,10 @@ ndb_json_extract_openai_response(const char *json_str,
 									while (*p && isspace((unsigned char) *p))
 										p++;
 
-									/*
-									 * Check if value is a string (starts with
-									 * quote)
-									 */
 									if (*p == '"')
 									{
-										p++;	/* Skip opening quote */
+										p++;
 
-										/*
-										 * Extract string value, handling
-										 * escaped characters
-										 */
 										q = p;
 										len = 0;
 										while (*q)
@@ -2030,25 +2046,17 @@ ndb_json_extract_openai_response(const char *json_str,
 												continue;
 											}
 											if (*q == '"')
-											{
-												/*
-												 * Found closing quote (not
-												 * escaped)
-												 */
 												break;
-											}
 											len++;
 											q++;
 										}
 
 										if (len > 0)
 										{
-											/* Allocate and copy string */
 											NDB_ALLOC(result, char, len + 1);
 											unescaped = result;
 											q = p;
 
-											/* Copy and unescape */
 											while (q < p + len)
 											{
 												if (*q == '\\' && q + 1 < p + len)
@@ -2080,12 +2088,6 @@ ndb_json_extract_openai_response(const char *json_str,
 															q += 2;
 															break;
 														case 'u':
-
-															/*
-															 * Unicode escape
-															 * - full UTF-8
-															 * encoding
-															 */
 															if (q + 5 < p + len && isxdigit((unsigned char) q[2]) &&
 																isxdigit((unsigned char) q[3]) &&
 																isxdigit((unsigned char) q[4]) &&
@@ -2095,47 +2097,20 @@ ndb_json_extract_openai_response(const char *json_str,
 
 																sscanf(q + 2, "%4x", &code);
 																if (code < 0x80)
-																{
-																	/*
-																	 * ASCII:
-																	 * single
-																	 * byte
-																	 */
 																	*unescaped++ = (char) code;
-																}
 																else if (code < 0x800)
 																{
-																	/*
-																	 * 2-byte
-																	 * UTF-8
-																	 */
 																	*unescaped++ = (char) (0xC0 | (code >> 6));
 																	*unescaped++ = (char) (0x80 | (code & 0x3F));
 																}
 																else if (code < 0xD800 || code >= 0xE000)
 																{
-																	/*
-																	 * 3-byte
-																	 * UTF-8
-																	 * (excluding
-																	 *
-																	 * surrogates)
-																	 */
 																	*unescaped++ = (char) (0xE0 | (code >> 12));
 																	*unescaped++ = (char) (0x80 | ((code >> 6) & 0x3F));
 																	*unescaped++ = (char) (0x80 | (code & 0x3F));
 																}
 																else
 																{
-																	/*
-																	 *
-																	 * Surrogate
-																	 * pair -
-																	 * check
-																	 * for
-																	 * second
-																	 * part
-																	 */
 																	if (code >= 0xD800 && code < 0xDC00 && q + 11 < p + len &&
 																		q[6] == '\\' && q[7] == 'u' &&
 																		isxdigit((unsigned char) q[8]) &&
@@ -2241,7 +2216,6 @@ ndb_json_extract_openai_response(const char *json_str,
 			}
 		}
 
-		/* Extract token counts using string search */
 		p = strstr(json_str, "\"prompt_tokens\":");
 		if (p != NULL)
 		{
@@ -2277,6 +2251,11 @@ ndb_json_extract_openai_response(const char *json_str,
  */
 void
 ndb_json_extract_openai_response_free(NdbOpenAIResponse *response)
+ *   Safe to call with NULL pointer. After calling this function, the structure
+ *   should not be used unless re-initialized.
+ */
+void
+ndb_json_extract_openai_response_free(NdbOpenAIResponse *response)
 {
 	if (response == NULL)
 		return;
@@ -2296,8 +2275,6 @@ ndb_json_extract_openai_response_free(NdbOpenAIResponse *response)
 
 /*
  * ndb_json_parse_openai_embedding - Parse OpenAI embedding vector from JSON
- * Extracts embedding array from OpenAI embedding API response
- * Returns 0 on success, -1 on error
  */
 int
 ndb_json_parse_openai_embedding(const char *json_str,
@@ -2319,8 +2296,6 @@ ndb_json_parse_openai_embedding(const char *json_str,
 
 	*vec_out = NULL;
 	*dim_out = 0;
-
-	/* Try JSONB parsing first */
 	PG_TRY();
 	{
 		jsonb = ndb_jsonb_in_cstring(json_str);
@@ -2466,11 +2441,12 @@ ndb_json_parse_openai_embedding(const char *json_str,
 			p = strchr(p, '[');
 			if (p != NULL)
 			{
+				NDB_DECLARE(float *, vec);
+
 				p++;
 				in_array = true;
 
 				/* Allocate initial vector */
-				NDB_DECLARE(float *, vec);
 				NDB_ALLOC(vec, float, cap);
 
 				/* Parse array of floats */
@@ -2550,8 +2526,27 @@ ndb_json_parse_openai_embedding(const char *json_str,
 
 /*
  * ndb_json_parse_sparse_vector - Parse sparse vector from JSON
- * Proper JSON parsing for sparse vector format
- * Returns 0 on success, -1 on error (sets errstr)
+ *
+ * Parses a sparse vector representation from a JSON string into an
+ * NdbSparseVectorParse structure. Supports sparse vector formats including
+ * vocab_size, model type (BM25, SPLADE, ColBERTv2), tokens array, and
+ * weights array.
+ *
+ * Parameters:
+ *   json_str - Input JSON string containing sparse vector data
+ *   result - Output structure to populate with parsed sparse vector data
+ *   errstr - Optional pointer to error message string (allocated on error)
+ *
+ * Returns:
+ *   0 on success, -1 on error
+ *
+ * Notes:
+ *   The function initializes result with default values (vocab_size=30522,
+ *   model_type=SPLADE) before parsing. Memory for token_ids and weights arrays
+ *   is allocated in CurrentMemoryContext. If errstr is not NULL and an error
+ *   occurs, an error message is allocated and assigned to *errstr. The function
+ *   first attempts JSONB parsing for robustness, then falls back to string-based
+ *   parsing if needed.
  */
 int
 ndb_json_parse_sparse_vector(const char *json_str,
@@ -2578,21 +2573,17 @@ ndb_json_parse_sparse_vector(const char *json_str,
 		return -1;
 	}
 
-	/* Initialize result structure */
 	memset(result, 0, sizeof(NdbSparseVectorParse));
-	result->vocab_size = 30522; /* Default BERT vocab size */
-	result->model_type = 1;		/* Default to SPLADE */
+	result->vocab_size = 30522;
+	result->model_type = 1;
 	result->nnz = 0;
 	result->token_ids = NULL;
 	result->weights = NULL;
-
-	/* Try JSONB parsing first */
 	PG_TRY();
 	{
 		jsonb = ndb_jsonb_in_cstring(json_str);
 		if (jsonb != NULL)
 		{
-			/* Extract vocab_size */
 			field = ndb_jsonb_object_field((Jsonb *) jsonb, "vocab_size");
 			if (field != NULL)
 			{
@@ -2607,7 +2598,6 @@ ndb_json_parse_sparse_vector(const char *json_str,
 				NDB_FREE(field);
 			}
 
-			/* Extract model type */
 			field = ndb_jsonb_object_field((Jsonb *) jsonb, "model");
 			if (field != NULL)
 			{
@@ -2637,7 +2627,6 @@ ndb_json_parse_sparse_vector(const char *json_str,
 				NDB_FREE(field);
 			}
 
-			/* Extract tokens array */
 			field = ndb_jsonb_object_field((Jsonb *) jsonb, "tokens");
 			if (field != NULL)
 			{
@@ -2663,7 +2652,6 @@ ndb_json_parse_sparse_vector(const char *json_str,
 				NDB_FREE(field);
 			}
 
-			/* Extract weights array */
 			field = ndb_jsonb_object_field((Jsonb *) jsonb, "weights");
 			if (field != NULL)
 			{
@@ -2688,7 +2676,6 @@ ndb_json_parse_sparse_vector(const char *json_str,
 				NDB_FREE(field);
 			}
 		}
-		/* Free jsonb after use */
 		if (jsonb != NULL)
 		{
 			Jsonb	   *jsonb_ptr = (Jsonb *) jsonb;
@@ -2700,7 +2687,6 @@ ndb_json_parse_sparse_vector(const char *json_str,
 	PG_CATCH();
 	{
 		FlushErrorState();
-		/* Free jsonb if it was allocated */
 		if (jsonb != NULL)
 		{
 			Jsonb	   *jsonb_ptr = (Jsonb *) jsonb;
@@ -2708,11 +2694,9 @@ ndb_json_parse_sparse_vector(const char *json_str,
 			NDB_FREE(jsonb_ptr);
 			jsonb = NULL;
 		}
-		/* Fall back to string-based parsing */
 	}
 	PG_END_TRY();
 
-	/* Fallback to string-based parsing if JSONB failed */
 	if ((int) nnz == 0)
 	{
 		const char *ptr;
@@ -2724,11 +2708,13 @@ ndb_json_parse_sparse_vector(const char *json_str,
 		char	   *wgt_ptr;
 		int			idx;
 
+		NDB_DECLARE(int32 *, token_ids);
+		NDB_DECLARE(float4 *, weights);
+
 		ptr = json_str;
 		while (*ptr && *ptr != '{')
 			ptr++;
 
-		/* Parse vocab_size */
 		if (strstr(ptr, "\"vocab_size\":") != NULL || strstr(ptr, "vocab_size:") != NULL)
 		{
 			const char *vs_ptr = strstr(ptr, "\"vocab_size\":");
@@ -2748,7 +2734,6 @@ ndb_json_parse_sparse_vector(const char *json_str,
 			}
 		}
 
-		/* Parse model type */
 		if (strstr(ptr, "\"model\":\"BM25\"") != NULL || strstr(ptr, "model:BM25") != NULL)
 			result->model_type = 0;
 		else if (strstr(ptr, "\"model\":\"SPLADE\"") != NULL || strstr(ptr, "model:SPLADE") != NULL)
@@ -2756,13 +2741,9 @@ ndb_json_parse_sparse_vector(const char *json_str,
 		else if (strstr(ptr, "\"model\":\"ColBERTv2\"") != NULL || strstr(ptr, "model:ColBERTv2") != NULL)
 			result->model_type = 2;
 
-		/* Allocate temporary arrays (zero-initialized) */
-		NDB_DECLARE(int32 *, token_ids);
-		NDB_DECLARE(float4 *, weights);
 		NDB_ALLOC(token_ids, int32, capacity);
 		NDB_ALLOC(weights, float4, capacity);
 
-		/* Parse tokens array */
 		tokens_start = strstr(ptr, "\"tokens\":[");
 		if (tokens_start == NULL)
 			tokens_start = strstr(ptr, "tokens:[");
@@ -2801,7 +2782,6 @@ ndb_json_parse_sparse_vector(const char *json_str,
 			}
 		}
 
-		/* Parse weights array */
 		weights_start = strstr(ptr, "\"weights\":[");
 		if (weights_start == NULL)
 			weights_start = strstr(ptr, "weights:[");
@@ -2831,10 +2811,6 @@ ndb_json_parse_sparse_vector(const char *json_str,
 						idx++;
 					}
 
-					/*
-					 * Zero-fill any remaining weights if fewer values than
-					 * tokens
-					 */
 					for (; idx < nnz; idx++)
 						weights[idx] = 0.0f;
 				}
@@ -2864,9 +2840,8 @@ ndb_json_parse_sparse_vector(const char *json_str,
 	}
 
 	if (result->vocab_size == 0)
-		result->vocab_size = 30522; /* Default BERT vocab size */
+		result->vocab_size = 30522;
 
-	/* Ensure weights array matches tokens array */
 	if (weights == NULL && (int) nnz > 0)
 	{
 		NDB_DECLARE(float4 *, weights);
@@ -2882,6 +2857,16 @@ ndb_json_parse_sparse_vector(const char *json_str,
 
 /*
  * ndb_json_parse_sparse_vector_free - Free sparse vector parse structure
+ *
+ * Frees all dynamically allocated memory in an NdbSparseVectorParse structure,
+ * including token_ids and weights arrays. Resets counts to zero.
+ *
+ * Parameters:
+ *   result - Structure to free resources from
+ *
+ * Notes:
+ *   Safe to call with NULL pointer. After calling this function, the structure
+ *   should not be used unless re-initialized.
  */
 void
 ndb_json_parse_sparse_vector_free(NdbSparseVectorParse *result)
@@ -2904,15 +2889,8 @@ ndb_json_parse_sparse_vector_free(NdbSparseVectorParse *result)
 	result->nnz = 0;
 }
 
-/*-------------------------------------------------------------------------
- * JSON Generation Utilities
- *-------------------------------------------------------------------------
- */
-
 /*
  * ndb_json_build_object - Build JSON object string from key-value pairs
- * Returns palloc'd string in CurrentMemoryContext.
- * Caller must pfree or NDB_FREE the returned string.
  */
 char *
 ndb_json_build_object(const char *key1, const char *value1,...)
@@ -2955,7 +2933,6 @@ ndb_json_build_object(const char *key1, const char *value1,...)
 
 /*
  * ndb_json_build_object_buf - Build JSON object into StringInfo buffer
- * Appends JSON object to existing buffer
  */
 void
 ndb_json_build_object_buf(StringInfo buf, const char *key1, const char *value1,...)
@@ -2997,8 +2974,21 @@ ndb_json_build_object_buf(StringInfo buf, const char *key1, const char *value1,.
 
 /*
  * ndb_json_build_array - Build JSON array string from values
- * Returns palloc'd string in CurrentMemoryContext.
- * Caller must pfree or NDB_FREE the returned string.
+ *
+ * Constructs a JSON array string from a variable number of string values
+ * provided as arguments. Uses variadic arguments to accept multiple values.
+ *
+ * Parameters:
+ *   value1 - First array element (C string)
+ *   ... - Additional array elements, terminated with NULL
+ *
+ * Returns:
+ *   Newly allocated C string containing JSON array
+ *
+ * Notes:
+ *   Memory for the returned string is allocated in CurrentMemoryContext.
+ *   Caller is responsible for freeing using pfree or NDB_FREE. All values
+ *   are automatically quoted and escaped according to JSON string encoding rules.
  */
 char *
 ndb_json_build_array(const char *value1,...)
@@ -3035,7 +3025,19 @@ ndb_json_build_array(const char *value1,...)
 
 /*
  * ndb_json_build_array_buf - Build JSON array into StringInfo buffer
- * Appends JSON array to existing buffer
+ *
+ * Constructs a JSON array and appends it to an existing StringInfo buffer.
+ * Similar to ndb_json_build_array but appends to a buffer instead of
+ * allocating a new string.
+ *
+ * Parameters:
+ *   buf - StringInfo buffer to append JSON array to
+ *   value1 - First array element (C string)
+ *   ... - Additional array elements, terminated with NULL
+ *
+ * Notes:
+ *   If buf is NULL, the function returns without doing anything. All values
+ *   are automatically quoted and escaped according to JSON string encoding rules.
  */
 void
 ndb_json_build_array_buf(StringInfo buf, const char *value1,...)
@@ -3071,8 +3073,24 @@ ndb_json_build_array_buf(StringInfo buf, const char *value1,...)
 
 /*
  * ndb_json_merge_objects - Merge two JSON objects
- * Returns palloc'd string in CurrentMemoryContext.
- * Caller must pfree or NDB_FREE the returned string.
+ *
+ * Merges two JSON objects into a single JSON object string. Fields from
+ * both objects are combined, with fields from json2 potentially overwriting
+ * fields from json1 if there are duplicate keys.
+ *
+ * Parameters:
+ *   json1 - First JSON object string
+ *   json2 - Second JSON object string
+ *
+ * Returns:
+ *   Newly allocated C string containing merged JSON object, "{}" if both
+ *   inputs are NULL, or a copy of the non-NULL input if one is NULL
+ *
+ * Notes:
+ *   Memory for the returned string is allocated in CurrentMemoryContext.
+ *   Caller is responsible for freeing using pfree or NDB_FREE. The function
+ *   first attempts JSONB parsing for robustness, then falls back to
+ *   string-based merging if parsing fails.
  */
 char *
 ndb_json_merge_objects(const char *json1, const char *json2)
@@ -3095,15 +3113,9 @@ ndb_json_merge_objects(const char *json1, const char *json2)
 
 		if (jsonb1 != NULL && jsonb2 != NULL)
 		{
-			/* Merge using JSONB concatenation */
-			/*
-			 * For now, simple approach: convert both to strings and merge
-			 * manually
-			 */
 			char	   *str1 = ndb_jsonb_out_cstring((Jsonb *) jsonb1);
 			char	   *str2 = ndb_jsonb_out_cstring((Jsonb *) jsonb2);
 
-			/* Remove outer braces and merge */
 			StringInfoData buf;
 
 			initStringInfo(&buf);
@@ -3115,7 +3127,6 @@ ndb_json_merge_objects(const char *json1, const char *json2)
 				appendStringInfo(&buf, "%.*s", (int) (strlen(str1) - 2), str1 + 1);
 			}
 
-			/* Add fields from second object */
 			if (str2 != NULL && strlen(str2) > 2)
 			{
 				if (str1 != NULL && strlen(str1) > 2)
@@ -3165,7 +3176,6 @@ ndb_json_merge_objects(const char *json1, const char *json2)
 			NDB_FREE(jsonb2_ptr);
 			jsonb2 = NULL;
 		}
-		/* Simple string concatenation fallback */
 
 		initStringInfo(&buf);
 		appendStringInfoString(&buf, "{");
@@ -3185,14 +3195,8 @@ ndb_json_merge_objects(const char *json1, const char *json2)
 	return result;
 }
 
-/*-------------------------------------------------------------------------
- * JSON Array Utilities
- *-------------------------------------------------------------------------
- */
-
 /*
  * ndb_json_parse_array - Parse JSON array into string array
- * Returns array of strings and count
  */
 char	  **
 ndb_json_parse_array(const char *json_str, int *count)
@@ -3208,13 +3212,11 @@ ndb_json_parse_array(const char *json_str, int *count)
 
 	*count = 0;
 
-	/* Try JSONB parsing first */
 	PG_TRY();
 	{
 		jsonb = ndb_jsonb_in_cstring(json_str);
 		if (jsonb != NULL)
 		{
-			/* Use jsonb as the array field */
 			array_field = jsonb;
 
 			if (array_field != NULL)
@@ -3244,7 +3246,6 @@ ndb_json_parse_array(const char *json_str, int *count)
 						}
 						else
 						{
-							/* Convert JsonbValue to Jsonb properly */
 							Jsonb	   *elem_jsonb = JsonbValueToJsonb(&v);
 							text	   *elem_text = NULL;
 							char	   *elem_str = NULL;
@@ -3267,7 +3268,6 @@ ndb_json_parse_array(const char *json_str, int *count)
 				}
 			}
 		}
-		/* Free jsonb after use */
 		if (jsonb != NULL)
 		{
 			Jsonb	   *jsonb_ptr = (Jsonb *) jsonb;
@@ -3279,7 +3279,6 @@ ndb_json_parse_array(const char *json_str, int *count)
 	PG_CATCH();
 	{
 		FlushErrorState();
-		/* Free jsonb if it was allocated */
 		if (jsonb != NULL)
 		{
 			Jsonb	   *jsonb_ptr = (Jsonb *) jsonb;
@@ -3287,7 +3286,6 @@ ndb_json_parse_array(const char *json_str, int *count)
 			NDB_FREE(jsonb_ptr);
 			jsonb = NULL;
 		}
-		/* Fall back to string-based parsing */
 		if (result != NULL)
 		{
 			{
@@ -3301,7 +3299,6 @@ ndb_json_parse_array(const char *json_str, int *count)
 	}
 	PG_END_TRY();
 
-	/* Fallback to string-based parsing if no elements were found */
 	if (result == NULL || (int) n == 0)
 	{
 		const char *p;
@@ -3325,13 +3322,13 @@ ndb_json_parse_array(const char *json_str, int *count)
 			p++;
 		if (*p == '[')
 		{
-			p++;
 			NDB_DECLARE(char **, local_result);
+
+			p++;
 			NDB_ALLOC(local_result, char *, capacity);
 
 			while (*p && *p != ']')
 			{
-				/* Skip whitespace and commas */
 				while (*p && (isspace((unsigned char) *p) || *p == ','))
 					p++;
 
@@ -3340,10 +3337,8 @@ ndb_json_parse_array(const char *json_str, int *count)
 
 				start = p;
 
-				/* Find end of value */
 				if (*p == '"')
 				{
-					/* String value */
 					p++;
 					while (*p && *p != '"')
 					{
@@ -3356,7 +3351,6 @@ ndb_json_parse_array(const char *json_str, int *count)
 					{
 						end = p;
 						value = pnstrdup(start + 1, end - start - 1);
-						/* Unescape if needed */
 						if (strchr(value, '\\') != NULL)
 						{
 							char	   *unescaped = ndb_json_unescape_string(value);
@@ -3373,7 +3367,6 @@ ndb_json_parse_array(const char *json_str, int *count)
 				}
 				else
 				{
-					/* Non-string value */
 					while (*p && *p != ',' && *p != ']' && !isspace((unsigned char) *p))
 						p++;
 					end = p;
@@ -3406,6 +3399,17 @@ ndb_json_parse_array(const char *json_str, int *count)
 
 /*
  * ndb_json_parse_array_free - Free array parsed by ndb_json_parse_array
+ *
+ * Frees all memory allocated by ndb_json_parse_array, including the array
+ * itself and all individual string elements.
+ *
+ * Parameters:
+ *   array - Array of strings to free (from ndb_json_parse_array)
+ *   count - Number of elements in the array
+ *
+ * Notes:
+ *   Safe to call with NULL array pointer. This function should be called
+ *   to free arrays returned by ndb_json_parse_array.
  */
 void
 ndb_json_parse_array_free(char **array, int count)
@@ -3426,7 +3430,22 @@ ndb_json_parse_array_free(char **array, int count)
 
 /*
  * ndb_json_parse_float_array - Parse JSON array of floats
- * Returns array of floats and count
+ *
+ * Parses a JSON array string and converts all elements to float values.
+ * Uses ndb_json_parse_array internally to extract string values, then
+ * converts each to a float using strtof.
+ *
+ * Parameters:
+ *   json_str - Input JSON array string
+ *   count - Output pointer to receive the number of elements parsed
+ *
+ * Returns:
+ *   Array of float values, NULL if parsing fails, input is NULL, or
+ *   no elements found. Invalid numbers are set to 0.0.
+ *
+ * Notes:
+ *   Memory for the array is allocated in CurrentMemoryContext. Caller is
+ *   responsible for freeing using pfree or NDB_FREE.
  */
 float *
 ndb_json_parse_float_array(const char *json_str, int *count)
@@ -3455,7 +3474,6 @@ ndb_json_parse_float_array(const char *json_str, int *count)
 		result[i] = strtof(str_array[i], &endptr);
 		if (endptr == str_array[i] || errno != 0)
 		{
-			/* Invalid number, use 0.0 */
 			result[i] = 0.0f;
 		}
 	}
@@ -3468,7 +3486,22 @@ ndb_json_parse_float_array(const char *json_str, int *count)
 
 /*
  * ndb_json_parse_int_array - Parse JSON array of integers
- * Returns array of integers and count
+ *
+ * Parses a JSON array string and converts all elements to integer values.
+ * Uses ndb_json_parse_array internally to extract string values, then
+ * converts each to an integer using strtol.
+ *
+ * Parameters:
+ *   json_str - Input JSON array string
+ *   count - Output pointer to receive the number of elements parsed
+ *
+ * Returns:
+ *   Array of integer values, NULL if parsing fails, input is NULL, or
+ *   no elements found. Invalid numbers are set to 0.
+ *
+ * Notes:
+ *   Memory for the array is allocated in CurrentMemoryContext. Caller is
+ *   responsible for freeing using pfree or NDB_FREE.
  */
 int *
 ndb_json_parse_int_array(const char *json_str, int *count)
@@ -3497,7 +3530,6 @@ ndb_json_parse_int_array(const char *json_str, int *count)
 		result[i] = (int) strtol(str_array[i], &endptr, 10);
 		if (endptr == str_array[i] || errno != 0)
 		{
-			/* Invalid number, use 0 */
 			result[i] = 0;
 		}
 	}
@@ -3508,14 +3540,8 @@ ndb_json_parse_int_array(const char *json_str, int *count)
 	return result;
 }
 
-/*-------------------------------------------------------------------------
- * Utility Functions
- *-------------------------------------------------------------------------
- */
-
 /*
  * ndb_json_validate - Validate JSON string syntax
- * Returns true if valid JSON, false otherwise
  */
 bool
 ndb_json_validate(const char *json_str)
@@ -3560,7 +3586,6 @@ ndb_json_validate(const char *json_str)
 
 /*
  * ndb_json_is_empty - Check if JSON string is empty object/array
- * Returns true if empty, false otherwise
  */
 bool
 ndb_json_is_empty(const char *json_str)
@@ -3568,15 +3593,12 @@ ndb_json_is_empty(const char *json_str)
 	if (json_str == NULL)
 		return true;
 
-	/* Check for empty object */
 	if (strcmp(json_str, "{}") == 0)
 		return true;
 
-	/* Check for empty array */
 	if (strcmp(json_str, "[]") == 0)
 		return true;
 
-	/* Check with whitespace */
 	{
 		const char *p = json_str;
 
@@ -3606,8 +3628,6 @@ ndb_json_is_empty(const char *json_str)
 
 /*
  * ndb_json_strip_whitespace - Remove unnecessary whitespace from JSON
- * Returns palloc'd string in CurrentMemoryContext.
- * Caller must pfree or NDB_FREE the returned string.
  */
 char *
 ndb_json_strip_whitespace(const char *json_str)
@@ -3618,7 +3638,6 @@ ndb_json_strip_whitespace(const char *json_str)
 	if (json_str == NULL)
 		return NULL;
 
-	/* Use JSONB to parse and re-output (removes unnecessary whitespace) */
 	PG_TRY();
 	{
 		jsonb = ndb_jsonb_in_cstring(json_str);
@@ -3644,7 +3663,6 @@ ndb_json_strip_whitespace(const char *json_str)
 			NDB_FREE(jsonb_ptr);
 			jsonb = NULL;
 		}
-		/* Return original string if parsing fails */
 		result = pstrdup(json_str);
 	}
 	PG_END_TRY();
@@ -3654,7 +3672,24 @@ ndb_json_strip_whitespace(const char *json_str)
 
 /*
  * ndb_json_parse_object - Parse JSON object into key-value pairs
- * Returns array of NdbJsonParseResult structures
+ *
+ * Parses a JSON object string and extracts all key-value pairs into an array
+ * of NdbJsonParseResult structures. Each structure contains the key, value
+ * type, and value representation.
+ *
+ * Parameters:
+ *   json_str - Input JSON object string
+ *   count - Output pointer to receive the number of key-value pairs parsed
+ *
+ * Returns:
+ *   Array of NdbJsonParseResult structures, NULL if parsing fails, input is
+ *   NULL, or no pairs found. The count is set to the number of pairs.
+ *
+ * Notes:
+ *   Memory for the array and all key/value strings is allocated in
+ *   CurrentMemoryContext. Caller is responsible for freeing using
+ *   ndb_json_parse_object_free. The function uses JSONB parsing internally
+ *   for robustness.
  */
 NdbJsonParseResult *
 ndb_json_parse_object(const char *json_str, int *count)
@@ -3669,7 +3704,6 @@ ndb_json_parse_object(const char *json_str, int *count)
 
 	*count = 0;
 
-	/* Try JSONB parsing first */
 	PG_TRY();
 	{
 		jsonb = ndb_jsonb_in_cstring(json_str);
@@ -3729,7 +3763,6 @@ ndb_json_parse_object(const char *json_str, int *count)
 							break;
 						default:
 							{
-								/* Convert JsonbValue to Jsonb properly */
 								Jsonb	   *value_jsonb = JsonbValueToJsonb(&v);
 								text	   *value_text = NULL;
 								char	   *value_str = NULL;
@@ -3758,7 +3791,6 @@ ndb_json_parse_object(const char *json_str, int *count)
 				}
 			}
 		}
-		/* Free jsonb after use */
 		if (jsonb != NULL)
 		{
 			Jsonb	   *jsonb_ptr = (Jsonb *) jsonb;
@@ -3770,7 +3802,6 @@ ndb_json_parse_object(const char *json_str, int *count)
 	PG_CATCH();
 	{
 		FlushErrorState();
-		/* Free jsonb if it was allocated */
 		if (jsonb != NULL)
 		{
 			Jsonb	   *jsonb_ptr = (Jsonb *) jsonb;
@@ -3778,7 +3809,6 @@ ndb_json_parse_object(const char *json_str, int *count)
 			NDB_FREE(jsonb_ptr);
 			jsonb = NULL;
 		}
-		/* Free result if partially allocated */
 		if (result != NULL)
 		{
 			int			i;
@@ -3819,7 +3849,6 @@ ndb_json_parse_object(const char *json_str, int *count)
 
 /*
  * ndb_json_parse_object_free - Free array parsed by ndb_json_parse_object
- * Caller must free the returned array using this function
  */
 void
 ndb_json_parse_object_free(NdbJsonParseResult *arr, int count)
@@ -3842,7 +3871,6 @@ ndb_json_parse_object_free(NdbJsonParseResult *arr, int count)
 
 /*
  * ndb_jsonb_build_object - Build JSONB object from key-value pairs
- * Note: This is a simplified implementation using string building
  */
 Jsonb *
 ndb_jsonb_build_object(const char *key1, const char *value1,...)
@@ -3886,7 +3914,6 @@ ndb_jsonb_build_object(const char *key1, const char *value1,...)
 	appendStringInfoChar(&buf, '}');
 	json_str = buf.data;
 
-	/* Convert to JSONB */
 	result = ndb_jsonb_in_cstring(json_str);
 
 	NDB_FREE(buf.data);
@@ -3896,7 +3923,6 @@ ndb_jsonb_build_object(const char *key1, const char *value1,...)
 
 /*
  * ndb_jsonb_build_array - Build JSONB array from values
- * Note: This is a simplified implementation using string building
  */
 Jsonb *
 ndb_jsonb_build_array(const char *value1,...)
@@ -3931,7 +3957,6 @@ ndb_jsonb_build_array(const char *value1,...)
 	appendStringInfoChar(&buf, ']');
 	json_str = buf.data;
 
-	/* Convert to JSONB */
 	result = ndb_jsonb_in_cstring(json_str);
 
 	NDB_FREE(buf.data);

@@ -69,10 +69,6 @@ typedef struct QuotaUsage
 	TimestampTz lastCheck;
 }			QuotaUsage;
 
-/* GUC variables are now centralized in neurondb_guc.c */
-/* Use GetConfigOption() to retrieve GUC values */
-
-/* Helper to get int GUC value */
 static int
 get_guc_int(const char *name, int default_val)
 {
@@ -81,7 +77,6 @@ get_guc_int(const char *name, int default_val)
 	return val ? atoi(val) : default_val;
 }
 
-/* Helper to get int64 GUC value */
 static int64
 get_guc_int64(const char *name, int64 default_val)
 {
@@ -90,7 +85,6 @@ get_guc_int64(const char *name, int64 default_val)
 	return val ? atoll(val) : default_val;
 }
 
-/* Helper to get bool GUC value */
 static bool
 get_guc_bool(const char *name, bool default_val)
 {
@@ -101,10 +95,8 @@ get_guc_bool(const char *name, bool default_val)
 	return (strcmp(val, "on") == 0 || strcmp(val, "true") == 0 || strcmp(val, "1") == 0);
 }
 
-/* GUC initialization is now centralized in neurondb_guc.c */
-
 /*
- * Get quota limits for a tenant
+ * get_tenant_quota - Get quota limits for a tenant
  */
 static QuotaLimits *
 get_tenant_quota(const char *tenantId)
@@ -114,7 +106,6 @@ get_tenant_quota(const char *tenantId)
 
 	NDB_ALLOC(limits, QuotaLimits, 1);
 
-	/* Query neurondb.tenant_quotas table */
 	session = ndb_spi_session_begin(CurrentMemoryContext, false);
 	if (session == NULL)
 	{
@@ -192,7 +183,6 @@ get_tenant_quota(const char *tenantId)
 		}
 		else
 		{
-			/* Use defaults if no quota found */
 			limits->maxVectors = get_guc_int64("neurondb.default_max_vectors", 1000000);
 			limits->maxStorageBytes = get_guc_int64("neurondb.default_max_storage_mb", 10240) * 1024 * 1024;
 			limits->maxIndexSize = get_guc_int64("neurondb.default_max_storage_mb", 10240) * 1024 * 1024;
@@ -215,17 +205,16 @@ static QuotaUsage *
 get_tenant_usage(const char *tenantId, Oid indexOid)
 {
 	int			ret;
+	int32		count_val;
+	int32		qps_val;
 
 	NDB_DECLARE(QuotaUsage *, usage);
 	NDB_DECLARE(NdbSpiSession *, session);
-	int32		count_val;
-	int32		qps_val;
 
 	NDB_ALLOC(usage, QuotaUsage, 1);
 	usage->tenantId = pstrdup(tenantId);
 	usage->lastCheck = GetCurrentTimestamp();
 
-	/* Query usage from catalog */
 	session = ndb_spi_session_begin(CurrentMemoryContext, false);
 	if (session == NULL)
 	{
@@ -234,7 +223,6 @@ get_tenant_usage(const char *tenantId, Oid indexOid)
 				 errmsg("neurondb: failed to begin SPI session in get_tenant_usage")));
 	}
 
-	/* Get vector count */
 	{
 		Oid			argtypes[1];
 		Datum		values[1];
@@ -263,7 +251,6 @@ get_tenant_usage(const char *tenantId, Oid indexOid)
 		usage->vectorCount = 0;
 	}
 
-	/* Get storage size from pg_class */
 	{
 		int			ret2;
 		StringInfoData query;
@@ -310,7 +297,6 @@ get_tenant_usage(const char *tenantId, Oid indexOid)
 		NDB_FREE(query.data);
 	}
 
-	/* Get QPS from stats */
 	{
 		int			ret3;
 		StringInfoData query;
@@ -360,12 +346,11 @@ ndb_quota_check(const char *tenantId,
 		return true;
 
 	if (tenantId == NULL)
-		return true;			/* No tenant = no quota */
+		return true;
 
 	limits = get_tenant_quota(tenantId);
 	usage = get_tenant_usage(tenantId, indexOid);
 
-	/* Check vector count */
 	if (usage->vectorCount + additionalVectors > limits->maxVectors)
 	{
 		if (limits->enforceHard)
@@ -396,7 +381,6 @@ ndb_quota_check(const char *tenantId,
 		allowed = false;
 	}
 
-	/* Check storage size */
 	if (usage->storageBytes + additionalBytes > limits->maxStorageBytes)
 	{
 		if (limits->enforceHard)
@@ -437,7 +421,6 @@ ndb_quota_enforce_insert(Relation index,
 
 	if (!ndb_quota_check(tenantId, indexOid, vectorCount, estimatedBytes))
 	{
-		/* Error already raised if hard enforcement */
 		return;
 	}
 
@@ -461,7 +444,6 @@ ndb_quota_update_usage(const char *tenantId,
 
 	initStringInfo(&query);
 
-	/* Upsert usage record */
 	appendStringInfo(&query,
 					 "INSERT INTO neurondb.tenant_usage "
 					 "(tenant_id, index_oid, vector_count, storage_bytes, "

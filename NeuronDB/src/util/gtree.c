@@ -5,10 +5,6 @@
 #include "neurondb_safe_memory.h"
 #include "neurondb_macros.h"
 
-/*
- * Expand the array of nodes for the given GTree to ensure
- * it can hold at least (count + need_extra) nodes.
- */
 static void
 gtree_grow(GTree *t, int need_extra)
 {
@@ -48,9 +44,6 @@ gtree_grow(GTree *t, int need_extra)
 	t->capacity = newcap;
 }
 
-/*
- * Allocate and initialize a new GTree object with requested initial capacity.
- */
 GTree *
 gtree_create(const char *name, Size initial_cap)
 {
@@ -94,9 +87,6 @@ gtree_create(const char *name, Size initial_cap)
 	return t;
 }
 
-/*
- * Free all memory associated with a GTree (including context).
- */
 void
 gtree_free(GTree *t)
 {
@@ -106,9 +96,6 @@ gtree_free(GTree *t)
 		MemoryContextDelete(t->ctx);
 }
 
-/*
- * Add a new leaf node to the tree with the given value.
- */
 int
 gtree_add_leaf(GTree *t, double value)
 {
@@ -133,9 +120,6 @@ gtree_add_leaf(GTree *t, double value)
 	return idx;
 }
 
-/*
- * Add a new split (internal) node to the tree for the given feature and threshold.
- */
 int
 gtree_add_split(GTree *t, int feature_idx, double threshold)
 {
@@ -202,7 +186,7 @@ gtree_depth_dfs(const GTree *t, int node, int depth, bool *seen)
 }
 
 /*
- * Set either left or right child for the parent node.
+ * gtree_set_child - Set either left or right child for the parent node
  */
 void
 gtree_set_child(GTree *t, int parent, int child, bool is_left)
@@ -223,7 +207,7 @@ gtree_set_child(GTree *t, int parent, int child, bool is_left)
 }
 
 /*
- * Set both left and right children for this parent node.
+ * gtree_set_children - Set both left and right children for this parent node
  */
 void
 gtree_set_children(GTree *t, int parent, int left, int right)
@@ -233,7 +217,7 @@ gtree_set_children(GTree *t, int parent, int left, int right)
 }
 
 /*
- * Set the root node index of the tree.
+ * gtree_set_root - Set the root node index of the tree
  */
 void
 gtree_set_root(GTree *t, int node_idx)
@@ -246,8 +230,7 @@ gtree_set_root(GTree *t, int node_idx)
 }
 
 /*
- * Validate the integrity of the tree structure and check for cycles,
- * missing root, and excessive depth.
+ * gtree_validate - Validate the integrity of the tree structure
  */
 void
 gtree_validate(const GTree *t)
@@ -276,7 +259,7 @@ gtree_validate(const GTree *t)
 }
 
 /*
- * Reset the tree to empty. Memory stays allocated.
+ * gtree_reset - Reset the tree to empty
  */
 void
 gtree_reset(GTree *t)
@@ -289,7 +272,7 @@ gtree_reset(GTree *t)
 }
 
 /*
- * Return the pointer to the node array, or NULL on NULL tree.
+ * gtree_nodes - Return the pointer to the node array
  */
 const GTreeNode *
 gtree_nodes(const GTree *t)
@@ -300,7 +283,7 @@ gtree_nodes(const GTree *t)
 }
 
 /*
- * Return the number of nodes in the tree.
+ * gtree_count - Return the number of nodes in the tree
  */
 int
 gtree_count(const GTree *t)

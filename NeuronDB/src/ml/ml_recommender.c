@@ -97,6 +97,30 @@ dot_product(const float *v1, const float *v2, int n)
 }
 
 /*
+ * train_collaborative_filter - Train collaborative filtering recommender
+ *
+ * User-facing function that trains a collaborative filtering model using
+ * alternating least squares (ALS) matrix factorization. Learns user and
+ * item latent factors from rating data.
+ *
+ * Parameters:
+ *   table_name - Name of table containing user-item ratings (text)
+ *   user_col - Name of user ID column (text)
+ *   item_col - Name of item ID column (text)
+ *   rating_col - Name of rating column (text)
+ *   n_factors - Number of latent factors (int32, optional)
+ *   epochs - Number of training epochs (int32, optional)
+ *   lambda_reg - Regularization parameter (float8, optional)
+ *
+ * Returns:
+ *   Model ID (int32) of the trained model stored in catalog
+ *
+ * Notes:
+ *   The function uses ALS matrix factorization to learn user and item
+ *   embeddings. Supports both explicit and implicit feedback. The trained
+ *   model is serialized and stored in the ML catalog for recommendation.
+ */
+/*
  * train_collaborative_filter
  * Trains ALS matrix factorization from a ratings table.
  * Returns a model id. The model is saved as two tables: user_factors and item_factors.
@@ -2082,10 +2106,6 @@ recommend_hybrid(PG_FUNCTION_ARGS)
 	}
 }
 
-/*-------------------------------------------------------------------------
- * GPU Model Ops Registration for Recommender
- *-------------------------------------------------------------------------
- */
 #include "neurondb_gpu_model.h"
 #include "ml_gpu_registry.h"
 #include "neurondb_safe_memory.h"

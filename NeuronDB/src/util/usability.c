@@ -22,9 +22,6 @@
 #include "neurondb_spi.h"
 #include "neurondb_macros.h"
 
-/*
- * CREATE MODEL wrapper
- */
 PG_FUNCTION_INFO_V1(create_model);
 Datum
 create_model(PG_FUNCTION_ARGS)
@@ -48,7 +45,6 @@ create_model(PG_FUNCTION_ARGS)
 		 name_str,
 		 type_str);
 
-	/* Store model metadata in system catalog */
 	session = ndb_spi_session_begin(CurrentMemoryContext, false);
 	if (session == NULL)
 		ereport(ERROR,
@@ -56,16 +52,11 @@ create_model(PG_FUNCTION_ARGS)
 				 errmsg("neurondb: failed to begin SPI session in "
 						"create_model")));
 
-	/* INSERT INTO neurondb_models (name, type, config) VALUES (...) */
-
 	ndb_spi_session_end(&session);
 
 	PG_RETURN_BOOL(true);
 }
 
-/*
- * DROP MODEL wrapper
- */
 PG_FUNCTION_INFO_V1(drop_model);
 Datum
 drop_model(PG_FUNCTION_ARGS)
@@ -77,10 +68,6 @@ drop_model(PG_FUNCTION_ARGS)
 
 	name_str = text_to_cstring(model_name);
 
-	/*
-	 * Suppress unused variable warning - placeholder for future
-	 * implementation
-	 */
 	(void) name_str;
 	session2 = ndb_spi_session_begin(CurrentMemoryContext, false);
 	if (session2 == NULL)
@@ -89,16 +76,11 @@ drop_model(PG_FUNCTION_ARGS)
 				 errmsg("neurondb: failed to begin SPI session in "
 						"drop_model")));
 
-	/* DELETE FROM neurondb_models WHERE name = ... */
-
 	ndb_spi_session_end(&session2);
 
 	PG_RETURN_BOOL(true);
 }
 
-/*
- * CREATE INDEX USING ANN helper
- */
 PG_FUNCTION_INFO_V1(create_ann_index);
 Datum
 create_ann_index(PG_FUNCTION_ARGS)
@@ -130,9 +112,6 @@ create_ann_index(PG_FUNCTION_ARGS)
 	PG_RETURN_BOOL(true);
 }
 
-/*
- * EXPLAIN (VERBOSE) enhancement for vector queries
- */
 PG_FUNCTION_INFO_V1(explain_vector_query);
 Datum
 explain_vector_query(PG_FUNCTION_ARGS)
@@ -151,7 +130,22 @@ explain_vector_query(PG_FUNCTION_ARGS)
 }
 
 /*
- * SQL-based API documentation via \dx+
+ * neurondb_api_docs - Get API documentation for a NeuronDB function
+ *
+ * User-facing function that returns documentation for a specified NeuronDB
+ * function, including description, parameters, examples, and performance
+ * characteristics. Can be used with psql's \dx+ command for inline help.
+ *
+ * Parameters:
+ *   function_name - Name of the NeuronDB function to document (text)
+ *
+ * Returns:
+ *   Text string containing formatted documentation
+ *
+ * Notes:
+ *   This function provides SQL-based access to function documentation,
+ *   making it easy to get help on NeuronDB functions directly from the
+ *   database without external documentation.
  */
 PG_FUNCTION_INFO_V1(neurondb_api_docs);
 Datum

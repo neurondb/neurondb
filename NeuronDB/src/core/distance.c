@@ -45,6 +45,15 @@ l2_distance(Vector *a, Vector *b)
 
 	check_dimensions(a, b);
 
+	/*
+	 * Kahan summation algorithm for numerical stability. When summing
+	 * many floating point values, rounding errors accumulate. Kahan
+	 * summation tracks a correction term 'c' that captures the lost
+	 * precision from each addition. The correction is computed as the
+	 * difference between the exact sum and the rounded sum, then added
+	 * back in the next iteration. This reduces accumulated error from
+	 * O(n) to O(1) for n additions.
+	 */
 	for (i = 0; i < a->dim; i++)
 	{
 		double		diff = (double) a->data[i] - (double) b->data[i];
@@ -71,7 +80,6 @@ vector_l2_distance(PG_FUNCTION_ARGS)
 	PG_RETURN_FLOAT4(l2_distance(a, b));
 }
 
-/* Inner product distance, negative for correct ordering for similarity */
 float4
 inner_product_distance(Vector *a, Vector *b)
 {

@@ -90,10 +90,24 @@ euclidean_distance(const float *a, const float *b, int dim)
 }
 
 /*
- * knn_classify
+ * knn_classify - Classify a sample using K-Nearest Neighbors
  *
- * Classifies a single sample using K-Nearest Neighbors
- * Returns class label (0 or 1 for binary classification)
+ * User-facing function that classifies a single sample using the K-Nearest
+ * Neighbors algorithm. Finds the k nearest training samples and returns the
+ * majority class label for binary classification.
+ *
+ * Parameters:
+ *   query_vector - Feature vector to classify (vector)
+ *   training_table - Name of table containing training data (text)
+ *   k - Number of nearest neighbors to consider (int32)
+ *
+ * Returns:
+ *   Class label (0 or 1 for binary classification) as float8
+ *
+ * Notes:
+ *   The function uses Euclidean distance to find nearest neighbors. For
+ *   binary classification, returns the majority class among the k nearest
+ *   neighbors. The training table must have feature and label columns.
  */
 PG_FUNCTION_INFO_V1(knn_classify);
 
@@ -2957,11 +2971,6 @@ cpu_evaluation_path:
 
 	PG_RETURN_JSONB_P(result_jsonb);
 }
-
-/*-------------------------------------------------------------------------
- * GPU Model Ops Registration for KNN
- *-------------------------------------------------------------------------
- */
 
 #ifdef NDB_GPU_CUDA
 

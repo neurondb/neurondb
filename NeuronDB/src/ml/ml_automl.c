@@ -60,8 +60,23 @@ typedef struct ModelScore
 /* GUC initialization is now centralized in neurondb_guc.c */
 
 /*
- * neurondb_automl_choose_backend
- *	  Determine if GPU should be used for a given algorithm.
+ * neurondb_automl_choose_backend - Determine if GPU should be used for an algorithm
+ *
+ * Determines whether GPU acceleration should be used for a given machine
+ * learning algorithm based on GUC settings, GPU availability, and algorithm
+ * support.
+ *
+ * Parameters:
+ *   algorithm - Name of the machine learning algorithm (e.g., "linear_regression")
+ *
+ * Returns:
+ *   AUTOML_BACKEND_GPU if GPU should be used, AUTOML_BACKEND_CPU otherwise
+ *
+ * Notes:
+ *   The function checks the neurondb_automl_use_gpu GUC variable and GPU
+ *   availability. Only algorithms that explicitly support GPU (linear_regression,
+ *   logistic_regression, random_forest, decision_tree, ridge, lasso) will return
+ *   GPU backend even if GPU is available.
  */
 AutoMLBackendType
 neurondb_automl_choose_backend(const char *algorithm)
@@ -72,7 +87,6 @@ neurondb_automl_choose_backend(const char *algorithm)
 	if (!neurondb_gpu_is_available())
 		return AUTOML_BACKEND_CPU;
 
-	/* Check if algorithm supports GPU */
 	if (algorithm != NULL)
 	{
 		if (strcmp(algorithm, "linear_regression") == 0 ||
@@ -88,16 +102,16 @@ neurondb_automl_choose_backend(const char *algorithm)
 }
 
 /*
- * auto_train
- *	  Automated model selection with GPU acceleration support.
+ * auto_train - Automated model selection with GPU acceleration support
  *
- * Trains multiple algorithms and selects the best one based on evaluation metrics.
- * Supports both classification and regression tasks.
+ * User-facing function that trains multiple machine learning algorithms and
+ * selects the best one based on evaluation metrics. Supports both classification
+ * and regression tasks with automatic hyperparameter tuning.
  *
- * auto_train(
- *   table_name text,
- *   feature_col text,
- *   label_col text,
+ * Parameters:
+ *   table_name - Name of the table containing training data (text)
+ *   feature_col - Name of the feature column (text)
+ *   label_col - Name of the label column (text)
  *   task text,  -- 'classification' or 'regression'
  *   metric text DEFAULT 'accuracy'  -- 'accuracy', 'f1', 'r2', 'mse', etc.
  * )
@@ -2159,10 +2173,6 @@ model_leaderboard(PG_FUNCTION_ARGS)
 	}
 }
 
-/*-------------------------------------------------------------------------
- * GPU Model Ops Registration for AutoML
- *-------------------------------------------------------------------------
- */
 #include "neurondb_gpu_model.h"
 #include "ml_gpu_registry.h"
 
