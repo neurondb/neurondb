@@ -31,7 +31,6 @@
 #include "neurondb_safe_memory.h"
 #include "neurondb_macros.h"
 
-/* Forward declaration for kernel launch wrappers */
 extern hipError_t launch_build_X_matrix_kernel(const float *features,
 											   float *X_with_intercept,
 											   int n_samples,
@@ -373,6 +372,7 @@ cpu_fallback:
 		for (i = 0; i < n_samples; i++)
 		{
 			const float *row = features + (i * feature_dim);
+
 			NDB_DECLARE(double *, xi);
 			NDB_ALLOC(xi, double, dim_with_intercept);
 

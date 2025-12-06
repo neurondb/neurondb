@@ -365,8 +365,9 @@ dt_build_tree_gpu(const float *features,
 		node->is_leaf = true;
 		if (is_classification)
 		{
-			/* Count classes for majority vote */
 			NDB_DECLARE(int *, class_counts);
+
+			/* Count classes for majority vote */
 			NDB_ALLOC(class_counts, int, class_count);
 
 			for (i = 0; i < n_samples; i++)
@@ -547,6 +548,7 @@ dt_build_tree_gpu(const float *features,
 		if (is_classification)
 		{
 			NDB_DECLARE(int *, class_counts);
+
 			NDB_ALLOC(class_counts, int, class_count);
 
 			for (i = 0; i < n_samples; i++)

@@ -574,6 +574,8 @@ ndb_rocm_hf_embed(const char *model_name,
 			lm_head_size =
 				config.vocab_size * config.embed_dim * sizeof(float);
 
+			NDB_DECLARE(float *, embed_table);
+
 			/* Check for overflow */
 			if (position_embed_size / sizeof(float)
 				!= (size_t) config.max_seq_len * config.embed_dim
@@ -586,10 +588,9 @@ ndb_rocm_hf_embed(const char *model_name,
 				return -1;
 			}
 
-			entry->weights.embedding_table =
-				NDB_DECLARE(float *, embed_table);
-				NDB_ALLOC(embed_table, char, embed_table_size);
-				entry->embed_table = (float *) embed_table;
+			NDB_ALLOC(embed_table, char, embed_table_size);
+			entry->weights.embedding_table = (float *) embed_table;
+			entry->embed_table = (float *) embed_table;
 			if (entry->weights.embedding_table == NULL)
 			{
 				MemoryContextDelete(embed_context);
@@ -601,10 +602,11 @@ ndb_rocm_hf_embed(const char *model_name,
 				weights.embedding_table,
 				embed_table_size);
 
-			entry->weights.position_embeddings =
-				NDB_DECLARE(float *, position_embed);
-				NDB_ALLOC(position_embed, char, position_embed_size);
-				entry->position_embed = (float *) position_embed;
+			NDB_DECLARE(float *, position_embed);
+
+			NDB_ALLOC(position_embed, char, position_embed_size);
+			entry->weights.position_embeddings = (float *) position_embed;
+			entry->position_embed = (float *) position_embed;
 			if (entry->weights.position_embeddings == NULL)
 			{
 				NDB_FREE(entry->weights.embedding_table);
@@ -618,10 +620,11 @@ ndb_rocm_hf_embed(const char *model_name,
 				weights.position_embeddings,
 				position_embed_size);
 
-			entry->weights.lm_head_weights =
-				NDB_DECLARE(float *, lm_head);
-				NDB_ALLOC(lm_head, char, lm_head_size);
-				entry->lm_head = (float *) lm_head;
+			NDB_DECLARE(float *, lm_head);
+
+			NDB_ALLOC(lm_head, char, lm_head_size);
+			entry->weights.lm_head_weights = (float *) lm_head;
+			entry->lm_head = (float *) lm_head;
 			if (entry->weights.lm_head_weights == NULL)
 			{
 				NDB_FREE(entry->weights.embedding_table);
@@ -806,8 +809,9 @@ ndb_rocm_hf_embed(const char *model_name,
 		d_embedding_table = (float *)entry->device_weights_ptr;
 	}
 
-	/* Allocate output embedding in embed context */
 	NDB_DECLARE(float *, embedding);
+
+	/* Allocate output embedding in embed context */
 	NDB_ALLOC(embedding, float, embed_dim);
 	if (embedding == NULL)
 	{

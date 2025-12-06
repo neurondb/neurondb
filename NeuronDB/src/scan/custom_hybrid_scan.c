@@ -52,10 +52,8 @@
 #include "neurondb_safe_memory.h"
 #include "neurondb_macros.h"
 
-/* Planner hook for hybrid scan */
 static planner_hook_type prev_planner_hook = NULL;
 
-/* Forward declarations */
 void		register_hybrid_scan_planner_hook(void);
 
 /*
@@ -88,10 +86,6 @@ typedef struct HybridScanState
 	bool		ftsDone;
 }			HybridScanState;
 
-/*
- * Plan-time data
- * This structure would be stored in CustomScan->custom_private
- */
 typedef struct HybridScanPlanData
 {
 	Oid			vectorIndexOid;
@@ -100,7 +94,6 @@ typedef struct HybridScanPlanData
 	float4		vectorWeight;
 	float4		ftsWeight;
 	int			k;
-	/* Query data would be stored separately or evaluated at runtime */
 }			HybridScanPlanData;
 
 /* CustomScan method declarations */
@@ -112,13 +105,11 @@ static void hybrid_rescan(CustomScanState * node);
 static void
 			hybrid_explain(CustomScanState * node, List * ancestors, ExplainState * es);
 
-/* Helper functions */
 static float4
 compute_hybrid_score(float4 vectorDist, float4 ftsScore, float4 vectorWeight);
 static void merge_candidates(HybridScanState * state);
 static void sort_indices_by_scores(int *indices, float4 * scores, int count);
 
-/* CustomScan methods table */
 static CustomExecMethods hybrid_exec_methods =
 {
 	.CustomName = "HybridScan",
@@ -130,24 +121,15 @@ static CustomExecMethods hybrid_exec_methods =
 };
 
 /*
- * Estimate cost for hybrid scan path
+ * hybrid_estimate_path_cost - Estimate cost for hybrid scan path
  */
 static void
 __attribute__((unused))
 hybrid_estimate_path_cost(PlannerInfo * root, RelOptInfo * rel, CustomPath * path)
 {
-	/* Estimate startup cost: vector index scan + FTS scan */
-	path->path.startup_cost = 100.0;	/* Base startup cost */
-
-	/*
-	 * Estimate total cost based on: - Vector index scan cost (proportional to
-	 * k) - FTS scan cost (proportional to table size) - Merge and rerank cost
-	 * (proportional to candidate count)
-	 */
-	path->path.total_cost = 100.0 + (rel->tuples * 0.01);	/* Simplified cost model */
-
-	/* Set path rows estimate */
-	path->path.rows = rel->tuples * 0.1;	/* Estimate 10% selectivity */
+	path->path.startup_cost = 100.0;
+	path->path.total_cost = 100.0 + (rel->tuples * 0.01);
+	path->path.rows = rel->tuples * 0.1;
 }
 
 /*
@@ -521,12 +503,13 @@ hybrid_exec(CustomScanState * node)
 
 		/* Merge candidates: deduplicate and compute hybrid scores */
 		{
-			/* Allocate arrays for merged candidates */
-			NDB_DECLARE(ItemPointerData *, mergedItems);
-			NDB_DECLARE(float4 *, mergedScores);
 			int			mergedCount = 0;
 			int			maxCandidates = vectorCount + ftsCount;
 
+			NDB_DECLARE(ItemPointerData *, mergedItems);
+			NDB_DECLARE(float4 *, mergedScores);
+
+			/* Allocate arrays for merged candidates */
 			NDB_ALLOC(mergedItems, ItemPointerData, maxCandidates);
 			NDB_CHECK_ALLOC(mergedItems, "mergedItems");
 			NDB_ALLOC(mergedScores, float4, maxCandidates);
@@ -599,6 +582,7 @@ hybrid_exec(CustomScanState * node)
 			/* Sort by score (descending) */
 			{
 				NDB_DECLARE(int *, indices);
+
 				NDB_ALLOC(indices, int, mergedCount);
 
 				NDB_CHECK_ALLOC(indices, "indices");

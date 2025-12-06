@@ -72,10 +72,6 @@ typedef HnswNodeData * HnswNode;
 
 /*
  * HnswGetNeighborsSafe - Get neighbors array pointer for a specific level
- * 
- * CRITICAL: This function uses meta->m, not HNSW_DEFAULT_M. The node layout
- * on disk is determined by the m value stored in the meta page when the
- * node was created. All nodes in an index must use the same m value.
  */
 static inline BlockNumber *
 HnswGetNeighborsSafe(HnswNode node, int level, int m)
@@ -85,11 +81,9 @@ HnswGetNeighborsSafe(HnswNode node, int level, int m)
 						   level * m * 2 * sizeof(BlockNumber));
 }
 
-/* Legacy macro - DO NOT USE, use HnswGetNeighborsSafe instead */
 #define HnswGetNeighbors(node, lev) \
 	HnswGetNeighborsSafe(node, lev, HNSW_DEFAULT_M)
 
-/* Forward declarations */
 static BlockNumber hnswSearchLayerGreedy(Relation index,
 										 BlockNumber entryPoint,
 										 const float4 * query,
@@ -123,18 +117,12 @@ compute_l2_distance(const float4 * vec1, const float4 * vec2, int dim)
 	return sqrtf(sum);
 }
 
-/*
- * Priority queue element for search
- */
 typedef struct HnswSearchElement
 {
 	BlockNumber block;
 	float4		distance;
 }			HnswSearchElement;
 
-/*
- * Search state for HNSW traversal
- */
 typedef struct HnswSearchState
 {
 	/* Search parameters */
@@ -823,12 +811,13 @@ hnswSearchLayer0(Relation index,
 		hnswAddResult(state, block, distance);
 	}
 
+	NDB_DECLARE(BlockNumber *, results_ptr);
+	NDB_DECLARE(float4 *, distances_ptr);
+
 	/* Copy results */
 	*resultCount = state->resultCount;
 	if (*resultCount > 0)
 	{
-		NDB_DECLARE(BlockNumber *, results_ptr);
-		NDB_DECLARE(float4 *, distances_ptr);
 		NDB_ALLOC(results_ptr, BlockNumber, *resultCount);
 		NDB_ALLOC(distances_ptr, float4, *resultCount);
 		*results = results_ptr;

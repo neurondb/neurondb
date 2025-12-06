@@ -395,13 +395,14 @@ hnswbuild(Relation heap, Relation index, IndexInfo * indexInfo)
 	MarkBufferDirty(metaBuffer);
 	UnlockReleaseBuffer(metaBuffer);
 
+	NDB_DECLARE(IndexBuildResult *, result);
+
 	/* Use parallel scan if available */
 	buildstate.indtuples = table_index_build_scan(heap, index, indexInfo,
 												  true, true, hnswBuildCallback,
 												  (void *) &buildstate, NULL);
 
 	{
-		NDB_DECLARE(IndexBuildResult *, result);
 		NDB_ALLOC(result, IndexBuildResult, 1);
 		result->heap_tuples = buildstate.indtuples;
 		result->index_tuples = buildstate.indtuples;
@@ -566,9 +567,10 @@ hnswbulkdelete(IndexVacuumInfo * info,
 	bool		foundNewEntry;
 	ItemId		itemId;
 
+	NDB_DECLARE(IndexBulkDeleteResult *, new_stats);
+
 	if (stats == NULL)
 	{
-		NDB_DECLARE(IndexBulkDeleteResult *, new_stats);
 		NDB_ALLOC(new_stats, IndexBulkDeleteResult, 1);
 		memset(new_stats, 0, sizeof(IndexBulkDeleteResult));
 		stats = new_stats;
@@ -721,9 +723,10 @@ hnswbulkdelete(IndexVacuumInfo * info,
 static IndexBulkDeleteResult *
 hnswvacuumcleanup(IndexVacuumInfo * info, IndexBulkDeleteResult * stats)
 {
+	NDB_DECLARE(IndexBulkDeleteResult *, new_stats);
+
 	if (stats == NULL)
 	{
-		NDB_DECLARE(IndexBulkDeleteResult *, new_stats);
 		NDB_ALLOC(new_stats, IndexBulkDeleteResult, 1);
 		memset(new_stats, 0, sizeof(IndexBulkDeleteResult));
 		stats = new_stats;
@@ -1402,9 +1405,9 @@ hnswExtractVectorData(Datum value, Oid typeOid, int *out_dim, MemoryContext ctx)
 				halfvecOid,
 				sparsevecOid,
 				bitOid;
+	int			i;
 
 	NDB_DECLARE(float4 *, result);
-	int			i;
 
 	/* Cache OIDs on first call */
 	hnswCacheTypeOids();

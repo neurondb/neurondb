@@ -68,14 +68,13 @@ load_training_data(const char *table,
 	bool isnull;
 	Datum feat_datum;
 	NDB_DECLARE(ArrayType *, feat_arr);
+	NDB_DECLARE(NdbSpiSession *, spi_session);
 
 	initStringInfo(&query);
 
 	/* Construct query to select feature and label columns */
 	appendStringInfo(
 		&query, "SELECT %s, %s FROM %s", feature_col, label_col, table);
-
-	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext = CurrentMemoryContext;
 
 	NDB_SPI_SESSION_BEGIN(spi_session, oldcontext);
@@ -952,10 +951,6 @@ evaluate_xgboost_by_model_id(PG_FUNCTION_ARGS)
 
 #endif /* HAVE_XGBOOST */
 
-/*-------------------------------------------------------------------------
- * GPU Model Ops Registration for XGBoost
- *-------------------------------------------------------------------------
- */
 #include "neurondb_gpu_model.h"
 #include "ml_gpu_registry.h"
 #include "neurondb_validation.h"

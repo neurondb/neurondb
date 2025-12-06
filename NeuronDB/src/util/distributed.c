@@ -41,9 +41,6 @@
 #include "neurondb_spi_safe.h"
 #include "neurondb_spi.h"
 
-/*-------------------------------------------------------------------------
- * Context for distributed kNN search SRF
- *-------------------------------------------------------------------------*/
 typedef struct DistKNNResultCtx
 {
 	int			cur;
@@ -51,7 +48,7 @@ typedef struct DistKNNResultCtx
 	Datum	   *ids;
 	Datum	   *dists;
 	bool	   *nulls;
-}			DistKNNResultCtx;
+	}			DistKNNResultCtx;
 
 PG_FUNCTION_INFO_V1(distributed_knn_search);
 
@@ -75,7 +72,6 @@ distributed_knn_search(PG_FUNCTION_ARGS)
 		NDB_DECLARE(Datum *, candidate_dists);
 		NDB_DECLARE(bool *, candidate_nulls);
 
-		/* Parse and tokenize the shard list string */
 		{
 			char	   *token;
 
@@ -135,7 +131,6 @@ distributed_knn_search(PG_FUNCTION_ARGS)
 		NDB_ALLOC(candidate_dists, Datum, total_candidates);
 		NDB_ALLOC(candidate_nulls, bool, total_candidates);
 
-		/* Collect candidates from each shard using SPI */
 		{
 			int			cidx = 0;
 
@@ -211,6 +206,7 @@ distributed_knn_search(PG_FUNCTION_ARGS)
 				int			result_count = (cidx < total_candidates)
 					? cidx
 					: total_candidates;
+
 				NDB_DECLARE(int *, sorted_idxs);
 				NDB_ALLOC(sorted_idxs, int, result_count);
 

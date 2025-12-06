@@ -30,7 +30,6 @@
 #include "neurondb_safe_memory.h"
 #include "neurondb_macros.h"
 
-/* Reuse linear regression evaluation kernel */
 extern hipError_t launch_linreg_eval_kernel(const float *features,
 											const double *targets,
 											const double *coefficients,
@@ -39,9 +38,8 @@ extern hipError_t launch_linreg_eval_kernel(const float *features,
 											int feature_dim,
 											double *sse_out,
 											double *sae_out,
-											long long *count_out);
+											 long long *count_out);
 
-/* Lasso coordinate descent kernels */
 extern hipError_t launch_lasso_compute_rho_kernel(const float *features,
 												  const double *residuals,
 												  int n_samples,
@@ -60,9 +58,6 @@ extern hipError_t launch_lasso_update_residuals_kernel(const float *features,
 													   int feature_idx,
 													   double weight_diff);
 
-/*
- * Soft thresholding operator for Lasso
- */
 static double
 soft_threshold(double x, double lambda)
 {
@@ -518,12 +513,13 @@ ndb_rocm_lasso_train(const float *features,
 		double		mse = 0.0;
 		double		mae = 0.0;
 
+		NDB_DECLARE(double *, model_coefficients);
+
 		model.n_features = feature_dim;
 		model.n_samples = n_samples;
 		model.intercept = y_mean;
 		model.lambda = lambda;
 		model.max_iters = max_iters;
-		NDB_DECLARE(double *, model_coefficients);
 		NDB_ALLOC(model_coefficients, double, feature_dim);
 		model.coefficients = model_coefficients;
 		for (i = 0; i < feature_dim; i++)
@@ -910,6 +906,7 @@ ndb_rocm_lasso_evaluate(const bytea * model_data,
 	/* Convert coefficients from float to double and copy to GPU */
 	{
 		NDB_DECLARE(double *, h_coefficients_double);
+
 		NDB_ALLOC(h_coefficients_double, double, feature_dim);
 
 		if (h_coefficients_double == NULL)

@@ -38,10 +38,6 @@
 #include "neurondb_validation.h"
 #include "neurondb_json.h"
 
-/* Forward declaration for image validation */
-/* ImageMetadata and related functions are now defined in neurondb_llm.h */
-
-/* Helper: Look up and call PostgreSQL's encode() function for base64 encoding */
 static text *
 ndb_encode_base64(bytea * data)
 {
@@ -51,7 +47,6 @@ ndb_encode_base64(bytea * data)
 	FmgrInfo	flinfo;
 	Datum		result;
 
-	/* Look up encode(bytea, text) function */
 	funcname = list_make1(makeString("encode"));
 	argtypes[0] = BYTEAOID;
 	argtypes[1] = TEXTOID;
@@ -92,7 +87,9 @@ write_cb(void *ptr, size_t size, size_t nmemb, void *userdata)
 	return n;
 }
 
-/* HTTP POST with JSON body, outputs body and HTTP status code */
+/*
+ * http_post_json - HTTP POST with JSON body
+ */
 static int
 http_post_json(const char *url,
 			   const char *api_key,
@@ -657,9 +654,10 @@ ndb_openai_embed_batch(const NdbLLMConfig *cfg,
 						emb_start = strchr(emb_start, '[');
 						if (emb_start)
 						{
-							NDB_DECLARE(float *, vec);
 							int			vec_dim;
 							int			vec_cap;
+
+							NDB_DECLARE(float *, vec);
 							char	   *endptr;
 							double		v;
 

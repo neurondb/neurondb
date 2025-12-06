@@ -500,11 +500,12 @@ neurondb_onnx_run_inference(ONNXModelSession *session, ONNXTensor *input)
 		NDB_FREE(dims_temp);
 	}
 
+	NDB_DECLARE(float *, output_data_alloc);
+
 	output_size = 1;
 	for (i = 0; i < num_dims; i++)
 		output_size *= output_dims[i];
 
-	NDB_DECLARE(float *, output_data_alloc);
 	output = (ONNXTensor *) palloc0(sizeof(ONNXTensor));
 	NDB_ALLOC(output_data_alloc, float, output_size);
 	memcpy(output_data_alloc, output_data, output_size * sizeof(float));

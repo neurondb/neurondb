@@ -712,6 +712,7 @@ ndb_cuda_lr_train(const float *features,
 	/* Initialize weights on device once (convert double to float) */
 	{
 		int			j;
+
 		NDB_DECLARE(float *, h_weights_init);
 		NDB_ALLOC(h_weights_init, float, feature_dim);
 
@@ -1286,6 +1287,7 @@ ndb_cuda_lr_train(const float *features,
 	/* Copy final weights and bias back from device to host */
 	{
 		NDB_DECLARE(float *, h_weights_final);
+
 		NDB_ALLOC(h_weights_final, float, feature_dim);
 
 		if (h_weights_final != NULL)
@@ -1604,9 +1606,6 @@ ndb_cuda_lr_predict(const bytea * model_data,
 	return 0;
 }
 
-/* Kernel wrapper functions are implemented in gpu_lr_kernels.cu */
-/* launch_lr_eval_kernel is declared in neurondb_cuda_lr.h */
-
 /*
  * ndb_cuda_lr_evaluate
  *    GPU-accelerated batch evaluation for Logistic Regression
@@ -1846,6 +1845,7 @@ ndb_cuda_lr_evaluate(const bytea * model_data,
 	/* Convert weights from float to double and copy to GPU */
 	{
 		NDB_DECLARE(double *, h_weights_double);
+
 		NDB_ALLOC(h_weights_double, double, feature_dim);
 
 		if (h_weights_double == NULL)

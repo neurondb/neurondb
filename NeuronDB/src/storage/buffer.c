@@ -55,12 +55,10 @@ rebuild_hnsw_safe(PG_FUNCTION_ARGS)
 				 errmsg("neurondb: failed to begin SPI session in "
 						"rebuild_hnsw_safe")));
 
-	/* Check for existing checkpoint */
+	NDB_DECLARE(NdbSpiSession *, session2);
+
 	if (resume)
 	{
-		/* Load checkpoint: last processed vector ID, layer state */
-		/* Query actual checkpoint ID from pg_control_checkpoint() */
-		NDB_DECLARE(NdbSpiSession *, session2);
 		session2 = ndb_spi_session_begin(CurrentMemoryContext, false);
 		if (session2 != NULL)
 		{
@@ -144,9 +142,6 @@ rebuild_hnsw_safe(PG_FUNCTION_ARGS)
 	PG_RETURN_INT64(vectors_processed);
 }
 
-/*
- * Parallel Vector Executor: Worker pool for parallel kNN across indexes
- */
 PG_FUNCTION_INFO_V1(parallel_knn_search);
 Datum
 parallel_knn_search(PG_FUNCTION_ARGS)
@@ -163,11 +158,6 @@ parallel_knn_search(PG_FUNCTION_ARGS)
 		 "neurondb: parallel kNN search with %d workers for top-%d",
 		 num_workers,
 		 k);
-
-	/* Create worker pool */
-	/* Distribute query across workers */
-	/* Each worker searches different index partitions */
-	/* Merge results from all workers */
 
 	for (i = 0; i < num_workers; i++)
 	{
@@ -198,7 +188,7 @@ save_rebuild_checkpoint(PG_FUNCTION_ARGS)
 
 	idx_str = text_to_cstring(index_name);
 	state_str = text_to_cstring(state_json);
-	(void) state_str;			/* Used in checkpoint record */
+	(void) state_str;
 
 	elog(DEBUG1,
 		 "neurondb: saving checkpoint for '%s' at offset " NDB_INT64_FMT,
@@ -210,8 +200,6 @@ save_rebuild_checkpoint(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_INTERNAL_ERROR),
 				 errmsg("neurondb: failed to begin SPI session in "
 						"save_rebuild_checkpoint")));
-
-	/* INSERT INTO neurondb_checkpoints (index_name, offset, state, timestamp) */
 
 	ndb_spi_session_end(&session2);
 
@@ -233,10 +221,6 @@ load_rebuild_checkpoint(PG_FUNCTION_ARGS)
 
 	idx_str = text_to_cstring(index_name);
 
-	/*
-	 * Suppress unused variable warning - placeholder for future
-	 * implementation
-	 */
 	(void) idx_str;
 	session3 = ndb_spi_session_begin(CurrentMemoryContext, false);
 	if (session3 == NULL)
@@ -244,11 +228,6 @@ load_rebuild_checkpoint(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_INTERNAL_ERROR),
 				 errmsg("neurondb: failed to begin SPI session in "
 						"load_rebuild_checkpoint")));
-
-	/*
-	 * SELECT state FROM neurondb_checkpoints WHERE index_name = ... ORDER BY
-	 * timestamp DESC LIMIT 1
-	 */
 
 	ndb_spi_session_end(&session3);
 

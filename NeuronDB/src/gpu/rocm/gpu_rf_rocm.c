@@ -37,7 +37,6 @@
 #include "neurondb_safe_memory.h"
 #include "neurondb_macros.h"
 
-/* Forward declarations for kernel launchers */
 extern int	launch_rf_predict_batch_kernel_hip(const NdbCudaRfNode *d_nodes,
 											   const NdbCudaRfTreeHeader *d_trees,
 											   int tree_count,
@@ -87,7 +86,6 @@ rf_copy_tree_nodes_rocm(const GTree *tree, NdbCudaRfNode *dest,
 		}
 		dst->value = (float) src->value;
 
-		/* Track maximum feature index */
 		if (src->feature_idx >= 0 && src->feature_idx > max_idx)
 			max_idx = src->feature_idx;
 	}
@@ -166,15 +164,15 @@ ndb_rocm_rf_pack_model(const struct RFModel *model,
 			*errstr = pstrdup("ROCm RF pack: payload size exceeds MaxAllocSize");
 		return -1;
 	}
+	NDB_DECLARE(bytea *, blob);
+	NDB_DECLARE(char *, blob_raw);
+
 	if (VARHDRSZ + payload_bytes > MaxAllocSize)
 	{
 		if (errstr)
 			*errstr = pstrdup("ROCm RF pack: total size exceeds MaxAllocSize");
 		return -1;
 	}
-
-	NDB_DECLARE(bytea *, blob);
-	NDB_DECLARE(char *, blob_raw);
 	NDB_ALLOC(blob_raw, char, VARHDRSZ + payload_bytes);
 	blob = (bytea *) blob_raw;
 	if (blob == NULL)

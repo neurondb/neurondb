@@ -127,17 +127,18 @@ calculate_shap_values(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("n_samples must be positive")));
 
+	NDB_DECLARE(NdbSpiSession *, spi_session);
+	NDB_DECLARE(double *, shap_values);
+
 	/* Extract features from array */
 	n_features = ARR_DIMS(instance)[0];
 	features = (float *) ARR_DATA_PTR(instance);
 
-	NDB_DECLARE(NdbSpiSession *, spi_session);
 	MemoryContext oldcontext = CurrentMemoryContext;
 
 	NDB_SPI_SESSION_BEGIN(spi_session, oldcontext);
 
 	/* Initialize SHAP values */
-	NDB_DECLARE(double *, shap_values);
 	NDB_ALLOC(shap_values, double, n_features);
 
 	/* Kernel SHAP: approximate Shapley values using sampling */
@@ -149,10 +150,10 @@ calculate_shap_values(PG_FUNCTION_ARGS)
 
 		for (j = 0; j < n_samples; j++)
 		{
-			/* Create perturbed instance */
+			int			k;
+
 			NDB_DECLARE(float *, perturbed);
 			NDB_ALLOC(perturbed, float, n_features);
-			int			k;
 			double		pred_with,
 						pred_without;
 

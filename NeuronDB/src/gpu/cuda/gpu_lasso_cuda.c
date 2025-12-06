@@ -32,7 +32,6 @@
 #include "neurondb_guc.h"
 #include "neurondb_constants.h"
 
-/* Reuse linear regression evaluation kernel */
 extern cudaError_t launch_linreg_eval_kernel(const float *features,
 											 const double *targets,
 											 const double *coefficients,
@@ -43,7 +42,6 @@ extern cudaError_t launch_linreg_eval_kernel(const float *features,
 											 double *sae_out,
 											 long long *count_out);
 
-/* Lasso coordinate descent kernels */
 extern cudaError_t launch_lasso_compute_rho_kernel(const float *features,
 												   const double *residuals,
 												   int n_samples,
@@ -62,9 +60,6 @@ extern cudaError_t launch_lasso_update_residuals_kernel(const float *features,
 														int feature_idx,
 														double weight_diff);
 
-/*
- * Soft thresholding operator for Lasso
- */
 static double
 soft_threshold(double x, double lambda)
 {
@@ -527,6 +522,7 @@ ndb_cuda_lasso_train(const float *features,
 		double		ss_res = 0.0;
 		double		mse = 0.0;
 		double		mae = 0.0;
+
 		NDB_DECLARE(double *, model_coefficients);
 
 		model.n_features = feature_dim;
@@ -920,6 +916,7 @@ ndb_cuda_lasso_evaluate(const bytea * model_data,
 	/* Convert coefficients from float to double and copy to GPU */
 	{
 		NDB_DECLARE(double *, h_coefficients_double);
+
 		NDB_ALLOC(h_coefficients_double, double, feature_dim);
 
 		if (h_coefficients_double == NULL)

@@ -220,9 +220,10 @@ fit_arima(const float *data, int n, int p, int d, int q)
 	if (p > 0)
 	{
 		float	   *autocorr = (float *) palloc0(sizeof(float) * (p + 1));
+		float	   *a;
+
 		NDB_DECLARE(float **, R);
 		NDB_ALLOC(R, float *, p);
-		float	   *a;
 		float	   *right = (float *) palloc0(sizeof(float) * p);
 
 		for (i = 0; i <= p; i++)
@@ -298,6 +299,7 @@ fit_arima(const float *data, int n, int p, int d, int q)
 				NDB_FREE(y);
 			}
 		}
+
 		NDB_DECLARE(float *, ar_coeffs);
 		NDB_ALLOC(ar_coeffs, float, p);
 		model->ar_coeffs = ar_coeffs;
@@ -1512,10 +1514,6 @@ seasonal_decompose(PG_FUNCTION_ARGS)
 	PG_RETURN_DATUM(HeapTupleGetDatum(result_tuple));
 }
 
-/*-------------------------------------------------------------------------
- * GPU Model Ops Registration for Time Series
- *-------------------------------------------------------------------------
- */
 #include "neurondb_gpu_model.h"
 #include "ml_gpu_registry.h"
 #include "neurondb_safe_memory.h"

@@ -754,6 +754,8 @@ ndb_rocm_gmm_predict(const bytea * model_data,
 	means = (const double *) (base + sizeof(NdbCudaGmmModelHeader) + sizeof(double) * (size_t) hdr->n_components);
 	variances = (const double *) (base + sizeof(NdbCudaGmmModelHeader) + sizeof(double) * (size_t) hdr->n_components + sizeof(double) * (size_t) hdr->n_components * (size_t) hdr->n_features);
 
+	NDB_DECLARE(double *, component_probs);
+
 	/* Validate model data pointers */
 	if (mixing == NULL || means == NULL || variances == NULL)
 	{
@@ -762,7 +764,6 @@ ndb_rocm_gmm_predict(const bytea * model_data,
 		return -1;
 	}
 
-	NDB_DECLARE(double *, component_probs);
 	NDB_ALLOC(component_probs, double, hdr->n_components);
 
 	/* Compute probability for each component */

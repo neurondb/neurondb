@@ -556,13 +556,13 @@ rf_build_branch_tree(GTree *tree,
 		return gtree_add_leaf(tree, value);
 	}
 
-	{
-		NDB_DECLARE(int *, left_indices);
-		NDB_DECLARE(int *, right_indices);
-		int			left_count = 0;
-		int			right_count = 0;
+		{
+			int			left_count = 0;
+			int			right_count = 0;
 
-		NDB_ALLOC(left_indices, int, count);
+			NDB_DECLARE(int *, left_indices);
+			NDB_DECLARE(int *, right_indices);
+			NDB_ALLOC(left_indices, int, count);
 		NDB_CHECK_ALLOC(left_indices, "left_indices");
 		NDB_ALLOC(right_indices, int, count);
 		NDB_CHECK_ALLOC(right_indices, "right_indices");
@@ -886,11 +886,10 @@ rf_store_model(int32 model_id,
 		}
 		else
 		{
-			NDB_DECLARE(int *, copy);
-			{
-				size_t		count = class_counts_size / sizeof(int);
+			size_t		count = class_counts_size / sizeof(int);
 
-				NDB_ALLOC(copy, int, count);
+			NDB_DECLARE(int *, copy);
+			NDB_ALLOC(copy, int, count);
 			}
 
 			if (copy == NULL)
@@ -1011,11 +1010,10 @@ rf_store_model(int32 model_id,
 		}
 		else
 		{
-			NDB_DECLARE(double *, copy);
-			{
-				size_t		count = left_means_size / sizeof(double);
+			size_t		count = left_means_size / sizeof(double);
 
-				NDB_ALLOC(copy, double, count);
+			NDB_DECLARE(double *, copy);
+			NDB_ALLOC(copy, double, count);
 			}
 
 			if (copy == NULL)

@@ -35,7 +35,6 @@
 #include "neurondb_macros.h"
 #endif
 
-/* Reuse linear regression kernels */
 extern hipError_t launch_linreg_compute_xtx_kernel(const float *features,
 												   const double *targets,
 												   int n_samples,
@@ -76,11 +75,11 @@ ndb_rocm_ridge_pack_model(const RidgeModel *model,
 		return -1;
 	}
 
-	payload_bytes = sizeof(NdbCudaRidgeModelHeader)
-		+ sizeof(float) * (size_t) model->n_features;
-
 	NDB_DECLARE(bytea *, blob);
 	NDB_DECLARE(char *, blob_raw);
+
+	payload_bytes = sizeof(NdbCudaRidgeModelHeader)
+		+ sizeof(float) * (size_t) model->n_features;
 	NDB_ALLOC(blob_raw, char, VARHDRSZ + payload_bytes);
 	blob = (bytea *) blob_raw;
 	SET_VARSIZE(blob, VARHDRSZ + payload_bytes);
@@ -266,15 +265,15 @@ ndb_rocm_ridge_train(const float *features,
 
 	dim_with_intercept = feature_dim + 1;
 
-	/* Allocate host memory for matrices */
-	XtX_bytes = sizeof(double) * (size_t) dim_with_intercept * (size_t) dim_with_intercept;
-	Xty_bytes = sizeof(double) * (size_t) dim_with_intercept;
-	beta_bytes = sizeof(double) * (size_t) dim_with_intercept;
-
 	NDB_DECLARE(double *, h_XtX);
 	NDB_DECLARE(double *, h_Xty);
 	NDB_DECLARE(double *, h_XtX_inv);
 	NDB_DECLARE(double *, h_beta);
+
+	/* Allocate host memory for matrices */
+	XtX_bytes = sizeof(double) * (size_t) dim_with_intercept * (size_t) dim_with_intercept;
+	Xty_bytes = sizeof(double) * (size_t) dim_with_intercept;
+	beta_bytes = sizeof(double) * (size_t) dim_with_intercept;
 	NDB_ALLOC(h_XtX, double, dim_with_intercept * dim_with_intercept);
 	NDB_ALLOC(h_Xty, double, dim_with_intercept);
 	NDB_ALLOC(h_XtX_inv, double, dim_with_intercept * dim_with_intercept);

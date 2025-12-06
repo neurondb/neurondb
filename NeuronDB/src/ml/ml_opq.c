@@ -70,32 +70,26 @@ pq_codebook_free(PQCodebook * codebook)
 }
 
 /*
- * train_opq_rotation
- * ------------------
- * Learn OPQ rotation matrix (simplified version).
+ * train_opq_rotation - Train optimized product quantization rotation matrix
  *
- * Full OPQ training involves iterating between:
- *   1. Fixing R, optimizing codebooks
- *   2. Fixing codebooks, optimizing R via SVD
+ * User-facing function that learns an OPQ rotation matrix to minimize
+ * quantization error. This simplified version initializes R to identity
+ * (PCA-like preprocessing). Full OPQ training involves iterating between
+ * fixing R and optimizing codebooks, then fixing codebooks and optimizing R.
  *
- * This simplified version initializes R to identity (PCA-like preprocessing).
- * For production, consider training externally with full OPQ algorithm.
- *
- * SQL Arguments:
- *   table_name    - Training data table
- *   vector_column - Vector column
- *   num_subspaces - Number of PQ subspaces (default: 8)
+ * Parameters:
+ *   table_name - Name of table containing training vectors (text)
+ *   vector_column - Name of vector column (text)
+ *   num_subspaces - Number of PQ subspaces (int32, optional, default 8)
  *
  * Returns:
- *   Rotation matrix flattened as 1D array [d×d]
- *
- * Example:
- *   SELECT train_opq_rotation('vectors', 'embedding', 8);
+ *   Rotation matrix flattened as 1D array [d×d] as float8[]
  *
  * Notes:
- *   - This is a placeholder for identity/PCA rotation
- *   - Full OPQ requires iterative refinement (complex)
- *   - For best results, train offline with sklearn/faiss
+ *   This is a simplified implementation that uses identity/PCA rotation.
+ *   For production use, consider training externally with full OPQ algorithm
+ *   using sklearn or faiss, which performs iterative refinement for optimal
+ *   rotation matrices.
  */
 PG_FUNCTION_INFO_V1(train_opq_rotation);
 
@@ -573,9 +567,10 @@ predict_opq_rotation(PG_FUNCTION_ARGS)
 
 		if (data_size >= expected_size)
 		{
+			NDB_DECLARE(float8 *, rotation);
+
 			/* Extract rotation matrix from model_data */
 			rotation_dim = dim;
-			NDB_DECLARE(float8 *, rotation);
 			NDB_ALLOC(rotation, float8, dim * dim);
 			NDB_CHECK_ALLOC(rotation, "rotation");
 			memcpy(rotation, VARDATA(model_data), expected_size);
@@ -584,9 +579,10 @@ predict_opq_rotation(PG_FUNCTION_ARGS)
 		}
 		else
 		{
+			NDB_DECLARE(float8 *, rotation);
+
 			/* Size mismatch - use identity matrix as fallback */
 			rotation_dim = dim;
-			NDB_DECLARE(float8 *, rotation);
 			NDB_ALLOC(rotation, float8, dim * dim);
 			NDB_CHECK_ALLOC(rotation, "rotation");
 			for (i = 0; i < dim; i++)
@@ -605,10 +601,11 @@ predict_opq_rotation(PG_FUNCTION_ARGS)
 	}
 	else if (found_rotation)
 	{
+		NDB_DECLARE(float8 *, rotation);
+
 		/* Extract rotation from JSONB array */
 		/* JSONB array format: [row0_col0, row0_col1, ..., row1_col0, ...] */
 		rotation_dim = dim;
-		NDB_DECLARE(float8 *, rotation);
 		NDB_ALLOC(rotation, float8, dim * dim);
 		NDB_CHECK_ALLOC(rotation, "rotation");
 
@@ -699,9 +696,10 @@ predict_opq_rotation(PG_FUNCTION_ARGS)
 				NDB_FREE(rotation);
 				rotation = NULL;
 			}
+			NDB_DECLARE(float8 *, rotation);
+
 			/* Fall back to identity matrix */
 			rotation_dim = dim;
-			NDB_DECLARE(float8 *, rotation);
 			NDB_ALLOC(rotation, float8, dim * dim);
 			NDB_CHECK_ALLOC(rotation, "rotation");
 			for (i = 0; i < dim; i++)
@@ -1067,10 +1065,6 @@ evaluate_opq_rotation_by_model_id(PG_FUNCTION_ARGS)
 	PG_RETURN_JSONB_P(result);
 }
 
-/*-------------------------------------------------------------------------
- * GPU Model Ops Registration for OPQ
- *-------------------------------------------------------------------------
- */
 #include "neurondb_gpu_model.h"
 #include "ml_gpu_registry.h"
 
@@ -1151,19 +1145,19 @@ opq_model_deserialize_from_bytea(const bytea * data, PQCodebook * codebook, floa
 	if (codebook->m < 1 || codebook->m > 128 || codebook->ksub < 2 || codebook->ksub > 65536 || codebook->dsub <= 0 || *dim_out <= 0)
 		return -1;
 
+	NDB_DECLARE(float *, rotation_matrix);
+	NDB_DECLARE(float ***, centroids);
+
 	/* Check for integer overflow in size calculation */
 	if (*dim_out > 0 && (size_t) * dim_out > MaxAllocSize / sizeof(float) / (size_t) * dim_out)
 	{
 		return -1;
 	}
-	NDB_DECLARE(float *, rotation_matrix);
 	NDB_ALLOC(rotation_matrix, float, *dim_out * *dim_out);
 	*rotation_matrix_out = rotation_matrix;
 	NDB_CHECK_ALLOC(rotation_matrix_out, "rotation_matrix_out");
 	memcpy(*rotation_matrix_out, buf + offset, sizeof(float) * *dim_out * *dim_out);
 	offset += sizeof(float) * *dim_out * *dim_out;
-
-	NDB_DECLARE(float ***, centroids);
 	NDB_ALLOC(centroids, float **, codebook->m);
 	codebook->centroids = centroids;
 	NDB_CHECK_ALLOC(codebook, "codebook");
@@ -1269,6 +1263,7 @@ opq_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **errstr)
 	for (i = 0; i < nvec; i++)
 	{
 		NDB_DECLARE(float *, data_row);
+
 		NDB_ALLOC(data_row, float, dim);
 		data[i] = data_row;
 		NDB_CHECK_ALLOC(data, "data");

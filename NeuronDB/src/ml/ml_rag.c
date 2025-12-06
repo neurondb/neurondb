@@ -140,6 +140,7 @@ neurondb_chunk_text(PG_FUNCTION_ARGS)
 
 		{
 			NDB_DECLARE(char *, chunk_buf);
+
 			NDB_ALLOC(chunk_buf, char, chunk_len + 1);
 
 			memcpy(chunk_buf, input_str + start, chunk_len);
@@ -235,8 +236,9 @@ neurondb_embed_text(PG_FUNCTION_ARGS)
 				 errdetail("Real model implementation required. Embedding generation failed for model '%s'", model_name)));
 	}
 
-	/* Create result vector */
 	NDB_DECLARE(char *, result_raw);
+
+	/* Create result vector */
 	NDB_ALLOC(result_raw, char, VARHDRSZ + sizeof(int16) * 2 + dim * sizeof(float));
 	result = (Vector *) result_raw;
 	SET_VARSIZE(result, VARHDRSZ + sizeof(int16) * 2 + dim * sizeof(float));

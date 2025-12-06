@@ -40,7 +40,6 @@
 #include "neurondb_constants.h"
 #endif
 
-/* Reuse linear regression kernels */
 extern cudaError_t launch_linreg_compute_xtx_kernel(const float *features,
 													const double *targets,
 													int n_samples,
@@ -1077,6 +1076,7 @@ ndb_cuda_ridge_evaluate(const bytea * model_data,
 	/* Convert coefficients from float to double and copy to GPU */
 	{
 		NDB_DECLARE(double *, h_coefficients_double);
+
 		NDB_ALLOC(h_coefficients_double, double, feature_dim);
 
 		if (h_coefficients_double == NULL)

@@ -60,7 +60,25 @@ typedef struct GMMModel
 }			GMMModel;
 
 /*
- * Compute Gaussian probability density (diagonal covariance)
+ * gaussian_pdf - Compute Gaussian probability density with diagonal covariance
+ *
+ * Computes the probability density of a point under a multivariate Gaussian
+ * distribution with diagonal covariance matrix. Uses log-space computation
+ * for numerical stability.
+ *
+ * Parameters:
+ *   x - Input point (feature vector)
+ *   mean - Mean vector of the Gaussian distribution
+ *   variance - Variance vector (diagonal of covariance matrix)
+ *   dim - Dimension of all vectors
+ *
+ * Returns:
+ *   Probability density as double
+ *
+ * Notes:
+ *   The function adds GMM_EPSILON to variances for regularization to avoid
+ *   numerical issues. Computes in log-space and exponentiates at the end
+ *   for better numerical stability.
  */
 static double
 gaussian_pdf(const float *x, const double *mean, const double *variance, int dim)
@@ -83,6 +101,27 @@ gaussian_pdf(const float *x, const double *mean, const double *variance, int dim
 	return exp(log_likelihood);
 }
 
+/*
+ * cluster_gmm - Perform Gaussian mixture model clustering
+ *
+ * User-facing function that performs soft clustering using Gaussian mixture
+ * models with expectation-maximization algorithm. Returns cluster assignments
+ * and probabilities for each data point.
+ *
+ * Parameters:
+ *   table_name - Name of table containing vector data (text)
+ *   vector_column - Name of vector column to cluster (text)
+ *   num_components - Number of Gaussian components/clusters (int32)
+ *   max_iters - Maximum EM iterations (int32, optional, default 100)
+ *
+ * Returns:
+ *   Array of cluster assignments as float8[]
+ *
+ * Notes:
+ *   The function uses the EM algorithm to fit GMM parameters. Supports both
+ *   CPU and GPU backends. Returns probabilistic cluster assignments where
+ *   each point has a probability distribution over all clusters.
+ */
 PG_FUNCTION_INFO_V1(cluster_gmm);
 
 Datum
@@ -233,6 +272,7 @@ cluster_gmm(PG_FUNCTION_ARGS)
 
 		{
 			NDB_DECLARE(double *, N_k);
+
 			NDB_ALLOC(N_k, double, num_components);
 
 			for (k = 0; k < num_components; k++)
@@ -1218,9 +1258,6 @@ evaluate_gmm_by_model_id(PG_FUNCTION_ARGS)
 	PG_RETURN_JSONB_P(result_jsonb);
 }
 
-/*-------------------------------------------------------------------------
- * GPU Model Ops Registration for GMM
- *-------------------------------------------------------------------------*/
 #include "ml_gpu_registry.h"
 
 #ifdef NDB_GPU_CUDA

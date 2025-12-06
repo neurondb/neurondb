@@ -37,9 +37,6 @@
 #include <string.h>
 #include <math.h>
 
-/*
- * sparse_search: Search using sparse vector query
- */
 PG_FUNCTION_INFO_V1(sparse_search);
 Datum
 sparse_search(PG_FUNCTION_ARGS)
@@ -105,7 +102,6 @@ sparse_search(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_INTERNAL_ERROR),
 				 errmsg("neurondb: failed to begin SPI session")));
 
-	/* Perform sparse search using dot product */
 	initStringInfo(&sql);
 	appendStringInfo(&sql,
 					 "SELECT ctid, sparse_vector_dot_product(%s, $1) AS score "
@@ -135,7 +131,6 @@ sparse_search(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_INTERNAL_ERROR),
 				 errmsg("sparse_search query failed")));
 
-	/* Return results */
 	for (int i = 0; i < SPI_processed; i++)
 	{
 		HeapTuple	tuple = SPI_tuptable->vals[i];
@@ -157,9 +152,6 @@ sparse_search(PG_FUNCTION_ARGS)
 	PG_RETURN_NULL();
 }
 
-/*
- * splade_embed: Generate SPLADE embedding from text
- */
 PG_FUNCTION_INFO_V1(splade_embed);
 Datum
 splade_embed(PG_FUNCTION_ARGS)
@@ -178,6 +170,10 @@ splade_embed(PG_FUNCTION_ARGS)
 	int		   *indices = NULL;
 	float	   *values = NULL;
 	int			sparse_count = 0;
+
+	NDB_DECLARE(int64 *, shape);
+	NDB_DECLARE(float *, data);
+	NDB_DECLARE(char *, sparse_vec_raw);
 
 	/* Load SPLADE model (default model name) */
 	session = neurondb_onnx_get_or_load_model("splade", ONNX_MODEL_EMBEDDING);
@@ -199,16 +195,13 @@ splade_embed(PG_FUNCTION_ARGS)
 				 errmsg("splade_embed: tokenization failed")));
 	}
 
-	/* Create input tensor */
 	input_tensor = (ONNXTensor *) palloc0(sizeof(ONNXTensor));
 	input_tensor->ndim = 2;
-	NDB_DECLARE(int64 *, shape);
 	NDB_ALLOC(shape, int64, 2);
 	input_tensor->shape = shape;
-	input_tensor->shape[0] = 1; /* Batch size */
-	input_tensor->shape[1] = token_length;
+		input_tensor->shape[0] = 1;
+		input_tensor->shape[1] = token_length;
 	input_tensor->size = token_length;
-	NDB_DECLARE(float *, data);
 	NDB_ALLOC(data, float, token_length);
 	input_tensor->data = data;
 	for (i = 0; i < token_length; i++)
@@ -226,11 +219,6 @@ splade_embed(PG_FUNCTION_ARGS)
 				 errmsg("splade_embed: inference failed")));
 	}
 
-	/*
-	 * Extract sparse vector from output (SPLADE outputs log-scaled sparse
-	 * vectors)
-	 */
-	/* Count non-zero values */
 	sparse_count = 0;
 	for (i = 0; i < (int) output_tensor->size; i++)
 	{
@@ -257,14 +245,13 @@ splade_embed(PG_FUNCTION_ARGS)
 		}
 	}
 
-	/* Create sparse vector using proper structure */
 	NDB_DECLARE(char *, sparse_vec_raw);
 	NDB_ALLOC(sparse_vec_raw, char, SPARSE_VEC_SIZE(sparse_count));
 	sparse_vec = (SparseVector *) sparse_vec_raw;
 	SET_VARSIZE(sparse_vec, SPARSE_VEC_SIZE(sparse_count));
 	sparse_vec->vocab_size = (int32) output_tensor->size;
 	sparse_vec->nnz = (int32) sparse_count;
-	sparse_vec->model_type = 1; /* SPLADE */
+	sparse_vec->model_type = 1;
 	sparse_vec->flags = 0;
 	memcpy(SPARSE_VEC_TOKEN_IDS(sparse_vec), indices, sizeof(int32) * sparse_count);
 	memcpy(SPARSE_VEC_WEIGHTS(sparse_vec), values, sizeof(float4) * sparse_count);
@@ -286,9 +273,6 @@ splade_embed(PG_FUNCTION_ARGS)
 #endif
 }
 
-/*
- * colbertv2_embed: Generate ColBERTv2 embedding from text
- */
 PG_FUNCTION_INFO_V1(colbertv2_embed);
 Datum
 colbertv2_embed(PG_FUNCTION_ARGS)
@@ -310,7 +294,10 @@ colbertv2_embed(PG_FUNCTION_ARGS)
 	int			sparse_count = 0;
 	int			output_dim;
 
-	/* Load ColBERTv2 model (default model name) */
+	NDB_DECLARE(int64 *, shape);
+	NDB_DECLARE(float *, data);
+	NDB_DECLARE(char *, sparse_vec_raw);
+
 	session = neurondb_onnx_get_or_load_model("colbertv2", ONNX_MODEL_EMBEDDING);
 	if (session == NULL || !session->is_loaded)
 	{
@@ -320,7 +307,6 @@ colbertv2_embed(PG_FUNCTION_ARGS)
 				 errmsg("colbertv2_embed: ColBERTv2 model not available")));
 	}
 
-	/* Tokenize input text */
 	token_ids = neurondb_tokenize_with_model(input_str, max_length, &token_length, "colbertv2");
 	if (token_ids == NULL || token_length <= 0)
 	{
@@ -330,16 +316,13 @@ colbertv2_embed(PG_FUNCTION_ARGS)
 				 errmsg("colbertv2_embed: tokenization failed")));
 	}
 
-	/* Create input tensor */
 	input_tensor = (ONNXTensor *) palloc0(sizeof(ONNXTensor));
 	input_tensor->ndim = 2;
-	NDB_DECLARE(int64 *, shape);
 	NDB_ALLOC(shape, int64, 2);
 	input_tensor->shape = shape;
-	input_tensor->shape[0] = 1; /* Batch size */
-	input_tensor->shape[1] = token_length;
+		input_tensor->shape[0] = 1;
+		input_tensor->shape[1] = token_length;
 	input_tensor->size = token_length;
-	NDB_DECLARE(float *, data);
 	NDB_ALLOC(data, float, token_length);
 	input_tensor->data = data;
 	for (i = 0; i < token_length; i++)
@@ -386,7 +369,6 @@ colbertv2_embed(PG_FUNCTION_ARGS)
 			}
 		}
 
-		/* Extract sparse representation (non-zero values) */
 		sparse_count = 0;
 		for (j = 0; j < output_dim; j++)
 		{
@@ -416,7 +398,6 @@ colbertv2_embed(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		/* Flattened output - treat as 1D sparse vector */
 		output_dim = (int) output_tensor->size;
 		sparse_count = 0;
 		for (i = 0; i < output_dim; i++)
@@ -444,14 +425,12 @@ colbertv2_embed(PG_FUNCTION_ARGS)
 		}
 	}
 
-	/* Create sparse vector using proper structure */
-	NDB_DECLARE(char *, sparse_vec_raw);
 	NDB_ALLOC(sparse_vec_raw, char, SPARSE_VEC_SIZE(sparse_count));
 	sparse_vec = (SparseVector *) sparse_vec_raw;
 	SET_VARSIZE(sparse_vec, SPARSE_VEC_SIZE(sparse_count));
 	sparse_vec->vocab_size = (int32) output_dim;
 	sparse_vec->nnz = (int32) sparse_count;
-	sparse_vec->model_type = 2; /* ColBERTv2 */
+	sparse_vec->model_type = 2;
 	sparse_vec->flags = 0;
 	memcpy(SPARSE_VEC_TOKEN_IDS(sparse_vec), indices, sizeof(int32) * sparse_count);
 	memcpy(SPARSE_VEC_WEIGHTS(sparse_vec), values, sizeof(float4) * sparse_count);
@@ -473,9 +452,6 @@ colbertv2_embed(PG_FUNCTION_ARGS)
 #endif
 }
 
-/*
- * Helper: Simple tokenization into lowercase words
- */
 static void
 bm25_tokenize(const char *text, char **tokens, int *num_tokens, int max_tokens)
 {
@@ -507,9 +483,6 @@ bm25_tokenize(const char *text, char **tokens, int *num_tokens, int max_tokens)
 	*num_tokens = t;
 }
 
-/*
- * Helper: Count term frequencies in token array
- */
 static void
 bm25_count_tf(char **tokens, int num_tokens, int *term_counts, char **unique_terms, int *num_unique)
 {
@@ -539,20 +512,6 @@ bm25_count_tf(char **tokens, int num_tokens, int *term_counts, char **unique_ter
 	}
 }
 
-/*
- * bm25_score: Compute BM25 score between query and document
- *
- * BM25 formula: sum over query terms of:
- *   IDF(q_i) * (f(q_i, D) * (k1 + 1)) / (f(q_i, D) + k1 * (1 - b + b * |D| / avgdl))
- *
- * Where:
- *   - IDF(q_i) = log((N - n(q_i) + 0.5) / (n(q_i) + 0.5))
- *   - f(q_i, D) = term frequency of q_i in document D
- *   - |D| = document length in words
- *   - avgdl = average document length in collection
- *   - k1 = term frequency saturation parameter (default 1.2)
- *   - b = length normalization parameter (default 0.75)
- */
 PG_FUNCTION_INFO_V1(bm25_score);
 Datum
 bm25_score(PG_FUNCTION_ARGS)
@@ -576,11 +535,9 @@ bm25_score(PG_FUNCTION_ARGS)
 	int			i,
 				j;
 	double		doc_length;
-	double		avg_doc_length = 100.0; /* Default average, would be computed
-										 * from collection */
-	double		N = 1000.0;		/* Total documents in collection, would be
-								 * computed */
-	int			n_qi;			/* Number of documents containing term q_i */
+	double		avg_doc_length = 100.0;
+	double		N = 1000.0;
+	int			n_qi;
 	double		idf;
 	double		tf;
 	double		bm25_term;
@@ -606,13 +563,11 @@ bm25_score(PG_FUNCTION_ARGS)
 
 	doc_length = (double) num_doc_tokens;
 
-	/* Count term frequencies */
 	NDB_ALLOC(query_unique, char *, num_query_tokens);
 	query_counts = (int *) palloc0(sizeof(int) * num_query_tokens);
 	doc_counts = (int *) palloc0(sizeof(int) * num_doc_tokens);
 	bm25_count_tf(query_tokens, num_query_tokens, query_counts, query_unique, &num_query_unique);
 
-	/* Count document term frequencies for query terms */
 	for (i = 0; i < num_query_unique; i++)
 	{
 		doc_counts[i] = 0;
@@ -623,20 +578,15 @@ bm25_score(PG_FUNCTION_ARGS)
 		}
 	}
 
-	/* Compute BM25 score */
 	for (i = 0; i < num_query_unique; i++)
 	{
-		/* Term frequency in document */
 		tf = (double) doc_counts[i];
 
-		/* IDF: simplified - assume term appears in 10% of documents */
-		/* In production, would query collection statistics */
 		n_qi = (int) (N * 0.1);
 		if (n_qi < 1)
 			n_qi = 1;
 		idf = log((N - (double) n_qi + 0.5) / ((double) n_qi + 0.5));
 
-		/* BM25 term score */
 		bm25_term = idf * (tf * (k1 + 1.0)) / (tf + k1 * (1.0 - b + b * doc_length / avg_doc_length));
 
 		score += bm25_term;

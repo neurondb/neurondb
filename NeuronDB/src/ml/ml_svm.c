@@ -77,7 +77,23 @@ static bool svm_load_model_from_catalog(int32 model_id, SVMModel * *out);
 static const MLGpuModelOps svm_gpu_model_ops;
 
 /*
- * Linear kernel: K(x, y) = x^T * y
+ * linear_kernel - Compute linear kernel between two vectors
+ *
+ * Computes the linear kernel (dot product) between two feature vectors.
+ * Used in SVM for computing similarity between support vectors and query vectors.
+ *
+ * Parameters:
+ *   x - First feature vector
+ *   y - Second feature vector
+ *   dim - Dimension of both vectors
+ *
+ * Returns:
+ *   Dot product (x^T * y) as double
+ *
+ * Notes:
+ *   The function validates inputs and reports errors if vectors are NULL or
+ *   dimension is invalid. This is the simplest kernel function, equivalent
+ *   to the dot product.
  */
 static double
 linear_kernel(float *x, float *y, int dim)
@@ -527,9 +543,11 @@ svm_model_deserialize(const bytea * data, MemoryContext target_context, uint8 * 
 						model->n_support_vectors)));
 	}
 
+	NDB_DECLARE(double *, alphas);
+	NDB_DECLARE(float *, support_vectors);
+
 	if (model->n_support_vectors > 0)
 	{
-		NDB_DECLARE(double *, alphas);
 		NDB_ALLOC(alphas, double,
 										  sizeof(double) * (size_t) model->n_support_vectors);
 		for (i = 0; i < model->n_support_vectors; i++)
@@ -538,7 +556,6 @@ svm_model_deserialize(const bytea * data, MemoryContext target_context, uint8 * 
 
 	if (model->n_support_vectors > 0 && model->n_features > 0)
 	{
-		NDB_DECLARE(float *, support_vectors);
 		NDB_ALLOC(support_vectors, float,
 				  (size_t) model->n_support_vectors
 				  * (size_t) model->n_features);

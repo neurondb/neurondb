@@ -80,9 +80,17 @@ static void dt_free_tree(DTNode *node);
 static double dt_tree_predict(const DTNode *node, const float *x, int dim);
 
 /*
- * dt_dataset_init
+ * dt_dataset_init - Initialize a DTDataset structure
  *
- * Initialize a DTDataset struct to zeros.
+ * Initializes all fields of a DTDataset structure to zero. Safe to call
+ * with NULL pointer.
+ *
+ * Parameters:
+ *   dataset - DTDataset structure to initialize
+ *
+ * Notes:
+ *   This function sets all fields to zero, preparing the structure for use.
+ *   It does not allocate any memory.
  */
 static void
 dt_dataset_init(DTDataset * dataset)
@@ -94,9 +102,17 @@ dt_dataset_init(DTDataset * dataset)
 }
 
 /*
- * dt_dataset_free
+ * dt_dataset_free - Free memory allocated in a DTDataset structure
  *
- * Free memory allocated in the dataset.
+ * Frees all dynamically allocated memory in a DTDataset structure,
+ * including feature and label arrays. Safe to call with NULL pointer.
+ *
+ * Parameters:
+ *   dataset - DTDataset structure to free
+ *
+ * Notes:
+ *   After calling this function, the dataset structure is reinitialized
+ *   to zero state. The structure itself is not freed, only its contents.
  */
 static void
 dt_dataset_free(DTDataset * dataset)
@@ -113,9 +129,21 @@ dt_dataset_free(DTDataset * dataset)
 }
 
 /*
- * dt_dataset_load
+ * dt_dataset_load - Load feature and label data from a table
  *
- * Load feature and label data from a table into local memory.
+ * Loads training data from a PostgreSQL table into a DTDataset structure
+ * using SPI. Filters out rows with NULL features or labels.
+ *
+ * Parameters:
+ *   quoted_tbl - Quoted table name
+ *   quoted_feat - Quoted feature column name
+ *   quoted_label - Quoted label column name
+ *   dataset - Output DTDataset structure to populate
+ *
+ * Notes:
+ *   The function allocates memory for features and labels arrays in
+ *   CurrentMemoryContext. Memory must be freed using dt_dataset_free().
+ *   Uses SPI to execute a SELECT query and extract data.
  */
 static void
 dt_dataset_load(const char *quoted_tbl,
@@ -139,7 +167,6 @@ dt_dataset_load(const char *quoted_tbl,
 
 	oldcontext = CurrentMemoryContext;
 
-	/* Initialize and build query in caller's context BEFORE SPI_connect */
 	initStringInfo(&query);
 	appendStringInfo(&query,
 					 "SELECT %s, %s FROM %s WHERE %s IS NOT NULL AND %s IS NOT NULL",
@@ -448,15 +475,16 @@ find_best_split_1d(const float *features,
 
 		for (ii = 1; ii < 10; ii++)
 		{
-			float		threshold = min_val + (max_val - min_val) * ii / 10.0f;
 			int			left_count = 0,
 						right_count = 0,
 						j;
+			int			l_idx = 0,
+						r_idx = 0;
 
 			NDB_DECLARE(double *, left_y);
 			NDB_DECLARE(double *, right_y);
-			int			l_idx = 0,
-						r_idx = 0;
+
+			float		threshold = min_val + (max_val - min_val) * ii / 10.0f;
 			double		left_imp,
 						right_imp,
 						gain;
@@ -1034,12 +1062,31 @@ dt_load_model_from_catalog(int32 model_id, DTModel **out)
 	return true;
 }
 
+/*
+ * train_decision_tree_classifier - Train a decision tree classifier
+ *
+ * User-facing function that trains a decision tree classifier on data from
+ * a table and saves the model to the catalog. Supports both CPU and GPU
+ * training backends.
+ *
+ * Parameters:
+ *   table_name - Name of table containing training data (text)
+ *   feature_col - Name of feature column (text)
+ *   label_col - Name of label column (text)
+ *   hyperparams - JSONB hyperparameters (optional)
+ *
+ * Returns:
+ *   Model ID (int32) of the trained model stored in catalog
+ *
+ * Notes:
+ *   The function automatically selects CPU or GPU backend based on GUC
+ *   settings and algorithm support. The trained model is serialized and
+ *   stored in the ML catalog for later prediction.
+ */
 PG_FUNCTION_INFO_V1(train_decision_tree_classifier);
 
-/*
- * train_decision_tree_classifier
- *
- * SQL-callable UDF to train a new decision tree classifier, saving in catalog.
+Datum
+train_decision_tree_classifier(PG_FUNCTION_ARGS)
  */
 Datum
 train_decision_tree_classifier(PG_FUNCTION_ARGS)
@@ -2278,10 +2325,6 @@ cpu_evaluation_path:
 	PG_RETURN_JSONB_P(result_jsonb);
 }
 
-/*-------------------------------------------------------------------------
- * GPU Model Ops for Decision Tree
- *-------------------------------------------------------------------------
- */
 #include "neurondb_gpu_model.h"
 
 typedef struct DTGpuModelState

@@ -60,7 +60,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-/* Flat RF layout (must match ml_random_forest.c) */
 typedef struct RFNodeFlat_Metal
 {
 	int32		feature_index;
@@ -73,7 +72,6 @@ typedef struct RFNodeFlat_Metal
 	double		value;
 }			RFNodeFlat_Metal;
 
-/* Forward declarations for all backend functions */
 static int	ndb_metal_init(void);
 static void ndb_metal_shutdown(void);
 static int	ndb_metal_is_available(void);
@@ -132,7 +130,6 @@ static int	ndb_metal_stream_create(ndb_stream_t * stream);
 static int	ndb_metal_stream_destroy(ndb_stream_t stream);
 static int	ndb_metal_stream_synchronize(ndb_stream_t stream);
 
-/* Weak symbol for RF prediction - forward declaration */
 bool		neurondb_gpu_rf_predict_backend(const void *rf_hdr,
 											const void *trees,
 											const void *nodes,
@@ -141,8 +138,6 @@ bool		neurondb_gpu_rf_predict_backend(const void *rf_hdr,
 											int n_features,
 											int *class_out,
 											char **errstr);
-
-/* Metal Backend Lifecycle */
 
 static bool
 metal_backend_init_impl(void)
@@ -236,9 +231,7 @@ metal_backend_is_available_impl(void)
 		 "neurondb: Metal backend availability = %s",
 		 avail ? "YES" : "NO");
 	return avail;
-}
-
-/* Metal Device Management */
+	}
 
 static int
 metal_backend_get_device_count_impl(void)
@@ -322,15 +315,11 @@ metal_backend_set_device_impl(int device_id)
 			 errmsg("neurondb: Metal set_device: device_id %d not available",
 					device_id)));
 	return false;
-}
-
-/* Metal Memory Management */
+	}
 
 static void *
 metal_backend_mem_alloc_impl(Size bytes)
 {
-	void	   *ptr;
-
 	NDB_DECLARE(void *, ptr);
 	NDB_ALLOC(ptr, char, bytes);
 	if (ptr == NULL)
@@ -400,9 +389,7 @@ metal_backend_synchronize_impl(void)
 	elog(DEBUG2,
 		 "neurondb: Metal synchronize: no explicit sync required (UMA "
 		 "system)");
-}
-
-/* Metal Vector Operations */
+	}
 
 static float
 __attribute__((unused))
@@ -426,9 +413,7 @@ metal_backend_inner_product_impl(const float *a, const float *b, int dim)
 {
 	Assert(a != NULL && b != NULL && dim > 0);
 	return metal_backend_inner_product(a, b, dim);
-}
-
-/* Metal Batch Operations */
+	}
 
 static bool
 __attribute__((unused))
@@ -498,8 +483,6 @@ metal_backend_batch_cosine_impl(const float *queries,
 	}
 	return true;
 }
-
-/* Metal Quantization */
 
 static bool
 metal_backend_quantize_int8_impl(const float *input, int8_t * output, int count)
@@ -593,8 +576,6 @@ metal_backend_quantize_fp16_impl(const float *input, void *output, int count)
 
 	return true;
 }
-
-/* Metal Clustering (K-means, DBSCAN) */
 
 static bool
 __attribute__((unused))
@@ -845,9 +826,7 @@ metal_backend_destroy_streams_impl(void)
 {
 	elog(DEBUG1,
 		 "neurondb: Metal destroy_streams: command queues released");
-}
-
-/* Metal Launcher Functions */
+	}
 
 static int
 ndb_metal_launch_l2_distance(const float *A,
@@ -1194,9 +1173,6 @@ ndb_metal_launch_pq_encode(const float *vectors,
 	return 0;
 }
 
-/* Metal ML Training Functions (CPU fallback using existing implementations) */
-
-/* Metal RF model structures (matches CUDA format) - defined early for use in training */
 typedef struct NdbCudaRfNode
 {
 	int			feature_idx;
@@ -1224,7 +1200,6 @@ typedef struct NdbCudaRfTreeHeader
 	int			max_feature_index;
 } NdbCudaRfTreeHeader;
 
-/* Metal LR model header (matches CUDA format) */
 typedef struct NdbCudaLrModelHeader
 {
 	int			feature_dim;
@@ -1235,7 +1210,6 @@ typedef struct NdbCudaLrModelHeader
 	double		bias;
 } NdbCudaLrModelHeader;
 
-/* Helper: Fill a single-node tree (leaf) */
 static void
 rf_fill_single_node_tree_metal(NdbCudaRfNode *node, int majority_class)
 {
@@ -1246,7 +1220,6 @@ rf_fill_single_node_tree_metal(NdbCudaRfNode *node, int majority_class)
 	node->value = (float) majority_class;
 }
 
-/* Helper: Compute feature statistics (mean, variance) */
 static void
 rf_compute_feature_stats_metal(const float *features,
 							   int n_samples,
@@ -1274,7 +1247,6 @@ rf_compute_feature_stats_metal(const float *features,
 	*sumsq_out = sumsq;
 }
 
-/* Helper: Compute split counts for left/right branches */
 static void
 rf_compute_split_counts_metal(const float *features,
 							  const int *labels,
@@ -1561,6 +1533,8 @@ ndb_metal_rf_train(const float *features,
 			 errdetail("total_nodes=%d, header_bytes=%zu, payload_bytes=%zu, MaxAllocSize=%zu, VARHDRSZ=%d",
 					   total_nodes, header_bytes, payload_bytes, MaxAllocSize, VARHDRSZ)));
 
+	NDB_DECLARE(char *, payload_bytes_ptr);
+
 	if (payload_bytes > MaxAllocSize || VARHDRSZ + payload_bytes > MaxAllocSize)
 	{
 		ereport(DEBUG2,
@@ -1573,8 +1547,6 @@ ndb_metal_rf_train(const float *features,
 	ereport(DEBUG2,
 			(errmsg("ndb_metal_rf_train: about to allocate payload"),
 			 errdetail("VARHDRSZ + payload_bytes=%zu", VARHDRSZ + payload_bytes)));
-
-	NDB_DECLARE(char *, payload_bytes_ptr);
 	NDB_ALLOC(payload_bytes_ptr, char, VARHDRSZ + payload_bytes);
 	payload = (bytea *) payload_bytes_ptr;
 
@@ -2054,7 +2026,6 @@ ndb_metal_rf_predict(const bytea * model_data,
 	return ok ? 0 : -1;
 }
 
-/* Helper: Copy tree nodes from GTree to flat Metal format */
 static void
 rf_copy_tree_nodes_metal(const GTree *tree, NdbCudaRfNode *dest,
 						 int *node_offset, int *max_feat_idx)
@@ -2167,14 +2138,14 @@ ndb_metal_rf_pack(const struct RFModel *model,
 			*errstr = pstrdup("Metal RF pack: payload size exceeds MaxAllocSize");
 		return -1;
 	}
+	NDB_DECLARE(char *, blob_bytes);
+
 	if (VARHDRSZ + payload_bytes > MaxAllocSize)
 	{
 		if (errstr)
 			*errstr = pstrdup("Metal RF pack: total size exceeds MaxAllocSize");
 		return -1;
 	}
-
-	NDB_DECLARE(char *, blob_bytes);
 	NDB_ALLOC(blob_bytes, char, VARHDRSZ + payload_bytes);
 	blob = (bytea *) blob_bytes;
 	if (blob == NULL)
@@ -2367,6 +2338,8 @@ ndb_metal_lr_train(const float *features,
 		NdbCudaLrModelHeader *hdr;
 		float	   *weights_dest;
 
+		NDB_DECLARE(char *, blob_bytes);
+
 		memset(&model, 0, sizeof(model));
 		model.n_features = feature_dim;
 		model.n_samples = n_samples;
@@ -2387,8 +2360,6 @@ ndb_metal_lr_train(const float *features,
 				*errstr = pstrdup("Metal LR train: model size exceeds MaxAllocSize");
 			goto cleanup;
 		}
-
-		NDB_DECLARE(char *, blob_bytes);
 		NDB_ALLOC(blob_bytes, char, VARHDRSZ + payload_bytes);
 		blob = (bytea *) blob_bytes;
 		if (blob == NULL)
@@ -2542,14 +2513,14 @@ ndb_metal_lr_pack(const struct LRModel *model,
 	payload_bytes = sizeof(NdbCudaLrModelHeader) +
 		sizeof(float) * (size_t) model->n_features;
 
+	NDB_DECLARE(char *, blob_bytes);
+
 	if (VARHDRSZ + payload_bytes > MaxAllocSize)
 	{
 		if (errstr)
 			*errstr = pstrdup("Metal LR pack: total size exceeds MaxAllocSize");
 		return -1;
 	}
-
-	NDB_DECLARE(char *, blob_bytes);
 	NDB_ALLOC(blob_bytes, char, VARHDRSZ + payload_bytes);
 	blob = (bytea *) blob_bytes;
 	if (blob == NULL)
@@ -2590,13 +2561,12 @@ ndb_metal_lr_pack(const struct LRModel *model,
 	return 0;
 }
 
-/* Metal Linear Regression model header (matches CUDA) */
 typedef struct NdbCudaLinRegModelHeader
 {
 	int32		feature_dim;
 	int32		n_samples;
 	float		intercept;
-	float	   *coefficients;	/* Array of feature_dim floats */
+	float	   *coefficients;
 	double		r_squared;
 	double		mse;
 	double		mae;
@@ -2625,6 +2595,8 @@ ndb_metal_linreg_pack(const struct LinRegModel *model,
 		return -1;
 	}
 
+	NDB_DECLARE(char *, blob_bytes);
+
 	ereport(DEBUG2,
 			(errmsg("ndb_metal_linreg_pack: calculating payload size, n_features=%d", model->n_features)));
 	payload_bytes = sizeof(NdbCudaLinRegModelHeader)
@@ -2632,7 +2604,6 @@ ndb_metal_linreg_pack(const struct LinRegModel *model,
 
 	ereport(DEBUG2,
 			(errmsg("ndb_metal_linreg_pack: allocating blob, payload_bytes=%zu", payload_bytes)));
-	NDB_DECLARE(char *, blob_bytes);
 	NDB_ALLOC(blob_bytes, char, VARHDRSZ + payload_bytes);
 	blob = (bytea *) blob_bytes;
 	if (blob == NULL)
@@ -3074,13 +3045,14 @@ ndb_metal_linreg_train(const float *features,
 		double		mse = 0.0;
 		double		mae = 0.0;
 
+		NDB_DECLARE(double *, model_coefficients);
+
 		ereport(DEBUG2, (errmsg("ndb_metal_linreg_train: model struct declared")));
 		model.n_features = feature_dim;
 		model.n_samples = n_samples;
 		ereport(DEBUG2, (errmsg("ndb_metal_linreg_train: setting intercept from h_beta[0]")));
 		model.intercept = h_beta[0];
 		ereport(DEBUG2, (errmsg("ndb_metal_linreg_train: allocating coefficients array")));
-		NDB_DECLARE(double *, model_coefficients);
 		NDB_ALLOC(model_coefficients, double, feature_dim);
 		model.coefficients = model_coefficients;
 		if (model.coefficients == NULL)
@@ -3235,17 +3207,15 @@ ndb_metal_linreg_predict(const bytea * model_data,
 	return 0;
 }
 
-/* Metal SVM model header (matches CUDA) */
 typedef struct NdbCudaSvmModelHeader
 {
 	int32		feature_dim;
 	int32		n_samples;
 	int32		n_support_vectors;
 	float		bias;
-	float	   *alphas;			/* Array of n_support_vectors floats */
-	float	   *support_vectors;	/* Array of n_support_vectors *
-									 * feature_dim floats */
-	int32	   *support_vector_indices; /* Array of n_support_vectors ints */
+	float	   *alphas;
+	float	   *support_vectors;
+	int32	   *support_vector_indices;
 	double		C;
 	int32		max_iters;
 } NdbCudaSvmModelHeader;
@@ -3644,6 +3614,10 @@ ndb_metal_svm_train(const float *features,
 	model.C = C;
 	model.max_iters = actual_max_iters;
 
+	NDB_DECLARE(double *, model_alphas);
+	NDB_DECLARE(float *, model_support_vectors);
+	NDB_DECLARE(int *, model_support_vector_indices);
+
 	/* Allocate support vectors and alphas */
 	/* Check for integer overflow in size calculations */
 	if (sv_count > 0 && feature_dim > 0 && (size_t) sv_count > MaxAllocSize / sizeof(float) / (size_t) feature_dim)
@@ -3655,9 +3629,6 @@ ndb_metal_svm_train(const float *features,
 		NDB_FREE(kernel_matrix);
 		return -1;
 	}
-	NDB_DECLARE(double *, model_alphas);
-	NDB_DECLARE(float *, model_support_vectors);
-	NDB_DECLARE(int *, model_support_vector_indices);
 	NDB_ALLOC(model_alphas, double, sv_count);
 	NDB_ALLOC(model_support_vectors, float, sv_count * feature_dim);
 	NDB_ALLOC(model_support_vector_indices, int, sv_count);
@@ -3793,8 +3764,6 @@ ndb_metal_svm_predict(const bytea * model_data,
 		for (j = 0; j < feature_dim; j++)
 			kernel_val += sv[j] * input[j];
 
-		/* Note: y_i is stored implicitly via label sign in training */
-		/* For now, assume positive label for all support vectors */
 		prediction += alphas[i] * kernel_val;
 	}
 
@@ -3805,7 +3774,6 @@ ndb_metal_svm_predict(const bytea * model_data,
 	return 0;
 }
 
-/* Metal Decision Tree model structures (matches CUDA) */
 typedef struct NdbCudaDtNode
 {
 	int			feature_idx;
@@ -4007,7 +3975,6 @@ dt_build_tree_metal(const float *features,
 		}
 		else
 		{
-			/* Compute mean for regression */
 			double		sum = 0.0;
 
 			for (i = 0; i < n_samples; i++)
@@ -4051,7 +4018,6 @@ dt_build_tree_metal(const float *features,
 			min_val = FLT_MAX;
 			max_val = -FLT_MAX;
 
-			/* Compute feature range */
 			for (i = 0; i < n_samples; i++)
 			{
 				val = features[indices[i] * feature_dim + feat];
@@ -4512,8 +4478,6 @@ ndb_metal_dt_train(const float *features,
 		}
 	}
 
-	/* Create index array */
-	NDB_DECLARE(int *, indices);
 	NDB_ALLOC(indices, int, n_samples);
 	if (indices == NULL)
 	{
@@ -4536,7 +4500,6 @@ ndb_metal_dt_train(const float *features,
 	}
 
 	/* Create model structure */
-	NDB_DECLARE(DTModel *, model);
 	NDB_ALLOC(model, DTModel, 1);
 	if (model == NULL)
 	{
@@ -4740,13 +4703,12 @@ ndb_metal_dt_predict(const bytea * model_data,
 	return -1;
 }
 
-/* Metal Ridge Regression model header (matches CUDA) */
 typedef struct NdbCudaRidgeModelHeader
 {
 	int32		feature_dim;
 	int32		n_samples;
 	float		intercept;
-	float	   *coefficients;	/* Array of feature_dim floats */
+	float	   *coefficients;
 	double		lambda;
 	double		r_squared;
 	double		mse;
@@ -4918,6 +4880,7 @@ ndb_metal_ridge_train(const float *features,
 		const float *row = features + (i * feature_dim);
 
 		NDB_DECLARE(double *, xi);
+
 		NDB_ALLOC(xi, double, dim_with_intercept);
 
 		xi[0] = 1.0;			/* intercept */
@@ -5046,11 +5009,12 @@ ndb_metal_ridge_train(const float *features,
 		double		mse = 0.0;
 		double		mae = 0.0;
 
+		NDB_DECLARE(double *, model_coefficients);
+
 		model.n_features = feature_dim;
 		model.n_samples = n_samples;
 		model.intercept = h_beta[0];
 		model.lambda = lambda;
-		NDB_DECLARE(double *, model_coefficients);
 		NDB_ALLOC(model_coefficients, double, feature_dim);
 		model.coefficients = model_coefficients;
 		for (i = 0; i < feature_dim; i++)
@@ -5156,13 +5120,12 @@ ndb_metal_ridge_predict(const bytea * model_data,
 	return 0;
 }
 
-/* Metal Lasso Regression model header (matches CUDA) */
 typedef struct NdbCudaLassoModelHeader
 {
 	int32		feature_dim;
 	int32		n_samples;
 	float		intercept;
-	float	   *coefficients;	/* Array of feature_dim floats */
+	float	   *coefficients;
 	double		lambda;
 	int32		max_iters;
 	double		r_squared;
@@ -5170,9 +5133,6 @@ typedef struct NdbCudaLassoModelHeader
 	double		mae;
 } NdbCudaLassoModelHeader;
 
-/*
- * Soft thresholding operator for Lasso
- */
 static double
 soft_threshold_metal(double x, double lambda)
 {
@@ -5355,15 +5315,11 @@ ndb_metal_lasso_train(const float *features,
 		}
 	}
 
-	/* Compute mean of targets */
 	for (i = 0; i < n_samples; i++)
 		y_mean += targets[i];
 	y_mean /= n_samples;
 
-	/* Initialize weights and residuals */
-	NDB_DECLARE(double *, weights);
-	NDB_DECLARE(double *, weights_old);
-	NDB_DECLARE(double *, residuals);
+	/* Initialize weights and residuals - use variables declared at function start */
 	NDB_ALLOC(weights, double, feature_dim);
 	NDB_ALLOC(weights_old, double, feature_dim);
 	NDB_ALLOC(residuals, double, n_samples);
@@ -5442,12 +5398,13 @@ ndb_metal_lasso_train(const float *features,
 		double		mse = 0.0;
 		double		mae = 0.0;
 
+		NDB_DECLARE(double *, model_coefficients);
+
 		model.n_features = feature_dim;
 		model.n_samples = n_samples;
 		model.intercept = y_mean;
 		model.lambda = lambda;
 		model.max_iters = max_iters;
-		NDB_DECLARE(double *, model_coefficients);
 		NDB_ALLOC(model_coefficients, double, feature_dim);
 		model.coefficients = model_coefficients;
 		for (i = 0; i < feature_dim; i++)
@@ -5548,19 +5505,15 @@ ndb_metal_lasso_predict(const bytea * model_data,
 	return 0;
 }
 
-/* Metal Naive Bayes Functions */
-
-/* Gaussian Naive Bayes model structure (matches ml_naive_bayes.c) */
 typedef struct GaussianNBModel
 {
-	double	   *class_priors;	/* P(class) */
-	double	  **means;			/* Mean for each feature per class */
-	double	  **variances;		/* Variance for each feature per class */
+	double	   *class_priors;
+	double	  **means;
+	double	  **variances;
 	int			n_classes;
 	int			n_features;
 }			GaussianNBModel;
 
-/* Metal-specific Naive Bayes model header (matches CUDA) */
 typedef struct NdbCudaNbModelHeader
 {
 	int32		n_classes;
@@ -5595,8 +5548,8 @@ ndb_metal_nb_pack(const struct GaussianNBModel *model,
 
 	payload_bytes = sizeof(NdbCudaNbModelHeader)
 		+ sizeof(double) * (size_t) model->n_classes	/* priors */
-		+ sizeof(double) * (size_t) model->n_classes * (size_t) model->n_features	/* means */
-		+ sizeof(double) * (size_t) model->n_classes * (size_t) model->n_features;	/* variances */
+		+ sizeof(double) * (size_t) model->n_classes * (size_t) model->n_features
+		+ sizeof(double) * (size_t) model->n_classes * (size_t) model->n_features;
 
 	NDB_DECLARE(char *, blob_bytes);
 	NDB_ALLOC(blob_bytes, char, VARHDRSZ + payload_bytes);
@@ -5817,7 +5770,6 @@ ndb_metal_nb_train(const float *features,
 	rc = 0;
 
 cleanup:
-	/* Free model structure arrays (not the data they point to) */
 	if (model.means != NULL)
 		NDB_FREE(model.means);
 	if (model.variances != NULL)
@@ -5929,19 +5881,15 @@ ndb_metal_nb_predict(const bytea * model_data,
 	return 0;
 }
 
-/* Metal Gaussian Mixture Model Functions */
-
-/* GMM model structure (matches ml_gmm.c) */
 typedef struct GMMModel
 {
-	int			k;				/* Number of components */
-	int			dim;			/* Feature dimension */
-	double	   *mixing_coeffs;	/* Mixing coefficients */
-	double	  **means;			/* Mean vectors */
-	double	  **variances;		/* Variance vectors */
+	int			k;
+	int			dim;
+	double	   *mixing_coeffs;
+	double	  **means;
+	double	  **variances;
 }			GMMModel;
 
-/* Metal-specific GMM model header (matches CUDA) */
 typedef struct NdbCudaGmmModelHeader
 {
 	int32		n_components;
@@ -5981,8 +5929,8 @@ ndb_metal_gmm_pack(const struct GMMModel *model,
 
 	payload_bytes = sizeof(NdbCudaGmmModelHeader)
 		+ sizeof(double) * (size_t) model->k	/* mixing_coeffs */
-		+ sizeof(double) * (size_t) model->k * (size_t) model->dim	/* means */
-		+ sizeof(double) * (size_t) model->k * (size_t) model->dim; /* variances */
+		+ sizeof(double) * (size_t) model->k * (size_t) model->dim
+		+ sizeof(double) * (size_t) model->k * (size_t) model->dim;
 
 	NDB_DECLARE(char *, blob_bytes);
 	NDB_ALLOC(blob_bytes, char, VARHDRSZ + payload_bytes);
@@ -6164,10 +6112,9 @@ ndb_metal_gmm_train(const float *features,
 	NDB_ALLOC(variances_2d, double *, n_components);
 	NDB_ALLOC(responsibilities, double, n_samples * n_components);
 
-	/* Initialize means with random data points (K-means++ style) */
 	for (k = 0; k < n_components; k++)
 	{
-		int			idx = (k * n_samples) / n_components;	/* Spread initial means */
+		int			idx = (k * n_samples) / n_components;
 
 		means_2d[k] = means + k * feature_dim;
 		variances_2d[k] = variances + k * feature_dim;
@@ -6175,7 +6122,6 @@ ndb_metal_gmm_train(const float *features,
 		for (d = 0; d < feature_dim; d++)
 			means[k * feature_dim + d] = (double) features[idx * feature_dim + d];
 
-		/* Initialize variances to 1.0 */
 		for (d = 0; d < feature_dim; d++)
 			variances[k * feature_dim + d] = 1.0;
 
@@ -6254,7 +6200,6 @@ ndb_metal_gmm_train(const float *features,
 			else
 				mixing_coeffs[k] = 1.0 / n_components;
 
-			/* Update means */
 			for (d = 0; d < feature_dim; d++)
 				means[k * feature_dim + d] = 0.0;
 
@@ -6272,7 +6217,6 @@ ndb_metal_gmm_train(const float *features,
 					means[k * feature_dim + d] /= Nk;
 			}
 
-			/* Update variances */
 			for (d = 0; d < feature_dim; d++)
 				variances[k * feature_dim + d] = 0.0;
 
@@ -6295,7 +6239,6 @@ ndb_metal_gmm_train(const float *features,
 			}
 		}
 
-		/* Regularize variances */
 		for (k = 0; k < n_components; k++)
 		{
 			for (d = 0; d < feature_dim; d++)
@@ -6445,20 +6388,16 @@ ndb_metal_gmm_predict(const bytea * model_data,
 	return 0;
 }
 
-/* Metal K-Nearest Neighbors Functions */
-
-/* KNN model structure (matches ml_knn.c) */
 typedef struct KNNModel
 {
 	int			n_samples;
 	int			n_features;
 	int			k;
-	int			task_type;		/* 0=classification, 1=regression */
-	float	   *features;		/* Training features [n_samples * n_features] */
-	double	   *labels;			/* Training labels [n_samples] */
+	int			task_type;
+	float	   *features;
+	double	   *labels;
 }			KNNModel;
 
-/* Metal-specific KNN model header (matches CUDA) */
 typedef struct NdbCudaKnnModelHeader
 {
 	int32		n_samples;

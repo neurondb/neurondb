@@ -15,8 +15,6 @@
 #include "neurondb_json.h"
 #include "neurondb_macros.h"
 
-/* Function prototypes to fix implicit declaration errors */
-/* ndb_json_quote_string is now replaced by ndb_json_quote_string from neurondb_json.h */
 static text * ndb_encode_base64(bytea * data);
 int			http_post_json(const char *url, const char *api_key, const char *body, int timeout_ms, char **resp_out);
 
@@ -387,12 +385,13 @@ parse_hf_emb_vector(const char *json, float **vec_out, int *dim_out)
 			{
 				err_start++;
 				err_end = strchr(err_start, '"');
-				if (err_end)
-				{
-					size_t		err_len = err_end - err_start;
+			if (err_end)
+			{
+				size_t		err_len = err_end - err_start;
 
-					NDB_DECLARE(char *, err_msg);
-					NDB_ALLOC(err_msg, char, err_len + 1);
+				NDB_DECLARE(char *, err_msg);
+
+				NDB_ALLOC(err_msg, char, err_len + 1);
 
 					memcpy(err_msg, err_start, err_len);
 					err_msg[err_len] = '\0';

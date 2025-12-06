@@ -405,6 +405,8 @@ ndb_rocm_lr_train(const float *features,
 		lambda = default_lambda;
 	}
 
+	NDB_DECLARE(double *, grad_weights);
+
 	/* Allocate host memory with defensive checks */
 	weights = (double *) palloc0(sizeof(double) * (size_t) feature_dim);
 	if (weights == NULL)
@@ -413,7 +415,6 @@ ndb_rocm_lr_train(const float *features,
 			*errstr = pstrdup("ndb_rocm_lr_train: palloc0 weights failed");
 		return -1;
 	}
-	NDB_DECLARE(double *, grad_weights);
 	NDB_ALLOC(grad_weights, double, feature_dim);
 	if (grad_weights == NULL)
 	{
@@ -555,10 +556,11 @@ ndb_rocm_lr_train(const float *features,
 	 */
 	/* Optimized: Use block-based conversion for better cache locality */
 	{
+		int			conv_i;
+
 		NDB_DECLARE(float *, h_features_col);
 		NDB_ALLOC(h_features_col, char, feature_bytes);
 		h_features_col = (float *) h_features_col;
-		int			conv_i;
 		const int	BLOCK_SIZE = 64;	/* Cache-friendly block size */
 
 		if (h_features_col == NULL)
@@ -1597,9 +1599,6 @@ ndb_rocm_lr_predict(const bytea * model_data,
 	*probability_out = 1.0 / (1.0 + exp(-z));
 	return 0;
 }
-
-/* Kernel wrapper functions are implemented in gpu_lr_kernels.cu */
-/* launch_lr_eval_kernel_hip is declared in neurondb_rocm_lr.h */
 
 /*
  * ndb_rocm_lr_evaluate

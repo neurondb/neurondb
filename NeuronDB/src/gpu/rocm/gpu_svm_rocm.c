@@ -31,7 +31,6 @@
 #include "neurondb_safe_memory.h"
 #include "neurondb_macros.h"
 
-/* Forward declarations for kernel launchers */
 extern int	ndb_rocm_svm_launch_compute_kernel_row(const float *features,
 												   int n_samples,
 												   int feature_dim,
@@ -73,7 +72,6 @@ ndb_rocm_svm_pack_model(const SVMModel * model,
 		return -1;
 	}
 
-	/* Validate model fields */
 	if (model->n_support_vectors <= 0 || model->n_support_vectors > 100000)
 	{
 		if (errstr)
@@ -93,7 +91,6 @@ ndb_rocm_svm_pack_model(const SVMModel * model,
 		return -1;
 	}
 
-	/* Compute payload size with overflow protection */
 	alphas_size = sizeof(float) * (size_t) model->n_support_vectors;
 	sv_size = sizeof(float) * (size_t) model->n_support_vectors * (size_t) model->n_features;
 	indices_size = sizeof(int32) * (size_t) model->n_support_vectors;
@@ -107,10 +104,10 @@ ndb_rocm_svm_pack_model(const SVMModel * model,
 		return -1;
 	}
 
-	payload_bytes = total_payload;
-
 	NDB_DECLARE(bytea *, blob);
 	NDB_DECLARE(char *, blob_raw);
+
+	payload_bytes = total_payload;
 	NDB_ALLOC(blob_raw, char, VARHDRSZ + payload_bytes);
 	blob = (bytea *) blob_raw;
 	SET_VARSIZE(blob, VARHDRSZ + payload_bytes);

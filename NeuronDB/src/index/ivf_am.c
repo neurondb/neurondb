@@ -649,8 +649,9 @@ ivfbuild(Relation heap, Relation index, struct IndexInfo *indexInfo)
 
 	for (i = 0; i < nlists; i++)
 	{
-		NDB_DECLARE(char *, centroid_raw);
 		IvfCentroidData *centroid;
+
+		NDB_DECLARE(char *, centroid_raw);
 
 		if (kmeans->centroids[i] == NULL)
 		{
@@ -1188,9 +1189,10 @@ ivfbulkdelete(IndexVacuumInfo * info,
 	int			tuplesRemoved = 0;
 	int			tuplesRemovedThisPage = 0;
 
+	NDB_DECLARE(IndexBulkDeleteResult *, new_stats);
+
 	if (stats == NULL)
 	{
-		NDB_DECLARE(IndexBulkDeleteResult *, new_stats);
 		NDB_ALLOC(new_stats, IndexBulkDeleteResult, 1);
 		stats = new_stats;
 	}
@@ -1350,9 +1352,10 @@ ivfbulkdelete(IndexVacuumInfo * info,
 static IndexBulkDeleteResult *
 ivfvacuumcleanup(IndexVacuumInfo * info, IndexBulkDeleteResult * stats)
 {
+	NDB_DECLARE(IndexBulkDeleteResult *, new_stats);
+
 	if (stats == NULL)
 	{
-		NDB_DECLARE(IndexBulkDeleteResult *, new_stats);
 		NDB_ALLOC(new_stats, IndexBulkDeleteResult, 1);
 		stats = new_stats;
 	}
@@ -2037,10 +2040,25 @@ ivfendscan(IndexScanDesc scan)
 	scan->opaque = NULL;
 }
 
-/* ==================== KMeans Implementation ==================== */
-
 /*
- * Initialize KMeans state
+ * kmeans_init - Initialize KMeans state
+ *
+ * Allocates and initializes a KMeansState structure for performing
+ * K-means clustering. Sets up the state with k clusters, dimension,
+ * and initializes centroids.
+ *
+ * Parameters:
+ *   k - Number of clusters
+ *   dim - Vector dimension
+ *   data - Array of data points (unused in current implementation)
+ *   n - Number of data points (unused in current implementation)
+ *
+ * Returns:
+ *   Pointer to initialized KMeansState structure
+ *
+ * Notes:
+ *   This function is currently marked as unused. Memory is allocated
+ *   in CurrentMemoryContext.
  */
 __attribute__((unused)) static KMeansState *
 kmeans_init(int k, int dim, float4 * *data, int n)

@@ -36,12 +36,11 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-/* Gaussian Naive Bayes model structure (matches ml_naive_bayes.c) */
 typedef struct GaussianNBModel
 {
-	double	   *class_priors;	/* P(class) */
-	double	  **means;			/* Mean for each feature per class */
-	double	  **variances;		/* Variance for each feature per class */
+	double	   *class_priors;
+	double	  **means;
+	double	  **variances;
 	int			n_classes;
 	int			n_features;
 }			GaussianNBModel;
@@ -73,7 +72,6 @@ ndb_rocm_nb_pack_model(const GaussianNBModel * model,
 		return -1;
 	}
 
-	/* Validate model structure */
 	if (model->n_classes <= 0 || model->n_classes > 1000000)
 	{
 		if (errstr)
@@ -87,7 +85,6 @@ ndb_rocm_nb_pack_model(const GaussianNBModel * model,
 		return -1;
 	}
 
-	/* Check for integer overflow in size calculations */
 	priors_bytes = sizeof(double) * (size_t) model->n_classes;
 	means_bytes = sizeof(double) * (size_t) model->n_classes * (size_t) model->n_features;
 	variances_bytes = sizeof(double) * (size_t) model->n_classes * (size_t) model->n_features;
@@ -464,12 +461,13 @@ ndb_rocm_nb_train(const float *features,
 			variances[i] = 1e-9;
 	}
 
+	NDB_DECLARE(double **, model_means);
+	NDB_DECLARE(double **, model_variances);
+
 	/* Build model structure for packing */
 	model.n_classes = class_count;
 	model.n_features = feature_dim;
 	model.class_priors = class_priors;
-	NDB_DECLARE(double **, model_means);
-	NDB_DECLARE(double **, model_variances);
 	NDB_ALLOC(model_means, double *, class_count);
 	NDB_ALLOC(model_variances, double *, class_count);
 	model.means = model_means;

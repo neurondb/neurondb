@@ -100,21 +100,23 @@ activation_derivative_tanh(float x)
 }
 
 /*
- * neural_network_forward
- *    Execute forward propagation through all network layers.
+ * neural_network_forward - Execute forward propagation through all network layers
  *
- * This function processes input data through each layer of the network,
- * computing weighted sums, applying activation functions, and propagating
- * activations to subsequent layers. Each layer receives activations from
- * the previous layer as input, applies matrix multiplication with learned
- * weights, adds bias terms, and transforms the result through an activation
- * function. The function validates all inputs and intermediate results for
- * numerical stability, checking for NULL pointers, invalid layer counts,
- * and non-finite values that could indicate numerical overflow or invalid
- * training data. For each neuron in each layer, it computes the weighted
- * sum of inputs, adds the bias term, applies the activation function
- * (ReLU, sigmoid, tanh, or linear), and stores the result for use by the
- * next layer or as the final output.
+ * Processes input data through each layer of the network, computing weighted
+ * sums, applying activation functions, and propagating activations to subsequent
+ * layers. Validates all inputs and intermediate results for numerical stability.
+ *
+ * Parameters:
+ *   net - Neural network structure with layers and weights
+ *   input - Input feature vector
+ *   output - Output vector to store final predictions
+ *
+ * Notes:
+ *   Each layer receives activations from the previous layer, applies matrix
+ *   multiplication with learned weights, adds bias terms, and transforms through
+ *   an activation function (ReLU, sigmoid, tanh, or linear). The function
+ *   performs extensive validation to check for NULL pointers, invalid layer
+ *   counts, and non-finite values that could indicate numerical overflow.
  */
 static void
 neural_network_forward(NeuralNetwork * net, float *input, float *output)
@@ -125,7 +127,6 @@ neural_network_forward(NeuralNetwork * net, float *input, float *output)
 	float	   *prev_activations = input;
 	float	   *curr_activations;
 
-	/* Defensive: validate inputs */
 	if (net == NULL)
 		ereport(ERROR,
 				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
@@ -382,13 +383,13 @@ neural_network_init(int n_inputs,
 	NDB_DECLARE(NeuralNetwork *, net);
 	NDB_ALLOC(net, NeuralNetwork, 1);
 
+	NDB_DECLARE(NeuralLayer *, layers);
+
 	net->n_inputs = n_inputs;
 	net->n_outputs = n_outputs;
 	net->n_layers = n_hidden + 1;	/* hidden + output */
 	net->activation_func = pstrdup(activation);
 	net->learning_rate = learning_rate;
-
-	NDB_DECLARE(NeuralLayer *, layers);
 	NDB_ALLOC(layers, NeuralLayer, net->n_layers);
 	net->layers = layers;
 
@@ -935,6 +936,30 @@ neural_network_deserialize(const bytea * data)
  *   epochs int DEFAULT 100,
  *   batch_size int DEFAULT 32
  * )
+ */
+/*
+ * train_neural_network - Train a feedforward neural network
+ *
+ * User-facing function that trains a feedforward neural network on data from
+ * a table using backpropagation. Supports multiple hidden layers and various
+ * activation functions.
+ *
+ * Parameters:
+ *   table_name - Name of table containing training data (text)
+ *   feature_col - Name of feature column (text)
+ *   label_col - Name of label column (text)
+ *   hidden_layers - Array of hidden layer sizes (int32[])
+ *   activation - Activation function name: "relu", "sigmoid", or "tanh" (text)
+ *   learning_rate - Learning rate for gradient descent (float8)
+ *   max_iters - Maximum training iterations (int32, optional)
+ *
+ * Returns:
+ *   Model ID (int32) of the trained model stored in catalog
+ *
+ * Notes:
+ *   The function uses backpropagation with the specified learning rate to
+ *   train the network. Supports ReLU, sigmoid, and tanh activation functions.
+ *   The trained model is serialized and stored in the ML catalog.
  */
 PG_FUNCTION_INFO_V1(train_neural_network);
 
@@ -1938,10 +1963,6 @@ evaluate_neural_network_by_model_id(PG_FUNCTION_ARGS)
 	PG_RETURN_JSONB_P(result);
 }
 
-/*-------------------------------------------------------------------------
- * GPU Model Ops Registration for Neural Network
- *-------------------------------------------------------------------------
- */
 #include "neurondb_gpu_model.h"
 #include "ml_gpu_registry.h"
 #include "neurondb_safe_memory.h"
