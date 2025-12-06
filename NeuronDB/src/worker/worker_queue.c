@@ -277,8 +277,8 @@ process_job_batch(void)
 	if (session == NULL)
 		elog(ERROR, "neurondb: failed to begin SPI session in neuranq");
 
-		PG_TRY();
-		{
+	PG_TRY();
+	{
 		ret = ndb_spi_execute(session,
 			"SELECT 1 FROM pg_tables WHERE schemaname = 'neurondb' "
 			"AND tablename = 'job_queue'",

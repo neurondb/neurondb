@@ -1165,19 +1165,41 @@ __asm__ __volatile__("":::"memory");
 void
 ndb_gpu_free_train_result(MLGpuTrainResult *result)
 {
+	char	   *tmp;
+
 	if (result == NULL)
 		return;
 
 	if (result->spec.algorithm)
-		NDB_FREE(result->spec.algorithm);
+	{
+		tmp = (char *) result->spec.algorithm;
+		NDB_FREE(tmp);
+		result->spec.algorithm = NULL;
+	}
 	if (result->spec.training_table)
-		NDB_FREE(result->spec.training_table);
+	{
+		tmp = (char *) result->spec.training_table;
+		NDB_FREE(tmp);
+		result->spec.training_table = NULL;
+	}
 	if (result->spec.training_column)
-		NDB_FREE(result->spec.training_column);
+	{
+		tmp = (char *) result->spec.training_column;
+		NDB_FREE(tmp);
+		result->spec.training_column = NULL;
+	}
 	if (result->spec.project_name)
-		NDB_FREE(result->spec.project_name);
+	{
+		tmp = (char *) result->spec.project_name;
+		NDB_FREE(tmp);
+		result->spec.project_name = NULL;
+	}
 	if (result->spec.model_name)
-		NDB_FREE(result->spec.model_name);
+	{
+		tmp = (char *) result->spec.model_name;
+		NDB_FREE(tmp);
+		result->spec.model_name = NULL;
+	}
 	NDB_FREE(result->spec.model_data);
 	NDB_FREE(result->spec.metrics);
 	if (result->metadata && result->metadata != result->spec.metrics)

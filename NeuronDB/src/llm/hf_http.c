@@ -14,9 +14,34 @@
 #include "neurondb_llm.h"
 #include "neurondb_json.h"
 #include "neurondb_macros.h"
+#include "neurondb_constants.h"
 
 static text * ndb_encode_base64(bytea * data);
 int			http_post_json(const char *url, const char *api_key, const char *body, int timeout_ms, char **resp_out);
+static bool handle_http_response(int http_status, char **json_ptr, NdbLLMResp *out);
+
+/* HuggingFace endpoint classification */
+typedef enum
+{
+	HF_EP_GENERIC = 0,
+	HF_EP_ROUTER,
+	HF_EP_API_INFERENCE
+} HfEndpointKind;
+
+static HfEndpointKind
+hf_classify_endpoint(const char *endpoint)
+{
+	if (!endpoint)
+		return HF_EP_GENERIC;
+
+	if (strstr(endpoint, "router.huggingface.co") != NULL)
+		return HF_EP_ROUTER;
+
+	if (strstr(endpoint, "api-inference.huggingface.co") != NULL)
+		return HF_EP_API_INFERENCE;
+
+	return HF_EP_GENERIC;
+}
 
 /*
  * ndb_hf_vision_complete - Call HuggingFace vision model for image+prompt completion
@@ -40,6 +65,7 @@ ndb_hf_vision_complete(const NdbLLMConfig *cfg,
 	char	   *text_start;
 	char	   *text_end;
 	size_t		len;
+	HfEndpointKind kind;
 
 	if (!cfg || !image_data || image_size == 0 || !prompt || !out)
 		return -1;
@@ -75,20 +101,37 @@ ndb_hf_vision_complete(const NdbLLMConfig *cfg,
 	quoted_prompt = ndb_json_quote_string(prompt);
 
 	/* Build URL for HuggingFace vision completion API */
-	if (cfg->endpoint && (strstr(cfg->endpoint, "router.huggingface.co") != NULL ||
-						  strstr(cfg->endpoint, "hf-inference") != NULL))
+	kind = hf_classify_endpoint(cfg->endpoint);
+
+	switch (kind)
 	{
-		appendStringInfo(&url,
-						 "%s/models/%s/pipeline/image-to-text",
-						 cfg->endpoint,
-						 cfg->model);
-	}
-	else
-	{
-		appendStringInfo(&url,
-						 "%s/pipeline/image-to-text/%s",
-						 cfg->endpoint,
-						 cfg->model);
+		case HF_EP_ROUTER:
+			if (strstr(cfg->endpoint, "/hf-inference") != NULL)
+				appendStringInfo(&url,
+								 "%s/models/%s/pipeline/image-to-text",
+								 cfg->endpoint,
+								 cfg->model);
+			else
+				appendStringInfo(&url,
+								 "%s/hf-inference/models/%s/pipeline/image-to-text",
+								 cfg->endpoint,
+								 cfg->model);
+			break;
+
+		case HF_EP_API_INFERENCE:
+			appendStringInfo(&url,
+							 "%s/models/%s/pipeline/image-to-text",
+							 cfg->endpoint,
+							 cfg->model);
+			break;
+
+		case HF_EP_GENERIC:
+		default:
+			appendStringInfo(&url,
+							 "%s/pipeline/image-to-text/%s",
+							 cfg->endpoint,
+							 cfg->model);
+			break;
 	}
 
 	/* Compose JSON body */
@@ -119,7 +162,8 @@ ndb_hf_vision_complete(const NdbLLMConfig *cfg,
 	NDB_FREE(base64_data);
 	NDB_FREE(quoted_prompt);
 
-	if (code < 200 || code >= 300 || !resp)
+	/* Handle all HTTP response types */
+	if (!handle_http_response(code, &resp, out))
 	{
 		if (resp)
 			NDB_FREE(resp);
@@ -218,7 +262,10 @@ http_post_json(const char *url,
 	CURLcode	res;
 
 	if (!curl)
+	{
+		*out = NULL;
 		return -1;
+	}
 
 	headers = curl_slist_append(headers, "Content-Type: application/json");
 	if (api_key && api_key[0])
@@ -228,6 +275,7 @@ http_post_json(const char *url,
 		initStringInfo(&h);
 		appendStringInfo(&h, "Authorization: Bearer %s", api_key);
 		headers = curl_slist_append(headers, h.data);
+		NDB_FREE(h.data);
 	}
 	curl_easy_setopt(curl, CURLOPT_URL, url);
 	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
@@ -244,6 +292,7 @@ http_post_json(const char *url,
 		curl_easy_cleanup(curl);
 		if (buf.data)
 			NDB_FREE(buf.data);
+		*out = NULL;
 		return -1;
 	}
 	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);
@@ -252,6 +301,85 @@ http_post_json(const char *url,
 
 	*out = buf.data;
 	return (int) code;
+}
+
+/*
+ * Helper function to handle all HTTP responses consistently
+ * Wraps non-JSON error responses in JSON format and stores in out->json
+ * Returns true if response should be treated as success, false otherwise
+ */
+static bool
+handle_http_response(int http_status, char **json_ptr, NdbLLMResp *out)
+{
+	if (!json_ptr || !*json_ptr)
+	{
+		if (out)
+		{
+			out->http_status = http_status;
+			out->json = NULL;
+		}
+		return (http_status >= NDB_HTTP_STATUS_OK_MIN && 
+				http_status <= NDB_HTTP_STATUS_OK_MAX);
+	}
+
+	if (out)
+		out->http_status = http_status;
+
+	/* Handle non-JSON error responses (e.g., plain text "Not Found" from router) */
+	if (http_status >= NDB_HTTP_STATUS_ERROR_MIN)
+	{
+		const char *json_ptr_check = *json_ptr;
+		
+		/* Skip whitespace */
+		while (*json_ptr_check && isspace((unsigned char) *json_ptr_check))
+			json_ptr_check++;
+		
+		/* Check if response is JSON (starts with { or [) */
+		if (*json_ptr_check != '{' && *json_ptr_check != '[')
+		{
+			/* Non-JSON response (e.g., plain text "Not Found") - wrap in JSON error format */
+			StringInfoData error_json;
+			StringInfoData error_msg;
+			char	   *quoted_error;
+			
+			initStringInfo(&error_json);
+			initStringInfo(&error_msg);
+			
+			/* Build error message: "HTTP 404: Not Found" */
+			appendStringInfo(&error_msg, "HTTP %d: %s", http_status, *json_ptr);
+			
+			/* Quote the error message (ndb_json_quote_string adds quotes) */
+			quoted_error = ndb_json_quote_string(error_msg.data);
+			
+			/* Build proper JSON: {"error":"HTTP 404: Not Found"} */
+			appendStringInfo(&error_json, "{\"error\":%s}", quoted_error);
+			
+			NDB_FREE(quoted_error);
+			NDB_FREE(error_msg.data);
+			NDB_FREE(*json_ptr);
+			*json_ptr = error_json.data;
+			if (out)
+				out->json = *json_ptr;
+		}
+		else if (out)
+		{
+			out->json = *json_ptr;
+		}
+		return false;
+	}
+	
+	/* Success responses (2xx) */
+	if (http_status >= NDB_HTTP_STATUS_OK_MIN && http_status <= NDB_HTTP_STATUS_OK_MAX)
+	{
+		if (out)
+			out->json = *json_ptr;
+		return true;
+	}
+	
+	/* Other responses (1xx, 3xx) */
+	if (out)
+		out->json = *json_ptr;
+	return false;
 }
 
 /* Extracts text field from HuggingFace inference API responses */
@@ -267,17 +395,43 @@ extract_hf_text(const char *json)
 	char	   *p;
 	char	   *q;
 	size_t		len;
-	char	   *out;
+	NDB_DECLARE(char *, out);
+	const char *json_trimmed;
 
 	if (!json || json[0] == '\0')
 		return NULL;
-	if (strncmp(json, "{\"error\"", 8) == 0)
+	
+	/* Trim leading whitespace */
+	json_trimmed = json;
+	while (*json_trimmed && isspace((unsigned char) *json_trimmed))
+		json_trimmed++;
+	
+	if (strncmp(json_trimmed, "{\"error\"", 8) == 0)
 		return NULL;
 
-	/* Find first "generated_text":"..." pattern */
-	key = "\"generated_text\":";
+	/* Try OpenAI-compatible format first: choices[0].message.content */
+	key = "\"content\":";
+	p = strstr(json_trimmed, key);
+	if (p)
+	{
+		/* Found OpenAI format, extract content */
+		p = strchr(p + strlen(key), '"');
+		if (!p)
+			return NULL;
+		p++;
+		q = strchr(p, '"');
+		if (!q)
+			return NULL;
+		len = q - p;
+		NDB_ALLOC(out, char, len + 1);
+		memcpy(out, p, len);
+		out[len] = '\0';
+		return out;
+	}
 
-	p = strstr(json, key);
+	/* Fall back to legacy format: generated_text */
+	key = "\"generated_text\":";
+	p = strstr(json_trimmed, key);
 	if (!p)
 		return NULL;
 	/* Find the first quote after the key */
@@ -303,6 +457,12 @@ ndb_hf_complete(const NdbLLMConfig *cfg,
 {
 	StringInfoData url,
 				body;
+	HfEndpointKind kind;
+	int			status;
+	int			rc;
+	bool		tried_fallback = false;
+	bool		tried_chat_format = false;
+	bool		use_chat_format = false;
 
 	initStringInfo(&url);
 	initStringInfo(&body);
@@ -326,33 +486,483 @@ ndb_hf_complete(const NdbLLMConfig *cfg,
 		return -1;
 	}
 
-	appendStringInfo(&url, "%s/models/%s", cfg->endpoint, cfg->model);
-	appendStringInfo(&body,
-					 "{\"inputs\":%s,\"parameters\":%s}",
-					 ndb_json_quote_string(prompt),
-					 params_json ? params_json : "{}");
-
-	out->http_status = http_post_json(
-									  url.data, cfg->api_key, body.data, cfg->timeout_ms, &out->json);
-
-	out->text = NULL;
-
-	if (out->json && out->http_status >= 200 && out->http_status < 300)
+	kind = hf_classify_endpoint(cfg->endpoint);
+	
+	/* For router endpoints, try chat format first */
+	if (kind == HF_EP_ROUTER && !tried_chat_format)
 	{
-		/* Try to parse a "generated_text" value out */
-		char	   *t = extract_hf_text(out->json);
+		use_chat_format = true;
+		tried_chat_format = true;
+	}
+
+build_url:
+	{
+		const char *endpoint_to_use = cfg->endpoint;
+
+		resetStringInfo(&url);
+		resetStringInfo(&body);
+
+		switch (kind)
+		{
+			case HF_EP_ROUTER:
+				/*
+				 * Router style: 
+				 * Chat format: clean_base + "/v1/chat/completions"
+				 * Non-chat format: clean_base + "/hf-inference/models/{model}"
+				 */
+				{
+					StringInfoData clean_endpoint;
+					const char *base = endpoint_to_use;
+					
+					initStringInfo(&clean_endpoint);
+					/* Remove /hf-inference if present to get base router URL */
+					if (strstr(base, "/hf-inference") != NULL)
+					{
+						size_t len = strstr(base, "/hf-inference") - base;
+						appendStringInfo(&clean_endpoint, "%.*s", (int)len, base);
+						if (use_chat_format)
+						{
+							/* Chat format: clean_base + "/v1/chat/completions" */
+							appendStringInfo(&url, "%s/v1/chat/completions",
+											 clean_endpoint.data);
+						}
+						else
+						{
+							/* Non-chat format: clean_base + "/hf-inference/models/{model}" */
+							appendStringInfo(&url, "%s/hf-inference/models/%s",
+											 clean_endpoint.data, cfg->model);
+						}
+						NDB_FREE(clean_endpoint.data);
+					}
+					else
+					{
+						/* Base router endpoint (no /hf-inference in original) */
+						if (use_chat_format)
+						{
+							appendStringInfo(&url, "%s/v1/chat/completions",
+											 endpoint_to_use);
+						}
+						else
+						{
+							/* Add /hf-inference for non-chat format */
+							appendStringInfo(&url, "%s/hf-inference/models/%s",
+											 endpoint_to_use, cfg->model);
+						}
+					}
+				}
+				break;
+
+			case HF_EP_API_INFERENCE:
+				/*
+				 * Legacy api-inference, single model endpoint.
+				 */
+				appendStringInfo(&url, "%s/models/%s",
+								 endpoint_to_use, cfg->model);
+				break;
+
+			case HF_EP_GENERIC:
+			default:
+				/*
+				 * Generic HF style, assume base already points at correct
+				 * location. Keep simple and let admin set a sensible value.
+				 */
+				appendStringInfo(&url, "%s/models/%s",
+								 endpoint_to_use, cfg->model);
+				break;
+		}
+	}
+
+	/* For router endpoints, use OpenAI-compatible format only if use_chat_format is true */
+	if (kind == HF_EP_ROUTER && use_chat_format)
+	{
+		char	   *model_quoted = ndb_json_quote_string(cfg->model);
+		char	   *prompt_quoted = ndb_json_quote_string(prompt);
+		
+		/* Build OpenAI-compatible request body */
+		appendStringInfo(&body,
+						 "{\"model\":%s,\"messages\":[{\"role\":\"user\",\"content\":%s}]",
+						 model_quoted,
+						 prompt_quoted);
+		
+		/* Append params_json if provided (temperature, max_tokens, etc.) */
+		/* Filter out "model" field to avoid duplication */
+		if (params_json && params_json[0] != '\0' && strcmp(params_json, "{}") != 0)
+		{
+			const char *p;
+			const char *end;
+			bool		has_model_field = false;
+			
+			/* Check if params_json contains "model" field */
+			if (strstr(params_json, "\"model\"") != NULL)
+			{
+				has_model_field = true;
+			}
+			
+			/* Remove outer braces */
+			p = params_json;
+			while (*p && (*p == '{' || isspace((unsigned char) *p)))
+				p++;
+			end = params_json + strlen(params_json) - 1;
+			while (end > p && (*end == '}' || isspace((unsigned char) *end)))
+				end--;
+			
+			if (end > p)
+			{
+				appendStringInfoChar(&body, ',');
+				
+				if (has_model_field)
+				{
+					/* Filter out "model" field by skipping it during copy */
+					const char *current = p;
+					while (current <= end)
+					{
+						if (strncmp(current, "\"model\"", 7) == 0)
+						{
+							/* Skip the model field */
+							const char *skip_start = current;
+							const char *skip_end = strchr(skip_start + 7, ':');
+							if (skip_end)
+							{
+								skip_end++; /* Skip ':' */
+								while (*skip_end && isspace((unsigned char) *skip_end))
+									skip_end++;
+								
+								/* Skip the value */
+								if (*skip_end == '"')
+								{
+									skip_end = strchr(skip_end + 1, '"');
+									if (skip_end)
+										skip_end++;
+								}
+								else
+								{
+									while (*skip_end && *skip_end != ',' && *skip_end != '}' && !isspace((unsigned char) *skip_end))
+										skip_end++;
+								}
+								
+								/* Skip comma if present */
+								if (*skip_end == ',')
+									skip_end++;
+								while (*skip_end && isspace((unsigned char) *skip_end))
+									skip_end++;
+								
+								current = skip_end;
+							}
+							else
+							{
+								current += 7;
+							}
+						}
+						else
+						{
+							/* Find next comma or end */
+							const char *next_comma = strchr(current, ',');
+							const char *next_brace = strchr(current, '}');
+							const char *next = next_comma;
+							
+							if (next_brace && (!next_comma || next_brace < next_comma))
+								next = next_brace;
+							
+							if (next && next <= end)
+							{
+								size_t		len = next - current;
+								
+								appendStringInfo(&body, "%.*s", (int) len, current);
+								current = next;
+								if (*current == ',')
+								{
+									appendStringInfoChar(&body, ',');
+									current++;
+								}
+								while (*current && isspace((unsigned char) *current))
+									current++;
+							}
+							else
+							{
+								/* Copy rest */
+								size_t		len = end - current + 1;
+								
+								appendStringInfo(&body, "%.*s", (int) len, current);
+								break;
+							}
+						}
+					}
+				}
+				else
+				{
+					/* No model field, just append */
+					size_t		len = end - p + 1;
+					appendStringInfo(&body, "%.*s", (int) len, p);
+				}
+			}
+		}
+		
+		appendStringInfoChar(&body, '}');
+		
+		NDB_FREE(model_quoted);
+		NDB_FREE(prompt_quoted);
+	}
+	else
+	{
+		/* Legacy inference API format */
+		/* Filter out "model" field from params_json since model is in URL path */
+		char	   *filtered_params = NULL;
+		
+		if (params_json && params_json[0] != '\0' && strcmp(params_json, "{}") != 0)
+		{
+			const char *p;
+			const char *end;
+			bool		has_model_field = false;
+			StringInfoData filtered;
+			
+			/* Check if params_json contains "model" field */
+			if (strstr(params_json, "\"model\"") != NULL)
+			{
+				has_model_field = true;
+			}
+			
+			initStringInfo(&filtered);
+			appendStringInfoChar(&filtered, '{');
+			
+			/* Remove outer braces */
+			p = params_json;
+			while (*p && (*p == '{' || isspace((unsigned char) *p)))
+				p++;
+			end = params_json + strlen(params_json) - 1;
+			while (end > p && (*end == '}' || isspace((unsigned char) *end)))
+				end--;
+			
+			if (end > p)
+			{
+				if (has_model_field)
+				{
+					/* Filter out "model" field */
+					const char *current = p;
+					while (current <= end)
+					{
+						if (strncmp(current, "\"model\"", 7) == 0)
+						{
+							/* Skip the model field */
+							const char *skip_start = current;
+							const char *skip_end = strchr(skip_start + 7, ':');
+							if (skip_end)
+							{
+								skip_end++; /* Skip ':' */
+								while (*skip_end && isspace((unsigned char) *skip_end))
+									skip_end++;
+								
+								/* Skip the value */
+								if (*skip_end == '"')
+								{
+									skip_end = strchr(skip_end + 1, '"');
+									if (skip_end)
+										skip_end++;
+								}
+								else
+								{
+									while (*skip_end && *skip_end != ',' && *skip_end != '}' && !isspace((unsigned char) *skip_end))
+										skip_end++;
+								}
+								
+								/* Skip comma if present */
+								if (*skip_end == ',')
+									skip_end++;
+								while (*skip_end && isspace((unsigned char) *skip_end))
+									skip_end++;
+								
+								current = skip_end;
+							}
+							else
+							{
+								current += 7;
+							}
+						}
+						else
+						{
+							/* Find next comma or end */
+							const char *next_comma = strchr(current, ',');
+							const char *next_brace = strchr(current, '}');
+							const char *next = next_comma;
+							
+							if (next_brace && (!next_comma || next_brace < next_comma))
+								next = next_brace;
+							
+							if (next && next <= end)
+							{
+								size_t		len = next - current;
+								
+								if (filtered.len > 1) /* Already has content */
+									appendStringInfoChar(&filtered, ',');
+								appendStringInfo(&filtered, "%.*s", (int) len, current);
+								current = next;
+								if (*current == ',')
+									current++;
+								while (*current && isspace((unsigned char) *current))
+									current++;
+							}
+							else
+							{
+								/* Copy rest */
+								if (filtered.len > 1)
+									appendStringInfoChar(&filtered, ',');
+								size_t		len = end - current + 1;
+								appendStringInfo(&filtered, "%.*s", (int) len, current);
+								break;
+							}
+						}
+					}
+				}
+				else
+				{
+					/* No model field, just copy */
+					size_t		len = end - p + 1;
+					appendStringInfo(&filtered, "%.*s", (int) len, p);
+				}
+			}
+			
+			appendStringInfoChar(&filtered, '}');
+			filtered_params = filtered.data;
+		}
+		else
+		{
+			filtered_params = "{}";
+		}
+		
+		appendStringInfo(&body,
+						 "{\"inputs\":%s,\"parameters\":%s}",
+						 ndb_json_quote_string(prompt),
+						 filtered_params);
+		
+		/* Free filtered_params if we allocated it */
+		if (filtered_params && filtered_params != "{}" && strcmp(filtered_params, "{}") != 0)
+		{
+			NDB_FREE(filtered_params);
+		}
+	}
+
+	/* Use local resp variable and handle_http_response pattern like embed functions */
+	char	   *resp = NULL;
+	NdbLLMResp temp_resp = {0};
+	int			code;
+
+	code = http_post_json(url.data, cfg->api_key, body.data, cfg->timeout_ms, &resp);
+	status = code;
+
+	/*
+	 * For router endpoints, handle different error cases:
+	 * 1. If "not a chat model" error, retry with non-chat format
+	 * Note: We do NOT fall back to api-inference.huggingface.co (it's deprecated)
+	 */
+	if (kind == HF_EP_ROUTER && !tried_fallback && resp)
+	{
+		bool		retry_needed = false;
+		
+		/* Check for "not a chat model" or "model_not_supported" errors */
+		if (status == NDB_HTTP_STATUS_BAD_REQUEST &&
+			(strstr(resp, "not a chat model") != NULL ||
+			 strstr(resp, "model_not_supported") != NULL ||
+			 strstr(resp, "not supported by any provider") != NULL))
+		{
+			ereport(WARNING,
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					 errmsg("HuggingFace model '%s' is not supported as a chat model", cfg->model ? cfg->model : "unknown"),
+					 errhint("Retrying with inference API format")));
+			use_chat_format = false;
+			retry_needed = true;
+		}
+		/* Check for 404 - model not found */
+		else if (status == NDB_HTTP_STATUS_NOT_FOUND)
+		{
+			ereport(WARNING,
+					(errcode(ERRCODE_UNDEFINED_OBJECT),
+					 errmsg("HuggingFace model '%s' not found on router endpoint", cfg->model ? cfg->model : "unknown"),
+					 errhint("Model may not be available. Check your HuggingFace account for available models.")));
+			/* Do not retry - model is not available on router endpoint */
+			retry_needed = false;
+		}
+		
+		if (retry_needed)
+		{
+			/* Free old JSON buffer from failed attempt */
+			if (resp)
+			{
+				NDB_FREE(resp);
+				resp = NULL;
+			}
+			goto build_url;
+		}
+	}
+
+	/* Use handle_http_response to process response consistently with other functions */
+	if (!handle_http_response(code, &resp, &temp_resp))
+	{
+		if (resp)
+			NDB_FREE(resp);
+		NDB_FREE(url.data);
+		NDB_FREE(body.data);
+		return -1;
+	}
+
+	/* Note: api-inference.huggingface.co is no longer supported - all requests should use router.huggingface.co */
+
+	/* Assign response to output */
+	out->http_status = code;
+	out->json = resp;
+
+	/* Extract text from response if successful */
+	out->text = NULL;
+	if (code >= NDB_HTTP_STATUS_OK_MIN && code <= NDB_HTTP_STATUS_OK_MAX && resp)
+	{
+		char	   *t;
+
+		/* Check for error in response first */
+		if (strncmp(resp, "{\"error\"", 8) == 0)
+		{
+			/* Error response from API */
+			ereport(WARNING,
+					(errcode(ERRCODE_EXTERNAL_ROUTINE_EXCEPTION),
+					 errmsg("HuggingFace API returned error in response"),
+					 errhint("Check the API response for details")));
+			NDB_FREE(url.data);
+			NDB_FREE(body.data);
+			return -1;
+		}
+
+		/* Try to parse a "generated_text" or "content" value out */
+		t = extract_hf_text(resp);
 
 		if (t)
+		{
 			out->text = t;
+		}
 		else
-			out->text = pstrdup(out->json);
+		{
+			/* Could not extract generated text - this might be an error or unexpected format */
+			ereport(WARNING,
+					(errcode(ERRCODE_EXTERNAL_ROUTINE_EXCEPTION),
+					 errmsg("Could not extract generated text from HuggingFace API response"),
+					 errhint("The response format may be unexpected")));
+			NDB_FREE(url.data);
+			NDB_FREE(body.data);
+			return -1;
+		}
 	}
-	else if (out->json)
+	else if (code >= NDB_HTTP_STATUS_ERROR_MIN)
 	{
-		out->text = NULL;
+		/* HTTP error response */
+		ereport(WARNING,
+				(errcode(ERRCODE_EXTERNAL_ROUTINE_EXCEPTION),
+				 errmsg("HuggingFace API returned HTTP error %d", code),
+				 errhint("Check API key, endpoint, and model availability")));
 	}
 
-	return (out->http_status >= 200 && out->http_status < 300) ? 0 : -1;
+	rc = (code >= NDB_HTTP_STATUS_OK_MIN && 
+		  code <= NDB_HTTP_STATUS_OK_MAX && 
+		  out->text != NULL) ? 0 : -1;
+	
+	NDB_FREE(url.data);
+	NDB_FREE(body.data);
+	return rc;
 }
 
 /* Extracts a flat float vector from HF embedding API JSON response */
@@ -385,13 +995,13 @@ parse_hf_emb_vector(const char *json, float **vec_out, int *dim_out)
 			{
 				err_start++;
 				err_end = strchr(err_start, '"');
-			if (err_end)
-			{
-				size_t		err_len = err_end - err_start;
+				if (err_end)
+				{
+					size_t		err_len = err_end - err_start;
 
-				NDB_DECLARE(char *, err_msg);
+					NDB_DECLARE(char *, err_msg);
 
-				NDB_ALLOC(err_msg, char, err_len + 1);
+					NDB_ALLOC(err_msg, char, err_len + 1);
 
 					memcpy(err_msg, err_start, err_len);
 					err_msg[err_len] = '\0';
@@ -474,6 +1084,8 @@ ndb_hf_embed(const NdbLLMConfig *cfg,
 	char	   *resp = NULL;
 	int			code;
 	bool		ok;
+	NdbLLMResp	temp_resp = {0};
+	HfEndpointKind kind;
 
 	initStringInfo(&url);
 	initStringInfo(&body);
@@ -497,60 +1109,50 @@ ndb_hf_embed(const NdbLLMConfig *cfg,
 		return -1;
 	}
 
-	/*
-	 * Router endpoint (router.huggingface.co) uses new path format for
-	 * embeddings
-	 */
-	/* New format: /hf-inference/models/<model>/pipeline/feature-extraction */
-	/* Old format: /pipeline/feature-extraction/<model> */
-	if (cfg->endpoint && strstr(cfg->endpoint, "router.huggingface.co") != NULL)
+	kind = hf_classify_endpoint(cfg->endpoint);
+
+	switch (kind)
 	{
-		/*
-		 * Router endpoint: add /hf-inference if missing, use new format with
-		 * models path
-		 */
-		if (strstr(cfg->endpoint, "/hf-inference") != NULL)
-		{
-			/* Endpoint already includes /hf-inference */
+		case HF_EP_ROUTER:
+			if (strstr(cfg->endpoint, "/hf-inference") != NULL)
+				appendStringInfo(&url,
+								 "%s/models/%s/pipeline/feature-extraction",
+								 cfg->endpoint,
+								 cfg->model);
+			else
+				appendStringInfo(&url,
+								 "%s/hf-inference/models/%s/pipeline/feature-extraction",
+								 cfg->endpoint,
+								 cfg->model);
+			break;
+
+		case HF_EP_API_INFERENCE:
+			/*
+			 * api-inference feature extraction often uses the same
+			 * /models/MODEL/pipeline/feature-extraction layout.
+			 */
 			appendStringInfo(&url,
 							 "%s/models/%s/pipeline/feature-extraction",
 							 cfg->endpoint,
 							 cfg->model);
-		}
-		else
-		{
-			/* Router endpoint without /hf-inference - add it */
+			break;
+
+		case HF_EP_GENERIC:
+		default:
 			appendStringInfo(&url,
-							 "%s/hf-inference/models/%s/pipeline/feature-extraction",
+							 "%s/pipeline/feature-extraction/%s",
 							 cfg->endpoint,
 							 cfg->model);
-		}
-	}
-	else if (cfg->endpoint && strstr(cfg->endpoint, "hf-inference") != NULL)
-	{
-		/* Endpoint contains hf-inference (could be dedicated endpoint) */
-		appendStringInfo(&url,
-						 "%s/models/%s/pipeline/feature-extraction",
-						 cfg->endpoint,
-						 cfg->model);
-	}
-	else
-	{
-		/*
-		 * Old endpoint format (deprecated but kept for backward
-		 * compatibility)
-		 */
-		appendStringInfo(&url,
-						 "%s/pipeline/feature-extraction/%s",
-						 cfg->endpoint,
-						 cfg->model);
+			break;
 	}
 	appendStringInfo(&body,
 					 "{\"inputs\":%s,\"truncate\":true}",
 					 ndb_json_quote_string(text));
 	code = http_post_json(
 						  url.data, cfg->api_key, body.data, cfg->timeout_ms, &resp);
-	if (code < 200 || code >= 300 || !resp)
+	
+	/* Handle all HTTP response types */
+	if (!handle_http_response(code, &resp, &temp_resp))
 	{
 		if (resp)
 			NDB_FREE(resp);
@@ -558,8 +1160,9 @@ ndb_hf_embed(const NdbLLMConfig *cfg,
 		NDB_FREE(body.data);
 		return -1;
 	}
+	
 	/* Check for error in response body (API may return 200 with error JSON) */
-	if (strncmp(resp, "{\"error\"", 8) == 0)
+	if (resp && strncmp(resp, "{\"error\"", 8) == 0)
 	{
 		NDB_FREE(resp);
 		NDB_FREE(url.data);
@@ -715,6 +1318,8 @@ ndb_hf_embed_batch(const NdbLLMConfig *cfg,
 	float	  **vecs = NULL;
 	int		   *dims = NULL;
 	int			num_vecs = 0;
+	NdbLLMResp	temp_resp = {0};
+	HfEndpointKind kind;
 
 	initStringInfo(&url);
 	initStringInfo(&body);
@@ -748,23 +1353,37 @@ ndb_hf_embed_batch(const NdbLLMConfig *cfg,
 	}
 	appendStringInfoChar(&inputs_json, ']');
 
-	/* Router endpoint uses new path format for embeddings */
-	if (cfg->endpoint && (strstr(cfg->endpoint, "router.huggingface.co") != NULL ||
-						  strstr(cfg->endpoint, "hf-inference") != NULL))
+	kind = hf_classify_endpoint(cfg->endpoint);
+
+	switch (kind)
 	{
-		/* Router endpoint: use new format with models path */
-		appendStringInfo(&url,
-						 "%s/models/%s/pipeline/feature-extraction",
-						 cfg->endpoint,
-						 cfg->model);
-	}
-	else
-	{
-		/* Old endpoint format */
-		appendStringInfo(&url,
-						 "%s/pipeline/feature-extraction/%s",
-						 cfg->endpoint,
-						 cfg->model);
+		case HF_EP_ROUTER:
+			if (strstr(cfg->endpoint, "/hf-inference") != NULL)
+				appendStringInfo(&url,
+								 "%s/models/%s/pipeline/feature-extraction",
+								 cfg->endpoint,
+								 cfg->model);
+			else
+				appendStringInfo(&url,
+								 "%s/hf-inference/models/%s/pipeline/feature-extraction",
+								 cfg->endpoint,
+								 cfg->model);
+			break;
+
+		case HF_EP_API_INFERENCE:
+			appendStringInfo(&url,
+							 "%s/models/%s/pipeline/feature-extraction",
+							 cfg->endpoint,
+							 cfg->model);
+			break;
+
+		case HF_EP_GENERIC:
+		default:
+			appendStringInfo(&url,
+							 "%s/pipeline/feature-extraction/%s",
+							 cfg->endpoint,
+							 cfg->model);
+			break;
 	}
 	appendStringInfo(&body,
 					 "{\"inputs\":%s,\"truncate\":true}",
@@ -777,7 +1396,8 @@ ndb_hf_embed_batch(const NdbLLMConfig *cfg,
 	NDB_FREE(body.data);
 	NDB_FREE(inputs_json.data);
 
-	if (code < 200 || code >= 300 || !resp)
+	/* Handle all HTTP response types */
+	if (!handle_http_response(code, &resp, &temp_resp))
 	{
 		if (resp)
 			NDB_FREE(resp);
@@ -823,6 +1443,8 @@ ndb_hf_image_embed(const NdbLLMConfig *cfg,
 	bool		ok;
 	char	   *base64_data = NULL;
 	text	   *encoded_text = NULL;
+	NdbLLMResp	temp_resp = {0};
+	HfEndpointKind kind;
 
 	initStringInfo(&url);
 	initStringInfo(&body);
@@ -856,23 +1478,37 @@ ndb_hf_image_embed(const NdbLLMConfig *cfg,
 	}
 
 	/* Build URL and JSON body for HuggingFace CLIP API */
-	/* Router endpoint uses new path format for embeddings */
-	if (cfg->endpoint && (strstr(cfg->endpoint, "router.huggingface.co") != NULL ||
-						  strstr(cfg->endpoint, "hf-inference") != NULL))
+	kind = hf_classify_endpoint(cfg->endpoint);
+
+	switch (kind)
 	{
-		/* Router endpoint: use new format with models path */
-		appendStringInfo(&url,
-						 "%s/models/%s/pipeline/feature-extraction",
-						 cfg->endpoint,
-						 cfg->model);
-	}
-	else
-	{
-		/* Old endpoint format */
-		appendStringInfo(&url,
-						 "%s/pipeline/feature-extraction/%s",
-						 cfg->endpoint,
-						 cfg->model);
+		case HF_EP_ROUTER:
+			if (strstr(cfg->endpoint, "/hf-inference") != NULL)
+				appendStringInfo(&url,
+								 "%s/models/%s/pipeline/feature-extraction",
+								 cfg->endpoint,
+								 cfg->model);
+			else
+				appendStringInfo(&url,
+								 "%s/hf-inference/models/%s/pipeline/feature-extraction",
+								 cfg->endpoint,
+								 cfg->model);
+			break;
+
+		case HF_EP_API_INFERENCE:
+			appendStringInfo(&url,
+							 "%s/models/%s/pipeline/feature-extraction",
+							 cfg->endpoint,
+							 cfg->model);
+			break;
+
+		case HF_EP_GENERIC:
+		default:
+			appendStringInfo(&url,
+							 "%s/pipeline/feature-extraction/%s",
+							 cfg->endpoint,
+							 cfg->model);
+			break;
 	}
 
 	/* HuggingFace expects image in data URI format */
@@ -887,7 +1523,8 @@ ndb_hf_image_embed(const NdbLLMConfig *cfg,
 	NDB_FREE(body.data);
 	NDB_FREE(base64_data);
 
-	if (code < 200 || code >= 300 || !resp)
+	/* Handle all HTTP response types */
+	if (!handle_http_response(code, &resp, &temp_resp))
 	{
 		if (resp)
 			NDB_FREE(resp);
@@ -918,6 +1555,8 @@ ndb_hf_multimodal_embed(const NdbLLMConfig *cfg,
 	char	   *base64_data = NULL;
 	text	   *encoded_text = NULL;
 	char	   *quoted_text = NULL;
+	NdbLLMResp	temp_resp = {0};
+	HfEndpointKind kind;
 
 	initStringInfo(&url);
 	initStringInfo(&body);
@@ -950,23 +1589,37 @@ ndb_hf_multimodal_embed(const NdbLLMConfig *cfg,
 	quoted_text = ndb_json_quote_string(text_input);
 
 	/* Build URL and JSON body for HuggingFace CLIP multimodal API */
-	/* Router endpoint uses new path format for embeddings */
-	if (cfg->endpoint && (strstr(cfg->endpoint, "router.huggingface.co") != NULL ||
-						  strstr(cfg->endpoint, "hf-inference") != NULL))
+	kind = hf_classify_endpoint(cfg->endpoint);
+
+	switch (kind)
 	{
-		/* Router endpoint: use new format with models path */
-		appendStringInfo(&url,
-						 "%s/models/%s/pipeline/feature-extraction",
-						 cfg->endpoint,
-						 cfg->model);
-	}
-	else
-	{
-		/* Old endpoint format */
-		appendStringInfo(&url,
-						 "%s/pipeline/feature-extraction/%s",
-						 cfg->endpoint,
-						 cfg->model);
+		case HF_EP_ROUTER:
+			if (strstr(cfg->endpoint, "/hf-inference") != NULL)
+				appendStringInfo(&url,
+								 "%s/models/%s/pipeline/feature-extraction",
+								 cfg->endpoint,
+								 cfg->model);
+			else
+				appendStringInfo(&url,
+								 "%s/hf-inference/models/%s/pipeline/feature-extraction",
+								 cfg->endpoint,
+								 cfg->model);
+			break;
+
+		case HF_EP_API_INFERENCE:
+			appendStringInfo(&url,
+							 "%s/models/%s/pipeline/feature-extraction",
+							 cfg->endpoint,
+							 cfg->model);
+			break;
+
+		case HF_EP_GENERIC:
+		default:
+			appendStringInfo(&url,
+							 "%s/pipeline/feature-extraction/%s",
+							 cfg->endpoint,
+							 cfg->model);
+			break;
 	}
 
 	/* HuggingFace CLIP expects both text and image in inputs */
@@ -983,7 +1636,8 @@ ndb_hf_multimodal_embed(const NdbLLMConfig *cfg,
 	NDB_FREE(base64_data);
 	NDB_FREE(quoted_text);
 
-	if (code < 200 || code >= 300 || !resp)
+	/* Handle all HTTP response types */
+	if (!handle_http_response(code, &resp, &temp_resp))
 	{
 		if (resp)
 			NDB_FREE(resp);
@@ -1056,6 +1710,8 @@ ndb_hf_rerank(const NdbLLMConfig *cfg,
 	int			code;
 	int			i;
 	bool		ok;
+	NdbLLMResp	temp_resp = {0};
+	HfEndpointKind kind;
 
 	initStringInfo(&url);
 	initStringInfo(&body);
@@ -1094,12 +1750,34 @@ ndb_hf_rerank(const NdbLLMConfig *cfg,
 	}
 	appendStringInfoChar(&docs_json, ']');
 
-	/* URL: .../pipeline/text-classification/model */
-	appendStringInfo(&url,
-					 "%s/pipeline/token-classification/%s",
-					 cfg->endpoint,
-					 cfg->model);
-	/* Use models endpoint if above fails for reranking */
+	kind = hf_classify_endpoint(cfg->endpoint);
+
+	switch (kind)
+	{
+		case HF_EP_ROUTER:
+			if (strstr(cfg->endpoint, "/hf-inference") != NULL)
+				appendStringInfo(&url, "%s/models/%s",
+								 cfg->endpoint, cfg->model);
+			else
+				appendStringInfo(&url, "%s/hf-inference/models/%s",
+								 cfg->endpoint, cfg->model);
+			break;
+
+		case HF_EP_API_INFERENCE:
+			appendStringInfo(&url, "%s/models/%s",
+							 cfg->endpoint, cfg->model);
+			break;
+
+		case HF_EP_GENERIC:
+		default:
+			/* Generic old style: keep original format for custom endpoints */
+			appendStringInfo(&url,
+							 "%s/pipeline/token-classification/%s",
+							 cfg->endpoint,
+							 cfg->model);
+			break;
+	}
+
 	appendStringInfo(&body,
 					 "{\"inputs\":{\"query\":%s,\"documents\":%s}}",
 					 ndb_json_quote_string(query),
@@ -1108,15 +1786,22 @@ ndb_hf_rerank(const NdbLLMConfig *cfg,
 	code = http_post_json(
 						  url.data, cfg->api_key, body.data, cfg->timeout_ms, &resp);
 
-	if (code < 200 || code >= 300 || !resp)
+	/* Handle all HTTP response types */
+	if (!handle_http_response(code, &resp, &temp_resp))
 	{
 		if (resp)
 			NDB_FREE(resp);
+		NDB_FREE(url.data);
+		NDB_FREE(body.data);
+		NDB_FREE(docs_json.data);
 		return -1;
 	}
 
 	ok = parse_hf_scores(resp, scores_out, ndocs);
 	NDB_FREE(resp);
+	NDB_FREE(url.data);
+	NDB_FREE(body.data);
+	NDB_FREE(docs_json.data);
 	if (!ok)
 		return -1;
 	return 0;

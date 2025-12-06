@@ -775,13 +775,11 @@ ndb_onnx_hf_complete(const char *model_name,
 		int32		current_seq_len;
 		int32		j;
 
-		NDB_DECLARE(float *, input_data);
-
 		/* Prepare input sequence (prompt + generated tokens) */
 		current_seq_len = input_token_length + generated_token_count;
 
 		/* Allocate input data */
-		if (input_data)
+		if (input_data != NULL)
 			NDB_FREE(input_data);
 		NDB_ALLOC(input_data, float, current_seq_len);
 
@@ -1016,8 +1014,6 @@ ndb_onnx_hf_embed(const char *model_name,
 		token_ids = neurondb_tokenize_with_model(
 												 text, 128, &token_length, model_name);
 
-		NDB_DECLARE(float *, input_data);
-
 		if (token_ids == NULL || token_length == 0)
 		{
 			MemoryContextSwitchTo(oldcontext);
@@ -1063,8 +1059,6 @@ ndb_onnx_hf_embed(const char *model_name,
 
 		/* Calculate embedding dimension */
 		embedding_dim = output_tensor->size / token_length;
-
-		NDB_DECLARE(float *, result_vec);
 
 		if (embedding_dim <= 0)
 		{
@@ -1208,7 +1202,6 @@ ndb_onnx_hf_image_embed(const char *model_name,
 			const int	channels = 3;
 			const int	total_size = img_size * img_size * channels;
 
-			NDB_DECLARE(float *, input_data);
 			NDB_ALLOC(input_data, float, total_size);
 			if (!input_data)
 			{
@@ -1709,7 +1702,6 @@ ndb_onnx_hf_rerank(const char *model_name,
 						combined_token_length = max_combined_length;
 					}
 
-					NDB_DECLARE(int32 *, combined_token_ids);
 					NDB_ALLOC(combined_token_ids, int32,
 														  combined_token_length * sizeof(int32));
 					if (!combined_token_ids)
@@ -1740,8 +1732,6 @@ ndb_onnx_hf_rerank(const char *model_name,
 					}
 					combined_token_ids[j++] = 102;	/* [SEP] token ID */
 					combined_token_length = j;
-
-					NDB_DECLARE(float *, input_data);
 
 					/* Convert token IDs to float array for ONNX */
 					NDB_ALLOC(input_data, float,

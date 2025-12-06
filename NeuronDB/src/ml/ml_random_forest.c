@@ -887,10 +887,9 @@ rf_store_model(int32 model_id,
 		else
 		{
 			size_t		count = class_counts_size / sizeof(int);
+			int		   *copy;
 
-			NDB_DECLARE(int *, copy);
 			NDB_ALLOC(copy, int, count);
-			}
 
 			if (copy == NULL)
 			{
@@ -915,12 +914,10 @@ rf_store_model(int32 model_id,
 		}
 		else
 		{
-			NDB_DECLARE(double *, means_copy);
-			{
-				size_t		count = means_size / sizeof(double);
+			size_t		count = means_size / sizeof(double);
+			double	   *means_copy;
 
-				NDB_ALLOC(means_copy, double, count);
-			}
+			NDB_ALLOC(means_copy, double, count);
 
 			if (means_copy == NULL)
 			{
@@ -946,12 +943,10 @@ rf_store_model(int32 model_id,
 		}
 		else
 		{
-			NDB_DECLARE(double *, vars_copy);
-			{
-				size_t		count = vars_size / sizeof(double);
+			size_t		count = vars_size / sizeof(double);
+			double	   *vars_copy;
 
-				NDB_ALLOC(vars_copy, double, count);
-			}
+			NDB_ALLOC(vars_copy, double, count);
 
 			if (vars_copy == NULL)
 			{
@@ -1011,10 +1006,9 @@ rf_store_model(int32 model_id,
 		else
 		{
 			size_t		count = left_means_size / sizeof(double);
+			double	   *copy;
 
-			NDB_DECLARE(double *, copy);
 			NDB_ALLOC(copy, double, count);
-			}
 
 			if (copy == NULL)
 			{
@@ -1038,12 +1032,10 @@ rf_store_model(int32 model_id,
 		}
 		else
 		{
-			NDB_DECLARE(double *, copy);
-			{
-				size_t		count = right_means_size / sizeof(double);
+			size_t		count = right_means_size / sizeof(double);
+			double	   *copy;
 
-				NDB_ALLOC(copy, double, count);
-			}
+			NDB_ALLOC(copy, double, count);
 
 			if (copy == NULL)
 			{
@@ -1069,12 +1061,10 @@ rf_store_model(int32 model_id,
 		}
 		else
 		{
-			NDB_DECLARE(GTree **, tree_copy);
-			{
-				size_t		count = trees_array_size / sizeof(GTree *);
+			size_t		count = trees_array_size / sizeof(GTree *);
+			GTree	  **tree_copy;
 
-				NDB_ALLOC(tree_copy, GTree *, count);
-			}
+			NDB_ALLOC(tree_copy, GTree *, count);
 			if (tree_copy == NULL)
 			{
 				elog(WARNING, "rf_store_model: palloc failed for trees array");
@@ -1095,12 +1085,10 @@ rf_store_model(int32 model_id,
 				{
 					if (tree_majority != NULL)
 					{
-						NDB_DECLARE(double *, majority_copy);
-						{
-							size_t		count = tree_double_size / sizeof(double);
+						size_t		majority_count = tree_double_size / sizeof(double);
+						double	   *majority_copy;
 
-							NDB_ALLOC(majority_copy, double, count);
-						}
+						NDB_ALLOC(majority_copy, double, majority_count);
 
 						if (majority_copy == NULL)
 						{
@@ -1116,12 +1104,10 @@ rf_store_model(int32 model_id,
 
 					if (tree_majority_fraction != NULL)
 					{
-						NDB_DECLARE(double *, fraction_copy);
-						{
-							size_t		count = tree_double_size / sizeof(double);
+						size_t		fraction_count = tree_double_size / sizeof(double);
+						double	   *fraction_copy;
 
-							NDB_ALLOC(fraction_copy, double, count);
-						}
+						NDB_ALLOC(fraction_copy, double, fraction_count);
 
 						if (fraction_copy == NULL)
 						{
@@ -1137,12 +1123,10 @@ rf_store_model(int32 model_id,
 
 					if (tree_second != NULL)
 					{
-						NDB_DECLARE(double *, second_copy);
-						{
-							size_t		count = tree_double_size / sizeof(double);
+						size_t		second_count = tree_double_size / sizeof(double);
+						double	   *second_copy;
 
-							NDB_ALLOC(second_copy, double, count);
-						}
+						NDB_ALLOC(second_copy, double, second_count);
 
 						if (second_copy == NULL)
 						{
@@ -1158,12 +1142,10 @@ rf_store_model(int32 model_id,
 
 					if (tree_second_fraction != NULL)
 					{
-						NDB_DECLARE(double *, second_fraction_copy);
-						{
-							size_t		count = tree_double_size / sizeof(double);
+						size_t		second_fraction_count = tree_double_size / sizeof(double);
+						double	   *second_fraction_copy;
 
-							NDB_ALLOC(second_fraction_copy, double, count);
-						}
+						NDB_ALLOC(second_fraction_copy, double, second_fraction_count);
 
 						if (second_fraction_copy == NULL)
 						{
@@ -1179,12 +1161,10 @@ rf_store_model(int32 model_id,
 
 					if (tree_oob_accuracy != NULL)
 					{
-						NDB_DECLARE(double *, oob_copy);
-						{
-							size_t		count = tree_double_size / sizeof(double);
+						size_t		oob_count = tree_double_size / sizeof(double);
+						double	   *oob_copy;
 
-							NDB_ALLOC(oob_copy, double, count);
-						}
+						NDB_ALLOC(oob_copy, double, oob_count);
 
 						if (oob_copy == NULL)
 						{

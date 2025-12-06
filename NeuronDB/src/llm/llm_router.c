@@ -181,14 +181,20 @@ ndb_llm_route_complete(const NdbLLMConfig *cfg,
 					   NdbLLMResp *out)
 {
 	if (cfg == NULL || prompt == NULL || out == NULL)
+	{
 		return NDB_LLM_ROUTE_ERROR;
+	}
 
 	if (provider_is(cfg->provider, "openai") || provider_is(cfg->provider, "chatgpt"))
+	{
 		return ndb_openai_complete(cfg, prompt, params_json, out);
+	}
 
 	if (cfg->provider == NULL || provider_is(cfg->provider, "huggingface")
 		|| provider_is(cfg->provider, "hf-http"))
+	{
 		return ndb_hf_complete(cfg, prompt, params_json, out);
+	}
 
 	if (provider_is(cfg->provider, "huggingface-local")
 		|| provider_is(cfg->provider, "hf-local"))

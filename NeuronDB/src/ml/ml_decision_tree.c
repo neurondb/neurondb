@@ -1087,9 +1087,6 @@ PG_FUNCTION_INFO_V1(train_decision_tree_classifier);
 
 Datum
 train_decision_tree_classifier(PG_FUNCTION_ARGS)
- */
-Datum
-train_decision_tree_classifier(PG_FUNCTION_ARGS)
 {
 	text	   *table_name;
 	text	   *feature_col;

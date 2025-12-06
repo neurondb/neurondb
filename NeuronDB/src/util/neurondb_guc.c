@@ -18,6 +18,7 @@
 #include "neurondb_constants.h"
 
 int			neurondb_hnsw_ef_search = 64;
+int			neurondb_hnsw_k = 10;
 int			neurondb_ivf_probes = 10;
 int			neurondb_ef_construction = 200;
 
@@ -164,6 +165,19 @@ neurondb_init_all_gucs(void)
 							64,
 							1,
 							10000,
+							PGC_USERSET,
+							0,
+							NULL,
+							NULL,
+							NULL);
+
+	DefineCustomIntVariable("neurondb.hnsw_k",
+							"Sets the k parameter for HNSW index scans",
+							"Number of nearest neighbors to return. Default is 10.",
+							&neurondb_hnsw_k,
+							10,
+							1,
+							1000,
 							PGC_USERSET,
 							0,
 							NULL,

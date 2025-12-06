@@ -115,6 +115,7 @@ extern void neurondb_sync_config_from_gucs(void);
 
 /* Legacy GUC variable declarations (for backward compatibility) */
 extern int	neurondb_hnsw_ef_search;
+extern int	neurondb_hnsw_k;
 extern int	neurondb_ivf_probes;
 extern int	neurondb_ef_construction;
 extern int	neurondb_compute_mode;

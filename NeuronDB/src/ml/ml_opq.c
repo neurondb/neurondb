@@ -567,42 +567,42 @@ predict_opq_rotation(PG_FUNCTION_ARGS)
 
 		if (data_size >= expected_size)
 		{
-			NDB_DECLARE(float8 *, rotation);
+			float8	   *rotation_tmp;
 
 			/* Extract rotation matrix from model_data */
 			rotation_dim = dim;
-			NDB_ALLOC(rotation, float8, dim * dim);
-			NDB_CHECK_ALLOC(rotation, "rotation");
-			memcpy(rotation, VARDATA(model_data), expected_size);
+			NDB_ALLOC(rotation_tmp, float8, dim * dim);
+			NDB_CHECK_ALLOC(rotation_tmp, "rotation_tmp");
+			memcpy(rotation_tmp, VARDATA(model_data), expected_size);
+			rotation = rotation_tmp;
 			elog(DEBUG1,
 				 "predict_opq_rotation: Loaded rotation matrix from model_data");
 		}
 		else
 		{
-			NDB_DECLARE(float8 *, rotation);
+			float8	   *rotation_tmp;
 
 			/* Size mismatch - use identity matrix as fallback */
 			rotation_dim = dim;
-			NDB_ALLOC(rotation, float8, dim * dim);
-			NDB_CHECK_ALLOC(rotation, "rotation");
+			NDB_ALLOC(rotation_tmp, float8, dim * dim);
+			NDB_CHECK_ALLOC(rotation_tmp, "rotation_tmp");
 			for (i = 0; i < dim; i++)
 			{
 				for (j = 0; j < dim; j++)
 				{
 					if (i == j)
-						rotation[i * dim + j] = 1.0;
+						rotation_tmp[i * dim + j] = 1.0;
 					else
-						rotation[i * dim + j] = 0.0;
+						rotation_tmp[i * dim + j] = 0.0;
 				}
 			}
+			rotation = rotation_tmp;
 			elog(DEBUG1,
 				 "predict_opq_rotation: Model data size mismatch, using identity matrix");
 		}
 	}
 	else if (found_rotation)
 	{
-		NDB_DECLARE(float8 *, rotation);
-
 		/* Extract rotation from JSONB array */
 		/* JSONB array format: [row0_col0, row0_col1, ..., row1_col0, ...] */
 		rotation_dim = dim;
@@ -696,7 +696,6 @@ predict_opq_rotation(PG_FUNCTION_ARGS)
 				NDB_FREE(rotation);
 				rotation = NULL;
 			}
-			NDB_DECLARE(float8 *, rotation);
 
 			/* Fall back to identity matrix */
 			rotation_dim = dim;
@@ -1087,12 +1086,12 @@ opq_model_serialize_to_bytea(const PQCodebook * codebook, const float *rotation_
 	int			result_size;
 	bytea	   *result;
 	char	   *result_ptr;
+	char	   *result_raw;
 	int			sub,
 				i;
 
 	result_size = sizeof(int) * 4 + dim * dim * sizeof(float) +
 		codebook->m * codebook->ksub * codebook->dsub * sizeof(float);
-	NDB_DECLARE(char *, result_raw);
 	NDB_ALLOC(result_raw, char, VARHDRSZ + result_size);
 	result = (bytea *) result_raw;
 	NDB_CHECK_ALLOC(result, "result");
@@ -1145,8 +1144,9 @@ opq_model_deserialize_from_bytea(const bytea * data, PQCodebook * codebook, floa
 	if (codebook->m < 1 || codebook->m > 128 || codebook->ksub < 2 || codebook->ksub > 65536 || codebook->dsub <= 0 || *dim_out <= 0)
 		return -1;
 
-	NDB_DECLARE(float *, rotation_matrix);
-	NDB_DECLARE(float ***, centroids);
+	{
+		float	   *rotation_matrix;
+		float	  ***centroids;
 
 	/* Check for integer overflow in size calculation */
 	if (*dim_out > 0 && (size_t) * dim_out > MaxAllocSize / sizeof(float) / (size_t) * dim_out)
@@ -1163,19 +1163,22 @@ opq_model_deserialize_from_bytea(const bytea * data, PQCodebook * codebook, floa
 	NDB_CHECK_ALLOC(codebook, "codebook");
 	for (sub = 0; sub < codebook->m; sub++)
 	{
-		NDB_DECLARE(float **, sub_centroids);
+		float	  **sub_centroids;
+
 		NDB_ALLOC(sub_centroids, float *, codebook->ksub);
 		codebook->centroids[sub] = sub_centroids;
 		NDB_CHECK_ALLOC(codebook, "codebook");
 		for (i = 0; i < codebook->ksub; i++)
 		{
-			NDB_DECLARE(float *, centroid_vec);
+			float	   *centroid_vec;
+
 			NDB_ALLOC(centroid_vec, float, codebook->dsub);
 			codebook->centroids[sub][i] = centroid_vec;
 			NDB_CHECK_ALLOC(codebook, "codebook");
 			memcpy(codebook->centroids[sub][i], buf + offset, sizeof(float) * codebook->dsub);
 			offset += sizeof(float) * codebook->dsub;
 		}
+	}
 	}
 
 	return 0;
@@ -1282,22 +1285,27 @@ opq_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **errstr)
 	codebook.dsub = dim / m;
 
 	/* Allocate centroids */
-	NDB_DECLARE(float ***, centroids);
-	NDB_ALLOC(centroids, float **, m);
-	codebook.centroids = centroids;
-	NDB_CHECK_ALLOC(codebook.centroids, "codebook.centroids");
-	for (sub = 0; sub < m; sub++)
 	{
-		NDB_DECLARE(float **, sub_centroids);
-		NDB_ALLOC(sub_centroids, float *, ksub);
-		codebook.centroids[sub] = sub_centroids;
-		NDB_CHECK_ALLOC(codebook.centroids[sub], "codebook.centroids[sub]");
-		for (i = 0; i < ksub; i++)
+		float	  ***centroids;
+
+		NDB_ALLOC(centroids, float **, m);
+		codebook.centroids = centroids;
+		NDB_CHECK_ALLOC(codebook.centroids, "codebook.centroids");
+		for (sub = 0; sub < m; sub++)
 		{
-			NDB_DECLARE(float *, centroid_vec);
-			NDB_ALLOC(centroid_vec, float, codebook.dsub);
-			codebook.centroids[sub][i] = centroid_vec;
-			NDB_CHECK_ALLOC(codebook.centroids[sub][i], "codebook.centroids[sub][i]");
+			float	  **sub_centroids;
+
+			NDB_ALLOC(sub_centroids, float *, ksub);
+			codebook.centroids[sub] = sub_centroids;
+			NDB_CHECK_ALLOC(codebook.centroids[sub], "codebook.centroids[sub]");
+			for (i = 0; i < ksub; i++)
+			{
+				float	   *centroid_vec;
+
+				NDB_ALLOC(centroid_vec, float, codebook.dsub);
+				codebook.centroids[sub][i] = centroid_vec;
+				NDB_CHECK_ALLOC(codebook.centroids[sub][i], "codebook.centroids[sub][i]");
+			}
 		}
 	}
 
@@ -1351,12 +1359,15 @@ opq_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **errstr)
 	NDB_CHECK_ALLOC(state, "state");
 	state->model_blob = model_data;
 	state->metrics = metrics;
-	NDB_DECLARE(PQCodebook *, codebook_ptr);
-	NDB_ALLOC(codebook_ptr, PQCodebook, 1);
-	state->codebook = codebook_ptr;
-	NDB_CHECK_ALLOC(state, "state");
-	*state->codebook = codebook;
-	state->rotation_matrix = rotation_matrix;
+	{
+		PQCodebook *codebook_ptr;
+
+		NDB_ALLOC(codebook_ptr, PQCodebook, 1);
+		state->codebook = codebook_ptr;
+		NDB_CHECK_ALLOC(state, "state");
+		*state->codebook = codebook;
+		state->rotation_matrix = rotation_matrix;
+	}
 	state->m = m;
 	state->ksub = ksub;
 	state->dsub = codebook.dsub;
@@ -1438,7 +1449,7 @@ opq_gpu_predict(const MLGpuModel *model, const float *input, int input_dim,
 	{
 		PQCodebook	temp_codebook;
 
-		NDB_DECLARE(float *, temp_rotation);
+		float	   *temp_rotation;
 		int			temp_dim = 0;
 
 		if (opq_model_deserialize_from_bytea(state->model_blob, &temp_codebook, &temp_rotation, &temp_dim) != 0)
@@ -1447,11 +1458,14 @@ opq_gpu_predict(const MLGpuModel *model, const float *input, int input_dim,
 				*errstr = pstrdup("opq_gpu_predict: failed to deserialize");
 			return false;
 		}
-		NDB_DECLARE(PQCodebook *, codebook_ptr);
-		NDB_ALLOC(codebook_ptr, PQCodebook, 1);
-		((OPQGpuModelState *) state)->codebook = codebook_ptr;
-		NDB_CHECK_ALLOC(((OPQGpuModelState *) state)->codebook, "codebook");
-		*((OPQGpuModelState *) state)->codebook = temp_codebook;
+		{
+			PQCodebook *codebook_ptr;
+
+			NDB_ALLOC(codebook_ptr, PQCodebook, 1);
+			((OPQGpuModelState *) state)->codebook = codebook_ptr;
+			NDB_CHECK_ALLOC(((OPQGpuModelState *) state)->codebook, "codebook");
+			*((OPQGpuModelState *) state)->codebook = temp_codebook;
+		}
 		((OPQGpuModelState *) state)->rotation_matrix = temp_rotation;
 	}
 
@@ -1585,11 +1599,14 @@ opq_gpu_serialize(const MLGpuModel *model, bytea * *payload_out,
 	}
 
 	payload_size = VARSIZE(state->model_blob);
-	NDB_DECLARE(char *, payload_copy_raw);
-	NDB_ALLOC(payload_copy_raw, char, payload_size);
-	payload_copy = (bytea *) payload_copy_raw;
-	NDB_CHECK_ALLOC(payload_copy, "payload_copy");
-	memcpy(payload_copy, state->model_blob, payload_size);
+	{
+		char	   *payload_copy_raw;
+
+		NDB_ALLOC(payload_copy_raw, char, payload_size);
+		payload_copy = (bytea *) payload_copy_raw;
+		NDB_CHECK_ALLOC(payload_copy, "payload_copy");
+		memcpy(payload_copy, state->model_blob, payload_size);
+	}
 
 	if (payload_out != NULL)
 		*payload_out = payload_copy;
@@ -1612,7 +1629,7 @@ opq_gpu_deserialize(MLGpuModel *model, const bytea * payload,
 	int			payload_size;
 	PQCodebook	codebook;
 
-	NDB_DECLARE(float *, rotation_matrix);
+	float	   *rotation_matrix;
 	int			dim = 0;
 	JsonbIterator *it;
 	JsonbValue	v;
@@ -1628,11 +1645,14 @@ opq_gpu_deserialize(MLGpuModel *model, const bytea * payload,
 	}
 
 	payload_size = VARSIZE(payload);
-	NDB_DECLARE(char *, payload_copy_raw);
-	NDB_ALLOC(payload_copy_raw, char, payload_size);
-	payload_copy = (bytea *) payload_copy_raw;
-	NDB_CHECK_ALLOC(payload_copy, "payload_copy");
-	memcpy(payload_copy, payload, payload_size);
+	{
+		char	   *payload_copy_raw;
+
+		NDB_ALLOC(payload_copy_raw, char, payload_size);
+		payload_copy = (bytea *) payload_copy_raw;
+		NDB_CHECK_ALLOC(payload_copy, "payload_copy");
+		memcpy(payload_copy, payload, payload_size);
+	}
 
 	if (opq_model_deserialize_from_bytea(payload_copy, &codebook, &rotation_matrix, &dim) != 0)
 	{
@@ -1645,12 +1665,15 @@ opq_gpu_deserialize(MLGpuModel *model, const bytea * payload,
 	state = (OPQGpuModelState *) palloc0(sizeof(OPQGpuModelState));
 	NDB_CHECK_ALLOC(state, "state");
 	state->model_blob = payload_copy;
-	NDB_DECLARE(PQCodebook *, codebook_ptr);
-	NDB_ALLOC(codebook_ptr, PQCodebook, 1);
-	state->codebook = codebook_ptr;
-	NDB_CHECK_ALLOC(state, "state");
-	*state->codebook = codebook;
-	state->rotation_matrix = rotation_matrix;
+	{
+		PQCodebook *codebook_ptr;
+
+		NDB_ALLOC(codebook_ptr, PQCodebook, 1);
+		state->codebook = codebook_ptr;
+		NDB_CHECK_ALLOC(state, "state");
+		*state->codebook = codebook;
+		state->rotation_matrix = rotation_matrix;
+	}
 	state->m = codebook.m;
 	state->ksub = codebook.ksub;
 	state->dsub = codebook.dsub;

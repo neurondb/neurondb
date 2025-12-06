@@ -330,9 +330,6 @@ ndb_jsonb_array_element(Jsonb * jsonb, int index)
 
 /*
  * ndb_jsonb_extract_path - Extract value by path
- */
-Jsonb *
-ndb_jsonb_extract_path(Jsonb * jsonb, const char **path, int path_len)
  *   from the path components. The function initializes OID caches if needed.
  */
 Jsonb *
@@ -2248,9 +2245,6 @@ ndb_json_extract_openai_response(const char *json_str,
 
 /*
  * ndb_json_extract_openai_response_free - Free OpenAI response structure
- */
-void
-ndb_json_extract_openai_response_free(NdbOpenAIResponse *response)
  *   Safe to call with NULL pointer. After calling this function, the structure
  *   should not be used unless re-initialized.
  */

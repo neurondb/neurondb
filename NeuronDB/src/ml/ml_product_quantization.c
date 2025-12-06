@@ -440,14 +440,14 @@ pq_encode_vector(PG_FUNCTION_ARGS)
 	bool		typbyval;
 	char		typalign;
 
-		vec_array = PG_GETARG_ARRAYTYPE_P(0);
+	vec_array = PG_GETARG_ARRAYTYPE_P(0);
 	codebook_bytea = PG_GETARG_BYTEA_PP(1);
 
 	dim = ARR_DIMS(
 				   vec_array)[0];	/* Expect one-dimensional packed float4[] */
 	vec_data = (float4 *) ARR_DATA_PTR(vec_array);
 
-		cb_ptr = VARDATA(codebook_bytea);
+	cb_ptr = VARDATA(codebook_bytea);
 	memcpy(&m, cb_ptr, sizeof(int));
 	cb_ptr += sizeof(int);
 	memcpy(&ksub, cb_ptr, sizeof(int));
@@ -463,7 +463,7 @@ pq_encode_vector(PG_FUNCTION_ARGS)
 						m,
 						dsub)));
 
-		NDB_ALLOC(centroids, float **, m);
+	NDB_ALLOC(centroids, float **, m);
 	for (sub = 0; sub < m; sub++)
 	{
 		NDB_DECLARE(float **, sub_centroids);
@@ -1591,9 +1591,6 @@ product_quantization_gpu_deserialize(MLGpuModel *model, const bytea * payload,
 	bytea	   *payload_copy;
 	int			payload_size;
 	PQCodebook	codebook;
-	JsonbIterator *it;
-	JsonbValue	v;
-	int			r;
 
 	if (errstr != NULL)
 		*errstr = NULL;

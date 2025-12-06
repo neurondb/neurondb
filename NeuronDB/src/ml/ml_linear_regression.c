@@ -263,10 +263,9 @@ linreg_dataset_load_limited(const char *quoted_tbl,
 	/* Begin SPI session - handles connection state automatically */
 	NDB_SPI_SESSION_BEGIN(spi_session, oldcontext);
 
-	NDB_DECLARE(char *, query_str);
-
 	/* Use centralized SQL query function */
 	{
+		char	   *query_str;
 		query_str = (char *) ndb_sql_get_load_dataset_limited(quoted_feat, quoted_target, quoted_tbl, max_rows);
 		ret = ndb_spi_execute(spi_session, query_str, true, 0);
 		NDB_FREE(query_str);

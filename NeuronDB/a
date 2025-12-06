@@ -1,0 +1,1791 @@
+diff --git a/CRASH_ANALYSIS_INDEXING.md b/CRASH_ANALYSIS_INDEXING.md
+index 070901e..5944a84 100644
+--- a/CRASH_ANALYSIS_INDEXING.md
++++ b/CRASH_ANALYSIS_INDEXING.md
+@@ -344,3 +344,4 @@ if (metaPage->entryPoint == InvalidBlockNumber || level > metaPage->entryLevel)
+ 
+ **Most Critical**: Array bounds violations due to unvalidated `neighborCount[level]` values.
+ 
++
+diff --git a/FIXES_APPLIED_INDEXING.md b/FIXES_APPLIED_INDEXING.md
+index f9c9246..05212ae 100644
+--- a/FIXES_APPLIED_INDEXING.md
++++ b/FIXES_APPLIED_INDEXING.md
+@@ -313,3 +313,4 @@ These fixes significantly improve the robustness of the HNSW indexing code by:
+ 
+ The code is now much more resilient to corrupted index data and edge cases.
+ 
++
+diff --git a/NeuronAgent/COMPLETE_TEST_SUMMARY.md b/NeuronAgent/COMPLETE_TEST_SUMMARY.md
+index 00858ce..8b68343 100644
+--- a/NeuronAgent/COMPLETE_TEST_SUMMARY.md
++++ b/NeuronAgent/COMPLETE_TEST_SUMMARY.md
+@@ -196,3 +196,4 @@ All critical bugs have been fixed:
+ **NeuronAgent is ready for use!** 🎉
+ 
+ 
++
+diff --git a/NeuronAgent/FIXES_APPLIED.md b/NeuronAgent/FIXES_APPLIED.md
+index 3a16785..2bd0fe0 100644
+--- a/NeuronAgent/FIXES_APPLIED.md
++++ b/NeuronAgent/FIXES_APPLIED.md
+@@ -47,3 +47,4 @@ Applied comprehensive fixes to resolve authentication issues and ensure 100% int
+ 3. Test with production-like scenarios
+ 
+ 
++
+diff --git a/NeuronAgent/TESTING.md b/NeuronAgent/TESTING.md
+index 0b25a26..d7d1a20 100644
+--- a/NeuronAgent/TESTING.md
++++ b/NeuronAgent/TESTING.md
+@@ -289,3 +289,4 @@ SELECT * FROM neurondb_agent.agents WHERE name = 'test-agent';
+ See `examples/README.md` for more detailed examples.
+ 
+ 
++
+diff --git a/NeuronAgent/TEST_REPORT.md b/NeuronAgent/TEST_REPORT.md
+index 9120265..97b1eda 100644
+--- a/NeuronAgent/TEST_REPORT.md
++++ b/NeuronAgent/TEST_REPORT.md
+@@ -164,3 +164,4 @@ However, there is a **critical authentication bug** preventing authenticated API
+ The authentication issue appears to be related to scanning JSONB fields (Metadata) from the database. The JSONBMap scanner has been implemented, but authentication is still failing. Further investigation is needed to identify the root cause.
+ 
+ 
++
+diff --git a/NeuronAgent/TEST_RESULTS.md b/NeuronAgent/TEST_RESULTS.md
+index 2c75d6f..3323744 100644
+--- a/NeuronAgent/TEST_RESULTS.md
++++ b/NeuronAgent/TEST_RESULTS.md
+@@ -122,3 +122,4 @@ You can now:
+ - Integrate with your applications
+ 
+ 
++
+diff --git a/NeuronAgent/examples/MODULAR_GUIDE.md b/NeuronAgent/examples/MODULAR_GUIDE.md
+index 8608c69..62631c9 100644
+--- a/NeuronAgent/examples/MODULAR_GUIDE.md
++++ b/NeuronAgent/examples/MODULAR_GUIDE.md
+@@ -549,3 +549,4 @@ For issues or questions:
+ - See example code in `examples_modular/`
+ 
+ 
++
+diff --git a/NeuronAgent/examples/QUICKSTART.md b/NeuronAgent/examples/QUICKSTART.md
+index 2fe6c32..018187c 100644
+--- a/NeuronAgent/examples/QUICKSTART.md
++++ b/NeuronAgent/examples/QUICKSTART.md
+@@ -119,3 +119,4 @@ psql -h localhost -p 5432 -U postgres -d neurondb -c "SELECT 1;"
+ Happy coding! 🚀
+ 
+ 
++
+diff --git a/NeuronAgent/examples/README.md b/NeuronAgent/examples/README.md
+index fffab02..b5a51d1 100644
+--- a/NeuronAgent/examples/README.md
++++ b/NeuronAgent/examples/README.md
+@@ -333,3 +333,4 @@ psql -d neurondb -c "SELECT * FROM pg_extension WHERE extname = 'neurondb';"
+ See [LICENSE](../../LICENSE) for license information.
+ 
+ 
++
+diff --git a/NeuronAgent/examples/REQUIREMENTS.md b/NeuronAgent/examples/REQUIREMENTS.md
+index 981ff6a..034c8b5 100644
+--- a/NeuronAgent/examples/REQUIREMENTS.md
++++ b/NeuronAgent/examples/REQUIREMENTS.md
+@@ -444,3 +444,4 @@ All dependencies are compatible with the project license (AGPL v3).
+ Most dependencies use permissive licenses (MIT, Apache 2.0, BSD).
+ 
+ 
++
+diff --git a/NeuronAgent/examples/agent_configs.json b/NeuronAgent/examples/agent_configs.json
+index c336fcb..db9120d 100644
+--- a/NeuronAgent/examples/agent_configs.json
++++ b/NeuronAgent/examples/agent_configs.json
+@@ -83,3 +83,4 @@
+ }
+ 
+ 
++
+diff --git a/NeuronAgent/examples/complete_example.py b/NeuronAgent/examples/complete_example.py
+index 40b044b..14a421a 100755
+--- a/NeuronAgent/examples/complete_example.py
++++ b/NeuronAgent/examples/complete_example.py
+@@ -331,3 +331,4 @@ if __name__ == "__main__":
+         sys.exit(1)
+ 
+ 
++
+diff --git a/NeuronAgent/examples/examples_modular/01_basic_usage.py b/NeuronAgent/examples/examples_modular/01_basic_usage.py
+index b6da86b..bc86180 100755
+--- a/NeuronAgent/examples/examples_modular/01_basic_usage.py
++++ b/NeuronAgent/examples/examples_modular/01_basic_usage.py
+@@ -70,3 +70,4 @@ if __name__ == "__main__":
+     main()
+ 
+ 
++
+diff --git a/NeuronAgent/examples/examples_modular/02_agent_profiles.py b/NeuronAgent/examples/examples_modular/02_agent_profiles.py
+index 5bbb47a..33db00f 100755
+--- a/NeuronAgent/examples/examples_modular/02_agent_profiles.py
++++ b/NeuronAgent/examples/examples_modular/02_agent_profiles.py
+@@ -79,3 +79,4 @@ if __name__ == "__main__":
+     main()
+ 
+ 
++
+diff --git a/NeuronAgent/examples/examples_modular/03_conversation_manager.py b/NeuronAgent/examples/examples_modular/03_conversation_manager.py
+index cafe091..7d68b31 100755
+--- a/NeuronAgent/examples/examples_modular/03_conversation_manager.py
++++ b/NeuronAgent/examples/examples_modular/03_conversation_manager.py
+@@ -77,3 +77,4 @@ if __name__ == "__main__":
+     main()
+ 
+ 
++
+diff --git a/NeuronAgent/examples/examples_modular/04_streaming.py b/NeuronAgent/examples/examples_modular/04_streaming.py
+index 30e918b..6cd8dff 100755
+--- a/NeuronAgent/examples/examples_modular/04_streaming.py
++++ b/NeuronAgent/examples/examples_modular/04_streaming.py
+@@ -66,3 +66,4 @@ if __name__ == "__main__":
+     main()
+ 
+ 
++
+diff --git a/NeuronAgent/examples/examples_modular/05_production_patterns.py b/NeuronAgent/examples/examples_modular/05_production_patterns.py
+index 1198e60..dbb1f39 100755
+--- a/NeuronAgent/examples/examples_modular/05_production_patterns.py
++++ b/NeuronAgent/examples/examples_modular/05_production_patterns.py
+@@ -181,3 +181,4 @@ if __name__ == "__main__":
+     main()
+ 
+ 
++
+diff --git a/NeuronAgent/examples/examples_modular/06_advanced_agent_management.py b/NeuronAgent/examples/examples_modular/06_advanced_agent_management.py
+index f4d805d..76e5aae 100755
+--- a/NeuronAgent/examples/examples_modular/06_advanced_agent_management.py
++++ b/NeuronAgent/examples/examples_modular/06_advanced_agent_management.py
+@@ -109,3 +109,4 @@ if __name__ == "__main__":
+     main()
+ 
+ 
++
+diff --git a/NeuronAgent/examples/examples_modular/README.md b/NeuronAgent/examples/examples_modular/README.md
+index 2789e6a..dd44be4 100644
+--- a/NeuronAgent/examples/examples_modular/README.md
++++ b/NeuronAgent/examples/examples_modular/README.md
+@@ -233,3 +233,4 @@ api_key = loader.get_env("NEURONAGENT_API_KEY")
+ - Build your own custom agents!
+ 
+ 
++
+diff --git a/NeuronAgent/examples/go_client.go b/NeuronAgent/examples/go_client.go
+index 5917b95..199685b 100644
+--- a/NeuronAgent/examples/go_client.go
++++ b/NeuronAgent/examples/go_client.go
+@@ -352,3 +352,4 @@ func truncateString(s string, maxLen int) string {
+ }
+ 
+ 
++
+diff --git a/NeuronAgent/examples/neurondb_client/__init__.py b/NeuronAgent/examples/neurondb_client/__init__.py
+index 1ef6466..c2dd3a3 100644
+--- a/NeuronAgent/examples/neurondb_client/__init__.py
++++ b/NeuronAgent/examples/neurondb_client/__init__.py
+@@ -45,3 +45,4 @@ __all__ = [
+ ]
+ 
+ 
++
+diff --git a/NeuronAgent/examples/neurondb_client/agents/manager.py b/NeuronAgent/examples/neurondb_client/agents/manager.py
+index f3cf289..a00999a 100644
+--- a/NeuronAgent/examples/neurondb_client/agents/manager.py
++++ b/NeuronAgent/examples/neurondb_client/agents/manager.py
+@@ -215,3 +215,4 @@ class AgentManager:
+         logger.info(f"Agent deleted: {agent_id}")
+ 
+ 
++
+diff --git a/NeuronAgent/examples/neurondb_client/agents/profile.py b/NeuronAgent/examples/neurondb_client/agents/profile.py
+index 1ea4842..ea2186a 100644
+--- a/NeuronAgent/examples/neurondb_client/agents/profile.py
++++ b/NeuronAgent/examples/neurondb_client/agents/profile.py
+@@ -132,3 +132,4 @@ def get_default_profile(name: str) -> Optional[AgentProfile]:
+     return DEFAULT_PROFILES.get(name)
+ 
+ 
++
+diff --git a/NeuronAgent/examples/neurondb_client/core/exceptions.py b/NeuronAgent/examples/neurondb_client/core/exceptions.py
+index 1a3c1e8..b740ddb 100644
+--- a/NeuronAgent/examples/neurondb_client/core/exceptions.py
++++ b/NeuronAgent/examples/neurondb_client/core/exceptions.py
+@@ -53,3 +53,4 @@ class TimeoutError(NeuronAgentError):
+         super().__init__(self.message)
+ 
+ 
++
+diff --git a/NeuronAgent/examples/neurondb_client/core/websocket.py b/NeuronAgent/examples/neurondb_client/core/websocket.py
+index e688ff7..52bab38 100644
+--- a/NeuronAgent/examples/neurondb_client/core/websocket.py
++++ b/NeuronAgent/examples/neurondb_client/core/websocket.py
+@@ -108,3 +108,4 @@ class WebSocketClient:
+         self._running = False
+ 
+ 
++
+diff --git a/NeuronAgent/examples/neurondb_client/sessions/conversation.py b/NeuronAgent/examples/neurondb_client/sessions/conversation.py
+index 83fb20a..91fce8d 100644
+--- a/NeuronAgent/examples/neurondb_client/sessions/conversation.py
++++ b/NeuronAgent/examples/neurondb_client/sessions/conversation.py
+@@ -237,3 +237,4 @@ class ConversationManager:
+         self.message_history = []
+ 
+ 
++
+diff --git a/NeuronAgent/examples/neurondb_client/sessions/manager.py b/NeuronAgent/examples/neurondb_client/sessions/manager.py
+index 6ffdbbc..2ad1919 100644
+--- a/NeuronAgent/examples/neurondb_client/sessions/manager.py
++++ b/NeuronAgent/examples/neurondb_client/sessions/manager.py
+@@ -166,3 +166,4 @@ class SessionManager:
+         )
+ 
+ 
++
+diff --git a/NeuronAgent/examples/neurondb_client/utils/__init__.py b/NeuronAgent/examples/neurondb_client/utils/__init__.py
+index 8223fd7..2128a22 100644
+--- a/NeuronAgent/examples/neurondb_client/utils/__init__.py
++++ b/NeuronAgent/examples/neurondb_client/utils/__init__.py
+@@ -7,3 +7,4 @@ from .metrics import MetricsCollector
+ __all__ = ["ConfigLoader", "setup_logging", "MetricsCollector"]
+ 
+ 
++
+diff --git a/NeuronAgent/examples/neurondb_client/utils/config.py b/NeuronAgent/examples/neurondb_client/utils/config.py
+index b6444e5..77308f2 100644
+--- a/NeuronAgent/examples/neurondb_client/utils/config.py
++++ b/NeuronAgent/examples/neurondb_client/utils/config.py
+@@ -95,3 +95,4 @@ class ConfigLoader:
+         return None
+ 
+ 
++
+diff --git a/NeuronAgent/examples/neurondb_client/utils/logging.py b/NeuronAgent/examples/neurondb_client/utils/logging.py
+index e296a91..18225c4 100644
+--- a/NeuronAgent/examples/neurondb_client/utils/logging.py
++++ b/NeuronAgent/examples/neurondb_client/utils/logging.py
+@@ -50,3 +50,4 @@ def get_logger(name: str) -> logging.Logger:
+     return logging.getLogger(name)
+ 
+ 
++
+diff --git a/NeuronAgent/examples/neurondb_client/utils/metrics.py b/NeuronAgent/examples/neurondb_client/utils/metrics.py
+index de31001..d3c9253 100644
+--- a/NeuronAgent/examples/neurondb_client/utils/metrics.py
++++ b/NeuronAgent/examples/neurondb_client/utils/metrics.py
+@@ -97,3 +97,4 @@ class MetricsCollector:
+         self.timers.clear()
+ 
+ 
++
+diff --git a/NeuronAgent/examples/python_client.py b/NeuronAgent/examples/python_client.py
+index 12f3a48..bd62566 100755
+--- a/NeuronAgent/examples/python_client.py
++++ b/NeuronAgent/examples/python_client.py
+@@ -532,3 +532,4 @@ if __name__ == "__main__":
+     main()
+ 
+ 
++
+diff --git a/NeuronAgent/examples/quick_test.py b/NeuronAgent/examples/quick_test.py
+index b5ab4dc..d5fa93e 100755
+--- a/NeuronAgent/examples/quick_test.py
++++ b/NeuronAgent/examples/quick_test.py
+@@ -59,3 +59,4 @@ print("2. Set environment: export NEURONAGENT_API_KEY=your_key")
+ print("3. Run examples: python3 examples_modular/01_basic_usage.py")
+ 
+ 
++
+diff --git a/NeuronAgent/examples/requirements-dev.txt b/NeuronAgent/examples/requirements-dev.txt
+index 0dbc5e2..2f18795 100644
+--- a/NeuronAgent/examples/requirements-dev.txt
++++ b/NeuronAgent/examples/requirements-dev.txt
+@@ -46,3 +46,4 @@ twine>=4.0.0,<5.0.0
+ wheel>=0.41.0,<1.0.0
+ 
+ 
++
+diff --git a/NeuronAgent/examples/requirements-minimal.txt b/NeuronAgent/examples/requirements-minimal.txt
+index 54dfdfa..856aae4 100644
+--- a/NeuronAgent/examples/requirements-minimal.txt
++++ b/NeuronAgent/examples/requirements-minimal.txt
+@@ -17,3 +17,4 @@ websocket-client>=1.6.0,<2.0.0
+ urllib3>=2.0.0,<3.0.0
+ 
+ 
++
+diff --git a/NeuronAgent/examples/requirements-neurondb.txt b/NeuronAgent/examples/requirements-neurondb.txt
+index cbaf4f7..9621f52 100644
+--- a/NeuronAgent/examples/requirements-neurondb.txt
++++ b/NeuronAgent/examples/requirements-neurondb.txt
+@@ -55,3 +55,4 @@ python-dotenv>=1.0.0,<2.0.0
+ jsonschema>=4.19.0,<5.0.0
+ 
+ 
++
+diff --git a/NeuronAgent/examples/setup_example.sh b/NeuronAgent/examples/setup_example.sh
+index e7fc8b7..8f7487e 100755
+--- a/NeuronAgent/examples/setup_example.sh
++++ b/NeuronAgent/examples/setup_example.sh
+@@ -88,3 +88,4 @@ echo "  export NEURONAGENT_API_KEY=your_api_key"
+ echo ""
+ 
+ 
++
+diff --git a/NeuronAgent/examples/test_agent.sh b/NeuronAgent/examples/test_agent.sh
+index 804c65d..dcd10cf 100755
+--- a/NeuronAgent/examples/test_agent.sh
++++ b/NeuronAgent/examples/test_agent.sh
+@@ -91,3 +91,4 @@ echo "  export NEURONAGENT_API_KEY=$API_KEY"
+ echo "  cd examples && python3 examples_modular/01_basic_usage.py"
+ 
+ 
++
+diff --git a/NeuronAgent/examples/test_with_psql.sql b/NeuronAgent/examples/test_with_psql.sql
+index f898e7f..02b6efe 100644
+--- a/NeuronAgent/examples/test_with_psql.sql
++++ b/NeuronAgent/examples/test_with_psql.sql
+@@ -96,3 +96,4 @@ SELECT
+     (SELECT COUNT(*) FROM neurondb_agent.api_keys) as total_api_keys;
+ 
+ 
++
+diff --git a/NeuronAgent/start_server.sh b/NeuronAgent/start_server.sh
+index af71a05..c577099 100755
+--- a/NeuronAgent/start_server.sh
++++ b/NeuronAgent/start_server.sh
+@@ -18,3 +18,4 @@ echo "Server: $SERVER_HOST:$SERVER_PORT"
+ go run cmd/agent-server/main.go
+ 
+ 
++
+diff --git a/NeuronAgent/test_auth_debug.sh b/NeuronAgent/test_auth_debug.sh
+index 73537ef..7e06156 100644
+--- a/NeuronAgent/test_auth_debug.sh
++++ b/NeuronAgent/test_auth_debug.sh
+@@ -83,3 +83,4 @@ echo ""
+ echo "=== Debug Complete ==="
+ 
+ 
++
+diff --git a/NeuronAgent/test_complete.sh b/NeuronAgent/test_complete.sh
+index e196762..33a3863 100644
+--- a/NeuronAgent/test_complete.sh
++++ b/NeuronAgent/test_complete.sh
+@@ -266,3 +266,4 @@ else
+ fi
+ 
+ 
++
+diff --git a/NeuronAgent/test_integration_complete.sh b/NeuronAgent/test_integration_complete.sh
+index 8751a64..995fd1f 100644
+--- a/NeuronAgent/test_integration_complete.sh
++++ b/NeuronAgent/test_integration_complete.sh
+@@ -638,3 +638,4 @@ else
+ fi
+ 
+ 
++
+diff --git a/NeuronDB/CRITICAL_FIXES_APPLIED.md b/NeuronDB/CRITICAL_FIXES_APPLIED.md
+index a9aeba5..c25a085 100644
+--- a/NeuronDB/CRITICAL_FIXES_APPLIED.md
++++ b/NeuronDB/CRITICAL_FIXES_APPLIED.md
+@@ -133,3 +133,4 @@ Insertion logic uses multiple buffer locks but no global index lock. This is sim
+ 
+ All critical issues related to m parameter mismatch, sparsevec initialization, OID caching, validation safety, and reloptions validation have been fixed. The code now consistently uses `meta->m` throughout, ensuring on-disk layout matches validation logic.
+ 
++
+diff --git a/NeuronDB/include/neurondb_guc.h b/NeuronDB/include/neurondb_guc.h
+index fe251af..49c31c0 100644
+--- a/NeuronDB/include/neurondb_guc.h
++++ b/NeuronDB/include/neurondb_guc.h
+@@ -115,6 +115,7 @@ extern void neurondb_sync_config_from_gucs(void);
+ 
+ /* Legacy GUC variable declarations (for backward compatibility) */
+ extern int	neurondb_hnsw_ef_search;
++extern int	neurondb_hnsw_k;
+ extern int	neurondb_ivf_probes;
+ extern int	neurondb_ef_construction;
+ extern int	neurondb_compute_mode;
+diff --git a/NeuronDB/neurondb--1.0.sql b/NeuronDB/neurondb--1.0.sql
+index 31a44eb..e0dedf1 100644
+--- a/NeuronDB/neurondb--1.0.sql
++++ b/NeuronDB/neurondb--1.0.sql
+@@ -5174,8 +5174,9 @@ DECLARE
+ BEGIN
+ 	/* Use default model from GUC if not provided */
+ 	model_name := COALESCE(model, current_setting('neurondb.llm_model', true));
+-	if (model_name IS NULL OR model_name = '')
++	IF (model_name IS NULL OR model_name = '') THEN
+ 		model_name := 'sentence-transformers/all-MiniLM-L6-v2';
++	END IF;
+ 
+ 	/* Convert params to text */
+ 	params_str := params::text;
+@@ -5183,8 +5184,9 @@ BEGIN
+ 	CASE lower(task)
+ 		WHEN 'tokenize', 'token' THEN
+ 			/* Tokenize text */
+-			if (input_text IS NULL)
++			IF (input_text IS NULL) THEN
+ 				RAISE EXCEPTION 'tokenize task requires input_text parameter';
++			END IF;
+ 			
+ 			token_ids := neurondb_hf_tokenize(model_name, input_text, max_length);
+ 			result := jsonb_build_object(
+@@ -5196,8 +5198,9 @@ BEGIN
+ 
+ 		WHEN 'detokenize', 'detoken' THEN
+ 			/* Detokenize token IDs */
+-			if (params->>'token_ids' IS NULL)
++			IF (params->>'token_ids' IS NULL) THEN
+ 				RAISE EXCEPTION 'detokenize task requires token_ids in params';
++			END IF;
+ 			
+ 			token_ids := (params->>'token_ids')::integer[];
+ 			input_str := neurondb_hf_detokenize(model_name, token_ids);
+@@ -5209,8 +5212,9 @@ BEGIN
+ 
+ 		WHEN 'embed', 'embedding' THEN
+ 			/* Generate embeddings */
+-			if (input_text IS NULL)
++			IF (input_text IS NULL) THEN
+ 				RAISE EXCEPTION 'embed task requires input_text parameter';
++			END IF;
+ 			
+ 			BEGIN
+ 				result := jsonb_build_object(
+@@ -5229,8 +5233,9 @@ BEGIN
+ 
+ 		WHEN 'complete', 'completion', 'generate' THEN
+ 			/* Text completion */
+-			if (input_text IS NULL)
++			IF (input_text IS NULL) THEN
+ 				RAISE EXCEPTION 'complete task requires input_text parameter';
++			END IF;
+ 			
+ 			BEGIN
+ 				/* Build params JSON with model and generation parameters */
+@@ -5263,8 +5268,9 @@ BEGIN
+ 
+ 		WHEN 'classify', 'classification' THEN
+ 			/* Text classification */
+-			if (input_text IS NULL)
++			IF (input_text IS NULL) THEN
+ 				RAISE EXCEPTION 'classify task requires input_text parameter';
++			END IF;
+ 			
+ 			result := neurondb.classify(model_name, input_text);
+ 			result := jsonb_build_object(
+@@ -5275,8 +5281,9 @@ BEGIN
+ 
+ 		WHEN 'ner', 'named_entity_recognition' THEN
+ 			/* Named Entity Recognition */
+-			if (input_text IS NULL)
++			IF (input_text IS NULL) THEN
+ 				RAISE EXCEPTION 'ner task requires input_text parameter';
++			END IF;
+ 			
+ 			result := jsonb_build_object(
+ 				'task', 'ner',
+@@ -5286,8 +5293,9 @@ BEGIN
+ 
+ 		WHEN 'qa', 'question_answering' THEN
+ 			/* Question Answering */
+-			if (input_text IS NULL OR params->>'context' IS NULL)
++			IF (input_text IS NULL OR params->>'context' IS NULL) THEN
+ 				RAISE EXCEPTION 'qa task requires input_text (question) and context in params';
++			END IF;
+ 			
+ 			result := jsonb_build_object(
+ 				'task', 'qa',
+@@ -5297,8 +5305,9 @@ BEGIN
+ 
+ 		WHEN 'rerank', 'reranking' THEN
+ 			/* Reranking */
+-			if (input_text IS NULL OR input_array IS NULL)
++			IF (input_text IS NULL OR input_array IS NULL) THEN
+ 				RAISE EXCEPTION 'rerank task requires input_text (query) and input_array (documents)';
++			END IF;
+ 			
+ 			BEGIN
+ 				result := jsonb_build_object(
+@@ -5326,15 +5335,17 @@ BEGIN
+ 
+ 		WHEN 'summarize', 'summarization' THEN
+ 			/* Text summarization */
+-			if (input_text IS NULL)
++			IF (input_text IS NULL) THEN
+ 				RAISE EXCEPTION 'summarize task requires input_text parameter';
++			END IF;
+ 			
+ 			result := neurondb.summarize(model_name, input_text, params);
+ 
+ 		WHEN 'translate', 'translation' THEN
+ 			/* Text translation */
+-			if (input_text IS NULL OR params->>'target_lang' IS NULL)
++			IF (input_text IS NULL OR params->>'target_lang' IS NULL) THEN
+ 				RAISE EXCEPTION 'translate task requires input_text and target_lang in params';
++			END IF;
+ 			
+ 			result := neurondb.translate(
+ 				model_name, 
+@@ -5346,22 +5357,25 @@ BEGIN
+ 
+ 		WHEN 'fill_mask', 'masked_language_modeling' THEN
+ 			/* Masked language modeling */
+-			if (input_text IS NULL)
++			IF (input_text IS NULL) THEN
+ 				RAISE EXCEPTION 'fill_mask task requires input_text parameter';
++			END IF;
+ 			
+ 			result := neurondb.fill_mask(model_name, input_text, params);
+ 
+ 		WHEN 'text2text', 'text_to_text' THEN
+ 			/* Text-to-text generation */
+-			if (input_text IS NULL)
++			IF (input_text IS NULL) THEN
+ 				RAISE EXCEPTION 'text2text task requires input_text parameter';
++			END IF;
+ 			
+ 			result := neurondb.text2text(model_name, input_text, params);
+ 
+ 		WHEN 'zero_shot_classify', 'zero_shot_classification' THEN
+ 			/* Zero-shot classification */
+-			if (input_text IS NULL OR params->>'candidate_labels' IS NULL)
++			IF (input_text IS NULL OR params->>'candidate_labels' IS NULL) THEN
+ 				RAISE EXCEPTION 'zero_shot_classify task requires input_text and candidate_labels in params';
++			END IF;
+ 			
+ 			result := neurondb.zero_shot_classify(
+ 				model_name,
+@@ -5519,8 +5533,9 @@ DECLARE
+ BEGIN
+ 	/* Use default model from GUC if not provided */
+ 	model_name := COALESCE(model, current_setting('neurondb.llm_model', true));
+-	if (model_name IS NULL OR model_name = '')
++	IF (model_name IS NULL OR model_name = '') THEN
+ 		model_name := 'facebook/bart-large-cnn';
++	END IF;
+ 
+ 	/* Convert params to text */
+ 	params_str := params::text;
+@@ -5567,8 +5582,9 @@ DECLARE
+ BEGIN
+ 	/* Use default model from GUC if not provided */
+ 	model_name := COALESCE(model, current_setting('neurondb.llm_model', true));
+-	if (model_name IS NULL OR model_name = '')
++	IF (model_name IS NULL OR model_name = '') THEN
+ 		model_name := 'Helsinki-NLP/opus-mt-en-fr';
++	END IF;
+ 
+ 	/* Build translation prompt */
+ 	translation_prompt := format('Translate from %s to %s: %s', source_lang, target_lang, input_text);
+@@ -5617,8 +5633,9 @@ DECLARE
+ BEGIN
+ 	/* Use default model from GUC if not provided */
+ 	model_name := COALESCE(model, current_setting('neurondb.llm_model', true));
+-	if (model_name IS NULL OR model_name = '')
++	IF (model_name IS NULL OR model_name = '') THEN
+ 		model_name := 'bert-base-uncased';
++	END IF;
+ 
+ 	/* Convert params to text */
+ 	params_str := params::text;
+@@ -5662,8 +5679,9 @@ DECLARE
+ BEGIN
+ 	/* Use default model from GUC if not provided */
+ 	model_name := COALESCE(model, current_setting('neurondb.llm_model', true));
+-	if (model_name IS NULL OR model_name = '')
++	IF (model_name IS NULL OR model_name = '') THEN
+ 		model_name := 't5-small';
++	END IF;
+ 
+ 	/* Convert params to text */
+ 	params_str := params::text;
+@@ -5710,8 +5728,9 @@ DECLARE
+ BEGIN
+ 	/* Use default model from GUC if not provided */
+ 	model_name := COALESCE(model, current_setting('neurondb.llm_model', true));
+-	if (model_name IS NULL OR model_name = '')
++	IF (model_name IS NULL OR model_name = '') THEN
+ 		model_name := 'facebook/bart-large-mnli';
++	END IF;
+ 
+ 	/* Build labels string */
+ 	labels_str := array_to_string(candidate_labels, ', ');
+diff --git a/NeuronDB/neurondb--1.0.sql.linux b/NeuronDB/neurondb--1.0.sql.linux
+index 267410f..e0dedf1 100644
+--- a/NeuronDB/neurondb--1.0.sql.linux
++++ b/NeuronDB/neurondb--1.0.sql.linux
+@@ -4932,7 +4932,7 @@ BEGIN
+ 	END IF;
+ 	SELECT m.algorithm INTO algo FROM neurondb.ml_models m WHERE m.model_id = model_id_param;
+ 	IF algo IS NULL THEN
+-		RAISE EXCEPTION 'Model % not found', model_id_param;
++		RAISE EXCEPTION 'Model % not found', model_id;
+ 	END IF;
+ 	CASE algo
+ 		WHEN 'random_forest' THEN
+@@ -5174,8 +5174,9 @@ DECLARE
+ BEGIN
+ 	/* Use default model from GUC if not provided */
+ 	model_name := COALESCE(model, current_setting('neurondb.llm_model', true));
+-	if (model_name IS NULL OR model_name = '')
++	IF (model_name IS NULL OR model_name = '') THEN
+ 		model_name := 'sentence-transformers/all-MiniLM-L6-v2';
++	END IF;
+ 
+ 	/* Convert params to text */
+ 	params_str := params::text;
+@@ -5183,8 +5184,9 @@ BEGIN
+ 	CASE lower(task)
+ 		WHEN 'tokenize', 'token' THEN
+ 			/* Tokenize text */
+-			if (input_text IS NULL)
++			IF (input_text IS NULL) THEN
+ 				RAISE EXCEPTION 'tokenize task requires input_text parameter';
++			END IF;
+ 			
+ 			token_ids := neurondb_hf_tokenize(model_name, input_text, max_length);
+ 			result := jsonb_build_object(
+@@ -5196,8 +5198,9 @@ BEGIN
+ 
+ 		WHEN 'detokenize', 'detoken' THEN
+ 			/* Detokenize token IDs */
+-			if (params->>'token_ids' IS NULL)
++			IF (params->>'token_ids' IS NULL) THEN
+ 				RAISE EXCEPTION 'detokenize task requires token_ids in params';
++			END IF;
+ 			
+ 			token_ids := (params->>'token_ids')::integer[];
+ 			input_str := neurondb_hf_detokenize(model_name, token_ids);
+@@ -5209,8 +5212,9 @@ BEGIN
+ 
+ 		WHEN 'embed', 'embedding' THEN
+ 			/* Generate embeddings */
+-			if (input_text IS NULL)
++			IF (input_text IS NULL) THEN
+ 				RAISE EXCEPTION 'embed task requires input_text parameter';
++			END IF;
+ 			
+ 			BEGIN
+ 				result := jsonb_build_object(
+@@ -5229,8 +5233,9 @@ BEGIN
+ 
+ 		WHEN 'complete', 'completion', 'generate' THEN
+ 			/* Text completion */
+-			if (input_text IS NULL)
++			IF (input_text IS NULL) THEN
+ 				RAISE EXCEPTION 'complete task requires input_text parameter';
++			END IF;
+ 			
+ 			BEGIN
+ 				/* Build params JSON with model and generation parameters */
+@@ -5263,8 +5268,9 @@ BEGIN
+ 
+ 		WHEN 'classify', 'classification' THEN
+ 			/* Text classification */
+-			if (input_text IS NULL)
++			IF (input_text IS NULL) THEN
+ 				RAISE EXCEPTION 'classify task requires input_text parameter';
++			END IF;
+ 			
+ 			result := neurondb.classify(model_name, input_text);
+ 			result := jsonb_build_object(
+@@ -5275,8 +5281,9 @@ BEGIN
+ 
+ 		WHEN 'ner', 'named_entity_recognition' THEN
+ 			/* Named Entity Recognition */
+-			if (input_text IS NULL)
++			IF (input_text IS NULL) THEN
+ 				RAISE EXCEPTION 'ner task requires input_text parameter';
++			END IF;
+ 			
+ 			result := jsonb_build_object(
+ 				'task', 'ner',
+@@ -5286,8 +5293,9 @@ BEGIN
+ 
+ 		WHEN 'qa', 'question_answering' THEN
+ 			/* Question Answering */
+-			if (input_text IS NULL OR params->>'context' IS NULL)
++			IF (input_text IS NULL OR params->>'context' IS NULL) THEN
+ 				RAISE EXCEPTION 'qa task requires input_text (question) and context in params';
++			END IF;
+ 			
+ 			result := jsonb_build_object(
+ 				'task', 'qa',
+@@ -5297,8 +5305,9 @@ BEGIN
+ 
+ 		WHEN 'rerank', 'reranking' THEN
+ 			/* Reranking */
+-			if (input_text IS NULL OR input_array IS NULL)
++			IF (input_text IS NULL OR input_array IS NULL) THEN
+ 				RAISE EXCEPTION 'rerank task requires input_text (query) and input_array (documents)';
++			END IF;
+ 			
+ 			BEGIN
+ 				result := jsonb_build_object(
+@@ -5326,15 +5335,17 @@ BEGIN
+ 
+ 		WHEN 'summarize', 'summarization' THEN
+ 			/* Text summarization */
+-			if (input_text IS NULL)
++			IF (input_text IS NULL) THEN
+ 				RAISE EXCEPTION 'summarize task requires input_text parameter';
++			END IF;
+ 			
+ 			result := neurondb.summarize(model_name, input_text, params);
+ 
+ 		WHEN 'translate', 'translation' THEN
+ 			/* Text translation */
+-			if (input_text IS NULL OR params->>'target_lang' IS NULL)
++			IF (input_text IS NULL OR params->>'target_lang' IS NULL) THEN
+ 				RAISE EXCEPTION 'translate task requires input_text and target_lang in params';
++			END IF;
+ 			
+ 			result := neurondb.translate(
+ 				model_name, 
+@@ -5346,22 +5357,25 @@ BEGIN
+ 
+ 		WHEN 'fill_mask', 'masked_language_modeling' THEN
+ 			/* Masked language modeling */
+-			if (input_text IS NULL)
++			IF (input_text IS NULL) THEN
+ 				RAISE EXCEPTION 'fill_mask task requires input_text parameter';
++			END IF;
+ 			
+ 			result := neurondb.fill_mask(model_name, input_text, params);
+ 
+ 		WHEN 'text2text', 'text_to_text' THEN
+ 			/* Text-to-text generation */
+-			if (input_text IS NULL)
++			IF (input_text IS NULL) THEN
+ 				RAISE EXCEPTION 'text2text task requires input_text parameter';
++			END IF;
+ 			
+ 			result := neurondb.text2text(model_name, input_text, params);
+ 
+ 		WHEN 'zero_shot_classify', 'zero_shot_classification' THEN
+ 			/* Zero-shot classification */
+-			if (input_text IS NULL OR params->>'candidate_labels' IS NULL)
++			IF (input_text IS NULL OR params->>'candidate_labels' IS NULL) THEN
+ 				RAISE EXCEPTION 'zero_shot_classify task requires input_text and candidate_labels in params';
++			END IF;
+ 			
+ 			result := neurondb.zero_shot_classify(
+ 				model_name,
+@@ -5519,8 +5533,9 @@ DECLARE
+ BEGIN
+ 	/* Use default model from GUC if not provided */
+ 	model_name := COALESCE(model, current_setting('neurondb.llm_model', true));
+-	if (model_name IS NULL OR model_name = '')
++	IF (model_name IS NULL OR model_name = '') THEN
+ 		model_name := 'facebook/bart-large-cnn';
++	END IF;
+ 
+ 	/* Convert params to text */
+ 	params_str := params::text;
+@@ -5567,8 +5582,9 @@ DECLARE
+ BEGIN
+ 	/* Use default model from GUC if not provided */
+ 	model_name := COALESCE(model, current_setting('neurondb.llm_model', true));
+-	if (model_name IS NULL OR model_name = '')
++	IF (model_name IS NULL OR model_name = '') THEN
+ 		model_name := 'Helsinki-NLP/opus-mt-en-fr';
++	END IF;
+ 
+ 	/* Build translation prompt */
+ 	translation_prompt := format('Translate from %s to %s: %s', source_lang, target_lang, input_text);
+@@ -5617,8 +5633,9 @@ DECLARE
+ BEGIN
+ 	/* Use default model from GUC if not provided */
+ 	model_name := COALESCE(model, current_setting('neurondb.llm_model', true));
+-	if (model_name IS NULL OR model_name = '')
++	IF (model_name IS NULL OR model_name = '') THEN
+ 		model_name := 'bert-base-uncased';
++	END IF;
+ 
+ 	/* Convert params to text */
+ 	params_str := params::text;
+@@ -5662,8 +5679,9 @@ DECLARE
+ BEGIN
+ 	/* Use default model from GUC if not provided */
+ 	model_name := COALESCE(model, current_setting('neurondb.llm_model', true));
+-	if (model_name IS NULL OR model_name = '')
++	IF (model_name IS NULL OR model_name = '') THEN
+ 		model_name := 't5-small';
++	END IF;
+ 
+ 	/* Convert params to text */
+ 	params_str := params::text;
+@@ -5710,8 +5728,9 @@ DECLARE
+ BEGIN
+ 	/* Use default model from GUC if not provided */
+ 	model_name := COALESCE(model, current_setting('neurondb.llm_model', true));
+-	if (model_name IS NULL OR model_name = '')
++	IF (model_name IS NULL OR model_name = '') THEN
+ 		model_name := 'facebook/bart-large-mnli';
++	END IF;
+ 
+ 	/* Build labels string */
+ 	labels_str := array_to_string(candidate_labels, ', ');
+@@ -6907,7 +6926,6 @@ GRANT EXECUTE ON FUNCTION clip_embed(text, text) TO PUBLIC;
+ GRANT EXECUTE ON FUNCTION imagebind_embed(text, text) TO PUBLIC;
+ GRANT EXECUTE ON FUNCTION cross_modal_search(text, text, text, text, text, int4) TO PUBLIC;
+ 
+-
+ -- ============================================================================
+ -- ML Unified API Schema
+ -- PostgresML-compatible unified interface for NeuronDB
+diff --git a/NeuronDB/neurondb--1.0.sql.macos b/NeuronDB/neurondb--1.0.sql.macos
+index 267410f..e0dedf1 100644
+--- a/NeuronDB/neurondb--1.0.sql.macos
++++ b/NeuronDB/neurondb--1.0.sql.macos
+@@ -4932,7 +4932,7 @@ BEGIN
+ 	END IF;
+ 	SELECT m.algorithm INTO algo FROM neurondb.ml_models m WHERE m.model_id = model_id_param;
+ 	IF algo IS NULL THEN
+-		RAISE EXCEPTION 'Model % not found', model_id_param;
++		RAISE EXCEPTION 'Model % not found', model_id;
+ 	END IF;
+ 	CASE algo
+ 		WHEN 'random_forest' THEN
+@@ -5174,8 +5174,9 @@ DECLARE
+ BEGIN
+ 	/* Use default model from GUC if not provided */
+ 	model_name := COALESCE(model, current_setting('neurondb.llm_model', true));
+-	if (model_name IS NULL OR model_name = '')
++	IF (model_name IS NULL OR model_name = '') THEN
+ 		model_name := 'sentence-transformers/all-MiniLM-L6-v2';
++	END IF;
+ 
+ 	/* Convert params to text */
+ 	params_str := params::text;
+@@ -5183,8 +5184,9 @@ BEGIN
+ 	CASE lower(task)
+ 		WHEN 'tokenize', 'token' THEN
+ 			/* Tokenize text */
+-			if (input_text IS NULL)
++			IF (input_text IS NULL) THEN
+ 				RAISE EXCEPTION 'tokenize task requires input_text parameter';
++			END IF;
+ 			
+ 			token_ids := neurondb_hf_tokenize(model_name, input_text, max_length);
+ 			result := jsonb_build_object(
+@@ -5196,8 +5198,9 @@ BEGIN
+ 
+ 		WHEN 'detokenize', 'detoken' THEN
+ 			/* Detokenize token IDs */
+-			if (params->>'token_ids' IS NULL)
++			IF (params->>'token_ids' IS NULL) THEN
+ 				RAISE EXCEPTION 'detokenize task requires token_ids in params';
++			END IF;
+ 			
+ 			token_ids := (params->>'token_ids')::integer[];
+ 			input_str := neurondb_hf_detokenize(model_name, token_ids);
+@@ -5209,8 +5212,9 @@ BEGIN
+ 
+ 		WHEN 'embed', 'embedding' THEN
+ 			/* Generate embeddings */
+-			if (input_text IS NULL)
++			IF (input_text IS NULL) THEN
+ 				RAISE EXCEPTION 'embed task requires input_text parameter';
++			END IF;
+ 			
+ 			BEGIN
+ 				result := jsonb_build_object(
+@@ -5229,8 +5233,9 @@ BEGIN
+ 
+ 		WHEN 'complete', 'completion', 'generate' THEN
+ 			/* Text completion */
+-			if (input_text IS NULL)
++			IF (input_text IS NULL) THEN
+ 				RAISE EXCEPTION 'complete task requires input_text parameter';
++			END IF;
+ 			
+ 			BEGIN
+ 				/* Build params JSON with model and generation parameters */
+@@ -5263,8 +5268,9 @@ BEGIN
+ 
+ 		WHEN 'classify', 'classification' THEN
+ 			/* Text classification */
+-			if (input_text IS NULL)
++			IF (input_text IS NULL) THEN
+ 				RAISE EXCEPTION 'classify task requires input_text parameter';
++			END IF;
+ 			
+ 			result := neurondb.classify(model_name, input_text);
+ 			result := jsonb_build_object(
+@@ -5275,8 +5281,9 @@ BEGIN
+ 
+ 		WHEN 'ner', 'named_entity_recognition' THEN
+ 			/* Named Entity Recognition */
+-			if (input_text IS NULL)
++			IF (input_text IS NULL) THEN
+ 				RAISE EXCEPTION 'ner task requires input_text parameter';
++			END IF;
+ 			
+ 			result := jsonb_build_object(
+ 				'task', 'ner',
+@@ -5286,8 +5293,9 @@ BEGIN
+ 
+ 		WHEN 'qa', 'question_answering' THEN
+ 			/* Question Answering */
+-			if (input_text IS NULL OR params->>'context' IS NULL)
++			IF (input_text IS NULL OR params->>'context' IS NULL) THEN
+ 				RAISE EXCEPTION 'qa task requires input_text (question) and context in params';
++			END IF;
+ 			
+ 			result := jsonb_build_object(
+ 				'task', 'qa',
+@@ -5297,8 +5305,9 @@ BEGIN
+ 
+ 		WHEN 'rerank', 'reranking' THEN
+ 			/* Reranking */
+-			if (input_text IS NULL OR input_array IS NULL)
++			IF (input_text IS NULL OR input_array IS NULL) THEN
+ 				RAISE EXCEPTION 'rerank task requires input_text (query) and input_array (documents)';
++			END IF;
+ 			
+ 			BEGIN
+ 				result := jsonb_build_object(
+@@ -5326,15 +5335,17 @@ BEGIN
+ 
+ 		WHEN 'summarize', 'summarization' THEN
+ 			/* Text summarization */
+-			if (input_text IS NULL)
++			IF (input_text IS NULL) THEN
+ 				RAISE EXCEPTION 'summarize task requires input_text parameter';
++			END IF;
+ 			
+ 			result := neurondb.summarize(model_name, input_text, params);
+ 
+ 		WHEN 'translate', 'translation' THEN
+ 			/* Text translation */
+-			if (input_text IS NULL OR params->>'target_lang' IS NULL)
++			IF (input_text IS NULL OR params->>'target_lang' IS NULL) THEN
+ 				RAISE EXCEPTION 'translate task requires input_text and target_lang in params';
++			END IF;
+ 			
+ 			result := neurondb.translate(
+ 				model_name, 
+@@ -5346,22 +5357,25 @@ BEGIN
+ 
+ 		WHEN 'fill_mask', 'masked_language_modeling' THEN
+ 			/* Masked language modeling */
+-			if (input_text IS NULL)
++			IF (input_text IS NULL) THEN
+ 				RAISE EXCEPTION 'fill_mask task requires input_text parameter';
++			END IF;
+ 			
+ 			result := neurondb.fill_mask(model_name, input_text, params);
+ 
+ 		WHEN 'text2text', 'text_to_text' THEN
+ 			/* Text-to-text generation */
+-			if (input_text IS NULL)
++			IF (input_text IS NULL) THEN
+ 				RAISE EXCEPTION 'text2text task requires input_text parameter';
++			END IF;
+ 			
+ 			result := neurondb.text2text(model_name, input_text, params);
+ 
+ 		WHEN 'zero_shot_classify', 'zero_shot_classification' THEN
+ 			/* Zero-shot classification */
+-			if (input_text IS NULL OR params->>'candidate_labels' IS NULL)
++			IF (input_text IS NULL OR params->>'candidate_labels' IS NULL) THEN
+ 				RAISE EXCEPTION 'zero_shot_classify task requires input_text and candidate_labels in params';
++			END IF;
+ 			
+ 			result := neurondb.zero_shot_classify(
+ 				model_name,
+@@ -5519,8 +5533,9 @@ DECLARE
+ BEGIN
+ 	/* Use default model from GUC if not provided */
+ 	model_name := COALESCE(model, current_setting('neurondb.llm_model', true));
+-	if (model_name IS NULL OR model_name = '')
++	IF (model_name IS NULL OR model_name = '') THEN
+ 		model_name := 'facebook/bart-large-cnn';
++	END IF;
+ 
+ 	/* Convert params to text */
+ 	params_str := params::text;
+@@ -5567,8 +5582,9 @@ DECLARE
+ BEGIN
+ 	/* Use default model from GUC if not provided */
+ 	model_name := COALESCE(model, current_setting('neurondb.llm_model', true));
+-	if (model_name IS NULL OR model_name = '')
++	IF (model_name IS NULL OR model_name = '') THEN
+ 		model_name := 'Helsinki-NLP/opus-mt-en-fr';
++	END IF;
+ 
+ 	/* Build translation prompt */
+ 	translation_prompt := format('Translate from %s to %s: %s', source_lang, target_lang, input_text);
+@@ -5617,8 +5633,9 @@ DECLARE
+ BEGIN
+ 	/* Use default model from GUC if not provided */
+ 	model_name := COALESCE(model, current_setting('neurondb.llm_model', true));
+-	if (model_name IS NULL OR model_name = '')
++	IF (model_name IS NULL OR model_name = '') THEN
+ 		model_name := 'bert-base-uncased';
++	END IF;
+ 
+ 	/* Convert params to text */
+ 	params_str := params::text;
+@@ -5662,8 +5679,9 @@ DECLARE
+ BEGIN
+ 	/* Use default model from GUC if not provided */
+ 	model_name := COALESCE(model, current_setting('neurondb.llm_model', true));
+-	if (model_name IS NULL OR model_name = '')
++	IF (model_name IS NULL OR model_name = '') THEN
+ 		model_name := 't5-small';
++	END IF;
+ 
+ 	/* Convert params to text */
+ 	params_str := params::text;
+@@ -5710,8 +5728,9 @@ DECLARE
+ BEGIN
+ 	/* Use default model from GUC if not provided */
+ 	model_name := COALESCE(model, current_setting('neurondb.llm_model', true));
+-	if (model_name IS NULL OR model_name = '')
++	IF (model_name IS NULL OR model_name = '') THEN
+ 		model_name := 'facebook/bart-large-mnli';
++	END IF;
+ 
+ 	/* Build labels string */
+ 	labels_str := array_to_string(candidate_labels, ', ');
+@@ -6907,7 +6926,6 @@ GRANT EXECUTE ON FUNCTION clip_embed(text, text) TO PUBLIC;
+ GRANT EXECUTE ON FUNCTION imagebind_embed(text, text) TO PUBLIC;
+ GRANT EXECUTE ON FUNCTION cross_modal_search(text, text, text, text, text, int4) TO PUBLIC;
+ 
+-
+ -- ============================================================================
+ -- ML Unified API Schema
+ -- PostgresML-compatible unified interface for NeuronDB
+diff --git a/NeuronDB/src/index/hnsw_am.c b/NeuronDB/src/index/hnsw_am.c
+index 95e8a5e..649d1dd 100644
+--- a/NeuronDB/src/index/hnsw_am.c
++++ b/NeuronDB/src/index/hnsw_am.c
+@@ -963,10 +963,7 @@ hnswrescan(IndexScanDesc scan,
+ 			vectorData = NULL;
+ 		}
+ 		/* Get k from GUC or default to 10 */
+-		{
+-			extern int neurondb_hnsw_k;
+-			so->k = (neurondb_hnsw_k > 0) ? neurondb_hnsw_k : 10;
+-		}
++		so->k = (neurondb_hnsw_k > 0) ? neurondb_hnsw_k : 10;
+ 	}
+ }
+ 
+diff --git a/NeuronDB/src/ml/ml_davies_bouldin.c b/NeuronDB/src/ml/ml_davies_bouldin.c
+index e69de29..b1e25ad 100644
+--- a/NeuronDB/src/ml/ml_davies_bouldin.c
++++ b/NeuronDB/src/ml/ml_davies_bouldin.c
+@@ -0,0 +1,396 @@
++/*-------------------------------------------------------------------------
++ *
++ * ml_davies_bouldin.c
++ *    Davies-Bouldin index metric implementation.
++ *
++ * The Davies-Bouldin index is a metric for evaluating clustering quality.
++ * Lower values indicate better clustering. The index measures the average
++ * similarity ratio of each cluster with its most similar cluster.
++ *
++ * Formula: DB = (1/k) * sum(max((σi + σj) / d(ci, cj)))
++ * where:
++ *   - k is the number of clusters
++ *   - σi is the average distance from points in cluster i to its centroid
++ *   - d(ci, cj) is the distance between centroids of clusters i and j
++ *
++ * Copyright (c) 2024-2025, neurondb, Inc.
++ *
++ * IDENTIFICATION
++ *    src/ml/ml_davies_bouldin.c
++ *
++ *-------------------------------------------------------------------------
++ */
++
++#include "postgres.h"
++#include "fmgr.h"
++#include "utils/builtins.h"
++#include "utils/array.h"
++#include "utils/memutils.h"
++#include "executor/spi.h"
++#include "catalog/pg_type.h"
++#include "access/htup_details.h"
++
++#include "neurondb.h"
++#include "neurondb_ml.h"
++#include "neurondb_validation.h"
++#include "neurondb_safe_memory.h"
++#include "neurondb_macros.h"
++#include "neurondb_spi.h"
++#include "neurondb_spi_safe.h"
++#include "neurondb_gpu_model.h"
++
++/* Forward declarations */
++static inline double euclidean_distance(const float *a, const float *b, int dim);
++static void compute_cluster_centroids(float **data, int *assignments, int nvec,
++									  int dim, int num_clusters, int *cluster_sizes,
++									  float **centroids);
++
++/*
++ * Compute Euclidean distance between two vectors
++ */
++static inline double
++euclidean_distance(const float *a, const float *b, int dim)
++{
++	double		sum = 0.0;
++	int			i;
++
++	for (i = 0; i < dim; i++)
++	{
++		double		diff = (double) a[i] - (double) b[i];
++
++		sum += diff * diff;
++	}
++	return sqrt(sum);
++}
++
++/*
++ * Compute cluster centroids from data and assignments
++ */
++static void
++compute_cluster_centroids(float **data, int *assignments, int nvec,
++						  int dim, int num_clusters, int *cluster_sizes,
++						  float **centroids)
++{
++	int			i,
++				c,
++				d;
++
++	/* Initialize centroids to zero */
++	for (c = 0; c < num_clusters; c++)
++	{
++		for (d = 0; d < dim; d++)
++			centroids[c][d] = 0.0f;
++		cluster_sizes[c] = 0;
++	}
++
++	/* Sum vectors by cluster */
++	for (i = 0; i < nvec; i++)
++	{
++		c = assignments[i];
++		if (c >= 0 && c < num_clusters)
++		{
++			cluster_sizes[c]++;
++			for (d = 0; d < dim; d++)
++				centroids[c][d] += data[i][d];
++		}
++	}
++
++	/* Average to get centroids */
++	for (c = 0; c < num_clusters; c++)
++	{
++		if (cluster_sizes[c] > 0)
++		{
++			for (d = 0; d < dim; d++)
++				centroids[c][d] /= (float) cluster_sizes[c];
++		}
++	}
++}
++
++/*
++ * davies_bouldin_index
++ *
++ * Computes the Davies-Bouldin index for a clustering result.
++ *
++ * Parameters:
++ *   table_name: Name of the table containing vectors and cluster assignments
++ *   vector_col: Name of the column containing vector data
++ *   cluster_col: Name of the column containing cluster assignments (integer)
++ *
++ * Returns:
++ *   double precision: Davies-Bouldin index (lower is better)
++ */
++PG_FUNCTION_INFO_V1(davies_bouldin_index);
++
++Datum
++davies_bouldin_index(PG_FUNCTION_ARGS)
++{
++	text	   *table_name;
++	text	   *vector_col;
++	text	   *cluster_col;
++	char	   *tbl_str;
++	char	   *col_str;
++	char	   *cluster_str;
++	int			nvec = 0;
++	int			i,
++				j,
++				c;
++	float	  **data = NULL;
++	int			dim = 0;
++	int			*assignments = NULL;
++	int			*cluster_sizes = NULL;
++	float	  **centroids = NULL;
++	double		davies_bouldin = 0.0;
++	double		*cluster_scatter = NULL;
++	int			num_clusters = 0;
++	int			max_cluster_id = -1;
++	MemoryContext oldcontext;
++	NdbSpiSession *spi_session = NULL;
++	StringInfoData sql;
++	int			ret;
++
++	if (PG_ARGISNULL(0) || PG_ARGISNULL(1) || PG_ARGISNULL(2))
++		ereport(ERROR,
++				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
++				 errmsg("neurondb: davies_bouldin_index: all parameters are required")));
++
++	table_name = PG_GETARG_TEXT_PP(0);
++	vector_col = PG_GETARG_TEXT_PP(1);
++	cluster_col = PG_GETARG_TEXT_PP(2);
++
++	tbl_str = text_to_cstring(table_name);
++	col_str = text_to_cstring(vector_col);
++	cluster_str = text_to_cstring(cluster_col);
++
++	oldcontext = CurrentMemoryContext;
++
++	/* Begin SPI session */
++	NDB_SPI_SESSION_BEGIN(spi_session, oldcontext);
++
++	/* Fetch vectors from table */
++	data = neurondb_fetch_vectors_from_table(tbl_str, col_str, &nvec, &dim);
++
++	if (!data || nvec < 1)
++	{
++		NDB_SPI_SESSION_END(spi_session);
++		NDB_FREE(tbl_str);
++		NDB_FREE(col_str);
++		NDB_FREE(cluster_str);
++		ereport(ERROR,
++				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
++				 errmsg("neurondb: davies_bouldin_index: no valid vectors found in table")));
++	}
++
++	/* Fetch cluster assignments */
++	ndb_spi_stringinfo_init(spi_session, &sql);
++	appendStringInfo(&sql, "SELECT %s FROM %s LIMIT %d", cluster_str, tbl_str, 500000);
++
++	ret = ndb_spi_execute(spi_session, sql.data, true, 0);
++	if (ret != SPI_OK_SELECT)
++	{
++		ndb_spi_stringinfo_free(spi_session, &sql);
++		NDB_SPI_SESSION_END(spi_session);
++		for (i = 0; i < nvec; i++)
++			NDB_FREE(data[i]);
++		NDB_FREE(data);
++		NDB_FREE(tbl_str);
++		NDB_FREE(col_str);
++		NDB_FREE(cluster_str);
++		ereport(ERROR,
++				(errcode(ERRCODE_INTERNAL_ERROR),
++				 errmsg("neurondb: davies_bouldin_index: failed to fetch cluster assignments")));
++	}
++
++	if (SPI_processed != nvec)
++	{
++		ndb_spi_stringinfo_free(spi_session, &sql);
++		NDB_SPI_SESSION_END(spi_session);
++		for (i = 0; i < nvec; i++)
++			NDB_FREE(data[i]);
++		NDB_FREE(data);
++		NDB_FREE(tbl_str);
++		NDB_FREE(col_str);
++		NDB_FREE(cluster_str);
++		ereport(ERROR,
++				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
++				 errmsg("neurondb: davies_bouldin_index: vector count (%d) does not match cluster count (%d)",
++						nvec, (int) SPI_processed)));
++	}
++
++	/* Extract cluster assignments and find max cluster ID */
++	NDB_ALLOC(assignments, int, nvec);
++	for (i = 0; i < nvec; i++)
++	{
++		int32		cluster_id;
++		bool		isnull;
++
++		if (SPI_tuptable == NULL || SPI_tuptable->vals == NULL ||
++			i >= SPI_processed || SPI_tuptable->vals[i] == NULL ||
++			SPI_tuptable->tupdesc == NULL)
++		{
++			ndb_spi_stringinfo_free(spi_session, &sql);
++			NDB_SPI_SESSION_END(spi_session);
++			for (j = 0; j < nvec; j++)
++				NDB_FREE(data[j]);
++			NDB_FREE(data);
++			NDB_FREE(assignments);
++			NDB_FREE(tbl_str);
++			NDB_FREE(col_str);
++			NDB_FREE(cluster_str);
++			ereport(ERROR,
++					(errcode(ERRCODE_INTERNAL_ERROR),
++					 errmsg("neurondb: davies_bouldin_index: invalid SPI result at row %d", i)));
++		}
++
++		Datum		cluster_datum = SPI_getbinval(SPI_tuptable->vals[i],
++												  SPI_tuptable->tupdesc,
++												  1,
++												  &isnull);
++
++		if (isnull)
++		{
++			ndb_spi_stringinfo_free(spi_session, &sql);
++			NDB_SPI_SESSION_END(spi_session);
++			for (j = 0; j < nvec; j++)
++				NDB_FREE(data[j]);
++			NDB_FREE(data);
++			NDB_FREE(assignments);
++			NDB_FREE(tbl_str);
++			NDB_FREE(col_str);
++			NDB_FREE(cluster_str);
++			ereport(ERROR,
++					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
++					 errmsg("neurondb: davies_bouldin_index: NULL cluster assignment at row %d", i)));
++		}
++
++		cluster_id = DatumGetInt32(cluster_datum);
++		assignments[i] = cluster_id;
++		if (cluster_id > max_cluster_id)
++			max_cluster_id = cluster_id;
++	}
++
++	ndb_spi_stringinfo_free(spi_session, &sql);
++	NDB_SPI_SESSION_END(spi_session);
++
++	if (max_cluster_id < 0)
++	{
++		for (i = 0; i < nvec; i++)
++			NDB_FREE(data[i]);
++		NDB_FREE(data);
++		NDB_FREE(assignments);
++		NDB_FREE(tbl_str);
++		NDB_FREE(col_str);
++		NDB_FREE(cluster_str);
++		ereport(ERROR,
++				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
++				 errmsg("neurondb: davies_bouldin_index: no valid cluster assignments found")));
++	}
++
++	num_clusters = max_cluster_id + 1;
++
++	/* Allocate cluster structures */
++	NDB_ALLOC(cluster_sizes, int, num_clusters);
++	NDB_ALLOC(cluster_scatter, double, num_clusters);
++	NDB_ALLOC(centroids, float *, num_clusters);
++	for (c = 0; c < num_clusters; c++)
++	{
++		NDB_ALLOC(centroids[c], float, dim);
++	}
++
++	/* Compute cluster centroids */
++	compute_cluster_centroids(data, assignments, nvec, dim, num_clusters,
++							  cluster_sizes, centroids);
++
++	/* Compute cluster scatter (average distance from points to centroid) */
++	for (c = 0; c < num_clusters; c++)
++		cluster_scatter[c] = 0.0;
++
++	for (i = 0; i < nvec; i++)
++	{
++		c = assignments[i];
++		if (c >= 0 && c < num_clusters && cluster_sizes[c] > 0)
++			cluster_scatter[c] += euclidean_distance(data[i], centroids[c], dim);
++	}
++
++	for (c = 0; c < num_clusters; c++)
++	{
++		if (cluster_sizes[c] > 0)
++			cluster_scatter[c] /= (double) cluster_sizes[c];
++	}
++
++	/* Compute Davies-Bouldin index */
++	{
++		int			valid_clusters = 0;
++		double		sum_dbi = 0.0;
++
++		for (i = 0; i < num_clusters; i++)
++		{
++			double		max_ratio = 0.0;
++
++			/* Skip clusters with less than 2 points */
++			if (cluster_sizes[i] < 2)
++				continue;
++
++			for (j = 0; j < num_clusters; j++)
++			{
++				double		centroid_dist;
++				double		ratio;
++
++				if (i == j || cluster_sizes[j] < 2)
++					continue;
++
++				centroid_dist = euclidean_distance(centroids[i], centroids[j], dim);
++				if (centroid_dist < 1e-10)
++					continue;
++
++				ratio = (cluster_scatter[i] + cluster_scatter[j]) / centroid_dist;
++				if (ratio > max_ratio)
++					max_ratio = ratio;
++			}
++			sum_dbi += max_ratio;
++			valid_clusters++;
++		}
++
++		if (valid_clusters > 0)
++			davies_bouldin = sum_dbi / (double) valid_clusters;
++		else
++			davies_bouldin = 0.0;	/* No valid clusters */
++	}
++
++	/* Cleanup */
++	for (i = 0; i < nvec; i++)
++		NDB_FREE(data[i]);
++	NDB_FREE(data);
++	NDB_FREE(assignments);
++	NDB_FREE(cluster_sizes);
++	NDB_FREE(cluster_scatter);
++	for (c = 0; c < num_clusters; c++)
++		NDB_FREE(centroids[c]);
++	NDB_FREE(centroids);
++	NDB_FREE(tbl_str);
++	NDB_FREE(col_str);
++	NDB_FREE(cluster_str);
++
++	PG_RETURN_FLOAT8(davies_bouldin);
++}
++
++/*
++ * GPU registration stub for Davies-Bouldin metric.
++ * Since this is an evaluation metric rather than a trainable model,
++ * we provide a minimal stub that satisfies the registration requirement.
++ */
++void
++neurondb_gpu_register_davies_bouldin_model(void)
++{
++	/* Davies-Bouldin is a metric, not a trainable model.
++	 * This stub exists to satisfy the registration call.
++	 * Actual metric computation is handled in the clustering algorithms
++	 * and the standalone davies_bouldin_index function above.
++	 */
++	static bool registered = false;
++
++	if (registered)
++		return;
++
++	/* No GPU model ops needed for metrics - they're computed during evaluation */
++	registered = true;
++}
+diff --git a/NeuronDB/src/util/neurondb_guc.c b/NeuronDB/src/util/neurondb_guc.c
+index d750a3f..4a8f174 100644
+--- a/NeuronDB/src/util/neurondb_guc.c
++++ b/NeuronDB/src/util/neurondb_guc.c
+@@ -23,6 +23,7 @@
+ 
+ /* Core/index GUC variables */
+ int			neurondb_hnsw_ef_search = 64;
++int			neurondb_hnsw_k = 10;
+ int			neurondb_ivf_probes = 10;
+ int			neurondb_ef_construction = 200;
+ 
+@@ -227,6 +228,19 @@ neurondb_init_all_gucs(void)
+ 							NULL,
+ 							NULL);
+ 
++	DefineCustomIntVariable("neurondb.hnsw_k",
++							"Sets the k parameter for HNSW index scans",
++							"Number of nearest neighbors to return. Default is 10.",
++							&neurondb_hnsw_k,
++							10,
++							1,
++							1000,
++							PGC_USERSET,
++							0,
++							NULL,
++							NULL,
++							NULL);
++
+ 	DefineCustomIntVariable("neurondb.ivf_probes",
+ 							"Sets the number of probes for IVF index scans",
+ 							"Higher values improve recall but increase search time. Default is 10.",
+diff --git a/NeuronMCP/COMPLETION_REPORT.md b/NeuronMCP/COMPLETION_REPORT.md
+index 075095f..7aec0c9 100644
+--- a/NeuronMCP/COMPLETION_REPORT.md
++++ b/NeuronMCP/COMPLETION_REPORT.md
+@@ -191,3 +191,4 @@ NeuronMCP has been **100% completed** according to the enhancement plan. All req
+ The implementation is ready for production use.
+ 
+ 
++
+diff --git a/NeuronMCP/POSTGRESQL_TOOLS.md b/NeuronMCP/POSTGRESQL_TOOLS.md
+index 4fe7da6..9e5d690 100644
+--- a/NeuronMCP/POSTGRESQL_TOOLS.md
++++ b/NeuronMCP/POSTGRESQL_TOOLS.md
+@@ -153,3 +153,4 @@ Tools gracefully handle:
+ All errors are returned in the standard MCP error format with detailed messages.
+ 
+ 
++
+diff --git a/NeuronMCP/SETUP_GUIDE.md b/NeuronMCP/SETUP_GUIDE.md
+index 730b1b2..a89f6b3 100644
+--- a/NeuronMCP/SETUP_GUIDE.md
++++ b/NeuronMCP/SETUP_GUIDE.md
+@@ -178,3 +178,4 @@ Create `mcp-config.json`:
+ - GPU acceleration is available when configured
+ 
+ 
++
+diff --git a/NeuronMCP/TEST_RESULTS.md b/NeuronMCP/TEST_RESULTS.md
+index 3c3771d..6181dc1 100644
+--- a/NeuronMCP/TEST_RESULTS.md
++++ b/NeuronMCP/TEST_RESULTS.md
+@@ -135,3 +135,4 @@ The client successfully:
+ **Status**: ✅ Production Ready
+ 
+ 
++
+diff --git a/NeuronMCP/claude_desktop_config.linux.json b/NeuronMCP/claude_desktop_config.linux.json
+index a85472e..324aae5 100644
+--- a/NeuronMCP/claude_desktop_config.linux.json
++++ b/NeuronMCP/claude_desktop_config.linux.json
+@@ -17,3 +17,4 @@
+ }
+ 
+ 
++
+diff --git a/NeuronMCP/claude_desktop_config.macos.json b/NeuronMCP/claude_desktop_config.macos.json
+index 6e903d3..1dcf2e6 100644
+--- a/NeuronMCP/claude_desktop_config.macos.json
++++ b/NeuronMCP/claude_desktop_config.macos.json
+@@ -17,3 +17,4 @@
+ }
+ 
+ 
++
+diff --git a/NeuronMCP/claude_desktop_config.windows.json b/NeuronMCP/claude_desktop_config.windows.json
+index ac215ee..3682438 100644
+--- a/NeuronMCP/claude_desktop_config.windows.json
++++ b/NeuronMCP/claude_desktop_config.windows.json
+@@ -17,3 +17,4 @@
+ }
+ 
+ 
++
+diff --git a/NeuronMCP/client/mcp_client/commands.py b/NeuronMCP/client/mcp_client/commands.py
+index 81785e1..ef06b84 100644
+--- a/NeuronMCP/client/mcp_client/commands.py
++++ b/NeuronMCP/client/mcp_client/commands.py
+@@ -206,3 +206,4 @@ def build_tool_call_request(tool_name: str, arguments: Dict[str, Any]) -> Dict[s
+     }
+ 
+ 
++
+diff --git a/NeuronMCP/client/mcp_client/config.py b/NeuronMCP/client/mcp_client/config.py
+index ed773c2..21b91d9 100644
+--- a/NeuronMCP/client/mcp_client/config.py
++++ b/NeuronMCP/client/mcp_client/config.py
+@@ -79,3 +79,4 @@ def load_config(config_path: str, server_name: str = "neurondb") -> MCPConfig:
+     return MCPConfig(command=command, env=env, args=args)
+ 
+ 
++
+diff --git a/NeuronMCP/internal/client/commands.go b/NeuronMCP/internal/client/commands.go
+index f5dc645..eb789a2 100644
+--- a/NeuronMCP/internal/client/commands.go
++++ b/NeuronMCP/internal/client/commands.go
+@@ -172,3 +172,4 @@ func parseFloat(s string) (float64, error) {
+ }
+ 
+ 
++
+diff --git a/NeuronMCP/internal/client/config.go b/NeuronMCP/internal/client/config.go
+index 8e8f6a8..8fb0963 100644
+--- a/NeuronMCP/internal/client/config.go
++++ b/NeuronMCP/internal/client/config.go
+@@ -68,3 +68,4 @@ func LoadConfig(configPath, serverName string) (*MCPConfig, error) {
+ }
+ 
+ 
++
+diff --git a/NeuronMCP/internal/client/output.go b/NeuronMCP/internal/client/output.go
+index cfc6385..c1a2b04 100644
+--- a/NeuronMCP/internal/client/output.go
++++ b/NeuronMCP/internal/client/output.go
+@@ -96,3 +96,4 @@ func (om *OutputManager) Save() (string, error) {
+ }
+ 
+ 
++
+diff --git a/NeuronMCP/internal/tools/automl.go b/NeuronMCP/internal/tools/automl.go
+index ccb0fbe..b32b499 100644
+--- a/NeuronMCP/internal/tools/automl.go
++++ b/NeuronMCP/internal/tools/automl.go
+@@ -121,3 +121,4 @@ func (t *AutoMLTool) Execute(ctx context.Context, params map[string]interface{})
+ }
+ 
+ 
++
+diff --git a/NeuronMCP/internal/tools/dataset_loading.go b/NeuronMCP/internal/tools/dataset_loading.go
+index a5a590d..04900f8 100644
+--- a/NeuronMCP/internal/tools/dataset_loading.go
++++ b/NeuronMCP/internal/tools/dataset_loading.go
+@@ -121,3 +121,4 @@ func (t *DatasetLoadingTool) Execute(ctx context.Context, params map[string]inte
+ }
+ 
+ 
++
+diff --git a/NeuronMCP/internal/tools/drift_detection.go b/NeuronMCP/internal/tools/drift_detection.go
+index 84534b2..79b1d0e 100644
+--- a/NeuronMCP/internal/tools/drift_detection.go
++++ b/NeuronMCP/internal/tools/drift_detection.go
+@@ -117,3 +117,4 @@ func (t *DriftDetectionTool) Execute(ctx context.Context, params map[string]inte
+ }
+ 
+ 
++
+diff --git a/NeuronMCP/internal/tools/embeddings_complete.go b/NeuronMCP/internal/tools/embeddings_complete.go
+index 9c1fc1e..6b6bfdf 100644
+--- a/NeuronMCP/internal/tools/embeddings_complete.go
++++ b/NeuronMCP/internal/tools/embeddings_complete.go
+@@ -527,3 +527,4 @@ func (t *DeleteEmbeddingModelConfigTool) Execute(ctx context.Context, params map
+ }
+ 
+ 
++
+diff --git a/NeuronMCP/internal/tools/gpu.go b/NeuronMCP/internal/tools/gpu.go
+index 32feaf4..4af1b4c 100644
+--- a/NeuronMCP/internal/tools/gpu.go
++++ b/NeuronMCP/internal/tools/gpu.go
+@@ -47,3 +47,4 @@ func (t *GPUMonitoringTool) Execute(ctx context.Context, params map[string]inter
+ }
+ 
+ 
++
+diff --git a/NeuronMCP/internal/tools/hybrid_search_complete.go b/NeuronMCP/internal/tools/hybrid_search_complete.go
+index 7fcdea9..9816738 100644
+--- a/NeuronMCP/internal/tools/hybrid_search_complete.go
++++ b/NeuronMCP/internal/tools/hybrid_search_complete.go
+@@ -566,3 +566,4 @@ func (t *DiverseVectorSearchTool) Execute(ctx context.Context, params map[string
+ }
+ 
+ 
++
+diff --git a/NeuronMCP/internal/tools/indexing_additional.go b/NeuronMCP/internal/tools/indexing_additional.go
+index eb1682d..c27d4f1 100644
+--- a/NeuronMCP/internal/tools/indexing_additional.go
++++ b/NeuronMCP/internal/tools/indexing_additional.go
+@@ -172,3 +172,4 @@ func (t *TuneIVFIndexTool) Execute(ctx context.Context, params map[string]interf
+ 
+ 
+ 
++
+diff --git a/NeuronMCP/internal/tools/onnx.go b/NeuronMCP/internal/tools/onnx.go
+index aed232d..469439c 100644
+--- a/NeuronMCP/internal/tools/onnx.go
++++ b/NeuronMCP/internal/tools/onnx.go
+@@ -112,3 +112,4 @@ func (t *ONNXTool) Execute(ctx context.Context, params map[string]interface{}) (
+ }
+ 
+ 
++
+diff --git a/NeuronMCP/internal/tools/postgresql_advanced.go b/NeuronMCP/internal/tools/postgresql_advanced.go
+index afeca19..811f210 100644
+--- a/NeuronMCP/internal/tools/postgresql_advanced.go
++++ b/NeuronMCP/internal/tools/postgresql_advanced.go
+@@ -340,3 +340,4 @@ func (t *PostgreSQLExtensionsTool) Execute(ctx context.Context, params map[strin
+ }
+ 
+ 
++
+diff --git a/NeuronMCP/internal/tools/quality_metrics.go b/NeuronMCP/internal/tools/quality_metrics.go
+index ab43134..0c3aa16 100644
+--- a/NeuronMCP/internal/tools/quality_metrics.go
++++ b/NeuronMCP/internal/tools/quality_metrics.go
+@@ -130,3 +130,4 @@ func (t *QualityMetricsTool) Execute(ctx context.Context, params map[string]inte
+ }
+ 
+ 
++
+diff --git a/NeuronMCP/internal/tools/quantization.go b/NeuronMCP/internal/tools/quantization.go
+index c7b2e17..a1855df 100644
+--- a/NeuronMCP/internal/tools/quantization.go
++++ b/NeuronMCP/internal/tools/quantization.go
+@@ -426,3 +426,4 @@ func (t *QuantizationAnalysisTool) Execute(ctx context.Context, params map[strin
+ }
+ 
+ 
++
+diff --git a/NeuronMCP/internal/tools/timeseries.go b/NeuronMCP/internal/tools/timeseries.go
+index 2008fa5..3e1e254 100644
+--- a/NeuronMCP/internal/tools/timeseries.go
++++ b/NeuronMCP/internal/tools/timeseries.go
+@@ -128,3 +128,4 @@ func (t *TimeSeriesTool) Execute(ctx context.Context, params map[string]interfac
+ }
+ 
+ 
++
+diff --git a/NeuronMCP/internal/tools/topic_discovery.go b/NeuronMCP/internal/tools/topic_discovery.go
+index 3fb1ff3..6f56d2e 100644
+--- a/NeuronMCP/internal/tools/topic_discovery.go
++++ b/NeuronMCP/internal/tools/topic_discovery.go
+@@ -102,3 +102,4 @@ func (t *TopicDiscoveryTool) Execute(ctx context.Context, params map[string]inte
+ }
+ 
+ 
++
+diff --git a/NeuronMCP/internal/tools/vecmap_operations.go b/NeuronMCP/internal/tools/vecmap_operations.go
+index 15435d3..3a7bfcb 100644
+--- a/NeuronMCP/internal/tools/vecmap_operations.go
++++ b/NeuronMCP/internal/tools/vecmap_operations.go
+@@ -132,3 +132,4 @@ func (t *VecmapOperationsTool) Execute(ctx context.Context, params map[string]in
+ }
+ 
+ 
++
+diff --git a/NeuronMCP/internal/tools/vector_graph.go b/NeuronMCP/internal/tools/vector_graph.go
+index 9c3ad67..22baa4f 100644
+--- a/NeuronMCP/internal/tools/vector_graph.go
++++ b/NeuronMCP/internal/tools/vector_graph.go
+@@ -152,3 +152,4 @@ func (t *VectorGraphTool) Execute(ctx context.Context, params map[string]interfa
+ }
+ 
+ 
++
+diff --git a/NeuronMCP/test/test_all_tools.go b/NeuronMCP/test/test_all_tools.go
+index ca735f3..2c11b20 100644
+--- a/NeuronMCP/test/test_all_tools.go
++++ b/NeuronMCP/test/test_all_tools.go
+@@ -116,3 +116,4 @@ func TestPostgreSQLTools(t *testing.T) {
+ }
+ 
+ 
++
+diff --git a/NeuronMCP/test_comprehensive.sh b/NeuronMCP/test_comprehensive.sh
+index 5b8c18c..5a5991b 100644
+--- a/NeuronMCP/test_comprehensive.sh
++++ b/NeuronMCP/test_comprehensive.sh
+@@ -217,3 +217,4 @@ rm -f test_*.json
+ echo "Done!"
+ 
+ 
++
+diff --git a/NeuronMCP/test_final_validation.sh b/NeuronMCP/test_final_validation.sh
+index 12de048..0fdda35 100644
+--- a/NeuronMCP/test_final_validation.sh
++++ b/NeuronMCP/test_final_validation.sh
+@@ -148,3 +148,4 @@ else
+ fi
+ 
+ 
++

@@ -28,6 +28,7 @@
 #include "neurondb_safe_memory.h"
 #include "neurondb_macros.h"
 #include "neurondb_spi_safe.h"
+#include "neurondb_json.h"
 #include "neurondb_spi.h"
 
 extern ImageMetadata *ndb_validate_image(const unsigned char *data, size_t size, MemoryContext mctx);
@@ -502,6 +503,7 @@ ndb_llm_complete(PG_FUNCTION_ARGS)
 	StringInfoData keysrc,
 				keyhex;
 	char	   *cached = NULL;
+	char	   *model_from_params = NULL;
 	int			rc;
 	TimestampTz start_time;
 	TimestampTz end_time;
@@ -514,6 +516,47 @@ ndb_llm_complete(PG_FUNCTION_ARGS)
 
 	start_time = GetCurrentTimestamp();
 	fill_cfg(&cfg);
+	
+	/* Extract model from params JSON if provided (overrides GUC setting) */
+	if (params && strlen(params) > 0 && strcmp(params, "{}") != 0)
+	{
+		char	   *raw_model = ndb_json_extract_string(params, "model");
+		
+		if (raw_model && strlen(raw_model) > 0)
+		{
+			/* Strip quotes if present (ndb_jsonb_out returns JSON representation) */
+			size_t		len = strlen(raw_model);
+			
+			if (len >= 2 && raw_model[0] == '"' && raw_model[len - 1] == '"')
+			{
+				/* Allocate new string without quotes */
+				model_from_params = palloc(len - 1);
+				memcpy(model_from_params, raw_model + 1, len - 2);
+				model_from_params[len - 2] = '\0';
+				NDB_FREE(raw_model);
+			}
+			else
+			{
+				model_from_params = raw_model;
+			}
+			
+			if (model_from_params && strlen(model_from_params) > 0)
+			{
+				/* Override model from params - note: model_from_params is allocated and will be freed later */
+				cfg.model = model_from_params;
+			}
+			else
+			{
+				NDB_FREE(model_from_params);
+				model_from_params = NULL;
+			}
+		}
+		else if (raw_model)
+		{
+			NDB_FREE(raw_model);
+		}
+	}
+	
 	call_opts.task = "complete";
 	call_opts.prefer_gpu = cfg.prefer_gpu;
 	call_opts.require_gpu = cfg.require_gpu;
@@ -729,8 +772,91 @@ ndb_llm_complete(PG_FUNCTION_ARGS)
 		cache_hit = false;
 		success = false;
 		error_type = "provider_error";
-		if (neurondb_llm_fail_open)
+		
+		/* For HTTP errors (>= 400), always return error message to SQL user, even with fail_open */
+		if (resp.http_status >= NDB_HTTP_STATUS_ERROR_MIN && resp.json && strlen(resp.json) > 0)
 		{
+			StringInfoData err_msg;
+			char	   *error_text = NULL;
+			
+			/* Try to extract error message from JSON if it's in {"error":"..."} format */
+			if (strncmp(resp.json, "{\"error\"", 8) == 0)
+			{
+				error_text = ndb_json_extract_string(resp.json, "error");
+				/* Strip quotes if present (ndb_json_extract_string may return JSON representation) */
+				if (error_text)
+				{
+					size_t		len = strlen(error_text);
+					
+					if (len >= 2 && error_text[0] == '"' && error_text[len - 1] == '"')
+					{
+						/* Remove quotes */
+						char	   *unquoted = palloc(len - 1);
+						
+						memcpy(unquoted, error_text + 1, len - 2);
+						unquoted[len - 2] = '\0';
+						NDB_FREE(error_text);
+						error_text = unquoted;
+					}
+				}
+			}
+
+			/* Build URL for error message */
+			{
+				StringInfoData url_str;
+
+				initStringInfo(&url_str);
+				if (cfg.endpoint && cfg.model)
+				{
+					/* Construct the URL that was called */
+					if (strstr(cfg.endpoint, "router.huggingface.co") != NULL ||
+						strstr(cfg.endpoint, "hf-inference") != NULL)
+					{
+						appendStringInfo(&url_str, "%s/models/%s", cfg.endpoint, cfg.model);
+					}
+					else
+					{
+					appendStringInfo(&url_str, "%s/models/%s", cfg.endpoint, cfg.model);
+				}
+			}
+			else if (cfg.endpoint)
+			{
+				appendStringInfoString(&url_str, cfg.endpoint);
+			}
+			else
+			{
+				appendStringInfoString(&url_str, "unknown endpoint");
+			}
+			
+			initStringInfo(&err_msg);
+			if (error_text && strlen(error_text) > 0)
+			{
+				appendStringInfo(&err_msg, "[ERROR: HTTP %d] Model: '%s' | URL: %s | %s", 
+								 resp.http_status, 
+								 cfg.model ? cfg.model : "unknown",
+								 url_str.data,
+								 error_text);
+				NDB_FREE(error_text);
+			}
+			else if (resp.json)
+			{
+				/* Use raw JSON if error extraction failed */
+				appendStringInfo(&err_msg, "[ERROR: HTTP %d] Model: '%s' | URL: %s | %s", 
+								 resp.http_status,
+								 cfg.model ? cfg.model : "unknown",
+								 url_str.data,
+								 resp.json);
+			}
+			else
+			{
+				appendStringInfo(&err_msg, "[ERROR: HTTP %d] Model: '%s' | URL: %s | Provider error - check API key, endpoint, and model availability", 
+								 resp.http_status,
+								 cfg.model ? cfg.model : "unknown",
+								 url_str.data);
+				}
+				NDB_FREE(url_str.data);
+			}
+
 			record_llm_stats(cfg.model,
 							 "complete",
 							 success,
@@ -739,7 +865,34 @@ ndb_llm_complete(PG_FUNCTION_ARGS)
 							 tokens_in,
 							 tokens_out,
 							 error_type);
-			PG_RETURN_NULL();
+			
+			PG_RETURN_TEXT_P(cstring_to_text(err_msg.data));
+		}
+		
+		if (neurondb_llm_fail_open)
+		{
+			StringInfoData err_msg;
+			
+			record_llm_stats(cfg.model,
+							 "complete",
+							 success,
+							 cache_hit,
+							 latency_ms,
+							 tokens_in,
+							 tokens_out,
+							 error_type);
+			/* Return error message instead of NULL when fail_open is true */
+			initStringInfo(&err_msg);
+			if (resp.json && strlen(resp.json) > 0)
+			{
+				appendStringInfo(&err_msg, "[ERROR: HTTP %d] %s", resp.http_status, resp.json);
+			}
+			else
+			{
+				appendStringInfo(&err_msg, "[ERROR: HTTP %d] Provider error - check API key, endpoint, and model availability", resp.http_status);
+			}
+			
+			PG_RETURN_TEXT_P(cstring_to_text(err_msg.data));
 		}
 		record_llm_stats(cfg.model,
 						 "complete",
@@ -749,7 +902,16 @@ ndb_llm_complete(PG_FUNCTION_ARGS)
 						 tokens_in,
 						 tokens_out,
 						 error_type);
-		ereport(ERROR, (errmsg("neurondb: llm provider error")));
+		if (resp.json && strlen(resp.json) > 0)
+		{
+			ereport(ERROR,
+					(errmsg("neurondb: llm provider error (HTTP %d): %s", resp.http_status, resp.json)));
+		}
+		else
+		{
+			ereport(ERROR,
+					(errmsg("neurondb: llm provider error (HTTP %d). Check API key, endpoint, and model availability", resp.http_status)));
+		}
 	}
 
 	if (resp.text)
@@ -764,6 +926,32 @@ ndb_llm_complete(PG_FUNCTION_ARGS)
 		cache_hit = false;
 		success = false;
 		error_type = "empty_response";
+		
+		/* Always log the error for debugging, even if fail_open is true */
+		if (resp.json && strlen(resp.json) > 0)
+		{
+			elog(WARNING,
+				 "neurondb: llm returned empty response (HTTP %d): %s", resp.http_status, resp.json);
+		}
+		else
+		{
+			elog(WARNING,
+				 "neurondb: llm returned empty response (HTTP %d). Check API key, endpoint, and model availability", resp.http_status);
+		}
+		
+		if (!neurondb_llm_fail_open)
+		{
+			if (resp.json && strlen(resp.json) > 0)
+			{
+				ereport(ERROR,
+						(errmsg("neurondb: llm returned empty response (HTTP %d): %s", resp.http_status, resp.json)));
+			}
+			else
+			{
+				ereport(ERROR,
+						(errmsg("neurondb: llm returned empty response (HTTP %d). Check API key, endpoint, and model availability", resp.http_status)));
+			}
+		}
 	}
 
 	record_llm_stats(cfg.model,
@@ -774,6 +962,33 @@ ndb_llm_complete(PG_FUNCTION_ARGS)
 					 tokens_in,
 					 tokens_out,
 					 error_type);
+	
+	/* If fail_open is true and we have an error, return error message instead of empty string */
+	if (!resp.text && neurondb_llm_fail_open && (rc != 0 || error_type != NULL))
+	{
+		StringInfoData err_msg;
+		
+		initStringInfo(&err_msg);
+		if (resp.json && strlen(resp.json) > 0)
+		{
+			appendStringInfo(&err_msg, "[ERROR: HTTP %d] %s", resp.http_status, resp.json);
+		}
+		else if (rc != 0)
+		{
+			appendStringInfo(&err_msg, "[ERROR: HTTP %d] Provider error - check API key, endpoint, and model availability", resp.http_status);
+		}
+		else
+		{
+			appendStringInfo(&err_msg, "[ERROR] Empty response - check API key, endpoint, and model availability");
+		}
+		
+		PG_RETURN_TEXT_P(cstring_to_text(err_msg.data));
+	}
+	
+	/* Clean up model_from_params if we allocated it */
+	if (model_from_params)
+		NDB_FREE(model_from_params);
+	
 	PG_RETURN_TEXT_P(cstring_to_text(resp.text ? resp.text : ""));
 }
 

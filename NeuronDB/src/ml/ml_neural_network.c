@@ -399,12 +399,12 @@ neural_network_init(int n_inputs,
 	for (i = 0; i < n_hidden; i++)
 	{
 		NeuralLayer *layer = &net->layers[i];
+		float	  **weights;
+		float	   *activations;
+		float	   *deltas;
 
 		layer->n_inputs = prev_size;
 		layer->n_outputs = hidden_layers[i];
-		NDB_DECLARE(float **, weights);
-		NDB_DECLARE(float *, activations);
-		NDB_DECLARE(float *, deltas);
 		NDB_ALLOC(weights, float *, layer->n_outputs);
 		NDB_ALLOC(activations, float, layer->n_outputs);
 		NDB_ALLOC(deltas, float, layer->n_outputs);
@@ -708,18 +708,21 @@ neural_network_deserialize(const bytea * data)
 	net->activation_func = activation_buf;
 
 	/* Allocate layers with overflow check */
-	if (net->n_layers > MaxAllocSize / sizeof(NeuralLayer))
 	{
-		NDB_FREE(net->activation_func);
-		NDB_FREE(net);
-		ereport(ERROR,
-				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
-				 errmsg("neurondb: neural_network_deserialize: n_layers %d exceeds maximum allocation size",
-						net->n_layers)));
+		NeuralLayer *layers;
+
+		if (net->n_layers > MaxAllocSize / sizeof(NeuralLayer))
+		{
+			NDB_FREE(net->activation_func);
+			NDB_FREE(net);
+			ereport(ERROR,
+					(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+					 errmsg("neurondb: neural_network_deserialize: n_layers %d exceeds maximum allocation size",
+							net->n_layers)));
+		}
+		NDB_ALLOC(layers, NeuralLayer, net->n_layers);
+		net->layers = layers;
 	}
-	NDB_DECLARE(NeuralLayer *, layers);
-	NDB_ALLOC(layers, NeuralLayer, net->n_layers);
-	net->layers = layers;
 
 	/* Read each layer */
 	for (i = 0; i < net->n_layers; i++)
@@ -729,6 +732,9 @@ neural_network_deserialize(const bytea * data)
 		size_t		activations_size;
 		size_t		deltas_size;
 		size_t		weight_row_size;
+		float	  **layer_weights;
+		float	   *layer_activations;
+		float	   *layer_deltas;
 
 		layer->n_inputs = pq_getmsgint(&buf, 4);
 		layer->n_outputs = pq_getmsgint(&buf, 4);
@@ -801,9 +807,6 @@ neural_network_deserialize(const bytea * data)
 		}
 
 		/* Allocate layer arrays */
-		NDB_DECLARE(float **, layer_weights);
-		NDB_DECLARE(float *, layer_activations);
-		NDB_DECLARE(float *, layer_deltas);
 		NDB_ALLOC(layer_weights, float *, layer->n_outputs);
 		NDB_ALLOC(layer_activations, float, layer->n_outputs);
 		NDB_ALLOC(layer_deltas, float, layer->n_outputs);

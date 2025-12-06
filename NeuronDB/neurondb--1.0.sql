@@ -5174,8 +5174,9 @@ DECLARE
 BEGIN
 	/* Use default model from GUC if not provided */
 	model_name := COALESCE(model, current_setting('neurondb.llm_model', true));
-	if (model_name IS NULL OR model_name = '')
+	IF (model_name IS NULL OR model_name = '') THEN
 		model_name := 'sentence-transformers/all-MiniLM-L6-v2';
+	END IF;
 
 	/* Convert params to text */
 	params_str := params::text;
@@ -5183,8 +5184,9 @@ BEGIN
 	CASE lower(task)
 		WHEN 'tokenize', 'token' THEN
 			/* Tokenize text */
-			if (input_text IS NULL)
+			IF (input_text IS NULL) THEN
 				RAISE EXCEPTION 'tokenize task requires input_text parameter';
+			END IF;
 			
 			token_ids := neurondb_hf_tokenize(model_name, input_text, max_length);
 			result := jsonb_build_object(
@@ -5196,8 +5198,9 @@ BEGIN
 
 		WHEN 'detokenize', 'detoken' THEN
 			/* Detokenize token IDs */
-			if (params->>'token_ids' IS NULL)
+			IF (params->>'token_ids' IS NULL) THEN
 				RAISE EXCEPTION 'detokenize task requires token_ids in params';
+			END IF;
 			
 			token_ids := (params->>'token_ids')::integer[];
 			input_str := neurondb_hf_detokenize(model_name, token_ids);
@@ -5209,8 +5212,9 @@ BEGIN
 
 		WHEN 'embed', 'embedding' THEN
 			/* Generate embeddings */
-			if (input_text IS NULL)
+			IF (input_text IS NULL) THEN
 				RAISE EXCEPTION 'embed task requires input_text parameter';
+			END IF;
 			
 			BEGIN
 				result := jsonb_build_object(
@@ -5229,8 +5233,9 @@ BEGIN
 
 		WHEN 'complete', 'completion', 'generate' THEN
 			/* Text completion */
-			if (input_text IS NULL)
+			IF (input_text IS NULL) THEN
 				RAISE EXCEPTION 'complete task requires input_text parameter';
+			END IF;
 			
 			BEGIN
 				/* Build params JSON with model and generation parameters */
@@ -5263,8 +5268,9 @@ BEGIN
 
 		WHEN 'classify', 'classification' THEN
 			/* Text classification */
-			if (input_text IS NULL)
+			IF (input_text IS NULL) THEN
 				RAISE EXCEPTION 'classify task requires input_text parameter';
+			END IF;
 			
 			result := neurondb.classify(model_name, input_text);
 			result := jsonb_build_object(
@@ -5275,8 +5281,9 @@ BEGIN
 
 		WHEN 'ner', 'named_entity_recognition' THEN
 			/* Named Entity Recognition */
-			if (input_text IS NULL)
+			IF (input_text IS NULL) THEN
 				RAISE EXCEPTION 'ner task requires input_text parameter';
+			END IF;
 			
 			result := jsonb_build_object(
 				'task', 'ner',
@@ -5286,8 +5293,9 @@ BEGIN
 
 		WHEN 'qa', 'question_answering' THEN
 			/* Question Answering */
-			if (input_text IS NULL OR params->>'context' IS NULL)
+			IF (input_text IS NULL OR params->>'context' IS NULL) THEN
 				RAISE EXCEPTION 'qa task requires input_text (question) and context in params';
+			END IF;
 			
 			result := jsonb_build_object(
 				'task', 'qa',
@@ -5297,8 +5305,9 @@ BEGIN
 
 		WHEN 'rerank', 'reranking' THEN
 			/* Reranking */
-			if (input_text IS NULL OR input_array IS NULL)
+			IF (input_text IS NULL OR input_array IS NULL) THEN
 				RAISE EXCEPTION 'rerank task requires input_text (query) and input_array (documents)';
+			END IF;
 			
 			BEGIN
 				result := jsonb_build_object(
@@ -5326,15 +5335,17 @@ BEGIN
 
 		WHEN 'summarize', 'summarization' THEN
 			/* Text summarization */
-			if (input_text IS NULL)
+			IF (input_text IS NULL) THEN
 				RAISE EXCEPTION 'summarize task requires input_text parameter';
+			END IF;
 			
 			result := neurondb.summarize(model_name, input_text, params);
 
 		WHEN 'translate', 'translation' THEN
 			/* Text translation */
-			if (input_text IS NULL OR params->>'target_lang' IS NULL)
+			IF (input_text IS NULL OR params->>'target_lang' IS NULL) THEN
 				RAISE EXCEPTION 'translate task requires input_text and target_lang in params';
+			END IF;
 			
 			result := neurondb.translate(
 				model_name, 
@@ -5346,22 +5357,25 @@ BEGIN
 
 		WHEN 'fill_mask', 'masked_language_modeling' THEN
 			/* Masked language modeling */
-			if (input_text IS NULL)
+			IF (input_text IS NULL) THEN
 				RAISE EXCEPTION 'fill_mask task requires input_text parameter';
+			END IF;
 			
 			result := neurondb.fill_mask(model_name, input_text, params);
 
 		WHEN 'text2text', 'text_to_text' THEN
 			/* Text-to-text generation */
-			if (input_text IS NULL)
+			IF (input_text IS NULL) THEN
 				RAISE EXCEPTION 'text2text task requires input_text parameter';
+			END IF;
 			
 			result := neurondb.text2text(model_name, input_text, params);
 
 		WHEN 'zero_shot_classify', 'zero_shot_classification' THEN
 			/* Zero-shot classification */
-			if (input_text IS NULL OR params->>'candidate_labels' IS NULL)
+			IF (input_text IS NULL OR params->>'candidate_labels' IS NULL) THEN
 				RAISE EXCEPTION 'zero_shot_classify task requires input_text and candidate_labels in params';
+			END IF;
 			
 			result := neurondb.zero_shot_classify(
 				model_name,
@@ -5519,8 +5533,9 @@ DECLARE
 BEGIN
 	/* Use default model from GUC if not provided */
 	model_name := COALESCE(model, current_setting('neurondb.llm_model', true));
-	if (model_name IS NULL OR model_name = '')
+	IF (model_name IS NULL OR model_name = '') THEN
 		model_name := 'facebook/bart-large-cnn';
+	END IF;
 
 	/* Convert params to text */
 	params_str := params::text;
@@ -5567,8 +5582,9 @@ DECLARE
 BEGIN
 	/* Use default model from GUC if not provided */
 	model_name := COALESCE(model, current_setting('neurondb.llm_model', true));
-	if (model_name IS NULL OR model_name = '')
+	IF (model_name IS NULL OR model_name = '') THEN
 		model_name := 'Helsinki-NLP/opus-mt-en-fr';
+	END IF;
 
 	/* Build translation prompt */
 	translation_prompt := format('Translate from %s to %s: %s', source_lang, target_lang, input_text);
@@ -5617,8 +5633,9 @@ DECLARE
 BEGIN
 	/* Use default model from GUC if not provided */
 	model_name := COALESCE(model, current_setting('neurondb.llm_model', true));
-	if (model_name IS NULL OR model_name = '')
+	IF (model_name IS NULL OR model_name = '') THEN
 		model_name := 'bert-base-uncased';
+	END IF;
 
 	/* Convert params to text */
 	params_str := params::text;
@@ -5662,8 +5679,9 @@ DECLARE
 BEGIN
 	/* Use default model from GUC if not provided */
 	model_name := COALESCE(model, current_setting('neurondb.llm_model', true));
-	if (model_name IS NULL OR model_name = '')
+	IF (model_name IS NULL OR model_name = '') THEN
 		model_name := 't5-small';
+	END IF;
 
 	/* Convert params to text */
 	params_str := params::text;
@@ -5710,8 +5728,9 @@ DECLARE
 BEGIN
 	/* Use default model from GUC if not provided */
 	model_name := COALESCE(model, current_setting('neurondb.llm_model', true));
-	if (model_name IS NULL OR model_name = '')
+	IF (model_name IS NULL OR model_name = '') THEN
 		model_name := 'facebook/bart-large-mnli';
+	END IF;
 
 	/* Build labels string */
 	labels_str := array_to_string(candidate_labels, ', ');

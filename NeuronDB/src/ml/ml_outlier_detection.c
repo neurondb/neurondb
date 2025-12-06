@@ -242,8 +242,8 @@ detect_outliers_zscore(PG_FUNCTION_ARGS)
 		/* Modified Z-score using median and MAD (more robust) */
 		double		median_dist;
 		double		mad;		/* Median Absolute Deviation */
-		double	   *sorted_distances;
-		double	   *abs_deviations;
+		double	   *sorted_distances = NULL;
+		double	   *abs_deviations = NULL;
 		int			num_outliers;
 
 		/* Compute median distance */
@@ -303,7 +303,7 @@ detect_outliers_zscore(PG_FUNCTION_ARGS)
 					iqr;
 		double		lower_bound,
 					upper_bound;
-		double	   *sorted_distances;
+		double	   *sorted_distances = NULL;
 		int			q1_idx,
 					q3_idx;
 		int			num_outliers;
@@ -505,8 +505,8 @@ compute_outlier_scores(PG_FUNCTION_ARGS)
 	{
 		double		median_dist;
 		double		mad;
-		double	   *sorted_distances;
-		double	   *abs_deviations;
+		double	   *sorted_distances = NULL;
+		double	   *abs_deviations = NULL;
 
 		NDB_ALLOC(sorted_distances, double, nvec);
 		memcpy(sorted_distances, distances, sizeof(double) * nvec);

@@ -173,7 +173,6 @@ splade_embed(PG_FUNCTION_ARGS)
 
 	NDB_DECLARE(int64 *, shape);
 	NDB_DECLARE(float *, data);
-	NDB_DECLARE(char *, sparse_vec_raw);
 
 	/* Load SPLADE model (default model name) */
 	session = neurondb_onnx_get_or_load_model("splade", ONNX_MODEL_EMBEDDING);

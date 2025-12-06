@@ -500,19 +500,21 @@ neurondb_onnx_run_inference(ONNXModelSession *session, ONNXTensor *input)
 		NDB_FREE(dims_temp);
 	}
 
-	NDB_DECLARE(float *, output_data_alloc);
+	{
+		float	   *output_data_alloc;
 
-	output_size = 1;
-	for (i = 0; i < num_dims; i++)
-		output_size *= output_dims[i];
+		output_size = 1;
+		for (i = 0; i < num_dims; i++)
+			output_size *= output_dims[i];
 
-	output = (ONNXTensor *) palloc0(sizeof(ONNXTensor));
-	NDB_ALLOC(output_data_alloc, float, output_size);
-	memcpy(output_data_alloc, output_data, output_size * sizeof(float));
-	output->data = output_data_alloc;
-	output->shape = output_dims;
-	output->ndim = num_dims;
-	output->size = output_size;
+		output = (ONNXTensor *) palloc0(sizeof(ONNXTensor));
+		NDB_ALLOC(output_data_alloc, float, output_size);
+		memcpy(output_data_alloc, output_data, output_size * sizeof(float));
+		output->data = output_data_alloc;
+		output->shape = output_dims;
+		output->ndim = num_dims;
+		output->size = output_size;
+	}
 
 	g_ort_api->ReleaseTensorTypeAndShapeInfo(output_info);
 	g_ort_api->ReleaseValue(output_tensor);

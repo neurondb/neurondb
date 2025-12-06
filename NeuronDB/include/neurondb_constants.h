@@ -175,6 +175,34 @@
 #define NDB_JOB_FAILED                      "failed"
 
 /* ----------
+ * HTTP Status Codes
+ * ----------
+ */
+/* HTTP Status Code Ranges */
+#define NDB_HTTP_STATUS_OK_MIN              200
+#define NDB_HTTP_STATUS_OK_MAX              299
+#define NDB_HTTP_STATUS_ERROR_MIN            400
+#define NDB_HTTP_STATUS_ERROR_MAX            599
+
+/* Common HTTP Status Codes */
+#define NDB_HTTP_STATUS_OK                  200
+#define NDB_HTTP_STATUS_CREATED              201
+#define NDB_HTTP_STATUS_ACCEPTED              202
+#define NDB_HTTP_STATUS_NO_CONTENT            204
+#define NDB_HTTP_STATUS_BAD_REQUEST           400
+#define NDB_HTTP_STATUS_UNAUTHORIZED          401
+#define NDB_HTTP_STATUS_FORBIDDEN             403
+#define NDB_HTTP_STATUS_NOT_FOUND             404
+#define NDB_HTTP_STATUS_METHOD_NOT_ALLOWED    405
+#define NDB_HTTP_STATUS_CONFLICT              409
+#define NDB_HTTP_STATUS_GONE                  410
+#define NDB_HTTP_STATUS_TOO_MANY_REQUESTS     429
+#define NDB_HTTP_STATUS_INTERNAL_ERROR        500
+#define NDB_HTTP_STATUS_BAD_GATEWAY           502
+#define NDB_HTTP_STATUS_SERVICE_UNAVAILABLE   503
+#define NDB_HTTP_STATUS_GATEWAY_TIMEOUT       504
+
+/* ----------
  * Algorithm Names
  * ----------
  */

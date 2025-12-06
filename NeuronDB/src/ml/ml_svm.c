@@ -543,44 +543,48 @@ svm_model_deserialize(const bytea * data, MemoryContext target_context, uint8 * 
 						model->n_support_vectors)));
 	}
 
-	NDB_DECLARE(double *, alphas);
-	NDB_DECLARE(float *, support_vectors);
-
-	if (model->n_support_vectors > 0)
 	{
-		NDB_ALLOC(alphas, double,
-										  sizeof(double) * (size_t) model->n_support_vectors);
-		for (i = 0; i < model->n_support_vectors; i++)
-			model->alphas[i] = pq_getmsgfloat8(&buf);
-	}
+		double	   *alphas;
+		float	   *support_vectors;
 
-	if (model->n_support_vectors > 0 && model->n_features > 0)
-	{
-		NDB_ALLOC(support_vectors, float,
-				  (size_t) model->n_support_vectors
-				  * (size_t) model->n_features);
-		for (i = 0; i < model->n_support_vectors * model->n_features;
-			 i++)
-			model->support_vectors[i] = pq_getmsgfloat4(&buf);
-	}
+		if (model->n_support_vectors > 0)
+		{
+			NDB_ALLOC(alphas, double,
+											  sizeof(double) * (size_t) model->n_support_vectors);
+			for (i = 0; i < model->n_support_vectors; i++)
+				model->alphas[i] = pq_getmsgfloat8(&buf);
+		}
 
-	if (model->n_support_vectors > 0)
-	{
-		NDB_DECLARE(int *, support_vector_indices);
-		NDB_ALLOC(support_vector_indices, int,
-													   sizeof(int) * (size_t) model->n_support_vectors);
-		for (i = 0; i < model->n_support_vectors; i++)
-			model->support_vector_indices[i] =
-				pq_getmsgint(&buf, 4);
-	}
+		if (model->n_support_vectors > 0 && model->n_features > 0)
+		{
+			NDB_ALLOC(support_vectors, float,
+					  (size_t) model->n_support_vectors
+					  * (size_t) model->n_features);
+			for (i = 0; i < model->n_support_vectors * model->n_features;
+				 i++)
+				model->support_vectors[i] = pq_getmsgfloat4(&buf);
+		}
 
-	if (model->n_support_vectors > 0)
-	{
-		NDB_DECLARE(double *, support_labels);
-		NDB_ALLOC(support_labels, double,
-												  sizeof(double) * (size_t) model->n_support_vectors);
-		for (i = 0; i < model->n_support_vectors; i++)
-			model->support_labels[i] = pq_getmsgfloat8(&buf);
+		if (model->n_support_vectors > 0)
+		{
+			int		   *support_vector_indices;
+
+			NDB_ALLOC(support_vector_indices, int,
+														   sizeof(int) * (size_t) model->n_support_vectors);
+			for (i = 0; i < model->n_support_vectors; i++)
+				model->support_vector_indices[i] =
+					pq_getmsgint(&buf, 4);
+		}
+
+		if (model->n_support_vectors > 0)
+		{
+			double	   *support_labels;
+
+			NDB_ALLOC(support_labels, double,
+													  sizeof(double) * (size_t) model->n_support_vectors);
+			for (i = 0; i < model->n_support_vectors; i++)
+				model->support_labels[i] = pq_getmsgfloat8(&buf);
+		}
 	}
 
 	/* Return training_backend if output parameter provided */
@@ -801,9 +805,6 @@ train_svm_classifier(PG_FUNCTION_ARGS)
 	NDB_DECLARE(Jsonb *, gpu_hyperparams);
 	int32		model_id = 0;
 	SVMModel	model;
-
-	NDB_DECLARE(double *, alphas);
-	NDB_DECLARE(double *, errors);
 
 	if (PG_NARGS() < 3 || PG_NARGS() > 5)
 	{
@@ -1453,12 +1454,12 @@ train_svm_classifier(PG_FUNCTION_ARGS)
 		int			examine_all = 1;
 		double		eps = 1e-3;
 		int			sv_count = 0;
-
-		NDB_DECLARE(bytea *, serialized);
+		double	   *alphas = NULL;
+		double	   *errors = NULL;
+		bytea	   *serialized = NULL;
 		MLCatalogModelSpec spec;
-
-		NDB_DECLARE(Jsonb *, params_jsonb);
-		NDB_DECLARE(Jsonb *, metrics_jsonb);
+		Jsonb	   *params_jsonb = NULL;
+		Jsonb	   *metrics_jsonb = NULL;
 		int			correct = 0;
 		double		accuracy = 0.0;
 
@@ -1477,9 +1478,12 @@ train_svm_classifier(PG_FUNCTION_ARGS)
 		/* Allocate memory for heuristic training algorithm */
 		alphas = (double *) palloc0(
 									sizeof(double) * (size_t) sample_limit);
-		NDB_DECLARE(double *, temp);
-		NDB_ALLOC(temp, double, sample_limit);
-		errors = temp;
+		{
+			double	   *temp;
+
+			NDB_ALLOC(temp, double, sample_limit);
+			errors = temp;
+		}
 
 		/* Initialize errors: E_i = f(x_i) - y_i, where f(x_i) = 0 initially */
 		/* Also initialize alphas to small values to help convergence */
@@ -1706,17 +1710,21 @@ train_svm_classifier(PG_FUNCTION_ARGS)
 			model.n_support_vectors = sv_count;
 
 			/* Allocate support vectors and alphas */
-			NDB_DECLARE(double *, alphas);
-			NDB_ALLOC(alphas, double,
-											 sizeof(double) * (size_t) sv_count);
-			model.support_vectors = (float *) palloc0(
-													  sizeof(float) * (size_t) sv_count * (size_t) dim);
-			NDB_DECLARE(int32 *, support_vector_indices);
-			NDB_DECLARE(double *, support_labels);
-			NDB_ALLOC(support_vector_indices, int32, sv_count);
-			NDB_ALLOC(support_labels, double, sv_count);
-			model.support_vector_indices = support_vector_indices;
-			model.support_labels = support_labels;
+			{
+				double	   *alphas_local;
+				int32	   *support_vector_indices;
+				double	   *support_labels;
+
+				NDB_ALLOC(alphas_local, double,
+												 sizeof(double) * (size_t) sv_count);
+				model.support_vectors = (float *) palloc0(
+														  sizeof(float) * (size_t) sv_count * (size_t) dim);
+				NDB_ALLOC(support_vector_indices, int32, sv_count);
+				NDB_ALLOC(support_labels, double, sv_count);
+				model.support_vector_indices = support_vector_indices;
+				model.support_labels = support_labels;
+				model.alphas = alphas_local;
+			}
 
 			if (model.alphas == NULL
 				|| model.support_vectors == NULL
@@ -1765,18 +1773,22 @@ train_svm_classifier(PG_FUNCTION_ARGS)
 			model.n_support_vectors = sv_count;
 
 			/* Allocate support vectors and alphas */
-			NDB_DECLARE(double *, alphas);
-			NDB_ALLOC(alphas, double,
-											 sizeof(double) * (size_t) sv_count);
-			NDB_DECLARE(float *, support_vectors);
-			NDB_ALLOC(support_vectors, float,
-													 sizeof(float) * (size_t) sv_count * (size_t) dim);
-			NDB_DECLARE(int32 *, support_vector_indices);
-			NDB_DECLARE(double *, support_labels);
-			NDB_ALLOC(support_vector_indices, int32, sv_count);
-			NDB_ALLOC(support_labels, double, sv_count);
-			model.support_vector_indices = support_vector_indices;
-			model.support_labels = support_labels;
+			{
+				double	   *alphas_local;
+				float	   *support_vectors;
+				int32	   *support_vector_indices;
+				double	   *support_labels;
+
+				NDB_ALLOC(alphas_local, double,
+												 sizeof(double) * (size_t) sv_count);
+				NDB_ALLOC(support_vectors, float,
+														 sizeof(float) * (size_t) sv_count * (size_t) dim);
+				NDB_ALLOC(support_vector_indices, int32, sv_count);
+				NDB_ALLOC(support_labels, double, sv_count);
+				model.support_vector_indices = support_vector_indices;
+				model.support_labels = support_labels;
+				model.alphas = alphas_local;
+			}
 
 			if (model.alphas == NULL
 				|| model.support_vectors == NULL
@@ -2749,13 +2761,13 @@ evaluate_svm_by_model_id(PG_FUNCTION_ARGS)
 			/* Switch to the saved context before allocating */
 			{
 				MemoryContext saved_ctx = MemoryContextSwitchTo(oldcontext);
+				char	   *h_features_raw = NULL;
+				char	   *h_labels_raw = NULL;
 
-				NDB_DECLARE(float *, h_features);
-				NDB_DECLARE(int *, h_labels);
-				NDB_ALLOC(h_features, char, features_size);
-				NDB_ALLOC(h_labels, char, labels_size);
-				h_features = (float *) h_features;
-				h_labels = (int *) h_labels;
+				NDB_ALLOC(h_features_raw, char, features_size);
+				NDB_ALLOC(h_labels_raw, char, labels_size);
+				h_features = (float *) h_features_raw;
+				h_labels = (int *) h_labels_raw;
 				MemoryContextSwitchTo(saved_ctx);	/* Switch back to SPI
 													 * context */
 			}
@@ -3154,8 +3166,6 @@ cpu_evaluation_path:
 		{
 			MemoryContext saved_ctx = MemoryContextSwitchTo(oldcontext);
 
-			NDB_DECLARE(float *, cpu_h_features);
-			NDB_DECLARE(double *, cpu_h_labels);
 			NDB_ALLOC(cpu_h_features, float, nvec * feat_dim);
 			NDB_ALLOC(cpu_h_labels, double, nvec);
 			MemoryContextSwitchTo(saved_ctx);

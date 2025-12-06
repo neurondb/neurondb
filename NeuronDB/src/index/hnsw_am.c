@@ -347,6 +347,7 @@ hnswbuild(Relation heap, Relation index, IndexInfo * indexInfo)
 	Buffer		metaBuffer;
 	Page		metaPage = NULL;  /* Suppress unused variable warning */
 	HnswOptions *options;
+	IndexBuildResult *result = NULL;
 	int			m,
 				ef_construction,
 				ef_search;
@@ -394,8 +395,6 @@ hnswbuild(Relation heap, Relation index, IndexInfo * indexInfo)
 
 	MarkBufferDirty(metaBuffer);
 	UnlockReleaseBuffer(metaBuffer);
-
-	NDB_DECLARE(IndexBuildResult *, result);
 
 	/* Use parallel scan if available */
 	buildstate.indtuples = table_index_build_scan(heap, index, indexInfo,
@@ -966,10 +965,7 @@ hnswrescan(IndexScanDesc scan,
 			vectorData = NULL;
 		}
 		/* Get k from GUC or default to 10 */
-		{
-			extern int neurondb_hnsw_k;
-			so->k = (neurondb_hnsw_k > 0) ? neurondb_hnsw_k : 10;
-		}
+		so->k = (neurondb_hnsw_k > 0) ? neurondb_hnsw_k : 10;
 	}
 }
 

@@ -657,6 +657,8 @@ hnswSearchLayer0(Relation index,
 	BlockNumber block;
 	float4		distance;
 	int			i;
+	BlockNumber *results_ptr;
+	float4	   *distances_ptr;
 
 	state = hnswInitSearchState(query, dim, efSearch, k);
 
@@ -810,9 +812,6 @@ hnswSearchLayer0(Relation index,
 		/* Add current to results */
 		hnswAddResult(state, block, distance);
 	}
-
-	NDB_DECLARE(BlockNumber *, results_ptr);
-	NDB_DECLARE(float4 *, distances_ptr);
 
 	/* Copy results */
 	*resultCount = state->resultCount;

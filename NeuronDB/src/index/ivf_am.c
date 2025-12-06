@@ -117,7 +117,7 @@ typedef IvfCentroidData * IvfCentroid;
 static float4 *
 ivfExtractVectorData(Datum value, Oid typeOid, int *out_dim, MemoryContext ctx)
 {
-	float4	   *result;
+	float4	   *result = NULL;
 	int			i;
 	MemoryContext oldctx;
 	Oid			vectorOid,
@@ -1406,7 +1406,7 @@ static IndexScanDesc
 ivfbeginscan(Relation index, int nkeys, int norderbys)
 {
 	IndexScanDesc scan;
-	IvfScanOpaque so;
+	IvfScanOpaque so = NULL;
 
 	scan = RelationGetIndexScan(index, nkeys, norderbys);
 	NDB_ALLOC(so, IvfScanOpaqueData, 1);
@@ -1601,7 +1601,7 @@ ivfSelectClusters(Relation index,
 	OffsetNumber offnum;
 	IvfCentroid centroid;
 	float4	   *centroidVector;
-	float4	   *clusterDistances;
+	float4	   *clusterDistances = NULL;
 	int			i,
 				j;
 	int			nlists;
@@ -1730,8 +1730,8 @@ ivfCollectCandidates(Relation index,
 	OffsetNumber maxoff;
 	OffsetNumber offnum;
 	IvfCentroid centroid;
-	ItemPointerData *candidates;
-	float4	   *candidateDistances;
+	ItemPointerData *candidates = NULL;
+	float4	   *candidateDistances = NULL;
 	int			candidateCount = 0;
 	int			maxCandidates = k * 10; /* Collect more than k for better
 										 * results */
@@ -1839,7 +1839,7 @@ ivfCollectCandidates(Relation index,
 	/* Sort candidates by distance and keep top-k */
 	if (candidateCount > 0)
 	{
-		int		   *indices;
+		int		   *indices = NULL;
 		int			actualK = Min(k, candidateCount);
 		int			temp;
 		ItemPointerData *results_ptr = NULL;
