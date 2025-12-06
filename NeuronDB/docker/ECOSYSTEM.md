@@ -179,28 +179,41 @@ NEURONDB_PORT=5433
 
 Create shared Docker network for container communication.
 
-**Create Network:**
+**Quick Setup (Recommended):**
+
+Use the provided setup script:
 
 ```bash
-docker network create neurondb-ecosystem
+cd NeuronDB/docker
+./setup-network.sh
+```
+
+This creates the `neurondb-network` and provides instructions for connecting services.
+
+**Manual Setup:**
+
+Create shared network:
+
+```bash
+docker network create neurondb-network
 ```
 
 **Connect NeuronDB:**
 
 ```bash
-docker network connect neurondb-ecosystem neurondb-cpu
+docker network connect neurondb-network neurondb-cpu
 ```
 
 **Connect NeuronAgent:**
 
 ```bash
-docker network connect neurondb-ecosystem neuronagent
+docker network connect neurondb-network neuronagent
 ```
 
 **Connect NeuronMCP:**
 
 ```bash
-docker network connect neurondb-ecosystem neurondb-mcp
+docker network connect neurondb-network neurondb-mcp
 ```
 
 **Update Configuration:**
@@ -212,12 +225,16 @@ DB_HOST=neurondb-cpu
 DB_PORT=5432
 ```
 
+Note: Port 5432 is the internal container port when using Docker network. Use port 5433 when connecting from host.
+
 **NeuronMCP `.env`:**
 
 ```env
 NEURONDB_HOST=neurondb-cpu
 NEURONDB_PORT=5432
 ```
+
+Note: Port 5432 is the internal container port when using Docker network. Use port 5433 when connecting from host.
 
 **Advantages:**
 - Better isolation
@@ -228,51 +245,31 @@ NEURONDB_PORT=5432
 - Requires network configuration
 - Container names must match
 
-### Option 3: Docker Compose Networks
+### Option 3: Docker Compose Networks (External Network)
 
-Configure networks in each `docker-compose.yml`:
+Configure networks in each `docker-compose.yml` to use an external shared network:
 
-**NeuronDB `docker-compose.yml`:**
+**Step 1: Create the network (if not already created):**
 
-```yaml
-networks:
-  neurondb-ecosystem:
-    name: neurondb-ecosystem
-    external: true
-
-services:
-  neurondb:
-    networks:
-      - neurondb-ecosystem
+```bash
+cd NeuronDB/docker
+./setup-network.sh
+# Or manually: docker network create neurondb-network
 ```
 
-**NeuronAgent `docker-compose.yml`:**
+**Step 2: Update NeuronDB `docker-compose.yml`:**
 
-```yaml
-networks:
-  neurondb-ecosystem:
-    name: neurondb-ecosystem
-    external: true
+Uncomment the external network configuration in the networks section.
 
-services:
-  agent-server:
-    networks:
-      - neurondb-ecosystem
-```
+**Step 3: Update NeuronAgent `docker-compose.yml`:**
 
-**NeuronMCP `docker-compose.yml`:**
+Uncomment the neurondb-network configuration in networks section and service networks.
 
-```yaml
-networks:
-  neurondb-ecosystem:
-    name: neurondb-ecosystem
-    external: true
+**Step 4: Update NeuronMCP `docker-compose.yml`:**
 
-services:
-  neurondb-mcp:
-    networks:
-      - neurondb-ecosystem
-```
+Uncomment the neurondb-network configuration in networks section and service networks.
+
+All services will then automatically connect to the shared network on startup.
 
 ## Service Connection Matrix
 
@@ -303,8 +300,17 @@ services:
 
 ### Create Shared Network
 
+**Option 1: Use setup script (recommended):**
+
 ```bash
-docker network create neurondb-ecosystem
+cd NeuronDB/docker
+./setup-network.sh
+```
+
+**Option 2: Create manually:**
+
+```bash
+docker network create neurondb-network
 ```
 
 ### Start NeuronDB
@@ -312,7 +318,7 @@ docker network create neurondb-ecosystem
 ```bash
 cd NeuronDB/docker
 docker compose up -d neurondb
-docker network connect neurondb-ecosystem neurondb-cpu
+docker network connect neurondb-network neurondb-cpu
 ```
 
 Wait for healthy status:
@@ -340,7 +346,7 @@ EOF
 
 docker compose build
 docker compose up -d agent-server
-docker network connect neurondb-ecosystem neuronagent
+docker network connect neurondb-network neuronagent
 ```
 
 ### Start NeuronMCP
@@ -360,7 +366,7 @@ EOF
 
 docker compose build
 docker compose up -d neurondb-mcp
-docker network connect neurondb-ecosystem neurondb-mcp
+docker network connect neurondb-network neurondb-mcp
 ```
 
 ### Verify All Services
@@ -674,7 +680,7 @@ echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | \
 5. Check network connectivity:
 
 ```bash
-docker network inspect neurondb-ecosystem
+docker network inspect neurondb-network
 ```
 
 ## Best Practices

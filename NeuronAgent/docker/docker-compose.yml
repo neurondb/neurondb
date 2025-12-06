@@ -1,8 +1,11 @@
-version: '3.9'
-
 # NeuronAgent Docker Compose Configuration
 # Standalone service that connects to external NeuronDB instance
 # Configure connection via environment variables or .env file
+#
+# Network Configuration:
+# - Option 1: Use 'default' network (localhost connection from host)
+# - Option 2: Use external 'neurondb-network' (connect via container name 'neurondb-cpu')
+#   To enable: docker network create neurondb-network, then uncomment external network config below
 
 services:
   agent-server:
@@ -15,7 +18,8 @@ services:
       - "8080:8080"
     environment:
       # Database connection - point to external NeuronDB instance
-      # When connecting to NeuronDB in Docker, use container name or host.docker.internal
+      # When connecting from host: use localhost:5433
+      # When connecting via Docker network: use neurondb-cpu:5432 (container name:internal port)
       DB_HOST: ${DB_HOST:-localhost}
       DB_PORT: ${DB_PORT:-5433}
       DB_NAME: ${DB_NAME:-neurondb}
@@ -48,6 +52,8 @@ services:
     restart: unless-stopped
     networks:
       - default
+      # Uncomment below to use shared neurondb-network for container-to-container communication
+      # - neurondb-network
     # Optional: mount migrations for development (already included in image)
     # volumes:
     #   - ../migrations:/app/migrations:ro
@@ -56,4 +62,8 @@ networks:
   default:
     name: neuronagent-network
     driver: bridge
+  # Uncomment below to use external shared network (requires: docker network create neurondb-network)
+  # neurondb-network:
+  #   name: neurondb-network
+  #   external: true
 

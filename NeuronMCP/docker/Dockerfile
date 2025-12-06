@@ -16,15 +16,27 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags="-w -s" -o 
 # Final stage - use Debian slim for better compatibility
 FROM debian:bookworm-slim
 
-# Install runtime dependencies
+# Install runtime dependencies including Python3 for dataset loading
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     ca-certificates \
-    tzdata && \
-    rm -rf /var/lib/apt/lists/*
+    tzdata \
+    python3 \
+    python3-pip \
+    python3-psycopg2 \
+    && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user for security
-RUN groupadd -r neuronmcp && useradd -r -g neuronmcp -u 1000 neuronmcp
+# Install Python dependencies for dataset loading
+RUN pip3 install --no-cache-dir --break-system-packages \
+    datasets \
+    psycopg2-binary
+
+# Create non-root user for security with home directory
+RUN groupadd -r neuronmcp && useradd -r -g neuronmcp -u 1000 -m -d /home/neuronmcp neuronmcp && \
+    chmod 755 /home/neuronmcp && \
+    chown -R neuronmcp:neuronmcp /home/neuronmcp && \
+    mkdir -p /tmp/hf_cache /tmp/hf_cache/datasets && \
+    chown -R neuronmcp:neuronmcp /tmp/hf_cache
 
 WORKDIR /app
 

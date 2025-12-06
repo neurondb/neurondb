@@ -1,8 +1,11 @@
-version: '3.9'
-
 # NeuronMCP Docker Compose Configuration
 # Standalone service that connects to external NeuronDB instance
 # MCP protocol uses stdio for communication
+#
+# Network Configuration:
+# - Option 1: Use 'default' network (localhost:5433 connection from host)
+# - Option 2: Use external 'neurondb-network' (connect via container name 'neurondb-cpu:5432')
+#   To enable: docker network create neurondb-network, then uncomment external network config below
 
 services:
   neurondb-mcp:
@@ -13,7 +16,9 @@ services:
     container_name: neurondb-mcp
     environment:
       # Database connection - point to external NeuronDB instance
-      # When connecting to NeuronDB in Docker, use container name or host.docker.internal
+      # When connecting from host: use localhost:5433
+      # When connecting via Docker network: use neurondb-cpu:5432 (container name:internal port)
+      # Note: host.docker.internal only works on Docker Desktop (Mac/Windows), not on Linux
       NEURONDB_HOST: ${NEURONDB_HOST:-localhost}
       NEURONDB_PORT: ${NEURONDB_PORT:-5433}
       NEURONDB_DATABASE: ${NEURONDB_DATABASE:-neurondb}
@@ -43,6 +48,8 @@ services:
     
     networks:
       - default
+      # Uncomment below to use shared neurondb-network for container-to-container communication
+      # - neurondb-network
     
     # Optional: mount config file for custom configuration
     # volumes:
@@ -52,4 +59,8 @@ networks:
   default:
     name: neuronmcp-network
     driver: bridge
+  # Uncomment below to use external shared network (requires: docker network create neurondb-network)
+  # neurondb-network:
+  #   name: neurondb-network
+  #   external: true
 

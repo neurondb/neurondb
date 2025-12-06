@@ -3,6 +3,11 @@ version: "3.9"
 # NeuronDB Docker Compose Configuration
 # Supports multiple variants: CPU, CUDA, ROCm, and Metal
 # Each variant supports PostgreSQL 16, 17, and 18 (configurable via build args)
+#
+# Network Configuration:
+# - Uses named network 'neurondb-network' that can be externalized for shared networking
+# - To use as external network: docker network create neurondb-network, then set external: true
+# - Other services (NeuronAgent, NeuronMCP) can join this network to communicate via container names
 
 services:
   # CPU variant (default, no profile needed)
@@ -28,6 +33,8 @@ services:
       interval: 30s
       timeout: 5s
       retries: 5
+    networks:
+      - neurondb-network
 
   # CUDA GPU variant
   neurondb-cuda:
@@ -66,6 +73,8 @@ services:
       interval: 30s
       timeout: 5s
       retries: 5
+    networks:
+      - neurondb-network
 
   # ROCm GPU variant
   neurondb-rocm:
@@ -97,6 +106,8 @@ services:
       interval: 30s
       timeout: 5s
       retries: 5
+    networks:
+      - neurondb-network
 
   # Metal GPU variant (macOS/Apple Silicon)
   neurondb-metal:
@@ -124,9 +135,20 @@ services:
       interval: 30s
       timeout: 5s
       retries: 5
+    networks:
+      - neurondb-network
 
 volumes:
   neurondb-data:
   neurondb-cuda-data:
   neurondb-rocm-data:
   neurondb-metal-data:
+
+networks:
+  neurondb-network:
+    name: neurondb-network
+    driver: bridge
+    # To use as external network (for shared networking with other services):
+    # 1. Create network: docker network create neurondb-network
+    # 2. Uncomment the line below and comment out the 'driver: bridge' line
+    # external: true
