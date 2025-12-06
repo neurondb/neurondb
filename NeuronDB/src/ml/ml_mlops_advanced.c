@@ -977,7 +977,15 @@ PG_FUNCTION_INFO_V1(get_experiment_results);
 Datum
 get_experiment_results(PG_FUNCTION_ARGS)
 {
-	int32		experiment_id = PG_GETARG_INT32(0);
+	int32		experiment_id;
+
+	/* Validate argument count */
+	if (PG_NARGS() != 1)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("neurondb: get_experiment_results requires 1 argument")));
+
+	experiment_id = PG_GETARG_INT32(0);
 	StringInfoData result;
 
 	/* Get results (production would aggregate metrics) */
