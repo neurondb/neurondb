@@ -1,6 +1,7 @@
 name: Helm Chart Comprehensive Testing
 
 on:
+  # Manual trigger only - workflow_dispatch
   workflow_dispatch:
 
 jobs:

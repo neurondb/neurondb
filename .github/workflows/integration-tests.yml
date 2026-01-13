@@ -1,6 +1,7 @@
 name: Integration Tests
 
 on:
+  # Manual trigger only - workflow_dispatch
   workflow_dispatch:
 
 jobs:
