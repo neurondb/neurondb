@@ -129,3 +129,4 @@ class TestExceptions:
         assert error.status_code == 500
         assert "500" in str(error)
 
+

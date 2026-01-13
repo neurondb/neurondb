@@ -170,3 +170,4 @@ class SpecializationManager:
         self.client.delete(f'/api/v1/agents/{agent_id}/specialization')
         logger.info(f"Specialization deleted: {agent_id}")
 
+

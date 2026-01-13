@@ -120,3 +120,4 @@ class CollaborationManager:
         logger.info(f"Participant added to workspace: {workspace_id}")
         return result
 
+

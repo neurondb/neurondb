@@ -198,3 +198,4 @@ class TestIntegration:
         # This test verifies the manager can be instantiated
         assert collab_mgr is not None
 
+

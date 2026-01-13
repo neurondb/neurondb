@@ -6,3 +6,4 @@ from .manager import SpecializationManager
 
 __all__ = ['SpecializationManager']
 
+

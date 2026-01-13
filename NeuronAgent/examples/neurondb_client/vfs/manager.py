@@ -291,3 +291,4 @@ class VFSManager:
         logger.info(f"File moved: {source_path} -> {dest_path}")
         return file
 
+

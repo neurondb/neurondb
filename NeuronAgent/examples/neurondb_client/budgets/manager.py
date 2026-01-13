@@ -170,3 +170,4 @@ class BudgetManager:
         logger.info(f"Budget updated: {agent_id}")
         return updated
 
+

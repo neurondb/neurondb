@@ -152,3 +152,4 @@ class ToolManager:
         self.client.delete(f'/api/v1/tools/{name}')
         logger.info(f"Tool deleted: {name}")
 
+
