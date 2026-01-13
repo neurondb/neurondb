@@ -222,3 +222,4 @@ macOS automatically rotates logs, but you can configure log rotation by:
 - Environment variables in plist files are limited; consider using wrapper scripts for complex configurations
 
 
+

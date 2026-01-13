@@ -174,3 +174,4 @@ print_info "Binary location: $INSTALL_PREFIX/bin/neurondesktop"
 print_info "Note: Frontend needs to be built and served separately (see NeuronDesktop/README.md)"
 
 
+
