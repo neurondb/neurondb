@@ -105,3 +105,4 @@ SELECT
 \echo '  4. Test API connectivity'
 \echo ''
 
+

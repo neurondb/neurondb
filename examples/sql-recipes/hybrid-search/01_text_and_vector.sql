@@ -139,3 +139,4 @@ INNER JOIN text_results tr ON d.id = tr.id
 ORDER BY avg_score DESC;
 
 
+
