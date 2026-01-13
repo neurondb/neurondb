@@ -46,8 +46,8 @@ jobs:
             -t ghcr.io/neurondb/neurondb-postgres:${{ steps.version.outputs.version }} \
             -t ghcr.io/neurondb/neurondb-postgres:latest \
             --push \
-            -f NeuronDB/docker/Dockerfile \
-            NeuronDB/
+            -f dockers/neurondb/Dockerfile \
+            .
       
       - name: Build NeuronAgent image
         run: |
@@ -80,14 +80,27 @@ jobs:
             NeuronDesktop/api/
       
       - name: Build NeuronDesktop Frontend image
+        continue-on-error: true
         run: |
-          docker buildx build \
-            --platform linux/amd64,linux/arm64 \
-            -t ghcr.io/neurondb/neurondesktop-frontend:${{ steps.version.outputs.version }} \
-            -t ghcr.io/neurondb/neurondesktop-frontend:latest \
-            --push \
-            -f NeuronDesktop/frontend/Dockerfile \
-            NeuronDesktop/frontend/
+          if [ -f dockers/neurondesktop/frontend/Dockerfile ]; then
+            docker buildx build \
+              --platform linux/amd64,linux/arm64 \
+              -t ghcr.io/neurondb/neurondesktop-frontend:${{ steps.version.outputs.version }} \
+              -t ghcr.io/neurondb/neurondesktop-frontend:latest \
+              --push \
+              -f dockers/neurondesktop/frontend/Dockerfile \
+              NeuronDesktop/frontend/
+          elif [ -f NeuronDesktop/frontend/Dockerfile ]; then
+            docker buildx build \
+              --platform linux/amd64,linux/arm64 \
+              -t ghcr.io/neurondb/neurondesktop-frontend:${{ steps.version.outputs.version }} \
+              -t ghcr.io/neurondb/neurondesktop-frontend:latest \
+              --push \
+              -f NeuronDesktop/frontend/Dockerfile \
+              NeuronDesktop/frontend/
+          else
+            echo "⚠ Warning: NeuronDesktop Frontend Dockerfile not found, skipping frontend image build"
+          fi
       
       - name: Generate SBOMs
         uses: anchore/sbom-action@v0

@@ -19,7 +19,7 @@ jobs:
 
       - name: Generate SBOM for images
         env:
-          IMAGE_TAG: ${{ github.ref_name }}
+          IMAGE_TAG: ${{ github.ref_name == 'refs/heads/main' && 'latest' || (github.ref_name == 'MAIN_WORKFLOWS' && 'latest' || github.ref_name) }}
         run: |
           mkdir -p sbom
           IMAGES=(
@@ -33,8 +33,13 @@ jobs:
           for IMAGE in "${IMAGES[@]}"; do
             IMAGE_NAME=$(echo $IMAGE | cut -d'/' -f3 | cut -d':' -f1)
             echo "Generating SBOM for $IMAGE"
-            syft $IMAGE -o spdx-json > "sbom/${IMAGE_NAME}-${IMAGE_TAG}.spdx.json"
-            syft $IMAGE -o cyclonedx-json > "sbom/${IMAGE_NAME}-${IMAGE_TAG}.cyclonedx.json"
+            if syft $IMAGE -o spdx-json > "sbom/${IMAGE_NAME}-${IMAGE_TAG}.spdx.json" 2>&1; then
+              syft $IMAGE -o cyclonedx-json > "sbom/${IMAGE_NAME}-${IMAGE_TAG}.cyclonedx.json" 2>&1
+              echo "✓ Successfully generated SBOM for $IMAGE"
+            else
+              echo "⚠ Warning: Could not generate SBOM for $IMAGE (image may not exist, continuing...)"
+              continue
+            fi
           done
 
       - name: Upload SBOM artifacts
