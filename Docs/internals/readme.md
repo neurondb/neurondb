@@ -1,47 +1,107 @@
-# Internals
+# 🔍 Internals
 
-This section is for deeper dives: internals, performance tuning, deployment patterns, and how to extend the ecosystem.
+<div align="center">
 
-## Where the code lives
+**Deeper dives: internals, performance tuning, deployment patterns, and how to extend the ecosystem**
 
-- Extension internals: `NeuronDB/src/`
-- Extension headers/APIs: `NeuronDB/include/`
-- Agent service: `NeuronAgent/internal/`
-- MCP server: `NeuronMCP/internal/`
-- Desktop: `NeuronDesktop/`
+[![Internals](https://img.shields.io/badge/internals-advanced-orange)](.)
+[![Architecture](https://img.shields.io/badge/architecture-documented-blue)](.)
 
-## Suggested reading (code-anchored)
+</div>
 
-### Production Deployment
-- NeuronAgent: `NeuronAgent/docs/DEPLOYMENT.md`
-- NeuronDesktop: `NeuronDesktop/docs/`
-- Repo security overview: `SECURITY.md`
-- Docker orchestration and profiles: `dockers/readme.md` and `docker-compose.yml`
+---
 
-### Performance & Scaling
-- NeuronDB GPU docs: `NeuronDB/docs/gpu/`
-- NeuronDB performance docs: `NeuronDB/docs/performance/`
+## 📍 Where the Code Lives
 
-### Architecture & Design
-- NeuronAgent architecture: `NeuronAgent/docs/`
-- Ecosystem integration: `Docs/ecosystem/integration.md`
+| Component | Code Location | Description |
+|-----------|---------------|-------------|
+| **NeuronDB Extension** | `NeuronDB/src/` | Extension internals |
+| **NeuronDB Headers** | `NeuronDB/include/` | Extension headers/APIs |
+| **NeuronAgent Service** | `NeuronAgent/internal/` | Agent service internals |
+| **NeuronMCP Server** | `NeuronMCP/internal/` | MCP server internals |
+| **NeuronDesktop** | `NeuronDesktop/` | Desktop application |
 
-### API References
-- NeuronDB SQL surface:
-  - extension SQL definitions: `NeuronDB/neurondb--1.0.sql`
-  - generated API reference doc: `NeuronDB/docs/sql-api.md`
-- NeuronAgent OpenAPI: `NeuronAgent/openapi/openapi.yaml`
-- NeuronMCP tools reference: `NeuronMCP/TOOLS_REFERENCE.md`
+---
 
-### Development
-- Contributing: `CONTRIBUTING.md`
-- NeuronAgent testing: `NeuronAgent/TESTING.md`
-- NeuronDB stability notes: `NeuronDB/docs/function-stability.md`
+## 📚 Suggested Reading (Code-Anchored)
 
-### Building from Source
-- NeuronDB build: `NeuronDB/INSTALL.md`
-- Component build overview: `Docs/getting-started/installation.md#method-2-source-build`
+### 🚢 Production Deployment
 
-### Custom Integrations
-- Integration guide: `Docs/ecosystem/integration.md`
+| Component | Documentation | Description |
+|-----------|---------------|-------------|
+| **NeuronAgent** | `NeuronAgent/docs/DEPLOYMENT.md` | Production deployment |
+| **NeuronDesktop** | `NeuronDesktop/docs/` | Desktop deployment |
+| **Security** | `SECURITY.md` | Security overview |
+| **Docker** | `dockers/README.md` and `docker-compose.yml` | Docker orchestration |
 
+### ⚡ Performance & Scaling
+
+| Topic | Documentation | Description |
+|-------|---------------|-------------|
+| **GPU Support** | `NeuronDB/docs/gpu/` | GPU acceleration |
+| **Performance** | `NeuronDB/docs/performance/` | Performance optimization |
+
+### 🏗️ Architecture & Design
+
+| Topic | Documentation | Description |
+|-------|---------------|-------------|
+| **NeuronAgent** | `NeuronAgent/docs/` | Agent architecture |
+| **Ecosystem** | `Docs/ecosystem/integration.md` | Integration patterns |
+
+### 🔌 API References
+
+| Component | Documentation | Description |
+|-----------|---------------|-------------|
+| **NeuronDB SQL** | `NeuronDB/neurondb--1.0.sql` | Extension SQL definitions |
+| **NeuronDB API** | `NeuronDB/docs/sql-api.md` | Generated API reference |
+| **NeuronAgent** | `NeuronAgent/openapi/openapi.yaml` | OpenAPI 3.0 specification |
+| **NeuronMCP** | `NeuronMCP/TOOLS_REFERENCE.md` | Tools reference |
+
+### 💻 Development
+
+| Topic | Documentation | Description |
+|-------|---------------|-------------|
+| **Contributing** | `CONTRIBUTING.md` | Contribution guidelines |
+| **NeuronAgent Testing** | `NeuronAgent/TESTING.md` | Testing strategy |
+| **NeuronDB Stability** | `NeuronDB/docs/function-stability.md` | API stability notes |
+
+### 🔨 Building from Source
+
+| Component | Documentation | Description |
+|-----------|---------------|-------------|
+| **NeuronDB Build** | `NeuronDB/INSTALL.md` | Extension build |
+| **Component Build** | `Docs/getting-started/installation.md#method-2-source-build` | Component builds |
+
+### 🔗 Custom Integrations
+
+| Topic | Documentation | Description |
+|-------|---------------|-------------|
+| **Integration Guide** | `Docs/ecosystem/integration.md` | Integration patterns |
+
+---
+
+## 📖 Internal Documentation
+
+| Document | Description |
+|----------|-------------|
+| [NeuronAgent Architecture](neuronagent-architecture.md) | Agent runtime architecture |
+| [NeuronDesktop Frontend](neurondesktop-frontend.md) | Frontend architecture |
+| [Index Methods](index-methods.md) | Index implementation details |
+| [Identity Integration](identity-integration-guide.md) | Identity system |
+| [OIDC Session Security](oidc-session-security.md) | Security implementation |
+
+---
+
+## 🔗 Related Documentation
+
+- **[Getting Started](../getting-started/README.md)** - Setup guides
+- **[Components](../components/README.md)** - Component overviews
+- **[Reference](../reference/README.md)** - API references
+
+---
+
+<div align="center">
+
+[⬆ Back to Top](#-internals) · [📚 Main Documentation](../../documentation.md)
+
+</div>

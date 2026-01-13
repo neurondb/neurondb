@@ -86,7 +86,7 @@
 <details>
 <summary><strong>🖥️ Web UI API</strong></summary>
 
-- **[API Reference](../../Docs/API_REFERENCE.md#neurondesktop-api)** - REST and WebSocket API
+- **[API Reference](api-reference.md#neurondesktop-api)** - REST and WebSocket API
   - ✅ Profiles management
   - ✅ NeuronDB operations
   - ✅ Agent integration
@@ -147,7 +147,7 @@
 
 | Document | Description |
 |----------|-------------|
-| **[Main Documentation Index](../../DOCUMENTATION.md)** | Complete documentation index |
+| **[Main Documentation Index](../../documentation.md)** | Complete documentation index |
 | **[Getting Started Guide](../getting-started/README.md)** | Setup and installation guides |
 | **[Component Documentation](../components/README.md)** | Component overviews |
 
@@ -155,6 +155,6 @@
 
 <div align="center">
 
-[⬆ Back to Top](#-reference) · [📚 Main Documentation](../../DOCUMENTATION.md)
+[⬆ Back to Top](#-reference) · [📚 Main Documentation](../../documentation.md)
 
 </div>

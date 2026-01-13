@@ -11,7 +11,7 @@ This repository includes:
 
 ## Recommended starting points
 
-- `DOCUMENTATION.md` (complete documentation index)
+- `documentation.md` (complete documentation index)
 - `QUICKSTART.md` (get running quickly)
 - `Docs/getting-started/simple-start.md` (beginner-friendly)
 - `dockers/README.md` (Docker deployment)

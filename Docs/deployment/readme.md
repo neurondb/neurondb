@@ -1,51 +1,77 @@
-# NeuronDB Production Deployment Documentation
+# 🚢 NeuronDB Production Deployment Documentation
 
-Complete production deployment guide for NeuronDB on Kubernetes.
+<div align="center">
 
-## Quick Links
+**Complete production deployment guide for NeuronDB on Kubernetes**
 
-- [Production Installation Guide](./production-install.md) - Complete production setup
-- [Backup and Restore Guide](./backup-restore.md) - Backup/restore procedures
-- [Upgrade and Rollback Guide](./upgrade-rollback.md) - Upgrade procedures
-- [Sizing Guide](./sizing-guide.md) - Resource sizing recommendations
+[![Kubernetes](https://img.shields.io/badge/kubernetes-ready-blue)](kubernetes-helm.md)
+[![Production](https://img.shields.io/badge/production-ready-brightgreen)](production-install.md)
 
-## Features
+</div>
 
-### Security
+---
+
+## 📋 Quick Links
+
+| Guide | Description | Difficulty |
+|-------|-------------|------------|
+| [Production Installation Guide](./production-install.md) | Complete production setup | ⭐⭐ Medium |
+| [Backup and Restore Guide](./backup-restore.md) | Backup/restore procedures | ⭐ Easy |
+| [Upgrade and Rollback Guide](./upgrade-rollback.md) | Upgrade procedures | ⭐⭐ Medium |
+| [Sizing Guide](./sizing-guide.md) | Resource sizing recommendations | ⭐ Easy |
+| [Kubernetes/Helm Guide](./kubernetes-helm.md) | Kubernetes deployment | ⭐⭐⭐ Advanced |
+| [Container Images](./container-images.md) | Container image information | ⭐ Easy |
+| [HA Architecture](./ha-architecture.md) | High availability setup | ⭐⭐⭐ Advanced |
+
+---
+
+## ✨ Features
+
+### 🔒 Security
+
 - ✅ Per-component RBAC with minimal permissions
 - ✅ NetworkPolicies with default deny
 - ✅ Pod Security Standards enforcement
 - ✅ External Secrets Operator integration
 - ✅ CSI Secrets Store support
 
-### High Availability
+### 🔄 High Availability
+
 - ✅ Zero-downtime upgrades with migration hooks
 - ✅ StatefulSet rolling updates
 - ✅ Pod Disruption Budgets
 - ✅ PriorityClasses for critical components
 - ✅ Health checks with SLO focus
 
-### Observability
+### 📊 Observability
+
 - ✅ ServiceMonitor for Prometheus Operator
 - ✅ PrometheusRule alerts
 - ✅ OpenTelemetry exporter config
 - ✅ Structured logging
 
-### Operations
+### ⚙️ Operations
+
 - ✅ Automated backups (S3/GCS/Azure)
 - ✅ Restore procedures
 - ✅ Migration management
 - ✅ External PostgreSQL support
 - ✅ Advanced autoscaling (HPA/KEDA)
 
-### GitOps
+### 🔀 GitOps
+
 - ✅ Argo CD examples
 - ✅ Flux examples
 - ✅ Declarative configuration
 
-## Quick Start
+---
+
+## 🚀 Quick Start
 
 ### Production Installation
+
+<details>
+<summary><strong>📦 Kubernetes Installation</strong></summary>
 
 ```bash
 # 1. Create namespace
@@ -66,7 +92,12 @@ helm install neurondb ./helm/neurondb \
   -n neurondb
 ```
 
+</details>
+
 ### Enable Production Features
+
+<details>
+<summary><strong>⚙️ Production Configuration</strong></summary>
 
 ```bash
 helm upgrade neurondb ./helm/neurondb \
@@ -80,27 +111,65 @@ helm upgrade neurondb ./helm/neurondb \
   -n neurondb
 ```
 
-## Example Values Files
+</details>
 
-- `values-minimal.yaml` - Minimal configuration for development
-- `values-production-external-postgres.yaml` - Production with external PostgreSQL
-- `values-observability-external.yaml` - With external observability stack
-- `values-external-postgres.yaml` - External PostgreSQL example
+---
 
-## CI/CD Integration
+## 📁 Example Values Files
+
+| File | Description | Use Case |
+|------|-------------|----------|
+| `values-minimal.yaml` | Minimal configuration | Development |
+| `values-production-external-postgres.yaml` | Production with external PostgreSQL | Production |
+| `values-observability-external.yaml` | With external observability stack | Production |
+| `values-external-postgres.yaml` | External PostgreSQL example | Production |
+
+---
+
+## 🔄 CI/CD Integration
+
+<details>
+<summary><strong>🔄 CI/CD Features</strong></summary>
 
 All CI workflows are configured:
-- Image signing (cosign)
-- SBOM generation (Syft)
-- SLSA provenance
-- Trivy security scanning
-- Helm lint and unittest
-- Chart testing
-- OCI registry publishing
 
-## Support
+- ✅ Image signing (cosign)
+- ✅ SBOM generation (Syft)
+- ✅ SLSA provenance
+- ✅ Trivy security scanning
+- ✅ Helm lint and unittest
+- ✅ Chart testing
+- ✅ OCI registry publishing
 
-For issues or questions:
-- GitHub Issues: https://github.com/neurondb/neurondb2/issues
-- Documentation: https://docs.neurondb.ai
-- Email: support@neurondb.ai
+</details>
+
+---
+
+## 💬 Support
+
+<details>
+<summary><strong>📞 Get Help</strong></summary>
+
+| Resource | Link |
+|---------|------|
+| **GitHub Issues** | [Report Issues](https://github.com/neurondb/neurondb2/issues) |
+| **Documentation** | [https://docs.neurondb.ai](https://docs.neurondb.ai) |
+| **Email Support** | support@neurondb.ai |
+
+</details>
+
+---
+
+## 📚 Related Documentation
+
+- **[Docker Deployment](./docker.md)** - Docker-based deployment
+- **[Getting Started](../getting-started/README.md)** - Setup guides
+- **[Components](../components/README.md)** - Component overviews
+
+---
+
+<div align="center">
+
+[⬆ Back to Top](#-neurondb-production-deployment-documentation) · [📚 Main Documentation](../../documentation.md)
+
+</div>

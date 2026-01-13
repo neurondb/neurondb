@@ -161,7 +161,7 @@ sudo dpkg -i neurondb_*.deb
 sudo rpm -i neurondb_*.rpm
 ```
 
-See [Packaging Documentation](../../Docs/package.md) for package build instructions.
+See [Packaging Documentation](../deployment/package.md) for package build instructions.
 
 ## Database Setup
 
@@ -245,7 +245,7 @@ Each component requires specific environment variables. See component-specific d
 ## Next Steps
 
 1. **[Quick Start Guide](quickstart.md)** - Run your first queries
-2. **[Component Documentation](../components/readme.md)** - Learn about each component
+2. **[Component Documentation](../components/README.md)** - Learn about each component
 3. **[Integration Guide](../ecosystem/integration.md)** - Connect components together
 
 ## Troubleshooting
