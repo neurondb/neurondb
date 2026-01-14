@@ -1,7 +1,19 @@
 #!/usr/bin/env python3
-"""
-Comprehensive Test Runner for NeuronMCP
-Runs all test suites in the correct order.
+"""-------------------------------------------------------------------------
+ *
+ * run_all_tests.py
+ *    Comprehensive Test Runner for NeuronMCP
+ *
+ * Runs all test suites in the correct order. Orchestrates execution of all
+ * NeuronMCP test scripts including unit tests, integration tests, and
+ * comprehensive verification suites.
+ *
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
+ *
+ * IDENTIFICATION
+ *    NeuronMCP/tests/run_all_tests.py
+ *
+ *-------------------------------------------------------------------------
 """
 
 import sys

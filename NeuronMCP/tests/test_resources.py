@@ -1,7 +1,19 @@
 #!/usr/bin/env python3
-"""
-Resources Tests for NeuronMCP
-Tests all 9 resources.
+"""-------------------------------------------------------------------------
+ *
+ * test_resources.py
+ *    Resources Tests for NeuronMCP
+ *
+ * Tests all NeuronMCP resources including collections, datasets, indexes,
+ * models, subscriptions, workers, and system resources. Validates resource
+ * discovery, access, and management functionality.
+ *
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
+ *
+ * IDENTIFICATION
+ *    NeuronMCP/tests/test_resources.py
+ *
+ *-------------------------------------------------------------------------
 """
 
 import sys

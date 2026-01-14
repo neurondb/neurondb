@@ -1,7 +1,19 @@
 #!/usr/bin/env python3
-"""
-PostgreSQL Tools Tests for NeuronMCP
-Tests all 27 PostgreSQL administration tools.
+"""-------------------------------------------------------------------------
+ *
+ * test_tools_postgresql.py
+ *    PostgreSQL Tools Tests for NeuronMCP
+ *
+ * Tests all PostgreSQL administration tools including database management,
+ * schema operations, query execution, security, maintenance, and high availability
+ * features. Validates tool functionality and integration with PostgreSQL.
+ *
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
+ *
+ * IDENTIFICATION
+ *    NeuronMCP/tests/test_tools_postgresql.py
+ *
+ *-------------------------------------------------------------------------
 """
 
 import sys

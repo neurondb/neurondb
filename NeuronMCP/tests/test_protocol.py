@@ -1,7 +1,19 @@
 #!/usr/bin/env python3
-"""
-MCP Protocol Tests for NeuronMCP
-Tests all MCP protocol endpoints and features.
+"""-------------------------------------------------------------------------
+ *
+ * test_protocol.py
+ *    MCP Protocol Tests for NeuronMCP
+ *
+ * Tests all MCP protocol endpoints and features. Validates protocol compliance,
+ * message handling, request/response processing, and error handling according
+ * to the MCP (Model Context Protocol) specification.
+ *
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
+ *
+ * IDENTIFICATION
+ *    NeuronMCP/tests/test_protocol.py
+ *
+ *-------------------------------------------------------------------------
 """
 
 import sys

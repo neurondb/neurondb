@@ -1,5 +1,7 @@
 # Binaries
 bin/
+*.test
+neurondb-mcp
 
 # Test output files
 test_*.json
@@ -8,10 +10,13 @@ final_*.json
 comprehensive_test_results.json
 all_tools.json
 test_output_*/
+*_results.json
+*_report.json
 
 # Logs
 *.log
 test_run.log
+test_output.log
 
 # Python cache
 __pycache__/

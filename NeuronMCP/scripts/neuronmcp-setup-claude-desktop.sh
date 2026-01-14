@@ -1,11 +1,20 @@
 #!/bin/bash
-# ====================================================================
-# NeuronMCP Setup for Claude Desktop
-# ====================================================================
-# This script prepares the environment for NeuronMCP to work with
-# Claude Desktop by installing Python dependencies and verifying
-# configuration. Run this script ONCE before configuring Claude Desktop.
-# ====================================================================
+#-------------------------------------------------------------------------
+#
+# neuronmcp-setup-claude-desktop.sh
+#    NeuronMCP Setup for Claude Desktop
+#
+# Prepares the environment for NeuronMCP to work with Claude Desktop by
+# installing Python dependencies and verifying configuration. This script
+# should be run ONCE before configuring Claude Desktop. Handles platform-specific
+# configuration for Linux, macOS, and Windows.
+#
+# Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
+#
+# IDENTIFICATION
+#    NeuronMCP/scripts/neuronmcp-setup-claude-desktop.sh
+#
+#-------------------------------------------------------------------------
 
 set -e
 
@@ -380,16 +389,16 @@ show_next_steps() {
     echo ""
     echo "   macOS:"
     echo "     mkdir -p ~/Library/Application\\ Support/Claude"
-    echo "     cp $PROJECT_ROOT/claude_desktop_config.macos.json \\"
+    echo "     cp $PROJECT_ROOT/conf/claude-desktop-config-macos.json \\"
     echo "        ~/Library/Application\\ Support/Claude/claude_desktop_config.json"
     echo ""
     echo "   Linux:"
     echo "     mkdir -p ~/.config/Claude"
-    echo "     cp $PROJECT_ROOT/claude_desktop_config.linux.json \\"
+    echo "     cp $PROJECT_ROOT/conf/claude-desktop-config-linux.json \\"
     echo "        ~/.config/Claude/claude_desktop_config.json"
     echo ""
     echo "   Windows:"
-    echo "     Copy $PROJECT_ROOT/claude_desktop_config.windows.json to"
+    echo "     Copy $PROJECT_ROOT/conf/claude-desktop-config-windows.json to"
     echo "     %APPDATA%\\Claude\\claude_desktop_config.json"
     echo ""
     echo "2. Edit the configuration file and update:"

@@ -1,9 +1,19 @@
 #!/bin/bash
-# ====================================================================
-# NeuronMCP Embedding Diagnostics
-# ====================================================================
-# Diagnoses embedding configuration issues and tests embedding generation
-# ====================================================================
+#-------------------------------------------------------------------------
+#
+# neuronmcp-diagnose-embeddings.sh
+#    NeuronMCP Embedding Diagnostics
+#
+# Diagnoses embedding configuration issues and tests embedding generation.
+# Provides detailed diagnostics for embedding model configuration, connection
+# testing, and embedding generation verification.
+#
+# Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
+#
+# IDENTIFICATION
+#    NeuronMCP/scripts/neuronmcp-diagnose-embeddings.sh
+#
+#-------------------------------------------------------------------------
 
 set -e
 

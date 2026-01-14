@@ -1,10 +1,18 @@
 #!/bin/bash
-# ====================================================================
-# NeuronMCP Configuration Schema Setup
-# ====================================================================
+#-------------------------------------------------------------------------
+#
+# neuronmcp-setup.sh
+#    NeuronMCP Configuration Schema Setup
+#
 # Sets up comprehensive database schema for NeuronMCP with all configurations,
 # tables, functions, and pre-populated defaults.
-# ====================================================================
+#
+# Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
+#
+# IDENTIFICATION
+#    NeuronMCP/scripts/neuronmcp-setup.sh
+#
+#-------------------------------------------------------------------------
 
 set -e
 
