@@ -1,0 +1,26 @@
+server:
+  host: "0.0.0.0"
+  port: 8080
+  read_timeout: 30s
+  write_timeout: 30s
+
+database:
+  host: "localhost"
+  port: 5432
+  database: "neurondb"
+  user: "pge"
+  password: ""
+  max_open_conns: 25
+  max_idle_conns: 5
+  conn_max_lifetime: 5m
+  conn_max_idle_time: 10m
+
+auth:
+  api_key_header: "Authorization"
+
+logging:
+  level: "info"
+  format: "json"
+
+
+

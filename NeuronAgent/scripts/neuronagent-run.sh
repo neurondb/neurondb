@@ -1,8 +1,19 @@
 #!/usr/bin/env bash
-
-# NeuronAgent Run Script
-# Installs Go dependencies and runs the agent server
-# Compatible with macOS, Rocky Linux, Ubuntu, and other Linux distributions
+#-------------------------------------------------------------------------
+#
+# neuronagent-run.sh
+#    NeuronAgent Run Script
+#
+# Installs Go dependencies and runs the agent server. Compatible with macOS,
+# Rocky Linux, Ubuntu, and other Linux distributions. Handles dependency
+# installation, environment setup, and server execution.
+#
+# Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
+#
+# IDENTIFICATION
+#    NeuronAgent/scripts/neuronagent-run.sh
+#
+#-------------------------------------------------------------------------
 
 set -euo pipefail
 

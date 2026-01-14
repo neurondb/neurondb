@@ -3,7 +3,29 @@
 # Build the application
 build:
 	@echo "Building NeuronAgent..."
+	@mkdir -p bin
 	@go build -o bin/neuronagent cmd/agent-server/main.go
+	@echo "Copying all runtime files to bin/..."
+	@mkdir -p bin/scripts bin/conf bin/scripts/lib bin/sql
+	@cp scripts/neuronagent-*.sh bin/scripts/ 2>/dev/null || true
+	@cp -r scripts/lib/*.sh bin/scripts/lib/ 2>/dev/null || true
+	@cp -r conf/*.yaml bin/conf/ 2>/dev/null || true
+	@cp neuron-agent.sql bin/sql/ 2>/dev/null || true
+	@chmod +x bin/scripts/*.sh 2>/dev/null || true
+	@echo "# NeuronAgent Runtime Package" > bin/README.md
+	@echo "" >> bin/README.md
+	@echo "This directory contains everything needed to run NeuronAgent." >> bin/README.md
+	@echo "" >> bin/README.md
+	@echo "## Structure" >> bin/README.md
+	@echo "- neuronagent - Main binary executable" >> bin/README.md
+	@echo "- scripts/ - Runtime utility scripts" >> bin/README.md
+	@echo "- conf/ - Configuration files" >> bin/README.md
+	@echo "- sql/ - Database schema files" >> bin/README.md
+	@echo "" >> bin/README.md
+	@echo "## Usage" >> bin/README.md
+	@echo "Run: ./neuronagent" >> bin/README.md
+	@echo "Setup: ./scripts/neuronagent-setup.sh" >> bin/README.md
+	@echo "✓ Binary, scripts, configs, and SQL files copied to bin/ (complete runtime package)"
 
 # Run tests with race detector (default - recommended for all testing)
 test:
@@ -25,6 +47,7 @@ test-coverage:
 clean:
 	@echo "Cleaning..."
 	@rm -rf bin/ dist/ coverage.out coverage.html
+	@echo "Note: Scripts in scripts/ and configs in conf/ are preserved"
 
 # Run the application
 run: build
@@ -34,7 +57,7 @@ run: build
 # Run database migrations
 migrate:
 	@echo "Running migrations..."
-	@./scripts/neuronagent_migrate.sh
+	@./scripts/neuronagent-migrate.sh
 
 # Format code
 fmt:
@@ -70,5 +93,5 @@ deps:
 # Generate API keys
 generate-key:
 	@echo "Generating API key..."
-	@./scripts/neuronagent_generate_keys.sh
+	@./scripts/neuronagent-generate-keys.sh
 

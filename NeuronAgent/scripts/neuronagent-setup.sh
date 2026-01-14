@@ -1,13 +1,30 @@
 #!/bin/bash
-# ====================================================================
-# NeuronAgent Database Setup
-# ====================================================================
-# Sets up database and extension for NeuronAgent
-# ====================================================================
+#-------------------------------------------------------------------------
+#
+# neuronagent-setup.sh
+#    NeuronAgent Database Setup
+#
+# Sets up database and extension for NeuronAgent. Creates the database if
+# it doesn't exist and installs the NeuronDB extension.
+#
+# Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
+#
+# IDENTIFICATION
+#    NeuronAgent/scripts/neuronagent-setup.sh
+#
+#-------------------------------------------------------------------------
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 SCRIPT_NAME=$(basename "$0")
+
+# Source common CLI library
+source "${SCRIPT_DIR}/lib/neuronagent-cli.sh" || {
+    echo "Error: Failed to load CLI library" >&2
+    exit 1
+}
 
 # Version
 VERSION="2.0.0"
