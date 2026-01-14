@@ -1,8 +1,19 @@
 #!/usr/bin/env bash
-
-# NeuronDesktop Run Script
-# Installs npm and Go dependencies, then runs both frontend and backend
-# Compatible with macOS, Rocky Linux, Ubuntu, and other Linux distributions
+#-------------------------------------------------------------------------
+#
+# neurondesktop-run.sh
+#    NeuronDesktop Run Script
+#
+# Installs npm and Go dependencies, then runs both frontend and backend.
+# Compatible with macOS, Rocky Linux, Ubuntu, and other Linux distributions.
+# Handles dependency installation, environment setup, and application execution.
+#
+# Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
+#
+# IDENTIFICATION
+#    NeuronDesktop/scripts/neurondesktop-run.sh
+#
+#-------------------------------------------------------------------------
 
 set -euo pipefail
 

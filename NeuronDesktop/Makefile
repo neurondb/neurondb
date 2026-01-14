@@ -17,9 +17,28 @@ build: build-api build-frontend ## Build both API backend and frontend
 
 build-api: deps-api ## Build the API backend (Go)
 	@echo "$(CYAN)Building NeuronDesktop API...$(NC)"
-	@mkdir -p bin
+	@mkdir -p bin bin/scripts bin/scripts/lib
 	@cd api && go build -o ../bin/neurondesktop ./cmd/server
-	@echo "$(GREEN)✓ API built$(NC)"
+	@echo "$(CYAN)Copying all runtime files to bin/...$(NC)"
+	@mkdir -p bin/scripts bin/scripts/lib bin/sql
+	@cp scripts/neurondesktop-*.sh bin/scripts/ 2>/dev/null || true
+	@cp -r scripts/lib/*.sh bin/scripts/lib/ 2>/dev/null || true
+	@cp neuron-desktop.sql bin/sql/ 2>/dev/null || true
+	@cp api/neurondesktop.sql bin/sql/ 2>/dev/null || true
+	@chmod +x bin/scripts/*.sh 2>/dev/null || true
+	@echo "# NeuronDesktop Runtime Package" > bin/README.md
+	@echo "" >> bin/README.md
+	@echo "This directory contains everything needed to run NeuronDesktop." >> bin/README.md
+	@echo "" >> bin/README.md
+	@echo "## Structure" >> bin/README.md
+	@echo "- neurondesktop - Main binary executable" >> bin/README.md
+	@echo "- scripts/ - Runtime utility scripts" >> bin/README.md
+	@echo "- sql/ - Database schema files" >> bin/README.md
+	@echo "" >> bin/README.md
+	@echo "## Usage" >> bin/README.md
+	@echo "Run: ./neurondesktop" >> bin/README.md
+	@echo "Setup: ./scripts/neurondesktop-setup.sh" >> bin/README.md
+	@echo "$(GREEN)✓ API built with all runtime files (binary, scripts, SQL) - complete package$(NC)"
 
 build-frontend: deps-frontend ## Build the frontend (Next.js)
 	@echo "$(CYAN)Building NeuronDesktop frontend...$(NC)"
@@ -61,7 +80,7 @@ test-api-e2e: ## Run end-to-end tests
 
 test-api-all: ## Run all API tests with coverage
 	@echo "$(CYAN)Running comprehensive test suite...$(NC)"
-	@./tests/run_all_tests.sh
+	@./tests/neurondesktop-test-all.sh
 
 test-api-coverage: ## Generate test coverage report (with race detector)
 	@echo "$(CYAN)Generating test coverage with race detector...$(NC)"
