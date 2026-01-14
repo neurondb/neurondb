@@ -58,27 +58,14 @@ neurondb_gpu_hnsw_build(const float *vectors,
 	 * 1. GPU kernel for neighbor selection
 	 * 2. GPU kernel for graph insertion
 	 * 3. GPU memory management for graph structure
+	 *
+	 * NOTE: launch_hnsw_build is not yet implemented in the backend structure.
+	 * When implemented, it should be added to ndb_gpu_backend in
+	 * include/neurondb_gpu_backend.h
 	 */
 	
-	/* Check if backend has HNSW build support */
-	if (backend->launch_hnsw_build != NULL)
-	{
-		return backend->launch_hnsw_build(
-			vectors,
-			num_vectors,
-			dim,
-			m,
-			ef_construction,
-			result_nodes,
-			result_neighbors,
-			result_neighbor_counts,
-			result_node_levels,
-			entry_point,
-			entry_level,
-			NULL); /* stream */
-	}
-
-	/* Fallback: Use CPU construction */
+	/* TODO: Implement GPU HNSW build support */
+	/* For now, fallback to CPU construction */
 	return -1;
 }
 

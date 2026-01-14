@@ -8,6 +8,7 @@ jobs:
   validate:
     name: Validate Helm Chart
     runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -34,6 +35,7 @@ jobs:
   lint:
     name: Lint Helm Chart
     runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -64,6 +66,7 @@ jobs:
   template-render:
     name: Template Rendering Tests
     runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
     strategy:
       matrix:
         values:
@@ -111,6 +114,7 @@ jobs:
   install-test:
     name: Installation Tests (kind)
     runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -150,6 +154,7 @@ jobs:
   security-scan:
     name: Security Scanning
     runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

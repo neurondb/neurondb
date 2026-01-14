@@ -12,14 +12,14 @@ neurondb:
     repository: ghcr.io/neurondb/neurondb-postgres
     tag: "2.0.0-pg17-cpu"
     pullPolicy: IfNotPresent
-  
+
   postgresql:
     version: "17"
     database: "neurondb"
     username: "neurondb"
-    password: "" # Set via secret
+    password: ""  # Set via secret
     port: 5432
-    config: "" # Optional postgresql.conf content
+    config: ""  # Optional postgresql.conf content
     # External PostgreSQL configuration
     external:
       enabled: false  # Set to true to use external PostgreSQL
@@ -41,7 +41,7 @@ neurondb:
         username: "username"
         password: "password"
         connectionString: "connection-string"  # Alternative: single key with full connection string
-  
+
   persistence:
     enabled: true
     size: 50Gi
@@ -51,7 +51,7 @@ neurondb:
     retentionPolicy: "Retain"
     # Enable volume expansion (requires storage class to support it)
     allowVolumeExpansion: false
-  
+
   # StatefulSet configuration
   replicas: 1
   # podManagementPolicy: "OrderedReady" (default) or "Parallel"
@@ -67,11 +67,11 @@ neurondb:
       # Maximum number of pods that can be unavailable during update
       # Only valid for RollingUpdate with maxUnavailable (requires Kubernetes 1.24+)
       maxUnavailable: null
-  
+
   podDisruptionBudget:
     enabled: true
     minAvailable: 1
-  
+
   resources:
     requests:
       memory: "4Gi"
@@ -79,14 +79,14 @@ neurondb:
     limits:
       memory: "8Gi"
       cpu: "4"
-  
+
   service:
     type: ClusterIP
     port: 5432
-  
+
   securityContext:
     readOnlyRootFilesystem: false  # Set to true for maximum security (requires tmpfs volumes)
-  
+
   healthCheck:
     checkTables: true  # Check if critical tables exist in readiness probe
     requireTables: false  # Require tables to exist (set to true for strict checking)
@@ -101,7 +101,7 @@ neurondb:
       periodSeconds: 10
       timeoutSeconds: 5
       failureThreshold: 5
-  
+
   # Resource governance
   nodeSelector: {}
   affinity: {}
@@ -116,11 +116,11 @@ neuronagent:
     repository: ghcr.io/neurondb/neuronagent
     tag: "2.0.0"
     pullPolicy: IfNotPresent
-  
+
   replicas: 2
   logLevel: "info"
   initWaitForDB: true
-  
+
   resources:
     requests:
       memory: "512Mi"
@@ -128,11 +128,11 @@ neuronagent:
     limits:
       memory: "2Gi"
       cpu: "2"
-  
+
   service:
     type: ClusterIP
     port: 8080
-  
+
   autoscaling:
     enabled: true
     minReplicas: 2
@@ -199,15 +199,15 @@ neuronagent:
           metricName: ""
           threshold: ""
           query: ""
-  
+
   podDisruptionBudget:
     enabled: true
     minAvailable: 1
     maxUnavailable: 1
-  
+
   securityContext:
     readOnlyRootFilesystem: false  # Set to true for maximum security (requires tmpfs volumes)
-  
+
   healthCheck:
     readinessProbe:
       path: "/health"
@@ -222,7 +222,7 @@ neuronagent:
       periodSeconds: 30
       timeoutSeconds: 10
       failureThreshold: 3
-  
+
   # Resource governance
   nodeSelector: {}
   affinity: {}
@@ -237,11 +237,11 @@ neuronmcp:
     repository: ghcr.io/neurondb/neuronmcp
     tag: "2.0.0"
     pullPolicy: IfNotPresent
-  
+
   replicas: 1
   logLevel: "info"
   initWaitForDB: true
-  
+
   resources:
     requests:
       memory: "256Mi"
@@ -249,10 +249,10 @@ neuronmcp:
     limits:
       memory: "1Gi"
       cpu: "1"
-  
+
   securityContext:
     readOnlyRootFilesystem: false  # Set to true for maximum security (requires tmpfs volumes)
-  
+
   # Resource governance
   nodeSelector: {}
   affinity: {}
@@ -268,12 +268,12 @@ neurondesktop:
       repository: ghcr.io/neurondb/neurondesktop-api
       tag: "2.0.0"
       pullPolicy: IfNotPresent
-    
+
     replicas: 2
     database: "neurondesk"
     logLevel: "info"
     initWaitForDB: true
-    
+
     resources:
       requests:
         memory: "256Mi"
@@ -281,14 +281,14 @@ neurondesktop:
       limits:
         memory: "1Gi"
         cpu: "1"
-    
+
     service:
       type: ClusterIP
       port: 8081
-    
+
     securityContext:
       readOnlyRootFilesystem: false  # Set to true for maximum security (requires tmpfs volumes)
-    
+
     healthCheck:
       readinessProbe:
         path: "/health"
@@ -303,22 +303,22 @@ neurondesktop:
         periodSeconds: 30
         timeoutSeconds: 10
         failureThreshold: 3
-    
+
     # Resource governance
     nodeSelector: {}
     affinity: {}
     tolerations: []
     topologySpreadConstraints: []
     priorityClassName: ""
-  
+
   frontend:
     image:
       repository: ghcr.io/neurondb/neurondesktop-frontend
       tag: "2.0.0"
       pullPolicy: IfNotPresent
-    
+
     replicas: 2
-    
+
     resources:
       requests:
         memory: "128Mi"
@@ -326,14 +326,14 @@ neurondesktop:
       limits:
         memory: "512Mi"
         cpu: "500m"
-    
+
     service:
       type: ClusterIP
       port: 3000
-    
+
     securityContext:
       readOnlyRootFilesystem: false  # Set to true for maximum security (requires tmpfs volumes)
-    
+
     # Resource governance
     nodeSelector: {}
     affinity: {}
@@ -357,8 +357,8 @@ ingress:
 # Secrets
 secrets:
   create: true
-  postgresPassword: "" # Auto-generated if empty (32 char random)
-  agentApiKeys: [] # List of API keys
+  postgresPassword: ""  # Auto-generated if empty (32 char random)
+  agentApiKeys: []  # List of API keys
 
 # External Secrets Integration
 externalSecrets:
@@ -586,8 +586,8 @@ resourceGovernance:
 # Backup
 backup:
   enabled: true
-  schedule: "0 2 * * *" # Daily at 2 AM (cron format)
-  retention: 30 # days
+  schedule: "0 2 * * *"   # Daily at 2 AM (cron format)
+  retention: 3[0-9]  # days
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 1
   activeDeadlineSeconds: 3600
@@ -649,4 +649,3 @@ backup:
       limits:
         memory: "4Gi"
         cpu: "4"
-

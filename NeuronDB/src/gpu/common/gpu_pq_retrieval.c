@@ -53,26 +53,13 @@ neurondb_gpu_pq_asymmetric_search(const float *query,
 		return -1;
 
 	/* Use existing PQ asymmetric distance kernel if available */
-	/* Check if backend has PQ support */
-	if (backend->launch_pq_asymmetric_distance_batch != NULL)
-	{
-		/* Use dedicated PQ kernel */
-		return backend->launch_pq_asymmetric_distance_batch(
-			query,
-			pq_codes,
-			codebooks,
-			num_vectors,
-			dim,
-			m,
-			ks,
-			k,
-			result_indices,
-			result_distances,
-			NULL); /* stream */
-	}
-
-	/* Fallback: Use CPU implementation or error */
-	/* In production, would call CPU PQ asymmetric distance */
+	/* NOTE: launch_pq_asymmetric_distance_batch is not yet implemented in the backend structure.
+	 * When implemented, it should be added to ndb_gpu_backend in
+	 * include/neurondb_gpu_backend.h
+	 */
+	
+	/* TODO: Implement GPU PQ asymmetric distance batch support */
+	/* For now, fallback to CPU implementation */
 	return -1;
 }
 
