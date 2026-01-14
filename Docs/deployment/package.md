@@ -1,15 +1,33 @@
 # Package-Based Docker Builds
 
-This document explains how to use the RPM/Debian packages for building Docker images.
+<div align="center">
+
+**Using RPM/Debian packages for building Docker images**
+
+[![Packages](https://img.shields.io/badge/packages-DEB%20%7C%20RPM-blue)](.)
+[![Status](https://img.shields.io/badge/status-stable-brightgreen)](.)
+
+</div>
+
+---
+
+> [!TIP]
+> Package-based builds are faster than source builds. They produce smaller images and are more reproducible.
+
+---
 
 ## Overview
 
-Instead of building from source inside Docker containers, you can use pre-built DEB packages. This approach offers several advantages:
+Use pre-built DEB packages instead of building from source in Docker containers.
 
-- **Faster builds**: No compilation in Docker
-- **More reproducible**: Same packages across environments
-- **Better versioning**: Packages can be versioned and distributed
-- **Smaller images**: No build dependencies in final image
+**Advantages:**
+
+| Advantage | Description |
+|-----------|-------------|
+| **Faster builds** | No compilation in Docker |
+| **More reproducible** | Same packages across environments |
+| **Better versioning** | Packages are versioned and distributed |
+| **Smaller images** | No build dependencies in final image |
 
 ## Available Package-Based Dockerfiles
 
@@ -108,8 +126,29 @@ VERSION=1.0.0.beta ./build.sh
 
 ## Notes
 
-- Package-based builds require the `packaging/` directory to be present
-- The build scripts automatically detect PostgreSQL versions
-- All four components (NeuronDB, NeuronAgent, NeuronMCP, and NeuronDesktop) now have complete DEB packaging
-- RPM packaging is also available for NeuronDB and NeuronAgent
+> [!NOTE]
+> Package-based builds require the `packaging/` directory to be present. Build scripts automatically detect PostgreSQL versions.
+
+- Package-based builds require the `packaging/` directory
+- Build scripts automatically detect PostgreSQL versions
+- All four components have complete DEB packaging
+- RPM packaging is available for NeuronDB and NeuronAgent
+
+---
+
+## 🔗 Related Documentation
+
+| Document | Description |
+|----------|-------------|
+| **[Docker Deployment](docker.md)** | Docker deployment guide |
+| **[Container Images](container-images.md)** | Container image information |
+| **[Packaging Guide](../../packaging/README.md)** | Packaging documentation |
+
+---
+
+<div align="center">
+
+[⬆ Back to Top](#package-based-docker-builds) · [📚 Deployment Index](README.md) · [📚 Main Documentation](../../README.md)
+
+</div>
 

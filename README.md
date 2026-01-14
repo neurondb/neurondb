@@ -525,19 +525,19 @@ No additional services, ports, or configuration required!
 <details>
 <summary><strong>NeuronAgent documentation</strong></summary>
 
-- **Architecture**: [`ARCHITECTURE.md`](NeuronAgent/docs/ARCHITECTURE.md)
-- **API Reference**: [`API.md`](NeuronAgent/docs/API.md)
-- **CLI Guide**: [`CLI_GUIDE.md`](NeuronAgent/docs/CLI_GUIDE.md)
-- **Connectors**: [`CONNECTORS.md`](NeuronAgent/docs/CONNECTORS.md)
-- **Deployment**: [`DEPLOYMENT.md`](NeuronAgent/docs/DEPLOYMENT.md)
-- **Troubleshooting**: [`TROUBLESHOOTING.md`](NeuronAgent/docs/TROUBLESHOOTING.md)
+- **Architecture**: [`architecture.md`](NeuronAgent/docs/architecture.md)
+- **API Reference**: [`API.md`](NeuronAgent/docs/api.md)
+- **CLI Guide**: [`cli_guide.md`](NeuronAgent/docs/cli_guide.md)
+- **Connectors**: [`connectors.md`](NeuronAgent/docs/connectors.md)
+- **Deployment**: [`deployment.md`](NeuronAgent/docs/deployment.md)
+- **Troubleshooting**: [`troubleshooting.md`](NeuronAgent/docs/troubleshooting.md)
 
 </details>
 
 <details>
 <summary><strong>NeuronMCP documentation</strong></summary>
 
-- **Setup Guide**: [`NEURONDB_MCP_SETUP.md`](NeuronMCP/docs/NEURONDB_MCP_SETUP.md)
+- **Setup Guide**: [`neurondb_mcp_setup.md`](NeuronMCP/docs/neurondb_mcp_setup.md)
 - **Tool & Resource Catalog**: [`tool-resource-catalog.md`](NeuronMCP/docs/tool-resource-catalog.md)
 - **Examples**: [`README.md`](NeuronMCP/docs/examples/README.md) • [`example-transcript.md`](NeuronMCP/docs/examples/example-transcript.md)
 
@@ -546,11 +546,11 @@ No additional services, ports, or configuration required!
 <details>
 <summary><strong>NeuronDesktop documentation</strong></summary>
 
-- **API Reference**: [`API.md`](NeuronDesktop/docs/API.md)
-- **Deployment**: [`DEPLOYMENT.md`](NeuronDesktop/docs/DEPLOYMENT.md)
-- **Integration**: [`INTEGRATION.md`](NeuronDesktop/docs/INTEGRATION.md)
-- **NeuronAgent Usage**: [`NEURONAGENT_USAGE.md`](NeuronDesktop/docs/NEURONAGENT_USAGE.md)
-- **NeuronMCP Setup**: [`NEURONMCP_SETUP.md`](NeuronDesktop/docs/NEURONMCP_SETUP.md)
+- **API Reference**: [`API.md`](NeuronDesktop/docs/api.md)
+- **Deployment**: [`deployment.md`](NeuronDesktop/docs/deployment.md)
+- **Integration**: [`integration.md`](NeuronDesktop/docs/integration.md)
+- **NeuronAgent Usage**: [`neuronagent_usage.md`](NeuronDesktop/docs/neuronagent_usage.md)
+- **NeuronMCP Setup**: [`neuronmcp_setup.md`](NeuronDesktop/docs/neuronmcp_setup.md)
 
 </details>
 

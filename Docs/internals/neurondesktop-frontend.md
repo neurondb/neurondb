@@ -204,7 +204,7 @@ module.exports = {
 ## Related Documentation
 
 - [NeuronDesktop API Reference](../reference/neurondesktop-api-complete.md)
-- [NeuronDesktop Deployment](../../NeuronDesktop/docs/DEPLOYMENT.md)
+- [NeuronDesktop Deployment](../../NeuronDesktop/docs/deployment.md)
 
 ---
 

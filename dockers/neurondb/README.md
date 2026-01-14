@@ -31,7 +31,7 @@ cd /path/to/neurondb
 # Build CPU image (PostgreSQL 17)
 sudo docker build -f NeuronDB/docker/Dockerfile.package \
   --build-arg PG_MAJOR=17 \
-  --build-arg PACKAGE_VERSION=2.0.0.beta \
+  --build-arg PACKAGE_VERSION=3.0.0-devel \
   -t neurondb:cpu-package-pg17 .
 
 # Start container
@@ -81,7 +81,7 @@ cd /path/to/neurondb
 # Build CUDA image (PostgreSQL 17)
 sudo docker build -f NeuronDB/docker/Dockerfile.package.cuda \
   --build-arg PG_MAJOR=17 \
-  --build-arg PACKAGE_VERSION=2.0.0.beta \
+  --build-arg PACKAGE_VERSION=3.0.0-devel \
   --build-arg CUDA_VERSION=12.4.1 \
   -t neurondb:cuda-package-pg17 .
 
@@ -135,7 +135,7 @@ cd /path/to/neurondb
 # Build ROCm image (PostgreSQL 17)
 sudo docker build -f NeuronDB/docker/Dockerfile.package.rocm \
   --build-arg PG_MAJOR=17 \
-  --build-arg PACKAGE_VERSION=2.0.0.beta \
+  --build-arg PACKAGE_VERSION=3.0.0-devel \
   --build-arg ROCM_VERSION=5.7 \
   -t neurondb:rocm-package-pg17 .
 
@@ -259,7 +259,7 @@ postgresql://neurondb:neurondb@localhost:5436/neurondb
 For production builds with versioning:
 
 ```bash
-VERSION=2.0.0
+VERSION=3.0.0-devel
 BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
 VCS_REF=$(git rev-parse --short HEAD)
 

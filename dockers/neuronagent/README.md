@@ -20,7 +20,7 @@ NeuronAgent Docker container runs the agent server service. Connects to an exter
 
 ## Quick Start
 
-**Prerequisites**: NeuronDB container must be running first. See [NeuronDB Docker README](../../NeuronDB/docker/readme.md).
+**Prerequisites**: NeuronDB container must be running first. See [NeuronDB Docker README](../../NeuronDB/docker/README.md).
 
 ### Step 1: Navigate to Directory
 
@@ -781,7 +781,7 @@ Before deploying to production:
 
 ### Setup Instructions
 
-See [NeuronDB Docker README](../../NeuronDB/docker/readme.md) for NeuronDB setup.
+See [NeuronDB Docker README](../../NeuronDB/docker/README.md) for NeuronDB setup.
 
 ## Production Deployment
 
@@ -1135,7 +1135,7 @@ Create dashboards for:
 
 ## Support
 
-- **Documentation**: [NeuronAgent README](../readme.md)
+- **Documentation**: [NeuronAgent README](../README.md)
 - **API Docs**: [API Documentation](../docs/API.md)
 - **GitHub Issues**: [Report Issues](https://github.com/neurondb/NeurondB/issues)
 - **Email**: support@neurondb.ai

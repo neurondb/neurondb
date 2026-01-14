@@ -22,7 +22,7 @@ NeuronMCP Docker container runs the MCP server service. Connects to an external 
 
 ## Quick Start
 
-**Prerequisites**: NeuronDB container must be running first. See [NeuronDB Docker README](../../NeuronDB/docker/readme.md).
+**Prerequisites**: NeuronDB container must be running first. See [NeuronDB Docker README](../../NeuronDB/docker/README.md).
 
 ### Step 1: Navigate to Directory
 
@@ -36,7 +36,7 @@ cd /path/to/neurondb/NeuronMCP/docker
 # Build from repository root
 cd /path/to/neurondb
 sudo docker build -f NeuronMCP/docker/Dockerfile.package \
-  --build-arg PACKAGE_VERSION=2.0.0.beta \
+  --build-arg PACKAGE_VERSION=3.0.0-devel \
   -t neuronmcp:package .
 ```
 
@@ -94,7 +94,7 @@ Test stdio communication (MCP protocol):
 sudo docker exec -i neuronmcp ./neurondb-mcp
 ```
 
-For MCP client configuration, see [Claude Desktop Configuration](../readme.md#claude-desktop-configuration).
+For MCP client configuration, see [Claude Desktop Configuration](../README.md#claude-desktop-configuration).
 
 ## Configuration
 
@@ -379,7 +379,7 @@ Example with all build arguments:
 ```bash
 docker build -f docker/Dockerfile \
   --build-arg GO_VERSION=1.23 \
-  --build-arg VERSION=2.0.0 \
+  --build-arg VERSION=3.0.0-devel \
   --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
   --build-arg VCS_REF=$(git rev-parse --short HEAD) \
   -t neurondb-mcp:1.0.0 ..
@@ -390,7 +390,7 @@ docker build -f docker/Dockerfile \
 For production builds with versioning:
 
 ```bash
-VERSION=2.0.0
+VERSION=3.0.0-devel
 BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
 VCS_REF=$(git rev-parse --short HEAD)
 
@@ -842,7 +842,7 @@ Before deploying to production:
 
 ### Setup Instructions
 
-See [NeuronDB Docker README](../../NeuronDB/docker/readme.md) for NeuronDB setup.
+See [NeuronDB Docker README](../../NeuronDB/docker/README.md) for NeuronDB setup.
 
 ## MCP Tools and Resources
 
@@ -863,7 +863,7 @@ NeuronMCP exposes:
 - Worker status
 - Database statistics
 
-See [NeuronMCP README](../readme.md) for complete documentation.
+See [NeuronMCP README](../README.md) for complete documentation.
 
 ## Production Deployment
 
@@ -1186,7 +1186,7 @@ Create dashboards for:
 
 ## Support
 
-- **Documentation**: [NeuronMCP README](../readme.md)
+- **Documentation**: [NeuronMCP README](../README.md)
 - **GitHub Issues**: [Report Issues](https://github.com/neurondb/NeurondB/issues)
 - **Email**: support@neurondb.ai
 

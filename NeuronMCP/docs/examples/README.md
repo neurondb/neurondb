@@ -25,12 +25,12 @@ Each transcript includes:
 
 For working client code examples, see:
 
-- [Python Client](../client/readme.md) - Python CLI client with examples
+- [Python Client](../client/README.md) - Python CLI client with examples
 - [Go Client](../cmd/neurondb-mcp-client/) - Go-based MCP client
 
 ## Related Documentation
 
 - [Tool and Resource Catalog](../tool-resource-catalog.md) - Complete catalog of available tools and resources
-- [Tools Reference](../../TOOLS_REFERENCE.md) - Detailed tool documentation
-- [NeuronMCP README](../../readme.md) - Main NeuronMCP documentation
+- [Tools Reference](../../REGISTERED_TOOLS.md) - Detailed tool documentation
+- [NeuronMCP README](../../README.md) - Main NeuronMCP documentation
 

@@ -14,7 +14,7 @@
 #     --build-context packaging=../../packaging \
 #     .
 
-ARG PACKAGE_VERSION=2.0.0.beta
+ARG PACKAGE_VERSION=3.0.0-devel
 ARG VERSION=latest
 ARG BUILD_DATE
 ARG VCS_REF

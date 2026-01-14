@@ -435,6 +435,6 @@ Server -> Client: Error Response
 ## Related Documentation
 
 - [Tool and Resource Catalog](./tool-resource-catalog.md) - Complete catalog reference
-- [Client Examples](../client/readme.md) - Python client usage examples
+- [Client Examples](../client/README.md) - Python client usage examples
 - [MCP Protocol](https://modelcontextprotocol.io/) - Official MCP specification
 

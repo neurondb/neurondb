@@ -97,7 +97,7 @@
 | Component | Documentation | Description |
 |-----------|---------------|-------------|
 | **NeuronAgent** | [API Reference](reference/neuronagent-api.md) | REST and WebSocket API |
-| **NeuronMCP** | [Tools Reference](../../NeuronMCP/TOOLS_REFERENCE.md) | All 100+ MCP tools |
+| **NeuronMCP** | [Tools Reference](../../NeuronMCP/REGISTERED_TOOLS.md) | All 100+ MCP tools |
 | **NeuronDesktop** | [API Reference](reference/api-reference.md#neurondesktop-api) | REST and WebSocket API |
 
 </details>
@@ -147,7 +147,7 @@
 
 | Platform | Documentation | Status |
 |----------|---------------|--------|
-| **GPU Feature Matrix** | [GPU_FEATURE_MATRIX.md](gpu/GPU_FEATURE_MATRIX.md) | ✅ Complete |
+| **GPU Feature Matrix** | [gpu_feature_matrix.md](gpu/gpu_feature_matrix.md) | ✅ Complete |
 | **CUDA Support** | [CUDA Support](../../NeuronDB/docs/gpu/cuda-support.md) | ✅ Complete |
 | **ROCm Support** | [ROCm Support](../../NeuronDB/docs/gpu/rocm-support.md) | ✅ Complete |
 | **Metal Support** | [Metal Support](../../NeuronDB/docs/gpu/metal-support.md) | ✅ Complete |

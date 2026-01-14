@@ -424,7 +424,7 @@ docker exec -it neurondb-cpu \
 | `DB_PASSWORD` | `neurondb` | Database password |
 | `SERVER_PORT` | `8080` | API server port |
 
-See [NeuronAgent Docker README](../../NeuronAgent/docker/readme.md) for complete configuration options.
+See [NeuronAgent Docker README](../../NeuronAgent/docker/README.md) for complete configuration options.
 
 ### NeuronMCP Configuration
 
@@ -436,7 +436,7 @@ See [NeuronAgent Docker README](../../NeuronAgent/docker/readme.md) for complete
 | `NEURONDB_USER` | `neurondb` | Database username |
 | `NEURONDB_PASSWORD` | `neurondb` | Database password |
 
-See [NeuronMCP Docker README](../../NeuronMCP/docker/readme.md) for complete configuration options.
+See [NeuronMCP Docker README](../../NeuronMCP/docker/README.md) for complete configuration options.
 
 ## Service Management
 
@@ -715,10 +715,10 @@ docker network inspect neurondb-network
 
 ## Support
 
-- **Documentation**: [Main README](../../readme.md)
-- **NeuronDB Docker**: [NeuronDB Docker README](readme.md)
-- **NeuronAgent Docker**: [NeuronAgent Docker README](../../NeuronAgent/docker/readme.md)
-- **NeuronMCP Docker**: [NeuronMCP Docker README](../../NeuronMCP/docker/readme.md)
+- **Documentation**: [Main README](../../README.md)
+- **NeuronDB Docker**: [NeuronDB Docker README](README.md)
+- **NeuronAgent Docker**: [NeuronAgent Docker README](../../NeuronAgent/docker/README.md)
+- **NeuronMCP Docker**: [NeuronMCP Docker README](../../NeuronMCP/docker/README.md)
 - **GitHub Issues**: [Report Issues](https://github.com/neurondb/NeurondB/issues)
 - **Email**: support@neurondb.ai
 

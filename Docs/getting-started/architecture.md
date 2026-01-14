@@ -12,13 +12,13 @@
 ---
 
 > [!TIP]
-> **New to NeuronDB?** This guide explains the big picture. For setup instructions, see the [Simple Start Guide](simple-start.md).
+> This guide explains the big picture. For setup instructions, see the [Simple Start Guide](simple-start.md).
 
 ---
 
 ## 🎯 What is NeuronDB?
 
-NeuronDB is a **PostgreSQL extension** that adds AI capabilities directly to your database:
+NeuronDB is a PostgreSQL extension. It adds AI capabilities to your database.
 
 - 🔍 **Vector search** - Find similar data using embeddings
 - 🤖 **Machine learning** - Train and run ML models in SQL
@@ -30,7 +30,7 @@ NeuronDB is a **PostgreSQL extension** that adds AI capabilities directly to you
 
 ## 🧩 Components Overview
 
-NeuronDB consists of **four main components** that work together:
+NeuronDB has four main components. They work together.
 
 | Component | What It Does | Required? |
 |-----------|--------------|-----------|
@@ -62,7 +62,7 @@ NeuronDB consists of **four main components** that work together:
 
 **How to use it:**
 ```sql
--- Just SQL, no external services needed
+-- SQL only, no external services needed
 CREATE EXTENSION neurondb;
 CREATE TABLE docs (id SERIAL, embedding vector(384));
 CREATE INDEX ON docs USING hnsw (embedding vector_cosine_ops);
@@ -70,7 +70,7 @@ SELECT * FROM docs ORDER BY embedding <=> query_vector LIMIT 10;
 ```
 
 > [!NOTE]
-> **NeuronDB is the foundation** - All other components use it for data storage and vector operations.
+> NeuronDB is the foundation. All other components use it for data storage and vector operations.
 
 ---
 
@@ -110,7 +110,7 @@ curl -X POST http://localhost:8080/api/v1/agents \
 ```
 
 > [!NOTE]
-> **NeuronAgent uses NeuronDB** - It stores agent data, memory, and state in PostgreSQL using the NeuronDB extension.
+> NeuronAgent uses NeuronDB. It stores agent data, memory, and state in PostgreSQL using the NeuronDB extension.
 
 ---
 
@@ -144,7 +144,7 @@ curl -X POST http://localhost:8080/api/v1/agents \
 ```
 
 > [!NOTE]
-> **NeuronMCP uses NeuronDB** - All tools execute SQL queries against PostgreSQL with the NeuronDB extension.
+> NeuronMCP uses NeuronDB. All tools execute SQL queries against PostgreSQL with the NeuronDB extension.
 
 ---
 
@@ -175,7 +175,7 @@ open http://localhost:3000
 ```
 
 > [!NOTE]
-> **NeuronDesktop uses all components** - It connects to NeuronDB for data, NeuronAgent for agents, and NeuronMCP for tools.
+> NeuronDesktop uses all components. It connects to NeuronDB for data, NeuronAgent for agents, and NeuronMCP for tools.
 
 ---
 
@@ -234,7 +234,7 @@ graph TB
 
 ## 🎯 Typical Usage Patterns
 
-### Pattern A: "Just the Database" 🐘
+### Pattern A: Database Only 🐘
 
 **Use case:** You only need vector search in PostgreSQL
 
@@ -475,9 +475,9 @@ graph TD
 ```
 
 **Key points:**
-- ✅ **NeuronDB is required** - All other components depend on it
-- ✅ **Components are independent** - You can run any combination
-- ✅ **No circular dependencies** - Clean architecture
+- ✅ NeuronDB is required. All other components depend on it.
+- ✅ Components are independent. You run any combination.
+- ✅ No circular dependencies. Clean architecture.
 
 </details>
 
@@ -515,7 +515,7 @@ graph TD
 - ✅ **Different protocols** - Each serves different client types
 - ✅ **Independent scaling** - Scale services independently
 - ✅ **Optional components** - Use only what you need
-- ✅ **Language flexibility** - Each can use the best language for its purpose
+- ✅ Language flexibility. Each uses the best language for its purpose.
 
 ### How Do They Share Data?
 

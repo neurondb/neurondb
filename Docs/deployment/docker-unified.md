@@ -454,9 +454,9 @@ docker network inspect neurondb-network
 
 ## Related Documentation
 
-- [NeuronDB Docker Guide](../../dockers/neurondb/readme.md)
-- [NeuronAgent Docker Guide](../../dockers/neuronagent/readme.md)
-- [NeuronMCP Docker Guide](../../dockers/neuronmcp/readme.md)
+- [NeuronDB Docker Guide](../../dockers/neurondb/README.md)
+- [NeuronAgent Docker Guide](../../dockers/neuronagent/README.md)
+- [NeuronMCP Docker Guide](../../dockers/neuronmcp/README.md)
 - [Ecosystem Docker Guide](../../dockers/neurondb/ECOSYSTEM.md)
 - [Main README](../../README.md)
 

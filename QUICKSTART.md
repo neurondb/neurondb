@@ -274,7 +274,7 @@ curl -X POST http://localhost:8080/api/v1/agents \
 
 **Note:** 
 - Replace `YOUR_API_KEY` with an actual API key from NeuronAgent
-- See [NeuronAgent API documentation](NeuronAgent/docs/API.md) for authentication setup
+- See [NeuronAgent API documentation](NeuronAgent/docs/api.md) for authentication setup
 - For development, check if API key authentication is enabled in your configuration
 
 </details>
@@ -509,7 +509,7 @@ See component-specific documentation for detailed configuration options.
 
 ## 💬 Getting Help
 
-- **Documentation:**See [readme.md](readme.md) for detailed documentation
+- **Documentation:**See [README.md](README.md) for detailed documentation
 - **Issues:**Check service logs: `docker compose logs [service-name]`
 - **Support:**Contact support@neurondb.ai
 
@@ -627,9 +627,9 @@ For more details, see the [Scripts README](scripts/README.md).
 
 ## Next Steps
 
-- Read the [full documentation](readme.md)
+- Read the [full documentation](README.md)
 - Explore [NeuronDB examples](NeuronDB/demo/)
 - Try [NeuronAgent examples](NeuronAgent/examples/)
-- Check out [NeuronMCP documentation](NeuronMCP/readme.md)
-- Access [NeuronDesktop web interface](http://localhost:3000) and see [NeuronDesktop documentation](NeuronDesktop/readme.md)
+- Check out [NeuronMCP documentation](NeuronMCP/README.md)
+- Access [NeuronDesktop web interface](http://localhost:3000) and see [NeuronDesktop documentation](NeuronDesktop/README.md)
 

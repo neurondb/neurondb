@@ -1,38 +1,62 @@
 # Docker Ecosystem Setup and Verification Guide
 
-Complete guide for running and verifying NeuronDB, NeuronAgent, NeuronDesktop, and NeuronMCP together in Docker containers.
+<div align="center">
+
+**Complete guide for running and verifying all NeuronDB components in Docker**
+
+[![Docker](https://img.shields.io/badge/docker-compose-blue)](.)
+[![Components](https://img.shields.io/badge/components-4-blue)](.)
+[![Difficulty](https://img.shields.io/badge/difficulty-easy-brightgreen)](.)
+
+</div>
+
+---
+
+> [!TIP]
+> This guide covers running all four components together. For individual component setup, see component-specific documentation.
+
+---
 
 ## Overview
 
 This guide covers:
-- Starting all services with Docker Compose
-- Verifying all components are working
-- Testing integrations between services
-- Troubleshooting common issues
+
+| Topic | Description |
+|-------|-------------|
+| **Starting Services** | Start all services with Docker Compose |
+| **Verification** | Verify all components are working |
+| **Integration Testing** | Test integrations between services |
+| **Troubleshooting** | Common issues and solutions |
 
 ## Architecture
 
+<details>
+<summary><strong>📐 Docker Ecosystem Architecture</strong></summary>
+
+```mermaid
+graph TB
+    subgraph Network["Docker Network: neurondb-network"]
+        DB[NeuronDB<br/>PostgreSQL Extension<br/>Port: 5433]
+        AGENT[NeuronAgent<br/>REST/WebSocket API<br/>Port: 8080]
+        MCP[NeuronMCP<br/>MCP Protocol<br/>stdio]
+        DESKTOP_API[NeuronDesktop API<br/>REST API<br/>Port: 8081]
+        DESKTOP_UI[NeuronDesktop UI<br/>Web Frontend<br/>Port: 3000]
+    end
+    
+    AGENT -->|SQL| DB
+    MCP -->|SQL| DB
+    DESKTOP_API -->|SQL| DB
+    DESKTOP_UI -->|HTTP| DESKTOP_API
+    DESKTOP_API -->|HTTP| AGENT
+    
+    style DB fill:#e1f5ff
+    style AGENT fill:#fff4e1
+    style MCP fill:#e8f5e9
+    style DESKTOP_API fill:#f3e5f5
+    style DESKTOP_UI fill:#f3e5f5
 ```
-┌─────────────────────────────────────────────────────────┐
-│              Docker Network: neurondb-network          │
-├─────────────────────────────────────────────────────────┤
-│                                                           │
-│  ┌──────────────┐      ┌──────────────┐      ┌─────────┐│
-│  │  NeuronDB    │◄─────┤  NeuronAgent │      │ NeuronMCP││
-│  │  (PostgreSQL)│      │  (REST API)  │      │  (stdio) ││
-│  │  Port: 5433  │      │  Port: 8080  │      │          ││
-│  └──────┬───────┘      └──────┬───────┘      └────┬─────┘│
-│         │                      │                    │      │
-│         │                      │                    │      │
-│  ┌──────▼──────────────────────▼────────────────────▼─────┐│
-│  │         NeuronDesktop                                  ││
-│  │  ┌──────────────┐  ┌──────────────┐  ┌─────────────┐ ││
-│  │  │   Frontend   │  │     API      │  │   Init DB   │ ││
-│  │  │  Port: 3000  │  │  Port: 8081  │  │             │ ││
-│  │  └──────────────┘  └──────────────┘  └─────────────┘ ││
-│  └───────────────────────────────────────────────────────┘│
-└───────────────────────────────────────────────────────────┘
-```
+
+</details>
 
 ## Prerequisites
 
@@ -58,7 +82,11 @@ docker compose --profile metal up -d   # Metal (Apple Silicon)
 ```
 
 This will:
-- Build Docker images (first time only, takes 5-10 minutes)
+
+> [!NOTE]
+> The first build takes 5 to 10 minutes. Subsequent starts are faster.
+
+- Build Docker images (first time only)
 - Start all services in the correct order
 - Configure networking between components
 - Initialize databases
@@ -485,27 +513,42 @@ docker network rm neurondb-network 2>/dev/null || true
 
 ## Best Practices
 
-1. **Use `.env` file**: Never commit passwords to version control
-2. **Check health**: Always verify services are healthy before use
-3. **Monitor logs**: Use `docker compose logs -f` to monitor services
-4. **Resource limits**: Adjust CPU/memory limits in `docker-compose.yml` based on your system
-5. **Backup data**: NeuronDB data is in Docker volumes - back them up regularly
-6. **Build order**: Build `neuronmcp` before `neurondesk-api` to ensure binary is available
+> [!TIP]
+> Follow these practices for reliable Docker deployments.
 
-## Related Documentation
+<details>
+<summary><strong>✅ Best Practices Checklist</strong></summary>
 
-- [Docker Unified Guide](docker-unified.md) - Unified Docker orchestration
-- [NeuronDB Docker Guide](../../dockers/neurondb/readme.md) - NeuronDB-specific Docker info
-- [NeuronAgent Docker Guide](../../dockers/neuronagent/readme.md) - NeuronAgent-specific Docker info
-- [NeuronMCP Docker Guide](../../dockers/neuronmcp/readme.md) - NeuronMCP-specific Docker info
-- [Quick Start Guide](../../QUICKSTART.md) - Quick start instructions
+| Practice | Description | Priority |
+|----------|-------------|----------|
+| **Use `.env` file** | Never commit passwords to version control | ⚠️ Critical |
+| **Check health** | Verify services are healthy before use | ⚠️ Critical |
+| **Monitor logs** | Use `docker compose logs -f` to monitor services | ⭐ High |
+| **Resource limits** | Adjust CPU/memory limits based on your system | ⭐ High |
+| **Backup data** | NeuronDB data is in Docker volumes. Back them up regularly. | ⚠️ Critical |
+| **Build order** | Build `neuronmcp` before `neurondesk-api` to ensure binary is available | ⭐ High |
 
-## Support
+</details>
 
-For issues and questions:
-- Check service logs: `docker compose logs [service-name]`
-- Run verification script: `./scripts/verify-docker-ecosystem.sh --verbose`
-- GitHub Issues: [Report Issues](https://github.com/neurondb/NeurondB/issues)
-- Documentation: [Full Documentation](https://neurondb.ai/docs)
+---
+
+## 🔗 Related Documentation
+
+| Document | Description |
+|----------|-------------|
+| **[Docker Deployment](docker.md)** | Docker deployment guide |
+| **[Docker Unified Guide](docker-unified.md)** | Unified Docker orchestration |
+| **[NeuronDB Docker Guide](../../dockers/neurondb/README.md)** | NeuronDB-specific Docker info |
+| **[NeuronAgent Docker Guide](../../dockers/neuronagent/README.md)** | NeuronAgent-specific Docker info |
+| **[NeuronMCP Docker Guide](../../dockers/neuronmcp/README.md)** | NeuronMCP-specific Docker info |
+| **[Quick Start Guide](../../QUICKSTART.md)** | Quick start instructions |
+
+---
+
+<div align="center">
+
+[⬆ Back to Top](#docker-ecosystem-setup-and-verification-guide) · [📚 Deployment Index](README.md) · [📚 Main Documentation](../../README.md)
+
+</div>
 
 

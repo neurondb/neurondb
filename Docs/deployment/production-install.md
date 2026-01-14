@@ -1,6 +1,19 @@
 # Production Installation Guide
 
-This guide covers production-ready installation of NeuronDB on Kubernetes.
+<div align="center">
+
+**Production-ready installation of NeuronDB on Kubernetes**
+
+[![Production](https://img.shields.io/badge/production-ready-brightgreen)](.)
+[![Kubernetes](https://img.shields.io/badge/kubernetes-1.24+-blue)](.)
+[![Difficulty](https://img.shields.io/badge/difficulty-advanced-orange)](.)
+
+</div>
+
+---
+
+> [!WARNING]
+> This guide is for production deployments. Use strong passwords, enable TLS, and configure security properly. Do not use default credentials.
 
 ## Table of Contents
 
@@ -14,16 +27,29 @@ This guide covers production-ready installation of NeuronDB on Kubernetes.
 
 ## Prerequisites
 
-- Kubernetes cluster 1.24+
-- Helm 3.8+
-- kubectl configured
-- StorageClass for persistent volumes
-- (Optional) Prometheus Operator for observability
-- (Optional) External Secrets Operator for secret management
+<details>
+<summary><strong>📋 Prerequisites Checklist</strong></summary>
+
+| Requirement | Minimum Version | Required |
+|-------------|----------------|----------|
+| **Kubernetes** | 1.24+ | ✅ Yes |
+| **Helm** | 3.8+ | ✅ Yes |
+| **kubectl** | Latest | ✅ Yes |
+| **StorageClass** | - | ✅ Yes |
+| **Prometheus Operator** | - | ❌ Optional |
+| **External Secrets Operator** | - | ❌ Optional |
+
+</details>
 
 ## External PostgreSQL Setup
 
+> [!NOTE]
+> Use external PostgreSQL for production. It provides better reliability, backups, and management.
+
 ### Option A: AWS RDS
+
+<details>
+<summary><strong>☁️ AWS RDS Setup</strong></summary>
 
 1. Create RDS PostgreSQL instance:
 ```bash
@@ -79,7 +105,12 @@ kubectl create secret generic neurondb-external-postgres-secret \
   -n neurondb
 ```
 
+</details>
+
 ### Option C: Azure Database for PostgreSQL
+
+<details>
+<summary><strong>☁️ Azure Database Setup</strong></summary>
 
 1. Create Azure PostgreSQL Flexible Server:
 ```bash
@@ -334,7 +365,31 @@ kubectl get cronjob -n neurondb
 kubectl get jobs -n neurondb | grep backup
 ```
 
+---
+
 ## Troubleshooting
 
+> [!TIP]
+> Most production issues relate to configuration or resource limits. Check logs and resource usage first.
+
 See [Troubleshooting Guide](../operations/troubleshooting.md) for common issues.
+
+---
+
+## 🔗 Related Documentation
+
+| Document | Description |
+|----------|-------------|
+| **[Kubernetes/Helm Guide](kubernetes-helm.md)** | Kubernetes deployment |
+| **[HA Architecture](ha-architecture.md)** | High availability setup |
+| **[Backup and Restore](backup-restore.md)** | Backup procedures |
+| **[Sizing Guide](sizing-guide.md)** | Resource sizing |
+
+---
+
+<div align="center">
+
+[⬆ Back to Top](#production-installation-guide) · [📚 Deployment Index](README.md) · [📚 Main Documentation](../../README.md)
+
+</div>
 

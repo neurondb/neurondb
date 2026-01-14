@@ -1,6 +1,15 @@
 # Troubleshooting Guide
 
-Comprehensive troubleshooting guide for the NeuronDB ecosystem.
+<div align="center">
+
+**Comprehensive troubleshooting guide for the NeuronDB ecosystem**
+
+[![Troubleshooting](https://img.shields.io/badge/troubleshooting-complete-brightgreen)](.)
+[![Status](https://img.shields.io/badge/status-stable-blue)](.)
+
+</div>
+
+---
 
 ## Table of Contents
 
@@ -19,6 +28,9 @@ Comprehensive troubleshooting guide for the NeuronDB ecosystem.
 
 **Symptoms**: Services fail to start or crash immediately
 
+> [!TIP]
+> Check logs first. Most startup issues show clear error messages in container logs.
+
 **Diagnosis**:
 ```bash
 # Check logs
@@ -31,12 +43,16 @@ docker logs neurondesk-api
 ```
 
 **Solutions**:
+
+> [!NOTE]
+> Start with environment variables. Missing or incorrect values cause most startup failures.
+
 1. **Check environment variables**:
    ```bash
    docker exec neurondb-cpu env | grep POSTGRES
    ```
 
-2. **Check port conflicts** (Docker Compose default ports):
+2. **Check port conflicts**:
    ```bash
    # Check if ports are in use
    netstat -tuln | grep -E "5433|8080|8081|3000"
@@ -62,6 +78,9 @@ docker logs neurondesk-api
 
 **Symptoms**: Cannot connect to services
 
+> [!TIP]
+> Verify the service is running before checking network configuration.
+
 **Diagnosis**:
 ```bash
 # Test connectivity
@@ -83,7 +102,7 @@ sudo ufw status
    docker port neurondb-cpu
    ```
 
-3. **Check firewall rules** (Docker Compose default ports):
+3. **Check firewall rules**:
    ```bash
    sudo ufw allow 5433/tcp  # PostgreSQL (Docker Compose default)
    sudo ufw allow 8080/tcp  # NeuronAgent
@@ -98,6 +117,9 @@ sudo ufw status
 ### PostgreSQL Connection Failed
 
 **Symptoms**: Cannot connect to PostgreSQL
+
+> [!TIP]
+> Test the connection with psql first. This shows the exact error message.
 
 **Diagnosis**:
 ```bash
@@ -115,11 +137,15 @@ docker exec neurondb-cpu pg_isready -U neurondb -d neurondb
 ```
 
 **Solutions**:
-1. **Check credentials** (Docker Compose default):
+
+> [!NOTE]
+> Default Docker Compose credentials are for development only. Change them in production.
+
+1. **Check credentials**:
    ```bash
-   # Default Docker Compose credentials
+   # Default Docker Compose credentials (development only)
    # User: neurondb
-   # Password: neurondb (development only!)
+   # Password: neurondb
    # Database: neurondb
    # Port: 5433 (host), 5432 (container)
    
@@ -152,6 +178,9 @@ docker exec neurondb-cpu pg_isready -U neurondb -d neurondb
 
 **Symptoms**: `neurondb.version()` function not found
 
+> [!TIP]
+> The extension must be created in each database where you use it.
+
 **Diagnosis**:
 ```sql
 -- Check extension
@@ -162,6 +191,10 @@ SELECT * FROM pg_extension WHERE extname = 'neurondb';
 ```
 
 **Solutions**:
+
+> [!NOTE]
+> Create the extension in the database where you need it. Extensions are database-specific.
+
 1. **Install extension**:
    ```sql
    CREATE EXTENSION IF NOT EXISTS neurondb;
@@ -669,15 +702,24 @@ SELECT * FROM pg_locks WHERE NOT granted;
 
 ---
 
-## Conclusion
+---
 
-This troubleshooting guide covers the most common issues. For additional help:
+## 🔗 Related Documentation
 
-1. Check logs first
-2. Run health checks
-3. Review documentation
-4. Search GitHub issues
-5. Contact support
+| Document | Description |
+|----------|-------------|
+| **[Getting Started Troubleshooting](../getting-started/troubleshooting.md)** | Getting started issues |
+| **[Operations Runbooks](runbooks/troubleshooting.md)** | Advanced troubleshooting |
+| **[Observability Setup](observability-setup.md)** | Monitoring and diagnostics |
+| **[Deployment Guide](../deployment/README.md)** | Deployment troubleshooting |
+
+---
+
+<div align="center">
+
+[⬆ Back to Top](#troubleshooting-guide) · [📚 Operations Index](../README.md) · [📚 Main Documentation](../../README.md)
+
+</div>
 
 
 

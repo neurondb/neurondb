@@ -83,6 +83,10 @@ SET neurondb.hnsw_k = 10;           -- Number of results
 **Memory:** O(n * m)
 
 **Tuning:**
+
+> [!TIP]
+> Start with default values. Increase `m` and `ef_construction` for better quality. Increase `ef_search` for better recall.
+
 - Higher `m`: Better recall, slower build, more memory
 - Higher `ef_construction`: Better quality, slower build
 - Higher `ef_search`: Better recall, slower queries
@@ -147,6 +151,10 @@ SET neurondb.ivf_probes = 20;  -- Number of lists to search
 **Memory:** O(n)
 
 **Tuning:**
+
+> [!TIP]
+> Use more lists for better recall. Use fewer lists for faster builds on large datasets.
+
 - More `lists`: Better recall, slower build
 - More `probes`: Better recall, slower queries
 
@@ -349,16 +357,25 @@ SELECT * FROM pg_stat_neurondb_indexes;
 
 ---
 
-## Related Documentation
+---
 
-- [SQL API Reference](../../NeuronDB/docs/sql-api.md)
-- [Configuration Reference](../../NeuronDB/docs/configuration.md)
-- [NeuronDB Documentation](../../NeuronDB/docs/)
-- [NeuronAgent Architecture](../../NeuronAgent/docs/ARCHITECTURE.md)
-- [NeuronDesktop Frontend Architecture](neurondesktop-frontend.md)
+## 🔗 Related Documentation
+
+| Document | Description |
+|----------|-------------|
+| **[SQL API Reference](../../NeuronDB/docs/sql-api.md)** | Complete SQL API |
+| **[Configuration Reference](../../NeuronDB/docs/configuration.md)** | Configuration options |
+| **[Data Types Reference](../reference/data-types.md)** | Vector data types |
+| **[Vector Search Guide](../../NeuronDB/docs/vector-search/indexing.md)** | Indexing guide |
 
 ---
 
+<div align="center">
+
 **Last Updated:** 2025-01-01  
 **Documentation Version:** 1.0.0
+
+[⬆ Back to Top](#neurondb-index-methods-complete-reference) · [📚 Internals Index](README.md) · [📚 Main Documentation](../../README.md)
+
+</div>
 

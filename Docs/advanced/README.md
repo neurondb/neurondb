@@ -29,8 +29,8 @@ This section is for deeper dives: internals, performance tuning, deployment patt
 ## 📚 Advanced Topics
 
 ### Production Deployment
-- [NeuronAgent Deployment](../../NeuronAgent/docs/DEPLOYMENT.md) - Production setup
-- [NeuronDesktop Deployment](../../NeuronDesktop/docs/DEPLOYMENT.md) - Web UI deployment
+- [NeuronAgent Deployment](../../NeuronAgent/docs/deployment.md) - Production setup
+- [NeuronDesktop Deployment](../../NeuronDesktop/docs/deployment.md) - Web UI deployment
 - [Security Guide](../../SECURITY.md) - Security best practices
 - [Enterprise Deployment Guide](../../ENTERPRISE_DEPLOYMENT_GUIDE.md) - Enterprise setup
 
@@ -40,15 +40,15 @@ This section is for deeper dives: internals, performance tuning, deployment patt
 - [SIMD Optimization](../../NeuronDB/docs/performance/simd-optimization.md) - CPU optimization
 
 ### Architecture & Design
-- [NeuronAgent Architecture](../../NeuronAgent/docs/ARCHITECTURE.md) - System design
+- [NeuronAgent Architecture](../../NeuronAgent/docs/architecture.md) - System design
 - [Component Integration](../ecosystem/integration.md) - Integration patterns
 - [Ecosystem Overview](../ecosystem/README.md) - How components work together
 
 ### API References
 - [NeuronDB SQL API](../../NeuronDB/docs/sql-api.md) - 520+ SQL functions
-- [NeuronAgent REST API](../../NeuronAgent/docs/API.md) - Complete REST API
-- [NeuronMCP Tools](../../NeuronMCP/TOOLS_REFERENCE.md) - 100+ MCP tools
-- [NeuronDesktop API](../../NeuronDesktop/docs/API.md) - Web UI API
+- [NeuronAgent REST API](../../NeuronAgent/docs/api.md) - Complete REST API
+- [NeuronMCP Tools](../../NeuronMCP/REGISTERED_TOOLS.md) - 100+ MCP tools
+- [NeuronDesktop API](../../NeuronDesktop/docs/api.md) - Web UI API
 
 ### Development
 - [Contributing Guide](../../CONTRIBUTING.md) - How to contribute

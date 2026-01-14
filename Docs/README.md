@@ -17,7 +17,7 @@ Welcome to the NeuronDB documentation. This is the main entry point for all docu
 ### Reference Documentation
 - **[API Reference](reference/api-reference.md)** - Complete API reference for all components
 - **[Data Types](reference/data-types.md)** - All data types with detailed specifications
-- **[Top Functions](reference/TOP_FUNCTIONS.md)** - Most commonly used functions
+- **[Top Functions](reference/top_functions.md)** - Most commonly used functions
 - **[Glossary](reference/glossary.md)** - Terminology and definitions
 
 ### Deployment

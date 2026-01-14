@@ -146,9 +146,9 @@ graph TB
 | Component | Quick Links | Description |
 |-----------|-------------|-------------|
 | **NeuronDB** | [README](NeuronDB/README.md) · [INSTALL](NeuronDB/INSTALL.md) · [Docs](NeuronDB/docs/) | PostgreSQL extension with vector search, 52+ ML algorithms, GPU acceleration |
-| **NeuronAgent** | [README](NeuronAgent/README.md) · [API](NeuronAgent/docs/API.md) · [Architecture](NeuronAgent/docs/ARCHITECTURE.md) | REST/WebSocket agent runtime with multi-agent collaboration, workflow engine, HITL, 20+ tools, hierarchical memory, budget management, and evaluation framework |
-| **NeuronMCP** | [README](NeuronMCP/README.md) · [Tools](NeuronMCP/TOOLS_REFERENCE.md) · [Setup](NeuronMCP/docs/NEURONDB_MCP_SETUP.md) | MCP protocol server with 100+ tools (50+ vector operations, complete ML pipeline, RAG operations, 27 PostgreSQL admin tools, dataset loading), middleware system, batch operations, progress tracking, enterprise features (Prometheus metrics, webhooks, circuit breaker, caching), and full MCP protocol support (prompts, sampling/completions, resources) |
-| **NeuronDesktop** | [README](NeuronDesktop/README.md) · [API](NeuronDesktop/docs/API.md) · [Deployment](NeuronDesktop/docs/DEPLOYMENT.md) | Unified web interface dashboard |
+| **NeuronAgent** | [README](NeuronAgent/README.md) · [API](NeuronAgent/docs/api.md) · [Architecture](NeuronAgent/docs/architecture.md) | REST/WebSocket agent runtime with multi-agent collaboration, workflow engine, HITL, 20+ tools, hierarchical memory, budget management, and evaluation framework |
+| **NeuronMCP** | [README](NeuronMCP/README.md) · [Tools](NeuronMCP/REGISTERED_TOOLS.md) · [Setup](NeuronMCP/docs/neurondb_mcp_setup.md) | MCP protocol server with 100+ tools (50+ vector operations, complete ML pipeline, RAG operations, 27 PostgreSQL admin tools, dataset loading), middleware system, batch operations, progress tracking, enterprise features (Prometheus metrics, webhooks, circuit breaker, caching), and full MCP protocol support (prompts, sampling/completions, resources) |
+| **NeuronDesktop** | [README](NeuronDesktop/README.md) · [API](NeuronDesktop/docs/api.md) · [Deployment](NeuronDesktop/docs/deployment.md) | Unified web interface dashboard |
 
 ### Ecosystem Documentation
 
@@ -294,33 +294,33 @@ graph TB
 | [SQL API Reference](NeuronDB/docs/sql-api.md) | Complete SQL function reference (520+ functions) |
 | [Function Stability](NeuronDB/docs/function-stability.md) | API stability classifications |
 | [Deprecation Policy](NeuronDB/docs/deprecation-policy.md) | Deprecation and removal process |
-| [API Snapshots](NeuronDB/docs/api-snapshots/readme.md) | Versioned API references |
+| [API Snapshots](NeuronDB/docs/api-snapshots/README.md) | Versioned API references |
 
 ### NeuronAgent API
 
 | Document | Description |
 |----------|-------------|
-| [REST API Reference](NeuronAgent/docs/API.md) | Complete REST API documentation |
+| [REST API Reference](NeuronAgent/docs/api.md) | Complete REST API documentation |
 | [OpenAPI Spec](NeuronAgent/openapi/openapi.yaml) | OpenAPI 3.0 specification |
-| [Architecture](NeuronAgent/docs/ARCHITECTURE.md) | System architecture |
+| [Architecture](NeuronAgent/docs/architecture.md) | System architecture |
 
 ### NeuronMCP API
 
 | Document | Description |
 |----------|-------------|
-| [Tools Reference](NeuronMCP/TOOLS_REFERENCE.md) | Complete tool reference (100+ tools) |
+| [Tools Reference](NeuronMCP/REGISTERED_TOOLS.md) | Complete tool reference (100+ tools) |
 | [PostgreSQL Tools](NeuronMCP/POSTGRESQL_TOOLS.md) | PostgreSQL administration tools (27 tools) |
 | [Tool Catalog](NeuronMCP/docs/tool-resource-catalog.md) | Complete tool and resource catalog |
-| [Setup Guide](NeuronMCP/docs/NEURONDB_MCP_SETUP.md) | MCP server setup |
+| [Setup Guide](NeuronMCP/docs/neurondb_mcp_setup.md) | MCP server setup |
 
 ### NeuronDesktop API
 
 | Document | Description |
 |----------|-------------|
-| [API Reference](NeuronDesktop/docs/API.md) | Complete API documentation |
-| [Integration Guide](NeuronDesktop/docs/INTEGRATION.md) | Component integration |
-| [NeuronAgent Usage](NeuronDesktop/docs/NEURONAGENT_USAGE.md) | Using NeuronAgent in UI |
-| [NeuronMCP Setup](NeuronDesktop/docs/NEURONMCP_SETUP.md) | MCP server setup in UI |
+| [API Reference](NeuronDesktop/docs/api.md) | Complete API documentation |
+| [Integration Guide](NeuronDesktop/docs/integration.md) | Component integration |
+| [NeuronAgent Usage](NeuronDesktop/docs/neuronagent_usage.md) | Using NeuronAgent in UI |
+| [NeuronMCP Setup](NeuronDesktop/docs/neuronmcp_setup.md) | MCP server setup in UI |
 
 ---
 
@@ -339,8 +339,8 @@ graph TB
 
 | Document | Description |
 |----------|-------------|
-| [NeuronAgent Deployment](NeuronAgent/docs/DEPLOYMENT.md) | Production deployment guide |
-| [NeuronDesktop Deployment](NeuronDesktop/docs/DEPLOYMENT.md) | Web interface deployment |
+| [NeuronAgent Deployment](NeuronAgent/docs/deployment.md) | Production deployment guide |
+| [NeuronDesktop Deployment](NeuronDesktop/docs/deployment.md) | Web interface deployment |
 | [Security Policy](SECURITY.md) | Security best practices |
 
 ---
@@ -442,8 +442,8 @@ graph TB
 <summary><strong>🤖 Build AI Agents</strong></summary>
 
 - [ ] Create agents → [NeuronAgent README](NeuronAgent/README.md)
-- [ ] Use REST API → [API Reference](NeuronAgent/docs/API.md)
-- [ ] Deploy agents → [Deployment Guide](NeuronAgent/docs/DEPLOYMENT.md)
+- [ ] Use REST API → [API Reference](NeuronAgent/docs/api.md)
+- [ ] Deploy agents → [Deployment Guide](NeuronAgent/docs/deployment.md)
 
 </details>
 
@@ -451,8 +451,8 @@ graph TB
 <summary><strong>🔌 Integrate with MCP</strong></summary>
 
 - [ ] Setup MCP server → [NeuronMCP README](NeuronMCP/README.md)
-- [ ] Use with Claude → [Setup Guide](NeuronMCP/docs/NEURONDB_MCP_SETUP.md)
-- [ ] Explore tools → [Tools Reference](NeuronMCP/TOOLS_REFERENCE.md)
+- [ ] Use with Claude → [Setup Guide](NeuronMCP/docs/neurondb_mcp_setup.md)
+- [ ] Explore tools → [Tools Reference](NeuronMCP/REGISTERED_TOOLS.md)
 
 </details>
 
@@ -460,8 +460,8 @@ graph TB
 <summary><strong>🖥️ Use Web Interface</strong></summary>
 
 - [ ] Setup dashboard → [NeuronDesktop README](NeuronDesktop/README.md)
-- [ ] Integrate components → [Integration Guide](NeuronDesktop/docs/INTEGRATION.md)
-- [ ] Deploy production → [Deployment Guide](NeuronDesktop/docs/DEPLOYMENT.md)
+- [ ] Integrate components → [Integration Guide](NeuronDesktop/docs/integration.md)
+- [ ] Deploy production → [Deployment Guide](NeuronDesktop/docs/deployment.md)
 
 </details>
 

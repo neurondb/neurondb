@@ -1,29 +1,74 @@
-# Kubernetes Helm Deployment Guide
+# ☸️ Kubernetes Helm Deployment Guide
 
-Complete guide for deploying NeuronDB ecosystem on Kubernetes using Helm.
+<div align="center">
 
-## Table of Contents
+**Complete guide for deploying NeuronDB ecosystem on Kubernetes using Helm**
 
-- [Prerequisites](#prerequisites)
-- [Quick Start](#quick-start)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Upgrading](#upgrading)
-- [Accessing Services](#accessing-services)
-- [Monitoring](#monitoring)
-- [Troubleshooting](#troubleshooting)
+[![Kubernetes](https://img.shields.io/badge/kubernetes-1.24+-blue)](.)
+[![Helm](https://img.shields.io/badge/helm-3.8+-blue)](.)
+[![Difficulty](https://img.shields.io/badge/difficulty-advanced-orange)](.)
 
-## Prerequisites
+</div>
 
-- Kubernetes cluster (1.24+)
-- Helm 3.8+
-- kubectl configured to access your cluster
-- Storage class configured (for persistent volumes)
-- Ingress controller (optional, for external access)
+---
+
+> [!TIP]
+> This guide covers production-grade Kubernetes deployment. It includes high availability, monitoring, and security features.
+
+---
+
+## 📑 Table of Contents
+
+| Section | Description |
+|---------|-------------|
+| [Prerequisites](#prerequisites) | Required tools and cluster setup |
+| [Quick Start](#quick-start) | Fast deployment steps |
+| [Installation](#installation) | Detailed installation guide |
+| [Configuration](#configuration) | Configuration options |
+| [Upgrading](#upgrading) | Upgrade procedures |
+| [Accessing Services](#accessing-services) | Service access methods |
+| [Monitoring](#monitoring) | Monitoring setup |
+| [Troubleshooting](#troubleshooting) | Common issues and solutions |
+
+## ✅ Prerequisites
+
+<details>
+<summary><strong>📋 Prerequisites Checklist</strong></summary>
+
+| Requirement | Minimum Version | Description |
+|-------------|----------------|-------------|
+| **Kubernetes** | 1.24+ | Kubernetes cluster |
+| **Helm** | 3.8+ | Helm package manager |
+| **kubectl** | Latest | Kubernetes CLI tool |
+| **Storage Class** | - | For persistent volumes |
+| **Ingress Controller** | - | Optional, for external access |
+
+</details>
 
 ## Features
 
-This Helm chart provides a complete cloud-native deployment with:
+This Helm chart provides a complete cloud-native deployment.
+
+<details>
+<summary><strong>✨ Helm Chart Features</strong></summary>
+
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **StatefulSet** | NeuronDB with persistent storage | ✅ Included |
+| **Deployments** | All services with configurable replicas | ✅ Included |
+| **Horizontal Pod Autoscaling** | For NeuronAgent | ✅ Included |
+| **Pod Disruption Budgets** | For high availability | ✅ Included |
+| **Init Containers** | For proper startup ordering | ✅ Included |
+| **ServiceAccounts** | For security | ✅ Included |
+| **Network Policies** | For network security | ✅ Optional |
+| **Health Checks** | Liveness and readiness probes | ✅ Included |
+| **Resource Limits** | CPU and memory limits | ✅ Included |
+| **ConfigMaps** | For configuration management | ✅ Included |
+| **Secrets** | For sensitive data | ✅ Included |
+| **Ingress** | Support with TLS | ✅ Included |
+| **Observability Stack** | Prometheus, Grafana, Jaeger | ✅ Included |
+
+</details>
 
 - **StatefulSet** for NeuronDB with persistent storage
 - **Deployments** for all services with configurable replicas
@@ -586,20 +631,41 @@ neuronagent:
 
 ## Production Recommendations
 
-1. **Secrets Management**: Use external secret management (AWS Secrets Manager, HashiCorp Vault)
-2. **Backup Strategy**: Implement automated backups using CronJob or external backup tools
-3. **Monitoring**: Enable full observability stack and set up alerting
-4. **Resource Limits**: Set appropriate requests/limits based on workload
-5. **High Availability**: Use multiple replicas and pod anti-affinity
-6. **Storage**: Use fast, reliable storage class for production
-7. **Ingress**: Enable TLS/SSL for external access
-8. **Network Policies**: Implement network policies for security
+> [!IMPORTANT]
+> Follow these recommendations for production deployments.
 
-## Support
+<details>
+<summary><strong>✅ Production Checklist</strong></summary>
 
-For issues and questions:
+| Recommendation | Description | Priority |
+|----------------|-------------|----------|
+| **Secrets Management** | Use external secret management (AWS Secrets Manager, HashiCorp Vault) | ⚠️ Critical |
+| **Backup Strategy** | Implement automated backups using CronJob or external backup tools | ⚠️ Critical |
+| **Monitoring** | Enable full observability stack and set up alerting | ⭐ High |
+| **Resource Limits** | Set appropriate requests and limits based on workload | ⭐ High |
+| **High Availability** | Use multiple replicas and pod anti-affinity | ⭐ High |
+| **Storage** | Use fast, reliable storage class for production | ⭐ High |
+| **Ingress** | Enable TLS/SSL for external access | ⚠️ Critical |
+| **Network Policies** | Implement network policies for security | ⚠️ Critical |
 
-- GitHub Issues: https://github.com/neurondb/neurondb/issues
-- Documentation: https://docs.neurondb.ai
-- Community: https://discord.gg/neurondb
+</details>
+
+---
+
+## 🔗 Related Documentation
+
+| Document | Description |
+|----------|-------------|
+| **[Production Installation](production-install.md)** | Production setup guide |
+| **[HA Architecture](ha-architecture.md)** | High availability setup |
+| **[Backup and Restore](backup-restore.md)** | Backup procedures |
+| **[Troubleshooting](../operations/troubleshooting.md)** | Common issues |
+
+---
+
+<div align="center">
+
+[⬆ Back to Top](#️-kubernetes-helm-deployment-guide) · [📚 Deployment Index](README.md) · [📚 Main Documentation](../../README.md)
+
+</div>
 

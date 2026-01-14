@@ -87,7 +87,7 @@ NeuronDB is a PostgreSQL extension that adds vector search, machine learning, an
 ## Docker
 
 - Compose services: `neurondb` (cpu), `neurondb-cuda`, `neurondb-rocm`, `neurondb-metal`
-- See: `dockers/neurondb/readme.md` and repo-root `docker-compose.yml`
+- See: `dockers/neurondb/README.md` and repo-root `docker-compose.yml`
 
 ## Quick Start
 

@@ -12,8 +12,7 @@
 
 ---
 
-> [!TIP]
-> **First time here?** This guide walks you through everything step-by-step. If you're experienced with Docker and PostgreSQL, you might prefer the [Technical Quickstart](quickstart.md).
+This guide walks you through setup step by step. If you know Docker and PostgreSQL, use the [Technical Quickstart](quickstart.md).
 
 ---
 
@@ -38,8 +37,7 @@
 | **🐳 Docker** (recommended) | Fastest start, easiest setup | 5 min | ⭐ Easy | Docker installed |
 | **🔧 Native build** | Custom setup, production-like | 30+ min | ⭐⭐⭐ Advanced | PostgreSQL dev headers, C compiler |
 
-> [!NOTE]
-> **Why Docker?** Docker handles all dependencies automatically. You don't need to install PostgreSQL, configure it, or worry about version compatibility. Everything runs in isolated containers.
+Docker handles all dependencies automatically. You do not need to install PostgreSQL or configure it. Everything runs in isolated containers.
 
 ---
 
@@ -98,8 +96,7 @@ docker compose up -d neurondb
 docker compose up -d
 ```
 
-> [!TIP]
-> **What's happening?** Docker is downloading and starting a PostgreSQL container with the NeuronDB extension pre-installed. The `-d` flag runs it in the background.
+Docker downloads and starts a PostgreSQL container with the NeuronDB extension. The `-d` flag runs it in the background.
 
 **What to expect:**
 - First time: Downloads images (may take 2-5 minutes)
@@ -120,8 +117,7 @@ NAME                STATUS
 neurondb-cpu        healthy (or running)
 ```
 
-> [!IMPORTANT]
-> **Wait for "healthy" status** - This means PostgreSQL has fully initialized and is ready to accept connections. This typically takes 30-60 seconds.
+Wait for "healthy" status. This means PostgreSQL initialized and accepts connections. This takes 30 to 60 seconds.
 
 <details>
 <summary><strong>🔍 What if it's not healthy?</strong></summary>

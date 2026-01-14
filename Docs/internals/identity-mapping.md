@@ -1,8 +1,18 @@
 # Identity Model Mapping
 
-## Component-to-Unified Model Mapping
+<div align="center">
 
-This document maps existing component-specific identity models to the unified identity model.
+**Component-to-unified identity model mapping**
+
+[![Internals](https://img.shields.io/badge/internals-advanced-orange)](.)
+[![Status](https://img.shields.io/badge/status-stable-brightgreen)](.)
+
+</div>
+
+---
+
+> [!NOTE]
+> This document maps existing component-specific identity models to the unified identity model. Use this for migration planning.
 
 ## NeuronDesktop → Unified Model
 
@@ -47,22 +57,43 @@ This document maps existing component-specific identity models to the unified id
 
 ## Migration Path
 
+> [!WARNING]
+> Test migrations in a development environment first. Back up databases before running migration scripts.
+
 ### Phase 1: Schema Alignment
+
+<details>
+<summary><strong>📋 Schema Migration Steps</strong></summary>
+
 1. Run `008_unified_identity_model.sql` on NeuronDesktop database
 2. Run `014_unified_identity_model.sql` on NeuronAgent database
-3. Create principals for existing users/orgs
+3. Create principals for existing users and organizations
 4. Link API keys to principals
 
+</details>
+
 ### Phase 2: Code Updates
+
+<details>
+<summary><strong>💻 Code Migration Steps</strong></summary>
+
 1. Update imports to use `pkg/identity`
 2. Replace component-specific types with unified types
 3. Update API key resolution logic
 4. Update permission checks
 
+</details>
+
 ### Phase 3: Service Integration
+
+<details>
+<summary><strong>🔗 Service Integration Steps</strong></summary>
+
 1. Implement service account tokens
-2. Update service-to-service auth
+2. Update service-to-service authentication
 3. Add cross-component identity resolution
+
+</details>
 
 ## Data Migration Examples
 
@@ -147,6 +178,10 @@ GROUP BY principal_type;
 ```
 
 ### Verify Data Integrity
+
+> [!TIP]
+> Run these queries after migration to verify data integrity.
+
 ```sql
 -- Check orphaned API keys
 SELECT COUNT(*) 
@@ -160,6 +195,24 @@ FROM audit_log
 WHERE principal_id IS NOT NULL 
 AND principal_id NOT IN (SELECT id FROM principals);
 ```
+
+---
+
+## 🔗 Related Documentation
+
+| Document | Description |
+|----------|-------------|
+| **[Unified Identity Model](unified-identity-model.md)** | Unified identity architecture |
+| **[Identity Integration Guide](identity-integration-guide.md)** | Integration procedures |
+| **[OIDC Session Security](oidc-session-security.md)** | Security implementation |
+
+---
+
+<div align="center">
+
+[⬆ Back to Top](#identity-model-mapping) · [📚 Internals Index](README.md) · [📚 Main Documentation](../../README.md)
+
+</div>
 
 
 

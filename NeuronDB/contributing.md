@@ -1,12 +1,20 @@
 # Contributing to NeuronDB
 
-**For comprehensive contributing guidelines covering all NeuronDB ecosystem components, please see the root [CONTRIBUTING.md](../CONTRIBUTING.md).**
+Thank you for your interest in contributing to NeuronDB!
 
-This document provides NeuronDB-specific information for contributors working on the PostgreSQL extension.
+## Getting Started
 
-## NeuronDB-Specific Guidelines
+1. Fork the repository
+2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/NeurondB.git` (replace `YOUR_USERNAME` with your GitHub username)
+3. Create a feature branch: `git checkout -b feature/my-feature`
+4. Make your changes
+5. Test your changes: `make clean && make && make installcheck`
+6. Commit with clear messages: `git commit -m "Add feature X"`
+7. Push and create a pull request
 
-### C Code Standards
+## Code Standards
+
+### C Code
 - **Style**: 100% PostgreSQL C coding standards
 - **Comments**: Only C-style `/* */` comments
 - **Variables**: Declared at start of function (C89/C99 compliance)
@@ -26,21 +34,28 @@ This document provides NeuronDB-specific information for contributors working on
 - Run `make installcheck` before submitting PR
 - Document test cases clearly
 
-### Formatting
-```bash
-# Format all C files
-./scripts/neurondb_format.sh
+## Pull Request Process
 
-# Check formatting without modifying files
-./scripts/neurondb_format.sh --check
+1. Update documentation if needed
+2. Add/update tests for new features
+3. Ensure all tests pass
+4. Update CHANGELOG.md
+5. Request review from maintainers
 
-# Show diff of formatting changes
-./scripts/neurondb_format.sh --diff
-```
+## Code Review
 
-## See Also
+All submissions require review. We use GitHub pull requests for this purpose.
 
-- [Root CONTRIBUTING.md](../CONTRIBUTING.md) - Complete contributing guidelines
-- [NeuronDB README.md](README.md) - Component overview
-- [Development Guide](../Docs/development/development-guide.md) - Development setup
+## Community
+
+- Be respectful and constructive
+- Follow PostgreSQL community guidelines
+- Help others when possible
+- Contact: support@neurondb.ai for questions
+
+## License
+
+By contributing, you agree that your contributions will be licensed under
+the same proprietary license as the project (see LICENSE file in the root
+directory).
 

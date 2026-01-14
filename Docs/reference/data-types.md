@@ -1,6 +1,15 @@
 # NeuronDB Data Types Complete Reference
 
-**Complete reference for all data types, internal structures, and type system in NeuronDB.**
+<div align="center">
+
+**Complete reference for all data types, internal structures, and type system in NeuronDB**
+
+[![Reference](https://img.shields.io/badge/reference-complete-brightgreen)](.)
+[![Version](https://img.shields.io/badge/version-1.0-blue)](.)
+
+</div>
+
+---
 
 > **Version:** 1.0  
 > **PostgreSQL Compatibility:** 16, 17, 18  
@@ -28,7 +37,10 @@
 
 #### Description
 
-The main vector type in NeuronDB, using float32 precision. This is the primary type for storing embeddings and performing vector operations.
+The main vector type in NeuronDB. It uses float32 precision. This is the primary type for storing embeddings and performing vector operations.
+
+> [!NOTE]
+> Use the `vector` type for most vector operations. It provides the best balance of precision and performance.
 
 #### Structure
 
@@ -98,7 +110,10 @@ INSERT INTO embeddings (embedding) VALUES ('[0.1, 0.2, 0.3]'::vector);
 
 #### Description
 
-Half-precision vector type for 2x compression. Uses IEEE 754 half-precision floating point format.
+Half-precision vector type. It provides 2x compression. It uses IEEE 754 half-precision floating point format.
+
+> [!TIP]
+> Use `halfvec` when you need to reduce storage size. It works well for large datasets where slight precision loss is acceptable.
 
 #### Structure
 
@@ -739,15 +754,25 @@ typedef struct {
 
 ---
 
-## Related Documentation
+---
 
-- [SQL API Reference](../../NeuronDB/docs/sql-api.md)
-- [Configuration Reference](../../NeuronDB/docs/configuration.md)
-- [Index Methods](../internals/index-methods.md)
-- [Vector Search Documentation](../../NeuronDB/docs/vector-search/)
+## 🔗 Related Documentation
+
+| Document | Description |
+|----------|-------------|
+| **[SQL API Reference](../../NeuronDB/docs/sql-api.md)** | Complete SQL API |
+| **[Configuration Reference](../../NeuronDB/docs/configuration.md)** | Configuration options |
+| **[Index Methods](../internals/index-methods.md)** | Index implementation |
+| **[Vector Search Documentation](../../NeuronDB/docs/vector-search/)** | Vector search guide |
 
 ---
 
+<div align="center">
+
 **Last Updated:** 2025-01-01  
 **Documentation Version:** 1.0.0
+
+[⬆ Back to Top](#neurondb-data-types-complete-reference) · [📚 Reference Index](README.md) · [📚 Main Documentation](../../README.md)
+
+</div>
 

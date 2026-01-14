@@ -12,9 +12,9 @@
 ---
 
 > [!TIP]
-> **New here?** Start with the [Simple Start Guide](simple-start.md) for a beginner-friendly walkthrough with detailed explanations.
+> Start with the [Simple Start Guide](simple-start.md) for a beginner-friendly walkthrough with detailed explanations.
 >
-> **Ecosystem Setup?** For complete NeuronDB ecosystem (Docker, all components), see the [root QUICKSTART.md](../../QUICKSTART.md).
+> For complete NeuronDB ecosystem setup, see the [root QUICKSTART.md](../../QUICKSTART.md).
 
 ---
 
@@ -77,7 +77,7 @@ neurondb-cpu        healthy
 ```
 
 > [!NOTE]
-> **What's happening?** Docker is starting a PostgreSQL container with NeuronDB pre-installed. The first run may take 2-5 minutes to download images.
+> Docker starts a PostgreSQL container with NeuronDB pre-installed. The first run takes 2 to 5 minutes to download images.
 
 ### Option B: Native Installation 🔧
 
@@ -89,7 +89,7 @@ Follow the detailed [Installation Guide](installation.md) for native PostgreSQL 
 
 ### ✅ Verify Installation
 
-**Test that NeuronDB is installed correctly:**
+**Test NeuronDB installation:**
 
 ```bash
 # With Docker Compose
@@ -118,7 +118,7 @@ psql -d your_database -c "SELECT neurondb.version();"
 ```
 
 > [!SUCCESS]
-> **Great!** If you see version `2.0` (or similar), NeuronDB is installed and working correctly.
+> If you see version `2.0` or similar, NeuronDB is installed and working correctly.
 
 ---
 
@@ -396,7 +396,7 @@ SELECT * FROM neurondb.retrieve_context(
 
 ### What is an Embedding?
 
-An **embedding** is a vector (array of numbers) that represents the semantic meaning of text. Similar texts have similar embeddings.
+An embedding is a vector. It represents the semantic meaning of text. Similar texts have similar embeddings.
 
 **Example:**
 - "machine learning" → `[0.1, 0.2, 0.3, ...]` (384 numbers)
@@ -416,7 +416,7 @@ An **embedding** is a vector (array of numbers) that represents the semantic mea
 
 ### What is HNSW Index?
 
-**HNSW** (Hierarchical Navigable Small World) is an index that makes vector search fast:
+HNSW stands for Hierarchical Navigable Small World. It is an index. It makes vector search fast.
 - Without index: O(n) - checks every vector
 - With HNSW: O(log n) - checks only a few vectors
 
@@ -488,7 +488,7 @@ CREATE INDEX ON quickstart_documents USING hnsw (embedding vector_cosine_ops);
 SELECT embed_text('text', 'sentence-transformers/all-mpnet-base-v2');
 ```
 
-### Q: Can I use my own data?
+### Q: How do I use my own data?
 
 **A:** Yes! Create your own table and load your data:
 ```sql

@@ -1,20 +1,51 @@
-# API Reference
+# 📚 API Reference
 
-Complete API reference for the NeuronDB ecosystem.
+<div align="center">
 
-## Table of Contents
+**Complete API reference for the NeuronDB ecosystem**
 
-1. [NeuronDesktop API](#neurondesktop-api)
-2. [NeuronAgent API](#neuronagent-api)
-3. [NeuronMCP API](#neuronmcp-api)
-4. [Authentication](#authentication)
-5. [Error Handling](#error-handling)
+[![APIs](https://img.shields.io/badge/APIs-3-blue)](.)
+[![Status](https://img.shields.io/badge/status-stable-brightgreen)](.)
+
+</div>
 
 ---
 
-## NeuronDesktop API
+> [!TIP]
+> **Component APIs:** Each component has its own API. See component-specific documentation for detailed guides and examples.
 
-Base URL: `http://localhost:8081/api/v1`
+---
+
+## 📑 Table of Contents
+
+| Section | Description |
+|---------|-------------|
+| [NeuronDesktop API](#neurondesktop-api) | Web UI REST and WebSocket API |
+| [NeuronAgent API](#neuronagent-api) | Agent runtime REST and WebSocket API |
+| [NeuronMCP API](#neuronmcp-api) | MCP protocol tools and resources |
+| [Authentication](#authentication) | Authentication methods |
+| [Error Handling](#error-handling) | Error codes and handling |
+
+---
+
+## 🖥️ NeuronDesktop API
+
+<details>
+<summary><strong>📡 API Overview</strong></summary>
+
+**Base URL:** `http://localhost:8081/api/v1`
+
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **REST API** | HTTP REST endpoints | ✅ Stable |
+| **WebSocket** | Real-time WebSocket connections | ✅ Stable |
+| **Authentication** | Local auth and OIDC support | ✅ Stable |
+| **Profiles** | Database connection profiles | ✅ Stable |
+
+> [!NOTE]
+> **Default Port:** NeuronDesktop API runs on port `8081` by default. The web UI runs on port `3000`.
+
+</details>
 
 ### Authentication
 
@@ -780,9 +811,12 @@ Authorization: Bearer eyJhbGc...
 
 ---
 
-## Error Handling
+## ⚠️ Error Handling
 
-### Error Response Format
+<details>
+<summary><strong>📋 Error Response Format</strong></summary>
+
+All errors follow a consistent format:
 
 ```json
 {
@@ -792,40 +826,58 @@ Authorization: Bearer eyJhbGc...
 }
 ```
 
+</details>
+
 ### HTTP Status Codes
 
-- `200 OK` - Success
-- `201 Created` - Resource created
-- `400 Bad Request` - Invalid request
-- `401 Unauthorized` - Authentication required
-- `403 Forbidden` - Insufficient permissions
-- `404 Not Found` - Resource not found
-- `500 Internal Server Error` - Server error
+| Code | Status | Description |
+|------|--------|-------------|
+| **200** | OK | Success |
+| **201** | Created | Resource created |
+| **400** | Bad Request | Invalid request |
+| **401** | Unauthorized | Authentication required |
+| **403** | Forbidden | Insufficient permissions |
+| **404** | Not Found | Resource not found |
+| **500** | Internal Server Error | Server error |
 
 ### Common Error Codes
 
-- `INVALID_REQUEST` - Request validation failed
-- `UNAUTHORIZED` - Authentication required
-- `FORBIDDEN` - Insufficient permissions
-- `NOT_FOUND` - Resource not found
-- `RATE_LIMIT_EXCEEDED` - Rate limit exceeded
-- `INTERNAL_ERROR` - Internal server error
+| Code | Description | HTTP Status |
+|------|-------------|-------------|
+| `INVALID_REQUEST` | Request validation failed | 400 |
+| `UNAUTHORIZED` | Authentication required | 401 |
+| `FORBIDDEN` | Insufficient permissions | 403 |
+| `NOT_FOUND` | Resource not found | 404 |
+| `RATE_LIMIT_EXCEEDED` | Rate limit exceeded | 429 |
+| `INTERNAL_ERROR` | Internal server error | 500 |
 
 ---
 
-## Rate Limiting
+## 🚦 Rate Limiting
 
-Default rate limits:
-- **API Keys**: 100 requests/minute
-- **Sessions**: 1000 requests/minute
-- **Admin**: 10000 requests/minute
+<details>
+<summary><strong>📊 Default Rate Limits</strong></summary>
 
-Rate limit headers:
+| Authentication Type | Rate Limit | Description |
+|---------------------|------------|-------------|
+| **API Keys** | 100 requests/minute | Standard API key authentication |
+| **Sessions** | 1000 requests/minute | User session authentication |
+| **Admin** | 10000 requests/minute | Administrative access |
+
+</details>
+
+### Rate Limit Headers
+
+All responses include rate limit headers:
+
 ```http
 X-RateLimit-Limit: 100
 X-RateLimit-Remaining: 95
 X-RateLimit-Reset: 1640995200
 ```
+
+> [!NOTE]
+> **Rate Limit Exceeded:** When rate limit is exceeded, the API returns HTTP 429 with `RATE_LIMIT_EXCEEDED` error code.
 
 ---
 
@@ -915,10 +967,33 @@ See `examples/` directory for complete examples:
 
 ---
 
-## Support
+---
 
-- **Documentation**: `Docs/` directory
-- **Issues**: GitHub Issues
-- **Email**: support@neurondb.ai
+## 🔗 Related Documentation
+
+| Document | Description |
+|----------|-------------|
+| **[NeuronAgent API](neuronagent-api.md)** | Complete NeuronAgent API reference |
+| **[Top Functions](top_functions.md)** | Most commonly used SQL functions |
+| **[Data Types](data-types.md)** | Complete data types reference |
+| **[Component Documentation](../components/README.md)** | Component overviews |
+
+---
+
+## 💬 Support
+
+| Resource | Link |
+|---------|------|
+| **Documentation** | `Docs/` directory |
+| **GitHub Issues** | [Report Issues](https://github.com/neurondb/neurondb2/issues) |
+| **Email Support** | support@neurondb.ai |
+
+---
+
+<div align="center">
+
+[⬆ Back to Top](#-api-reference) · [📚 Reference Index](README.md) · [📚 Main Documentation](../../README.md)
+
+</div>
 
 

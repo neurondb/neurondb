@@ -1,57 +1,106 @@
-# NeuronAgent
+# 🤖 NeuronAgent
+
+<div align="center">
+
+**AI agent runtime system with REST API and WebSocket endpoints**
+
+[![Status](https://img.shields.io/badge/status-stable-brightgreen)](.)
+[![API](https://img.shields.io/badge/API-REST%20%7C%20WebSocket-blue)](.)
+[![Tools](https://img.shields.io/badge/tools-20+-green)](.)
+
+</div>
+
+---
+
+> [!TIP]
+> NeuronAgent provides a complete platform for building autonomous AI agents. It includes persistent memory, tool execution, and multi-agent collaboration.
+
+---
+
+## 📋 What It Is
 
 NeuronAgent is an AI agent runtime system providing REST API and WebSocket endpoints for building autonomous agent applications.
 
-## What it is
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **Agent Runtime** | Complete state machine for autonomous task execution with persistent memory | ✅ Stable |
+| **REST API** | Full CRUD API for agents, sessions, messages, and advanced features | ✅ Stable |
+| **WebSocket Support** | Real-time streaming agent responses | ✅ Stable |
+| **Tool System** | Extensible tool registry with 20+ built-in tools | ✅ Stable |
+| **Multi-Agent Collaboration** | Agent-to-agent communication and task delegation | ✅ Stable |
+| **Workflow Engine** | DAG-based workflow execution with human-in-the-loop support | ✅ Stable |
+| **Memory Management** | HNSW-based vector search for long-term memory with hierarchical organization | ✅ Stable |
+| **Integration** | Direct integration with NeuronDB for embeddings, LLM, and vector operations | ✅ Stable |
 
-- **Agent Runtime**: Complete state machine for autonomous task execution with persistent memory
-- **REST API**: Full CRUD API for agents, sessions, messages, and advanced features
-- **WebSocket Support**: Real-time streaming agent responses
-- **Tool System**: Extensible tool registry with 20+ built-in tools
-- **Multi-Agent Collaboration**: Agent-to-agent communication and task delegation
-- **Workflow Engine**: DAG-based workflow execution with human-in-the-loop support
-- **Memory Management**: HNSW-based vector search for long-term memory with hierarchical organization
-- **Integration**: Direct integration with NeuronDB for embeddings, LLM, and vector operations
+## 🎯 Key Features & Modules
 
-## Key Features & Modules
+<details>
+<summary><strong>⚙️ Core Agent Runtime</strong></summary>
 
-### Core Agent Runtime
-- **Agent State Machine**: Complete execution engine with state management
-- **Session Management**: Multi-session support with caching and cleanup
-- **Context Management**: Intelligent context loading from messages and memory
-- **Prompt Engineering**: Advanced prompt construction with templating
-- **LLM Integration**: Integration with NeuronDB LLM functions (OpenAI, HuggingFace)
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **Agent State Machine** | Complete execution engine with state management | ✅ Stable |
+| **Session Management** | Multi-session support with caching and cleanup | ✅ Stable |
+| **Context Management** | Intelligent context loading from messages and memory | ✅ Stable |
+| **Prompt Engineering** | Advanced prompt construction with templating | ✅ Stable |
+| **LLM Integration** | Integration with NeuronDB LLM functions (OpenAI, HuggingFace) | ✅ Stable |
 
-### Memory & Knowledge
-- **Long-term Memory**: HNSW-based vector search for context retrieval
-- **Hierarchical Memory**: Multi-level memory organization for better recall
-- **Memory Promotion**: Background worker for promoting important memories
-- **Event Streaming**: Real-time event capture and summarization
+</details>
 
-### Tool System (20+ Tools)
-- **Core Tools**: SQL (read-only), HTTP (with allowlist), Code (sandboxed), Shell (whitelisted)
-- **Browser Tool**: Web automation with Playwright for DOM interaction and navigation
-- **Filesystem Tool**: Virtual filesystem integration for file operations
-- **Memory Tool**: Direct memory manipulation and retrieval
-- **Collaboration Tool**: Multi-agent communication and task delegation
-- **NeuronDB Tools**: RAG, Hybrid Search, Reranking, Vector, ML, Analytics, Visualization
-- **Multimodal Tool**: Image and multimedia processing
-- **Tool Registry**: Extensible system for registering custom tools
+<details>
+<summary><strong>🧠 Memory & Knowledge</strong></summary>
 
-### Multi-Agent Collaboration
-- **Agent Delegation**: Delegate tasks to specialized agents
-- **Inter-Agent Communication**: Message passing between agents
-- **Workspace Management**: Shared workspaces for collaborative agents
-- **Sub-Agents**: Hierarchical agent structures for complex tasks
-- **Collaboration API**: REST endpoints for managing agent collaborations
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **Long-term Memory** | HNSW-based vector search for context retrieval | ✅ Stable |
+| **Hierarchical Memory** | Multi-level memory organization for better recall | ✅ Stable |
+| **Memory Promotion** | Background worker for promoting important memories | ✅ Stable |
+| **Event Streaming** | Real-time event capture and summarization | ✅ Stable |
 
-### Workflow Engine
-- **DAG Workflows**: Directed acyclic graph workflow execution
-- **Workflow Steps**: Agent, tool, HTTP, approval, and conditional steps
-- **Human-in-the-Loop (HITL)**: Approval gates and feedback loops
-- **Idempotency**: Idempotent step execution with key-based caching
-- **Retries**: Configurable retry logic for workflow steps
-- **Workflow API**: Complete CRUD API for workflows and executions
+</details>
+
+<details>
+<summary><strong>🔧 Tool System (20+ Tools)</strong></summary>
+
+| Category | Tools | Description | Status |
+|----------|-------|-------------|--------|
+| **Core Tools** | SQL, HTTP, Code, Shell | SQL (read-only), HTTP (with allowlist), Code (sandboxed), Shell (whitelisted) | ✅ Stable |
+| **Browser Tool** | Browser | Web automation with Playwright for DOM interaction and navigation | ✅ Stable |
+| **Filesystem Tool** | Filesystem | Virtual filesystem integration for file operations | ✅ Stable |
+| **Memory Tool** | Memory | Direct memory manipulation and retrieval | ✅ Stable |
+| **Collaboration Tool** | Collaboration | Multi-agent communication and task delegation | ✅ Stable |
+| **NeuronDB Tools** | RAG, Hybrid Search, Reranking, Vector, ML, Analytics, Visualization | Complete NeuronDB integration | ✅ Stable |
+| **Multimodal Tool** | Multimodal | Image and multimedia processing | ✅ Stable |
+| **Tool Registry** | Custom Tools | Extensible system for registering custom tools | ✅ Stable |
+
+</details>
+
+<details>
+<summary><strong>👥 Multi-Agent Collaboration</strong></summary>
+
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **Agent Delegation** | Delegate tasks to specialized agents | ✅ Stable |
+| **Inter-Agent Communication** | Message passing between agents | ✅ Stable |
+| **Workspace Management** | Shared workspaces for collaborative agents | ✅ Stable |
+| **Sub-Agents** | Hierarchical agent structures for complex tasks | ✅ Stable |
+| **Collaboration API** | REST endpoints for managing agent collaborations | ✅ Stable |
+
+</details>
+
+<details>
+<summary><strong>🔄 Workflow Engine</strong></summary>
+
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **DAG Workflows** | Directed acyclic graph workflow execution | ✅ Stable |
+| **Workflow Steps** | Agent, tool, HTTP, approval, and conditional steps | ✅ Stable |
+| **Human-in-the-Loop (HITL)** | Approval gates and feedback loops | ✅ Stable |
+| **Idempotency** | Idempotent step execution with key-based caching | ✅ Stable |
+| **Retries** | Configurable retry logic for workflow steps | ✅ Stable |
+| **Workflow API** | Complete CRUD API for workflows and executions | ✅ Stable |
+
+</details>
 
 ### Planning & Task Management
 - **LLM-Based Planning**: Advanced planning with task decomposition
@@ -60,45 +109,81 @@ NeuronAgent is an AI agent runtime system providing REST API and WebSocket endpo
 - **Task Notifications**: Alerts and notifications for task events
 - **Plans API**: Endpoints for creating, managing, and executing plans
 
-### Quality & Evaluation
-- **Reflections**: Agent self-reflection and quality assessment
-- **Quality Scoring**: Automated quality scoring for agent responses
-- **Evaluation Framework**: Built-in evaluation system for agent performance
-- **Verification Agent**: Dedicated agent for verifying outputs
-- **Execution Snapshots**: Capture and replay agent execution states
+<details>
+<summary><strong>📊 Quality & Evaluation</strong></summary>
 
-### Budget & Cost Management
-- **Cost Tracking**: Real-time cost tracking for LLM usage
-- **Budget Management**: Per-agent and per-session budget controls
-- **Budget Alerts**: Configurable alerts for budget thresholds
-- **Budget API**: Complete API for managing budgets and tracking costs
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **Reflections** | Agent self-reflection and quality assessment | ✅ Stable |
+| **Quality Scoring** | Automated quality scoring for agent responses | ✅ Stable |
+| **Evaluation Framework** | Built-in evaluation system for agent performance | ✅ Stable |
+| **Verification Agent** | Dedicated agent for verifying outputs | ✅ Stable |
+| **Execution Snapshots** | Capture and replay agent execution states | ✅ Stable |
 
-### Human-in-the-Loop (HITL)
-- **Approval Workflows**: Human approval gates in workflows
-- **Feedback System**: Collect and integrate human feedback
-- **Alert Preferences**: Configurable alert preferences for users
-- **HumanLoop API**: Endpoints for approvals and feedback
+</details>
 
-### Versioning & History
-- **Version Management**: Version control for agents and configurations
-- **Execution Replay**: Replay previous agent executions
-- **Execution Snapshots**: Capture and restore agent states
-- **Versions API**: API for managing versions and viewing history
+<details>
+<summary><strong>💰 Budget & Cost Management</strong></summary>
 
-### Observability & Monitoring
-- **Prometheus Metrics**: Comprehensive metrics export
-- **Structured Logging**: JSON-formatted logs with context
-- **Tracing**: Distributed tracing support
-- **Debugging Tools**: Advanced debugging capabilities
-- **Event Streaming**: Real-time event capture and analysis
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **Cost Tracking** | Real-time cost tracking for LLM usage | ✅ Stable |
+| **Budget Management** | Per-agent and per-session budget controls | ✅ Stable |
+| **Budget Alerts** | Configurable alerts for budget thresholds | ✅ Stable |
+| **Budget API** | Complete API for managing budgets and tracking costs | ✅ Stable |
 
-### Security & Safety
-- **API Key Authentication**: Bcrypt-hashed API keys with rate limiting
-- **RBAC**: Role-based access control with fine-grained permissions
-- **Data Permissions**: Per-principal data access controls
-- **Tool Permissions**: Granular tool access permissions
-- **Audit Logging**: Comprehensive audit trail for all operations
-- **Safety Moderation**: Content moderation and safety checks
+</details>
+
+<details>
+<summary><strong>👤 Human-in-the-Loop (HITL)</strong></summary>
+
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **Approval Workflows** | Human approval gates in workflows | ✅ Stable |
+| **Feedback System** | Collect and integrate human feedback | ✅ Stable |
+| **Alert Preferences** | Configurable alert preferences for users | ✅ Stable |
+| **HumanLoop API** | Endpoints for approvals and feedback | ✅ Stable |
+
+</details>
+
+<details>
+<summary><strong>📜 Versioning & History</strong></summary>
+
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **Version Management** | Version control for agents and configurations | ✅ Stable |
+| **Execution Replay** | Replay previous agent executions | ✅ Stable |
+| **Execution Snapshots** | Capture and restore agent states | ✅ Stable |
+| **Versions API** | API for managing versions and viewing history | ✅ Stable |
+
+</details>
+
+<details>
+<summary><strong>📊 Observability & Monitoring</strong></summary>
+
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **Prometheus Metrics** | Comprehensive metrics export | ✅ Stable |
+| **Structured Logging** | JSON-formatted logs with context | ✅ Stable |
+| **Tracing** | Distributed tracing support | ✅ Stable |
+| **Debugging Tools** | Advanced debugging capabilities | ✅ Stable |
+| **Event Streaming** | Real-time event capture and analysis | ✅ Stable |
+
+</details>
+
+<details>
+<summary><strong>🔒 Security & Safety</strong></summary>
+
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **API Key Authentication** | Bcrypt-hashed API keys with rate limiting | ✅ Stable |
+| **RBAC** | Role-based access control with fine-grained permissions | ✅ Stable |
+| **Data Permissions** | Per-principal data access controls | ✅ Stable |
+| **Tool Permissions** | Granular tool access permissions | ✅ Stable |
+| **Audit Logging** | Comprehensive audit trail for all operations | ✅ Stable |
+| **Safety Moderation** | Content moderation and safety checks | ✅ Stable |
+
+</details>
 
 ### Integrations & Connectors
 - **S3 Connector**: AWS S3 integration for storage
@@ -128,30 +213,51 @@ NeuronAgent is an AI agent runtime system providing REST API and WebSocket endpo
 - **Relationship Management**: Manage relationships between entities
 - **Advanced Handlers**: Specialized handlers for complex operations
 
-## Documentation
+---
 
-- **Main README**: `NeuronAgent/README.md`
-- **API Reference**: `NeuronAgent/docs/API.md`
-- **Architecture**: `NeuronAgent/docs/ARCHITECTURE.md`
-- **Deployment**: `NeuronAgent/docs/DEPLOYMENT.md`
-- **OpenAPI Spec**: `NeuronAgent/openapi/openapi.yaml`
-- **Official Docs**: [https://www.neurondb.ai/docs/neuronagent](https://www.neurondb.ai/docs/neuronagent)
+## 📚 Documentation
 
-## Docker
+| Resource | Location | Description |
+|----------|----------|-------------|
+| **Main README** | `NeuronAgent/README.md` | Component overview |
+| **API Reference** | `NeuronAgent/docs/api.md` | Complete API documentation |
+| **Architecture** | `NeuronAgent/docs/architecture.md` | Architecture details |
+| **Deployment** | `NeuronAgent/docs/deployment.md` | Deployment guide |
+| **OpenAPI Spec** | `NeuronAgent/openapi/openapi.yaml` | OpenAPI 3.0 specification |
+| **Official Docs** | [https://www.neurondb.ai/docs/neuronagent](https://www.neurondb.ai/docs/neuronagent) | Online documentation |
 
-- Compose service: `neuronagent` (plus GPU-profile variants)
-- From repo root: `docker compose up -d neuronagent`
-- See: `NeuronAgent/docker/readme.md`
+---
 
-## Quick Start
+## 🐳 Docker
 
-### Minimal Verification
+| Service | Description |
+|---------|-------------|
+| **neuronagent** | Main service (CPU) |
+| **neuronagent-cuda** | NVIDIA GPU variant |
+| **neuronagent-rocm** | AMD GPU variant |
+| **neuronagent-metal** | Apple Silicon GPU variant |
+
+> [!TIP]
+> **Docker Setup:** See [`NeuronAgent/docker/README.md`](../../NeuronAgent/docker/README.md) for detailed Docker deployment instructions.
+
+---
+
+## 🚀 Quick Start
+
+<details>
+<summary><strong>✅ Minimal Verification</strong></summary>
 
 ```bash
+# Check health endpoint
 curl -sS http://localhost:8080/health
+
+# Expected output: {"status":"ok"}
 ```
 
-### Create Agent
+</details>
+
+<details>
+<summary><strong>🤖 Create Agent</strong></summary>
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/agents \
@@ -164,4 +270,29 @@ curl -X POST http://localhost:8080/api/v1/agents \
   }'
 ```
 
-For complete setup instructions, see `NeuronAgent/README.md`.
+> [!NOTE]
+> **API Key:** Replace `YOUR_API_KEY` with your actual API key. See [NeuronAgent API Reference](reference/neuronagent-api.md) for authentication details.
+
+</details>
+
+> [!TIP]
+> **Complete Setup:** For complete setup instructions, see [`NeuronAgent/README.md`](../../NeuronAgent/README.md).
+
+---
+
+## 🔗 Related Documentation
+
+| Document | Description |
+|----------|-------------|
+| **[Components Overview](README.md)** | All components overview |
+| **[API Reference](reference/neuronagent-api.md)** | Complete API reference |
+| **[Architecture Guide](../internals/neuronagent-architecture.md)** | Internal architecture |
+| **[Deployment Guide](../deployment/docker.md)** | Docker deployment |
+
+---
+
+<div align="center">
+
+[⬆ Back to Top](#-neuronagent) · [📚 Components Index](README.md) · [📚 Main Documentation](../../README.md)
+
+</div>

@@ -214,5 +214,5 @@ You should see `neurondb` in the list of extensions.
 - `scripts/run_tests_docker.sh`: Helper script for running tests with Docker
 - `NeuronDB/tests/run_test.py`: Main test runner script
 - `docker-compose.yml`: Docker configuration with port mappings
-- `scripts/test_neurondb_docker.sh`: Basic connectivity test script
+- `scripts/neurondb-docker.sh test`: Basic connectivity test script
 

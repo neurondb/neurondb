@@ -1,13 +1,32 @@
-# NeuronMCP
+# 🔌 NeuronMCP
+
+<div align="center">
+
+**Model Context Protocol (MCP) server with 100+ tools for NeuronDB**
+
+[![Status](https://img.shields.io/badge/status-stable-brightgreen)](.)
+[![Tools](https://img.shields.io/badge/tools-100+-green)](.)
+[![Protocol](https://img.shields.io/badge/protocol-MCP-blue)](.)
+
+</div>
+
+---
+
+> [!TIP]
+> NeuronMCP provides a complete MCP protocol implementation. It includes 100+ tools for vector operations, ML, RAG, and PostgreSQL administration.
+
+---
+
+## 📋 What It Is
 
 NeuronMCP is a Model Context Protocol (MCP) server providing comprehensive tools and resources for MCP-compatible clients to interact with NeuronDB.
 
-## What it is
-
-- **MCP Protocol Server**: Full JSON-RPC 2.0 implementation with stdio, HTTP, and SSE transport
-- **Tool Server**: 100+ tools covering vector operations, ML, RAG, PostgreSQL administration, and dataset loading
-- **Resource Provider**: Schema, models, indexes, config, workers, and stats with real-time subscriptions
-- **Enterprise Platform**: Middleware system, authentication, caching, metrics, webhooks, and resilience features
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **MCP Protocol Server** | Full JSON-RPC 2.0 implementation with stdio, HTTP, and SSE transport | ✅ Stable |
+| **Tool Server** | 100+ tools covering vector operations, ML, RAG, PostgreSQL administration, and dataset loading | ✅ Stable |
+| **Resource Provider** | Schema, models, indexes, config, workers, and stats with real-time subscriptions | ✅ Stable |
+| **Enterprise Platform** | Middleware system, authentication, caching, metrics, webhooks, and resilience features | ✅ Stable |
 
 ## Key Features & Modules
 
@@ -110,9 +129,9 @@ NeuronMCP is a Model Context Protocol (MCP) server providing comprehensive tools
 ## Documentation
 
 - **Main README**: `NeuronMCP/README.md`
-- **Tools Reference**: `NeuronMCP/TOOLS_REFERENCE.md`
+- **Tools Reference**: `NeuronMCP/REGISTERED_TOOLS.md`
 - **PostgreSQL Tools**: `NeuronMCP/POSTGRESQL_TOOLS.md`
-- **Setup Guide**: `NeuronMCP/docs/NEURONDB_MCP_SETUP.md`
+- **Setup Guide**: `NeuronMCP/docs/neurondb_mcp_setup.md`
 - **Tool Catalog**: `NeuronMCP/docs/tool-resource-catalog.md`
 - **Examples**: `NeuronMCP/docs/examples/`
 - **Official Docs**: [https://www.neurondb.ai/docs/neuronmcp](https://www.neurondb.ai/docs/neuronmcp)
@@ -121,7 +140,7 @@ NeuronMCP is a Model Context Protocol (MCP) server providing comprehensive tools
 
 - Compose service: `neuronmcp` (plus GPU-profile variants)
 - From repo root: `docker compose up -d neuronmcp`
-- See: `NeuronMCP/docker/readme.md`
+- See: `NeuronMCP/docker/README.md`
 
 ## Quick Start
 

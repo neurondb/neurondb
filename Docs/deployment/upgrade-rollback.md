@@ -1,15 +1,36 @@
 # Upgrade and Rollback Guide
 
-Complete procedures for upgrading and rolling back NeuronDB.
+<div align="center">
+
+**Complete procedures for upgrading and rolling back NeuronDB**
+
+[![Upgrade](https://img.shields.io/badge/upgrade-guide-blue)](.)
+[![Status](https://img.shields.io/badge/status-stable-brightgreen)](.)
+
+</div>
+
+---
+
+> [!WARNING]
+> Always back up your database before upgrading. Test upgrades in a development environment first.
+
+---
 
 ## Pre-Upgrade Checklist
 
-- [ ] Review release notes for breaking changes
-- [ ] Backup database (see [Backup Guide](./backup-restore.md))
-- [ ] Verify current version: `helm list -n neurondb`
-- [ ] Check migration status: `kubectl get jobs -n neurondb | grep migration`
-- [ ] Ensure sufficient cluster resources
-- [ ] Review values.yaml for deprecated options
+<details>
+<summary><strong>✅ Pre-Upgrade Checklist</strong></summary>
+
+| Task | Command | Required |
+|------|---------|----------|
+| **Review release notes** | Check CHANGELOG.md | ⚠️ Critical |
+| **Backup database** | See [Backup Guide](./backup-restore.md) | ⚠️ Critical |
+| **Verify current version** | `helm list -n neurondb` | ✅ Yes |
+| **Check migration status** | `kubectl get jobs -n neurondb \| grep migration` | ✅ Yes |
+| **Ensure resources** | Check cluster capacity | ✅ Yes |
+| **Review values.yaml** | Check for deprecated options | ⭐ High |
+
+</details>
 
 ## Upgrade Procedure
 
@@ -242,11 +263,40 @@ helm install neurondb ./helm/neurondb \
 
 ## Best Practices
 
-1. **Always backup before upgrade**
-2. **Test upgrades in staging first**
-3. **Review breaking changes in release notes**
-4. **Monitor during and after upgrade**
-5. **Keep rollback plan ready**
-6. **Document custom migrations**
-7. **Use canary deployments for major upgrades**
+> [!IMPORTANT]
+> Follow these practices for safe upgrades.
+
+<details>
+<summary><strong>✅ Upgrade Best Practices</strong></summary>
+
+| Practice | Description | Priority |
+|----------|-------------|----------|
+| **Always backup** | Backup before upgrade | ⚠️ Critical |
+| **Test in staging** | Test upgrades in staging first | ⚠️ Critical |
+| **Review changes** | Review breaking changes in release notes | ⚠️ Critical |
+| **Monitor** | Monitor during and after upgrade | ⚠️ Critical |
+| **Rollback plan** | Keep rollback plan ready | ⚠️ Critical |
+| **Document migrations** | Document custom migrations | ⭐ High |
+| **Canary deployments** | Use canary deployments for major upgrades | ⭐ High |
+
+</details>
+
+---
+
+## 🔗 Related Documentation
+
+| Document | Description |
+|----------|-------------|
+| **[Production Installation](production-install.md)** | Production setup guide |
+| **[Backup and Restore](backup-restore.md)** | Backup procedures |
+| **[Troubleshooting](../operations/troubleshooting.md)** | Common issues |
+| **[CHANGELOG](../../CHANGELOG.md)** | Version history |
+
+---
+
+<div align="center">
+
+[⬆ Back to Top](#upgrade-and-rollback-guide) · [📚 Deployment Index](README.md) · [📚 Main Documentation](../../README.md)
+
+</div>
 

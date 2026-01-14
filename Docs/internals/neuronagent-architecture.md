@@ -1,8 +1,18 @@
 # NeuronAgent Architecture
 
-## Overview
+<div align="center">
 
-NeuronAgent is an AI agent runtime system that integrates with the NeuronDB PostgreSQL extension to provide agent capabilities including long-term memory, tool execution, planning, reflection, and advanced features like browser automation, collaboration, and hierarchical memory.
+**AI agent runtime system architecture and design**
+
+[![Architecture](https://img.shields.io/badge/architecture-complete-brightgreen)](.)
+[![Status](https://img.shields.io/badge/status-stable-blue)](.)
+
+</div>
+
+---
+
+> [!NOTE]
+> NeuronAgent integrates with the NeuronDB PostgreSQL extension. It provides agent capabilities including long-term memory, tool execution, planning, reflection, and advanced features.
 
 ## System Architecture
 
@@ -487,3 +497,22 @@ Key configuration areas:
 - Database health check
 - Component health status
 - Graceful degradation
+
+---
+
+## 🔗 Related Documentation
+
+| Document | Description |
+|----------|-------------|
+| **[NeuronAgent Component](../components/neuronagent.md)** | Component overview |
+| **[NeuronAgent API Reference](../../NeuronAgent/docs/api-reference.md)** | API documentation |
+| **[Agent Runtime Guide](../../NeuronAgent/docs/runtime.md)** | Runtime guide |
+| **[Tool Registry](../../NeuronAgent/docs/tools.md)** | Tool documentation |
+
+---
+
+<div align="center">
+
+[⬆ Back to Top](#neuronagent-architecture) · [📚 Internals Index](README.md) · [📚 Main Documentation](../../README.md)
+
+</div>
