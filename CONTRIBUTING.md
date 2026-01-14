@@ -365,7 +365,7 @@ All submissions require review. We use GitHub pull requests for this purpose.
 
 - Each line contains max 80-90 characters.
 
-- According to Module add NeuronDB:, NeuronMCP: or NeuronAgent: in first
+- According to Module add NeuronDB:, NeuronMCP:, NeuronAgent: or NeuronDesktop: in first
   line of commit message.
 
 ### Example
@@ -384,11 +384,6 @@ callers and simplifying future maintenance.
 ## License
 
 By contributing, you agree that your contributions will be licensed under
-the Apache License 2.0 with Commons Clause restrictions and strict
-commercial use prohibitions, the same license as the project.
-
-This license strictly prohibits commercial use, creating companies based
-on the code, and restricts source code use to personal, non-commercial
-purposes only. Personal use of binaries is permitted. See the LICENSE
-file for full terms.
+the same proprietary license as the project (see LICENSE file in the root
+directory).
 

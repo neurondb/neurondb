@@ -587,7 +587,7 @@ resourceGovernance:
 backup:
   enabled: true
   schedule: "0 2 * * *"   # Daily at 2 AM (cron format)
-  retention: 3[0-9]  # days
+  retention: 30  # days
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 1
   activeDeadlineSeconds: 3600

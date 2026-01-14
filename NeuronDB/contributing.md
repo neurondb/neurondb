@@ -1,20 +1,12 @@
 # Contributing to NeuronDB
 
-Thank you for your interest in contributing to NeuronDB!
+**For comprehensive contributing guidelines covering all NeuronDB ecosystem components, please see the root [CONTRIBUTING.md](../CONTRIBUTING.md).**
 
-## Getting Started
+This document provides NeuronDB-specific information for contributors working on the PostgreSQL extension.
 
-1. Fork the repository
-2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/NeurondB.git` (replace `YOUR_USERNAME` with your GitHub username)
-3. Create a feature branch: `git checkout -b feature/my-feature`
-4. Make your changes
-5. Test your changes: `make clean && make && make installcheck`
-6. Commit with clear messages: `git commit -m "Add feature X"`
-7. Push and create a pull request
+## NeuronDB-Specific Guidelines
 
-## Code Standards
-
-### C Code
+### C Code Standards
 - **Style**: 100% PostgreSQL C coding standards
 - **Comments**: Only C-style `/* */` comments
 - **Variables**: Declared at start of function (C89/C99 compliance)
@@ -34,28 +26,21 @@ Thank you for your interest in contributing to NeuronDB!
 - Run `make installcheck` before submitting PR
 - Document test cases clearly
 
-## Pull Request Process
+### Formatting
+```bash
+# Format all C files
+./scripts/neurondb_format.sh
 
-1. Update documentation if needed
-2. Add/update tests for new features
-3. Ensure all tests pass
-4. Update CHANGELOG.md
-5. Request review from maintainers
+# Check formatting without modifying files
+./scripts/neurondb_format.sh --check
 
-## Code Review
+# Show diff of formatting changes
+./scripts/neurondb_format.sh --diff
+```
 
-All submissions require review. We use GitHub pull requests for this purpose.
+## See Also
 
-## Community
-
-- Be respectful and constructive
-- Follow PostgreSQL community guidelines
-- Help others when possible
-- Contact: support@neurondb.ai for questions
-
-## License
-
-By contributing, you agree that your contributions will be licensed under
-the same proprietary license as the project (see LICENSE file in the root
-directory).
+- [Root CONTRIBUTING.md](../CONTRIBUTING.md) - Complete contributing guidelines
+- [NeuronDB README.md](README.md) - Component overview
+- [Development Guide](../Docs/development/development-guide.md) - Development setup
 
