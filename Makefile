@@ -26,8 +26,9 @@
 # Default target
 .DEFAULT_GOAL := help
 
-# Docker Compose file
+# Docker Compose file and command
 COMPOSE_FILE := docker-compose.yml
+DOCKER_COMPOSE := $(shell command -v docker-compose >/dev/null 2>&1 && echo docker-compose || echo docker compose)
 
 # Colors for output
 CYAN := \033[0;36m
@@ -122,38 +123,42 @@ docker-build: docker-build-cpu ## Build all services (CPU variant, same as docke
 
 docker-build-cpu: ## Build CPU variant only
 	@echo "$(CYAN)Building NeuronDB (CPU)...$(NC)"
-	docker compose -f $(COMPOSE_FILE) --profile default build neurondb
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) --profile default build neurondb
 	@echo "$(CYAN)Building NeuronAgent...$(NC)"
-	docker compose -f $(COMPOSE_FILE) --profile default build neuronagent
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) --profile default build neuronagent
 	@echo "$(CYAN)Building NeuronMCP...$(NC)"
-	docker compose -f $(COMPOSE_FILE) --profile default build neuronmcp
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) --profile default build neuronmcp
+	@echo "$(CYAN)Building NeuronDesktop API...$(NC)"
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) --profile default build neurondesk-api
+	@echo "$(CYAN)Building NeuronDesktop Frontend...$(NC)"
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) --profile default build neurondesk-frontend
 	@echo "$(GREEN)✓ Build complete (CPU)$(NC)"
 
 docker-build-cuda: ## Build CUDA GPU variant
 	@echo "$(CYAN)Building NeuronDB (CUDA)...$(NC)"
-	docker compose -f $(COMPOSE_FILE) --profile cuda build neurondb-cuda
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) --profile cuda build neurondb-cuda
 	@echo "$(CYAN)Building NeuronAgent...$(NC)"
-	docker compose -f $(COMPOSE_FILE) --profile cuda build neuronagent-cuda
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) --profile cuda build neuronagent-cuda
 	@echo "$(CYAN)Building NeuronMCP...$(NC)"
-	docker compose -f $(COMPOSE_FILE) --profile cuda build neuronmcp-cuda
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) --profile cuda build neuronmcp-cuda
 	@echo "$(GREEN)✓ Build complete (CUDA)$(NC)"
 
 docker-build-rocm: ## Build ROCm GPU variant
 	@echo "$(CYAN)Building NeuronDB (ROCm)...$(NC)"
-	docker compose -f $(COMPOSE_FILE) --profile rocm build neurondb-rocm
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) --profile rocm build neurondb-rocm
 	@echo "$(CYAN)Building NeuronAgent...$(NC)"
-	docker compose -f $(COMPOSE_FILE) --profile rocm build neuronagent-rocm
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) --profile rocm build neuronagent-rocm
 	@echo "$(CYAN)Building NeuronMCP...$(NC)"
-	docker compose -f $(COMPOSE_FILE) --profile rocm build neuronmcp-rocm
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) --profile rocm build neuronmcp-rocm
 	@echo "$(GREEN)✓ Build complete (ROCm)$(NC)"
 
 docker-build-metal: ## Build Metal GPU variant
 	@echo "$(CYAN)Building NeuronDB (Metal)...$(NC)"
-	docker compose -f $(COMPOSE_FILE) --profile metal build neurondb-metal
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) --profile metal build neurondb-metal
 	@echo "$(CYAN)Building NeuronAgent...$(NC)"
-	docker compose -f $(COMPOSE_FILE) --profile metal build neuronagent-metal
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) --profile metal build neuronagent-metal
 	@echo "$(CYAN)Building NeuronMCP...$(NC)"
-	docker compose -f $(COMPOSE_FILE) --profile metal build neuronmcp-metal
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) --profile metal build neuronmcp-metal
 	@echo "$(GREEN)✓ Build complete (Metal)$(NC)"
 
 # ============================================================================
@@ -168,7 +173,7 @@ docker-run-cpu: ## Start all services (CPU variant)
 		echo "$(YELLOW)Warning: .env file not found. Using defaults.$(NC)"; \
 		echo "$(YELLOW)Copy env.example to .env to customize settings.$(NC)"; \
 	fi
-	docker compose -f $(COMPOSE_FILE) --profile default up -d
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) --profile default up -d
 	@echo "$(GREEN)✓ Services started$(NC)"
 	@echo "$(CYAN)NeuronDB:    localhost:5433$(NC)"
 	@echo "$(CYAN)NeuronAgent: http://localhost:8080$(NC)"
@@ -183,7 +188,7 @@ docker-run-cuda: ## Start all services with CUDA GPU
 		echo "$(YELLOW)Warning: .env file not found. Using defaults.$(NC)"; \
 		echo "$(YELLOW)Copy env.example to .env and set DB_HOST=neurondb-cuda for GPU support.$(NC)"; \
 	fi
-	docker compose -f $(COMPOSE_FILE) --profile cuda up -d
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) --profile cuda up -d
 	@echo "$(GREEN)✓ Services started (CUDA)$(NC)"
 	@echo "$(CYAN)NeuronDB:    localhost:5434$(NC)"
 	@echo "$(CYAN)NeuronAgent: http://localhost:8080$(NC)"
@@ -198,7 +203,7 @@ docker-run-rocm: ## Start all services with ROCm GPU
 		echo "$(YELLOW)Warning: .env file not found. Using defaults.$(NC)"; \
 		echo "$(YELLOW)Copy env.example to .env and set DB_HOST=neurondb-rocm for GPU support.$(NC)"; \
 	fi
-	docker compose -f $(COMPOSE_FILE) --profile rocm up -d
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) --profile rocm up -d
 	@echo "$(GREEN)✓ Services started (ROCm)$(NC)"
 	@echo "$(CYAN)NeuronDB:    localhost:5435$(NC)"
 	@echo "$(CYAN)NeuronAgent: http://localhost:8080$(NC)"
@@ -213,7 +218,7 @@ docker-run-metal: ## Start all services with Metal GPU
 		echo "$(YELLOW)Warning: .env file not found. Using defaults.$(NC)"; \
 		echo "$(YELLOW)Copy env.example to .env and set DB_HOST=neurondb-metal for GPU support.$(NC)"; \
 	fi
-	docker compose -f $(COMPOSE_FILE) --profile metal up -d
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) --profile metal up -d
 	@echo "$(GREEN)✓ Services started (Metal)$(NC)"
 	@echo "$(CYAN)NeuronDB:    localhost:5436$(NC)"
 	@echo "$(CYAN)NeuronAgent: http://localhost:8080$(NC)"
@@ -228,19 +233,19 @@ docker-run-metal: ## Start all services with Metal GPU
 
 docker-stop: ## Stop all running services
 	@echo "$(CYAN)Stopping services...$(NC)"
-	docker compose -f $(COMPOSE_FILE) stop
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) stop
 	@echo "$(GREEN)✓ Services stopped$(NC)"
 
 docker-logs: ## View logs from all services
-	docker compose -f $(COMPOSE_FILE) logs -f
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) logs -f
 
 docker-ps: ## Show running containers
-	docker compose -f $(COMPOSE_FILE) ps
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) ps
 
 docker-status: docker-ps ## Show service status (alias for docker-ps)
 	@echo ""
 	@echo "$(CYAN)Service Health:$(NC)"
-	@docker compose -f $(COMPOSE_FILE) ps --format json | grep -q '"Health":"healthy"' && echo "$(GREEN)✓ Services healthy$(NC)" || echo "$(YELLOW)⚠ Some services may not be healthy$(NC)"
+	@$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) ps --format json | grep -q '"Health":"healthy"' && echo "$(GREEN)✓ Services healthy$(NC)" || echo "$(YELLOW)⚠ Some services may not be healthy$(NC)"
 
 docker-health: ## Check service health
 	@echo "$(CYAN)Checking service health...$(NC)"
@@ -256,7 +261,7 @@ docker-health: ## Check service health
 
 docker-clean: ## Stop and remove containers
 	@echo "$(CYAN)Stopping and removing containers...$(NC)"
-	docker compose -f $(COMPOSE_FILE) down
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) down
 	@echo "$(GREEN)✓ Containers removed$(NC)"
 
 # ============================================================================
@@ -477,65 +482,89 @@ build: build-neurondb build-neuronagent build-neuronmcp build-neurondesktop ## B
 	@# Create directories for each component
 	@mkdir -p bin/neurondb bin/neuronagent bin/neuronmcp bin/neurondesktop
 	@# Copy NeuronDB extension files
+	@echo "$(CYAN)[NeuronDB]$(NC)"
 	@if [ -f NeuronDB/neurondb.control ]; then \
-		cp NeuronDB/neurondb.control bin/neurondb/ && echo "$(GREEN)✓ Copied neurondb.control$(NC)"; \
+		cp NeuronDB/neurondb.control bin/neurondb/ && echo "  $(GREEN)✓$(NC) neurondb.control"; \
 	fi
 	@if [ -f NeuronDB/neurondb--1.0.sql ]; then \
-		cp NeuronDB/neurondb--1.0.sql bin/neurondb/ && echo "$(GREEN)✓ Copied neurondb--1.0.sql$(NC)"; \
+		cp NeuronDB/neurondb--1.0.sql bin/neurondb/ && echo "  $(GREEN)✓$(NC) neurondb--1.0.sql"; \
+	fi
+	@if [ -f NeuronDB/neurondb--2.0.sql ]; then \
+		cp NeuronDB/neurondb--2.0.sql bin/neurondb/ && echo "  $(GREEN)✓$(NC) neurondb--2.0.sql"; \
+	fi
+	@if [ -f NeuronDB/neurondb--1.0--2.0.sql ]; then \
+		cp NeuronDB/neurondb--1.0--2.0.sql bin/neurondb/ && echo "  $(GREEN)✓$(NC) neurondb--1.0--2.0.sql"; \
 	fi
 	@if [ -f NeuronDB/neurondb.so ]; then \
-		cp NeuronDB/neurondb.so bin/neurondb/ && echo "$(GREEN)✓ Copied neurondb.so$(NC)"; \
+		cp NeuronDB/neurondb.so bin/neurondb/ && echo "  $(GREEN)✓$(NC) neurondb.so"; \
 	elif [ -f NeuronDB/neurondb.dylib ]; then \
-		cp NeuronDB/neurondb.dylib bin/neurondb/ && echo "$(GREEN)✓ Copied neurondb.dylib$(NC)"; \
+		cp NeuronDB/neurondb.dylib bin/neurondb/ && echo "  $(GREEN)✓$(NC) neurondb.dylib"; \
 	fi
 	@# Copy NeuronAgent binary, configuration files, and setup SQL
+	@echo "$(CYAN)[NeuronAgent]$(NC)"
 	@if [ -f NeuronAgent/bin/neuronagent ]; then \
-		cp NeuronAgent/bin/neuronagent bin/neuronagent/ && echo "$(GREEN)✓ Copied neuronagent binary$(NC)"; \
+		cp NeuronAgent/bin/neuronagent bin/neuronagent/ && echo "  $(GREEN)✓$(NC) neuronagent binary"; \
 	fi
-	@if [ -f NeuronAgent/configs/config.yaml.example ]; then \
-		cp NeuronAgent/configs/config.yaml.example bin/neuronagent/ && echo "$(GREEN)✓ Copied neuronagent config.yaml.example$(NC)"; \
+	@if [ -f NeuronAgent/conf/neuronagent-config.yaml ]; then \
+		cp NeuronAgent/conf/neuronagent-config.yaml bin/neuronagent/ && echo "  $(GREEN)✓$(NC) neuronagent-config.yaml"; \
 	fi
-	@if [ -f NeuronAgent/configs/agent_profiles.yaml ]; then \
-		cp NeuronAgent/configs/agent_profiles.yaml bin/neuronagent/ && echo "$(GREEN)✓ Copied neuronagent agent_profiles.yaml$(NC)"; \
+	@if [ -f NeuronAgent/conf/agent-profiles.yaml ]; then \
+		cp NeuronAgent/conf/agent-profiles.yaml bin/neuronagent/ && echo "  $(GREEN)✓$(NC) agent-profiles.yaml"; \
 	fi
-	@if [ -f NeuronAgent/setup.sql ]; then \
-		cp NeuronAgent/setup.sql bin/neuronagent/ && echo "$(GREEN)✓ Copied neuronagent setup.sql$(NC)"; \
+	@if [ -f NeuronAgent/bin/sql/neuron-agent.sql ]; then \
+		cp NeuronAgent/bin/sql/neuron-agent.sql bin/neuronagent/ && echo "  $(GREEN)✓$(NC) neuron-agent.sql"; \
+	elif [ -f NeuronAgent/neuron-agent.sql ]; then \
+		cp NeuronAgent/neuron-agent.sql bin/neuronagent/ && echo "  $(GREEN)✓$(NC) neuron-agent.sql"; \
 	fi
-	@if [ -f NeuronAgent/initial_schema.sql ]; then \
-		cp NeuronAgent/initial_schema.sql bin/neuronagent/ && echo "$(GREEN)✓ Copied neuronagent initial_schema.sql$(NC)"; \
+	@if [ -d NeuronAgent/bin/scripts ]; then \
+		cp -r NeuronAgent/bin/scripts bin/neuronagent/ && echo "  $(GREEN)✓$(NC) scripts/"; \
 	fi
-	@if [ -d NeuronAgent/migrations ]; then \
-		cp -r NeuronAgent/migrations bin/neuronagent/ && echo "$(GREEN)✓ Copied neuronagent migrations/ directory$(NC)"; \
+	@if [ -d NeuronAgent/bin/conf ]; then \
+		cp -r NeuronAgent/bin/conf bin/neuronagent/ && echo "  $(GREEN)✓$(NC) conf/"; \
 	fi
 	@# Copy NeuronMCP binary, configuration files, and setup SQL
+	@echo "$(CYAN)[NeuronMCP]$(NC)"
 	@if [ -f NeuronMCP/bin/neuronmcp ]; then \
-		cp NeuronMCP/bin/neuronmcp bin/neuronmcp/ && echo "$(GREEN)✓ Copied neuronmcp binary$(NC)"; \
+		cp NeuronMCP/bin/neuronmcp bin/neuronmcp/ && echo "  $(GREEN)✓$(NC) neuronmcp binary"; \
 	fi
-	@if [ -f NeuronMCP/mcp-config.json.example ]; then \
-		cp NeuronMCP/mcp-config.json.example bin/neuronmcp/ && echo "$(GREEN)✓ Copied neuronmcp mcp-config.json.example$(NC)"; \
+	@if [ -f NeuronMCP/conf/mcp-config.json.example ]; then \
+		cp NeuronMCP/conf/mcp-config.json.example bin/neuronmcp/ && echo "  $(GREEN)✓$(NC) mcp-config.json.example"; \
 	fi
-	@if [ -f NeuronMCP/neuronmcp.sql ]; then \
-		cp NeuronMCP/neuronmcp.sql bin/neuronmcp/ && echo "$(GREEN)✓ Copied neuronmcp.sql (comprehensive setup)$(NC)"; \
+	@if [ -f NeuronMCP/bin/sql/neuron-mcp.sql ]; then \
+		cp NeuronMCP/bin/sql/neuron-mcp.sql bin/neuronmcp/ && echo "  $(GREEN)✓$(NC) neuron-mcp.sql"; \
+	elif [ -f NeuronMCP/sql/neuron-mcp.sql ]; then \
+		cp NeuronMCP/sql/neuron-mcp.sql bin/neuronmcp/ && echo "  $(GREEN)✓$(NC) neuron-mcp.sql"; \
+	elif [ -f NeuronMCP/neuron-mcp.sql ]; then \
+		cp NeuronMCP/neuron-mcp.sql bin/neuronmcp/ && echo "  $(GREEN)✓$(NC) neuron-mcp.sql"; \
+	fi
+	@if [ -d NeuronMCP/bin/scripts ]; then \
+		cp -r NeuronMCP/bin/scripts bin/neuronmcp/ && echo "  $(GREEN)✓$(NC) scripts/"; \
+	fi
+	@if [ -d NeuronMCP/bin/conf ]; then \
+		cp -r NeuronMCP/bin/conf bin/neuronmcp/ && echo "  $(GREEN)✓$(NC) conf/"; \
 	fi
 	@# Copy NeuronDesktop binary and setup SQL
+	@echo "$(CYAN)[NeuronDesktop]$(NC)"
 	@if [ -f NeuronDesktop/bin/neurondesktop ]; then \
-		cp NeuronDesktop/bin/neurondesktop bin/neurondesktop/ && echo "$(GREEN)✓ Copied neurondesktop binary$(NC)"; \
+		cp NeuronDesktop/bin/neurondesktop bin/neurondesktop/ && echo "  $(GREEN)✓$(NC) neurondesktop binary"; \
 	fi
-	@if [ -f NeuronDesktop/setup.sql ]; then \
-		cp NeuronDesktop/setup.sql bin/neurondesktop/ && echo "$(GREEN)✓ Copied neurondesktop setup.sql$(NC)"; \
+	@if [ -f NeuronDesktop/bin/sql/neuron-desktop.sql ]; then \
+		cp NeuronDesktop/bin/sql/neuron-desktop.sql bin/neurondesktop/ && echo "  $(GREEN)✓$(NC) neuron-desktop.sql"; \
+	elif [ -f NeuronDesktop/bin/sql/neurondesktop.sql ]; then \
+		cp NeuronDesktop/bin/sql/neurondesktop.sql bin/neurondesktop/ && echo "  $(GREEN)✓$(NC) neurondesktop.sql"; \
+	elif [ -f NeuronDesktop/neuron-desktop.sql ]; then \
+		cp NeuronDesktop/neuron-desktop.sql bin/neurondesktop/ && echo "  $(GREEN)✓$(NC) neuron-desktop.sql"; \
 	fi
-	@if [ -f NeuronDesktop/neuron-desktop.sql ]; then \
-		cp NeuronDesktop/neuron-desktop.sql bin/neurondesktop/ && echo "$(GREEN)✓ Copied neurondesktop neuron-desktop.sql$(NC)"; \
+	@if [ -d NeuronDesktop/bin/scripts ]; then \
+		cp -r NeuronDesktop/bin/scripts bin/neurondesktop/ && echo "  $(GREEN)✓$(NC) scripts/"; \
+	elif [ -d NeuronDesktop/scripts ]; then \
+		cp -r NeuronDesktop/scripts bin/neurondesktop/ && echo "  $(GREEN)✓$(NC) scripts/"; \
 	fi
-	@if [ -d NeuronDesktop/api/migrations ]; then \
-		cp -r NeuronDesktop/api/migrations bin/neurondesktop/ && echo "$(GREEN)✓ Copied neurondesktop migrations/ directory$(NC)"; \
-	fi
-	@# Copy NeuronDesktop frontend build output
 	@if [ -d NeuronDesktop/frontend/.next ]; then \
-		cp -r NeuronDesktop/frontend/.next bin/neurondesktop/ && echo "$(GREEN)✓ Copied neurondesktop frontend .next/ directory$(NC)"; \
+		cp -r NeuronDesktop/frontend/.next bin/neurondesktop/ && echo "  $(GREEN)✓$(NC) frontend/.next/"; \
 	fi
 	@if [ -f NeuronDesktop/frontend/package.json ]; then \
-		cp NeuronDesktop/frontend/package.json bin/neurondesktop/frontend-package.json && echo "$(GREEN)✓ Copied neurondesktop frontend package.json$(NC)"; \
+		cp NeuronDesktop/frontend/package.json bin/neurondesktop/frontend-package.json && echo "  $(GREEN)✓$(NC) frontend-package.json"; \
 	fi
 	@echo "$(GREEN)✓ All binaries and configuration files copied to bin/$(NC)"
 
