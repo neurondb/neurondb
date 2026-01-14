@@ -29,7 +29,8 @@ npm install -g @openapitools/openapi-generator-cli
 ### Generate All SDKs
 
 ```bash
-./scripts/generate-sdks.sh
+./scripts/neurondb-pkgs.sh generate-sdk --language python
+./scripts/neurondb-pkgs.sh generate-sdk --language javascript
 ```
 
 ### Generate Individual SDKs
@@ -60,7 +61,7 @@ See the `examples/` directories in each SDK for usage examples:
 
 When updating SDKs:
 1. Update OpenAPI specifications
-2. Regenerate SDKs using `generate-sdks.sh`
+2. Regenerate SDKs using `neurondb-pkgs.sh generate-sdk`
 3. Update examples if API changes
 4. Run tests to verify compatibility
 

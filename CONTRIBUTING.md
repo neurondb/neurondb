@@ -23,8 +23,8 @@ git config pull.rebase true
 # Or use rebase explicitly when pulling
 git pull --rebase
 
-# Or use the safe pull script
-./scripts/git-pull-safe.sh
+# Or use the workflows script
+./scripts/neurondb-workflows.sh pull
 ```
 
 **Never use `git pull` without `--rebase`** as it creates unnecessary merge commits like:
@@ -295,7 +295,7 @@ cd ../NeuronMCP
 go test ./...
 
 # Integration tests
-./NeuronAgent/scripts/neuronagent_verify.sh
+./NeuronAgent/scripts/neuronagent-verify.sh
 ```
 
 ### Style Enforcement

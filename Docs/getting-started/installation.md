@@ -182,7 +182,7 @@ psql -d neurondb -c "CREATE EXTENSION neurondb;"
 **NeuronAgent:**
 ```bash
 cd NeuronAgent
-./NeuronAgent/scripts/neuronagent_migrate.sh
+./scripts/neuronagent-migrate.sh
 ```
 This runs all migrations including `migrations/001_initial_schema.sql` and subsequent migrations.
 
@@ -190,7 +190,7 @@ This runs all migrations including `migrations/001_initial_schema.sql` and subse
 ```bash
 cd NeuronDesktop
 createdb neurondesk
-./scripts/setup_neurondesktop.sh
+./scripts/neurondesktop-setup.sh
 ```
 This runs all migrations including `api/migrations/001_initial_schema.sql` and subsequent migrations.
 

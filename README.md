@@ -295,7 +295,7 @@ docker compose up -d
 docker compose ps
 
 # Verify all services are running
-./scripts/health-check.sh
+./scripts/neurondb-healthcheck.sh quick
 ```
 
 **What you'll see:**
@@ -318,7 +318,7 @@ docker compose logs -f
 docker compose ps
 
 # Verify all services are running
-./scripts/health-check.sh
+./scripts/neurondb-healthcheck.sh quick
 ```
 
 **Build time:** First build takes 5-10 minutes depending on your system. Subsequent starts are 30-60 seconds.

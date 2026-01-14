@@ -134,8 +134,8 @@ print_success "Binary installed"
 # Database setup
 if [ "$SKIP_DB_SETUP" = false ]; then
     print_info "Setting up database schema..."
-    if [ -f "$PROJECT_ROOT/NeuronMCP/scripts/neuronmcp_setup.sh" ]; then
-        "$PROJECT_ROOT/NeuronMCP/scripts/neuronmcp_setup.sh"
+    if [ -f "$PROJECT_ROOT/NeuronMCP/scripts/neuronmcp-setup.sh" ]; then
+        "$PROJECT_ROOT/NeuronMCP/scripts/neuronmcp-setup.sh"
         print_success "Database setup completed"
     else
         print_warning "Database setup script not found. Skipping database setup."

@@ -183,7 +183,7 @@ NeuronMCP requires a comprehensive database schema for managing LLM models, API 
 
 ```bash
 cd NeuronMCP
-./scripts/neuronmcp_setup.sh
+./scripts/neuronmcp-setup.sh
 ```
 
 **Set API Keys:**
@@ -553,7 +553,15 @@ The client automatically:
 Test script:
 
 ```bash
-./test_client.sh
+cd client
+./example_usage.sh
+```
+
+Or use the Python client:
+
+```bash
+cd client
+python neurondb_mcp_client.py -c ../../neuronmcp_server.json -e "list_tools"
 ```
 
 For Docker:

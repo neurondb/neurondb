@@ -46,7 +46,7 @@ if [ -z "$NEURONAGENT_API_KEY" ]; then
     echo -e "${YELLOW}⚠️  NEURONAGENT_API_KEY not set${NC}"
     echo "You can:"
     echo "  1. Set it manually: export NEURONAGENT_API_KEY=your_key"
-    echo "  2. Generate one using: ../scripts/neuronagent_generate_keys.sh"
+    echo "  2. Generate one using: ../scripts/neuronagent-generate-keys.sh"
     echo ""
     read -p "Do you want to continue anyway? (y/n) " -n 1 -r
     echo

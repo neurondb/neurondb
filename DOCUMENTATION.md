@@ -174,8 +174,8 @@ graph TB
 
 | Script | Purpose | Location |
 |--------|---------|----------|
-| `scripts/setup_neurondb_ecosystem.sh` | Unified setup for all components | `scripts/` |
-| `NeuronAgent/scripts/neuronagent_verify.sh` | Comprehensive integration testing | `NeuronAgent/scripts/` |
+| `scripts/neurondb-setup.sh` | Unified setup for all components | `scripts/` |
+| `NeuronAgent/scripts/neuronagent-verify.sh` | Comprehensive integration testing | `NeuronAgent/scripts/` |
 | Manual verification | Quick smoke tests | See [QUICKSTART.md](QUICKSTART.md) |
 
 ---

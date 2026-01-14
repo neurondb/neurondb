@@ -427,13 +427,13 @@ func generateInstallCommands(osInfo OSInfo, dockerInfo DockerInfo) InstallComman
 	if dockerInfo.Available {
 		cmds.Docker = []string{
 			"# Install NeuronDB (CPU)",
-			"./scripts/run_neurondb_docker.sh run cpu",
+			"./scripts/neurondb-docker.sh run --component neurondb --variant cpu",
 			"",
 			"# Install NeuronAgent",
-			"./scripts/run_neuronagent_docker.sh run",
+			"./scripts/neurondb-docker.sh run --component neuronagent",
 			"",
 			"# Install NeuronMCP",
-			"./scripts/run_neuronmcp_docker.sh run",
+			"./scripts/neurondb-docker.sh run --component neuronmcp",
 		}
 	}
 

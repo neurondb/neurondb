@@ -202,8 +202,8 @@ echo ""
 
 # Step 4: Create default profile
 echo -e "${CYAN}Step 4: Creating default profile...${NC}"
-if [ -f "$SCRIPT_DIR/setup_default_profile.sh" ]; then
-    bash "$SCRIPT_DIR/setup_default_profile.sh"
+if [ -f "$SCRIPT_DIR/neurondesktop-profile.sh" ]; then
+    bash "$SCRIPT_DIR/neurondesktop-profile.sh"
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}✓ Default profile setup complete${NC}"
     else
@@ -211,17 +211,17 @@ if [ -f "$SCRIPT_DIR/setup_default_profile.sh" ]; then
         exit 1
     fi
 else
-    echo -e "${RED}✗ neurondesktop_profile.sh not found${NC}"
+    echo -e "${RED}✗ neurondesktop-profile.sh not found${NC}"
     exit 1
 fi
 echo ""
 
 # Step 5: Create sample NeuronAgent (optional)
 echo -e "${CYAN}Step 5: Creating sample NeuronAgent (optional)...${NC}"
-if [ -f "$SCRIPT_DIR/neurondesktop_create_agent.sh" ]; then
+if [ -f "$SCRIPT_DIR/neurondesktop-create-agent.sh" ]; then
     # Check if NeuronAgent endpoint is configured
     if [ -n "${NEURONAGENT_ENDPOINT:-}" ] || curl -s -o /dev/null -w "%{http_code}" "http://localhost:8080/health" 2>/dev/null | grep -q "200"; then
-        bash "$SCRIPT_DIR/neurondesktop_create_agent.sh"
+        bash "$SCRIPT_DIR/neurondesktop-create-agent.sh"
         if [ $? -eq 0 ]; then
             echo -e "${GREEN}✓ Sample agent setup complete${NC}"
         else

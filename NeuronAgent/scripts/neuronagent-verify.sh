@@ -261,7 +261,7 @@ else
             echo "    export DB_NAME=neurondb"
             echo "    export DB_PASSWORD=neurondb  # or PGPASSWORD"
             echo ""
-            echo "  Then run: ./scripts/neuronagent_verify.sh"
+            echo "  Then run: ./scripts/neuronagent-verify.sh"
             echo ""
             echo "  Note: Most verification tests require a running database."
             exit 1
