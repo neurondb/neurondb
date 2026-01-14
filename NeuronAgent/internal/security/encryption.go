@@ -6,7 +6,7 @@
  * Provides encryption capabilities for sensitive data storage and
  * secure communication.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/security/encryption.go

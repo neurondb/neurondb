@@ -6,7 +6,7 @@
  * Defines data structures, interfaces, and type aliases used throughout
  * the NeuronDB client package for embeddings, LLM, ML, and vector operations.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/pkg/neurondb/types.go

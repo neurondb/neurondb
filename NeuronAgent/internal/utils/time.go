@@ -6,7 +6,7 @@
  * Provides time formatting functions using standard formats (ISO8601, RFC3339)
  * and time parsing utilities for consistent date/time handling.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/utils/time.go

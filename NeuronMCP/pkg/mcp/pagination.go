@@ -5,7 +5,7 @@
  *
  * Provides pagination with continuation tokens for large result sets.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronMCP/pkg/mcp/pagination.go

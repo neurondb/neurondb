@@ -6,7 +6,7 @@
  * Provides asynchronous task execution for long-running agent operations
  * with status tracking, result storage, and completion notifications.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/agent/async_executor.go

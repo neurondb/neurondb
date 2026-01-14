@@ -6,7 +6,7 @@
  * Provides REST API endpoints for verification operations including
  * queueing verifications, retrieving results, and managing verification rules.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/api/verification_handlers.go

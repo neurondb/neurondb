@@ -6,7 +6,7 @@
  * Implements advanced graph operations as specified in Phase 1.2
  * of the roadmap: shortest path, centrality, advanced community detection.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronMCP/internal/tools/vector_graph_advanced.go

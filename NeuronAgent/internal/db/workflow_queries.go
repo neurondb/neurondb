@@ -5,7 +5,7 @@
  *
  * Provides database query functions for workflows, steps, executions, and schedules.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/db/workflow_queries.go

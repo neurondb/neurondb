@@ -6,7 +6,7 @@
  * Implements fine-grained permissions per tool with read/write/execute
  * permissions as specified in Phase 2.1.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronMCP/internal/security/rbac.go

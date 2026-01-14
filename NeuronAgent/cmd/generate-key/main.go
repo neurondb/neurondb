@@ -6,7 +6,7 @@
  * Command-line utility for generating API keys with configurable
  * rate limits and role assignments.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/cmd/generate-key/main.go

@@ -6,7 +6,7 @@
  * Provides validation functions for API requests including body size
  * limits, UUID validation, input sanitization, pagination, and more.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/api/validation.go

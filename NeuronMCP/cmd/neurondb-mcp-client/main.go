@@ -6,7 +6,7 @@
  * Command-line client for connecting to MCP servers and executing
  * commands interactively or in batch mode.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronMCP/cmd/neurondb-mcp-client/main.go

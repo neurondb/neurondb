@@ -5,7 +5,7 @@
  *
  * Provides HTTP handlers for managing user alert preferences for task notifications.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/api/alert_preferences_handlers.go

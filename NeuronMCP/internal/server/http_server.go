@@ -3,7 +3,7 @@
  * http_server.go
  *    Standalone HTTP server for NeuronMCP metrics (runs in parallel with stdio)
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronMCP/internal/server/http_server.go

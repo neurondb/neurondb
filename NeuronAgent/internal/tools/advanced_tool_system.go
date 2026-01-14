@@ -6,7 +6,7 @@
  * Implements tool learning, dynamic registration, versioning, dependencies,
  * testing framework, async tools, and streaming tools.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/tools/advanced_tool_system.go

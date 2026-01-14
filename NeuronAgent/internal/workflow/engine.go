@@ -6,7 +6,7 @@
  * Provides DAG workflow execution with steps, inputs, outputs, dependencies,
  * retries, and idempotency keys.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/workflow/engine.go

@@ -5,7 +5,7 @@
  *
  * Provides GitHub API integration for reading repositories, files, and issues.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/connectors/github.go

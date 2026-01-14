@@ -6,7 +6,7 @@
  * Implements episodic memory (specific events), semantic memory (factual knowledge),
  * working memory (short-term context), memory consolidation, and memory relationships.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/agent/advanced_memory.go

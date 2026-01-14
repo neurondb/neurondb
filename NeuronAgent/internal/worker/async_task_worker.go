@@ -6,7 +6,7 @@
  * Processes async tasks from the queue with priority handling and
  * automatic retry logic.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/worker/async_task_worker.go

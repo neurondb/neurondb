@@ -5,7 +5,7 @@
  *
  * Provides S3-compatible storage integration (AWS S3, MinIO, etc.).
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/connectors/s3.go

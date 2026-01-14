@@ -6,7 +6,7 @@
  * Provides common functionality for all tools including result types,
  * validation, and base tool structure.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronMCP/internal/tools/base.go

@@ -7,7 +7,7 @@
  * real-time conversation data, Mid-Term Memory (MTM) for topic summaries,
  * and Long-Term Personal Memory (LPM) for permanent preferences and knowledge.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/agent/hierarchical_memory.go

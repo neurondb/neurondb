@@ -6,7 +6,7 @@
  * Processes verification queue items, runs quality assurance checks,
  * and stores verification results.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/worker/verifier_worker.go

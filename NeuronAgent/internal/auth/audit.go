@@ -5,7 +5,7 @@
  *
  * Provides audit logging for tool calls and SQL statements with input/output hashes.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/auth/audit.go

@@ -6,7 +6,7 @@
  * Provides validation functions for email addresses, URLs, and other
  * common input types with regex-based pattern matching.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/utils/validation.go

@@ -3,7 +3,7 @@
  * batch_handlers.go
  *    Batch MCP handlers
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronMCP/internal/batch/batch_handlers.go

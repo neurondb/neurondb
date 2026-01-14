@@ -5,7 +5,7 @@
  *
  * Runs 100 tasks from eval dataset and outputs single score plus diffs.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/cmd/bench/main.go

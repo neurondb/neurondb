@@ -3,7 +3,7 @@
  * progress_handlers.go
  *    Progress MCP handlers
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronMCP/internal/progress/progress_handlers.go

@@ -6,7 +6,7 @@
  * Provides tools for vector similarity search with multiple distance metrics
  * and text embedding generation.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronMCP/internal/tools/vector.go

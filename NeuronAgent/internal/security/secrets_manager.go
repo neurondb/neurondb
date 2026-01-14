@@ -6,7 +6,7 @@
  * Provides secure storage and retrieval of secrets like API keys,
  * passwords, and tokens.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/security/secrets_manager.go

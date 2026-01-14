@@ -5,7 +5,7 @@
  *
  * Provides integration with Slack, Discord, GitHub, and other external services.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/integrations/integration_manager.go

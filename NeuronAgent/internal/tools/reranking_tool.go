@@ -3,7 +3,7 @@
  * reranking_tool.go
  *    Reranking tool handler for NeuronAgent
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/tools/reranking_tool.go

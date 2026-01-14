@@ -6,7 +6,7 @@
  * Provides LLM client functionality for agent text generation and streaming
  * using NeuronDB's LLM capabilities with configuration management.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/agent/llm.go

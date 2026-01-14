@@ -6,7 +6,7 @@
  * Defines data structures for agents, sessions, messages, memory chunks,
  * tools, jobs, and API keys.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/db/models.go

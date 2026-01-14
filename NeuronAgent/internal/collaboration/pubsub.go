@@ -6,7 +6,7 @@
  * Provides message broadcasting to workspace participants for real-time
  * collaboration updates.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/collaboration/pubsub.go

@@ -7,7 +7,7 @@
  * of the roadmap. These tools provide safe schema modification with
  * validation and safety checks.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronMCP/internal/tools/postgresql_schema_modification.go

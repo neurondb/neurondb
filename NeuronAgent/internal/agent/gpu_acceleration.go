@@ -6,7 +6,7 @@
  * Provides transparent GPU acceleration for embeddings, vector search,
  * and LLM inference when GPU is available.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/agent/gpu_acceleration.go

@@ -3,7 +3,7 @@
  * cleanup.go
  *    Browser session cleanup worker for expired sessions
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/browser/cleanup.go

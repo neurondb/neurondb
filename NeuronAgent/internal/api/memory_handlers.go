@@ -3,7 +3,7 @@
  * memory_handlers.go
  *    API handlers for memory management
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/api/memory_handlers.go

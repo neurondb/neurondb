@@ -6,7 +6,7 @@
  * Implements multi-vector RAG, temporal RAG, faceted RAG, graph RAG,
  * streaming RAG, and RAG evaluation using NeuronDB capabilities.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/agent/advanced_rag.go

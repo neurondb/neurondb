@@ -9,7 +9,7 @@
  * - Performance and Statistics (4 tools)
  * - Size and Storage (4 tools)
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronMCP/internal/tools/postgresql_complete.go

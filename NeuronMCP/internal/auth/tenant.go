@@ -5,7 +5,7 @@
  *
  * Provides org and project isolation for multi-tenant authentication.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronMCP/internal/auth/tenant.go

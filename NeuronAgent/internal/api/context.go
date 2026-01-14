@@ -5,7 +5,7 @@
  *
  * Provides functions to extract API keys, principals, and other context values.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/api/context.go

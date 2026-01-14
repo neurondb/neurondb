@@ -3,7 +3,7 @@
  * main.go
  *    Main entry point for NeuronAgent server
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/cmd/agent-server/main.go

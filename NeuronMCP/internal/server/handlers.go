@@ -6,7 +6,7 @@
  * Provides handlers for MCP protocol requests including tools/list,
  * tools/call, resources/list, and resources/read operations.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronMCP/internal/server/handlers.go

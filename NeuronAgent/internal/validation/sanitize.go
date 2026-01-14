@@ -6,7 +6,7 @@
  * Provides input sanitization to prevent injection attacks and ensure
  * data safety.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/validation/sanitize.go

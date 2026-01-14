@@ -3,7 +3,7 @@
  * root.go
  *    Root command and global flags for neuronagent-cli
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/cli/cmd/root.go

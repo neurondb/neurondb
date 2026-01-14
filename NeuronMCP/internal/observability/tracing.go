@@ -5,7 +5,7 @@
  *
  * Implements OpenTelemetry integration as specified in Phase 2.2.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronMCP/internal/observability/tracing.go

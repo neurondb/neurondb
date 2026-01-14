@@ -6,7 +6,7 @@
  * Stores file content directly in PostgreSQL database. Suitable for
  * small files (< 1MB). Uses BYTEA column for binary data.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/storage/db_storage.go

@@ -3,7 +3,7 @@
  * llm_client.go
  *    LLM client for calling various LLM providers (Ollama, OpenAI, etc.)
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronMCP/internal/sampling/llm_client.go

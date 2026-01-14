@@ -6,7 +6,7 @@
  * Provides parallel execution, conditional branching, workflow versioning,
  * templates, event-driven workflows, and enhanced error handling.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/workflow/advanced_engine.go

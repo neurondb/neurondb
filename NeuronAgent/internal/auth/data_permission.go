@@ -6,7 +6,7 @@
  * Provides data permissions (schema, table, row filters, column masking)
  * integrated with SQL tool.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/auth/data_permission.go

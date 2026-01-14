@@ -6,7 +6,7 @@
  * Provides agent access to enhanced multi-modal processing capabilities
  * including image analysis, code execution, and audio transcription.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/tools/multimodal_tool.go

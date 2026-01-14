@@ -6,7 +6,7 @@
  * Provides specialized agent types (planning, research, coding, execution)
  * with automatic task routing and sub-agent coordination.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/agent/sub_agents.go

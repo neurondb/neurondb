@@ -3,7 +3,7 @@
  * resource_quota_adapter.go
  *    Adapter to use resource quota middleware with MCP middleware interface
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronMCP/internal/middleware/builtin/resource_quota_adapter.go

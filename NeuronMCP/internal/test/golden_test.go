@@ -5,7 +5,7 @@
  *
  * Tests that verify tool calls match expected golden transcripts.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronMCP/internal/test/golden_test.go

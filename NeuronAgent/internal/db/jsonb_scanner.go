@@ -3,7 +3,7 @@
  * jsonb_scanner.go
  *    Database operations
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/db/jsonb_scanner.go

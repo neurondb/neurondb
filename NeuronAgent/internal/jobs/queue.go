@@ -6,7 +6,7 @@
  * Provides job queue operations for enqueueing, dequeuing, and
  * managing background job execution with status tracking.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/jobs/queue.go

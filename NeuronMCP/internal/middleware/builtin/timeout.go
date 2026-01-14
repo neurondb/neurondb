@@ -6,7 +6,7 @@
  * Provides request timeout management middleware that enforces maximum
  * execution time for MCP requests with configurable timeout values.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronMCP/internal/middleware/builtin/timeout.go

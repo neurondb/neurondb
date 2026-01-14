@@ -6,7 +6,7 @@
  * Provides retry mechanisms for transient failures with exponential
  * backoff and configurable retry policies.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/api/retry.go

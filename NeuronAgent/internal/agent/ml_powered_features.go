@@ -7,7 +7,7 @@
  * recommendation systems, time series analysis, classification, regression, and
  * feature engineering.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/agent/ml_powered_features.go

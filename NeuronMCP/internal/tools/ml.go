@@ -6,7 +6,7 @@
  * Provides tools for training, predicting, evaluating, and managing ML models
  * using the NeuronDB unified train function.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronMCP/internal/tools/ml.go

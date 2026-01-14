@@ -5,7 +5,7 @@
  *
  * Provides principal creation, lookup, and resolution from API keys.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/auth/principal.go

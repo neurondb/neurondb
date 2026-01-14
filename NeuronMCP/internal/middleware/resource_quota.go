@@ -3,7 +3,7 @@
  * resource_quota.go
  *    Resource quota enforcement middleware for memory/CPU limits per tool
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronMCP/internal/middleware/resource_quota.go

@@ -6,7 +6,7 @@
  * Provides bcrypt-based hashing functions for API key storage and
  * verification with configurable cost parameters.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/auth/hasher.go

@@ -6,7 +6,7 @@
  * Provides event logging, retrieval, summarization, and context management
  * for maintaining session history and building agent context windows.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/agent/event_stream.go

@@ -3,7 +3,7 @@
  * analytics_client.go
  *    Analytics operations via NeuronDB
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/pkg/neurondb/analytics_client.go

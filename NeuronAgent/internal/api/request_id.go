@@ -6,7 +6,7 @@
  * Provides request ID generation and context management for tracking
  * requests across the API with correlation support.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/api/request_id.go

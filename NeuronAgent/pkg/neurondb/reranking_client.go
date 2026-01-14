@@ -3,7 +3,7 @@
  * reranking_client.go
  *    Reranking operations via NeuronDB
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/pkg/neurondb/reranking_client.go

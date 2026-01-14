@@ -3,7 +3,7 @@
  * webhook_queries.go
  *    Database queries for webhooks
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/db/webhook_queries.go

@@ -3,7 +3,7 @@
  * validation_test.go
  *    Tests for validation package
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  *-------------------------------------------------------------------------
  */

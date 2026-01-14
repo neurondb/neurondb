@@ -6,7 +6,7 @@
  * Provides data structures and API for visual workflow design.
  * Actual UI implementation would be separate (e.g., React frontend).
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/visual/workflow_designer.go

@@ -7,7 +7,7 @@
  * MCP (Model Context Protocol) servers, including tool execution and
  * resource management.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronMCP/internal/client/client.go

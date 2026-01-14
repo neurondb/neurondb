@@ -3,7 +3,7 @@
  * retry.go
  *    Retry middleware with exponential backoff and circuit breaker
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronMCP/internal/middleware/builtin/retry.go

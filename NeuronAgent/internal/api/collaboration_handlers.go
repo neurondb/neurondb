@@ -6,7 +6,7 @@
  * Provides HTTP handlers for workspace creation, participant management,
  * and real-time collaboration features.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/api/collaboration_handlers.go

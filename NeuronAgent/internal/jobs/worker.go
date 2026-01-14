@@ -6,7 +6,7 @@
  * Provides worker pool for processing background jobs from the queue
  * with configurable concurrency and graceful shutdown support.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/jobs/worker.go

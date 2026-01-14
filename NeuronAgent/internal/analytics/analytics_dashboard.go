@@ -6,7 +6,7 @@
  * Provides comprehensive analytics and reporting for agent performance,
  * usage patterns, and system metrics.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/analytics/analytics_dashboard.go

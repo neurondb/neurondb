@@ -6,7 +6,7 @@
  * Provides abstraction for different storage backends (database, S3, etc.)
  * for the virtual file system.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/storage/storage.go

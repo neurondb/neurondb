@@ -6,7 +6,7 @@
  * Provides agent access to collaboration workspace features for
  * multi-user and multi-agent collaboration.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/tools/collaboration_tool.go

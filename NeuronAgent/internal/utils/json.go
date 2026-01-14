@@ -6,7 +6,7 @@
  * Provides safe JSON encoding and decoding functions with error handling
  * and type conversion utilities.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/utils/json.go

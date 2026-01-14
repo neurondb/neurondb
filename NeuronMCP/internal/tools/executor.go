@@ -6,7 +6,7 @@
  * Provides database query execution functionality with timeouts and
  * error handling for all tool operations.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronMCP/internal/tools/executor.go

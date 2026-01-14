@@ -7,7 +7,7 @@
  * collaborative planning, task delegation, conflict resolution,
  * consensus building, agent hierarchy, and swarm intelligence.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/agent/advanced_collaboration.go

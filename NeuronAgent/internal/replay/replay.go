@@ -5,7 +5,7 @@
  *
  * Provides functionality to store and replay agent executions from stored snapshots.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/replay/replay.go

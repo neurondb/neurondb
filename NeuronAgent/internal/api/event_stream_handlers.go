@@ -6,7 +6,7 @@
  * Provides REST API endpoints for event stream operations including
  * event logging, retrieval, summarization, and context window management.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/api/event_stream_handlers.go

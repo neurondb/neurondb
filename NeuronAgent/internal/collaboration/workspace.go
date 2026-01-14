@@ -6,7 +6,7 @@
  * Provides workspace creation, participant management, and real-time
  * update broadcasting for collaborative agent tasks.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/collaboration/workspace.go

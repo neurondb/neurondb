@@ -6,7 +6,7 @@
  * Provides a controlled environment for simulating agent behavior,
  * testing strategies, and training agents.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/simulation/simulation_environment.go

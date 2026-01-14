@@ -6,7 +6,7 @@
  * Implements meta-learning, strategy evolution, performance feedback loops,
  * A/B testing, reinforcement learning integration, and transfer learning.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/agent/self_improvement.go

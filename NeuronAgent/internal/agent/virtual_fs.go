@@ -7,7 +7,7 @@
  * store large data without overloading context windows. Supports both
  * database storage for small files and object storage for large files.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/agent/virtual_fs.go

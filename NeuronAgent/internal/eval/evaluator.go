@@ -6,7 +6,7 @@
  * Provides evaluation functionality for golden tasks, tool sequences, SQL side effects,
  * retrieval evaluation, and tool evaluation.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/eval/evaluator.go

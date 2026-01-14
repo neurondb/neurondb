@@ -5,7 +5,7 @@
  *
  * Provides permission checking for tool execution at agent and session levels.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/auth/tool_permission.go

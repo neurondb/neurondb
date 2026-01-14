@@ -6,7 +6,7 @@
  * Starts the MCP server with PostgreSQL and vector tool support.
  * Handles command-line flags, signal handling, and server lifecycle.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronMCP/cmd/neurondb-mcp/main.go

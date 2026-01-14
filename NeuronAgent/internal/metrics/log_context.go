@@ -6,7 +6,7 @@
  * Provides helpers for consistent structured logging with request_id, agent_id,
  * session_id, tool_id, trace_id fields across all components.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/metrics/log_context.go

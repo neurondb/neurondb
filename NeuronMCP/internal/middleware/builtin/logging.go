@@ -6,7 +6,7 @@
  * Provides request and response logging middleware for MCP requests
  * with configurable request/response logging and structured output.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronMCP/internal/middleware/builtin/logging.go

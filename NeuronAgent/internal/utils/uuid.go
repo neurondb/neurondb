@@ -6,7 +6,7 @@
  * Provides UUID generation and parsing utilities for creating unique
  * identifiers throughout the application.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/utils/uuid.go

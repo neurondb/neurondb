@@ -6,7 +6,7 @@
  * Provides advanced image processing, code analysis, and audio processing
  * for multi-modal agent interactions.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/multimodal/enhanced_processor.go

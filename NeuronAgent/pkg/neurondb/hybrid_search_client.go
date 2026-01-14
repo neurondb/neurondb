@@ -3,7 +3,7 @@
  * hybrid_search_client.go
  *    Hybrid search operations via NeuronDB
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/pkg/neurondb/hybrid_search_client.go

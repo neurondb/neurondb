@@ -6,7 +6,7 @@
  * Provides client functionality for generating text embeddings through
  * NeuronDB using various embedding models.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/pkg/neurondb/embedding.go

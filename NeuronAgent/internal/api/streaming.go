@@ -6,7 +6,7 @@
  * Provides HTTP streaming functionality for real-time agent responses
  * using Server-Sent Events protocol.
  *
- * Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+ * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
  * IDENTIFICATION
  *    NeuronAgent/internal/api/streaming.go
