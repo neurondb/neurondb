@@ -6,7 +6,7 @@
 
 [![Status](https://img.shields.io/badge/status-stable-brightgreen)](.)
 [![API](https://img.shields.io/badge/API-REST%20%7C%20WebSocket-blue)](.)
-[![Tools](https://img.shields.io/badge/tools-20+-green)](.)
+[![Tools](https://img.shields.io/badge/tools-16+-green)](.)
 
 </div>
 
@@ -26,7 +26,7 @@ NeuronAgent is an AI agent runtime system providing REST API and WebSocket endpo
 | **Agent Runtime** | Complete state machine for autonomous task execution with persistent memory | ✅ Stable |
 | **REST API** | Full CRUD API for agents, sessions, messages, and advanced features | ✅ Stable |
 | **WebSocket Support** | Real-time streaming agent responses | ✅ Stable |
-| **Tool System** | Extensible tool registry with 20+ built-in tools | ✅ Stable |
+| **Tool System** | Extensible tool registry with 16+ built-in tools (extensible via custom registration) | ✅ Stable |
 | **Multi-Agent Collaboration** | Agent-to-agent communication and task delegation | ✅ Stable |
 | **Workflow Engine** | DAG-based workflow execution with human-in-the-loop support | ✅ Stable |
 | **Memory Management** | HNSW-based vector search for long-term memory with hierarchical organization | ✅ Stable |
@@ -60,18 +60,19 @@ NeuronAgent is an AI agent runtime system providing REST API and WebSocket endpo
 </details>
 
 <details>
-<summary><strong>🔧 Tool System (20+ Tools)</strong></summary>
+<summary><strong>🔧 Tool System (16+ Base Tools, Extensible)</strong></summary>
 
 | Category | Tools | Description | Status |
 |----------|-------|-------------|--------|
-| **Core Tools** | SQL, HTTP, Code, Shell | SQL (read-only), HTTP (with allowlist), Code (sandboxed), Shell (whitelisted) | ✅ Stable |
-| **Browser Tool** | Browser | Web automation with Playwright for DOM interaction and navigation | ✅ Stable |
-| **Filesystem Tool** | Filesystem | Virtual filesystem integration for file operations | ✅ Stable |
-| **Memory Tool** | Memory | Direct memory manipulation and retrieval | ✅ Stable |
-| **Collaboration Tool** | Collaboration | Multi-agent communication and task delegation | ✅ Stable |
-| **NeuronDB Tools** | RAG, Hybrid Search, Reranking, Vector, ML, Analytics, Visualization | Complete NeuronDB integration | ✅ Stable |
-| **Multimodal Tool** | Multimodal | Image and multimedia processing | ✅ Stable |
-| **Tool Registry** | Custom Tools | Extensible system for registering custom tools | ✅ Stable |
+| **Core Tools** | SQL, HTTP, Code, Shell, Browser, Visualization | SQL (read-only queries), HTTP (with allowlist), Code (sandboxed execution), Shell (whitelisted commands), Browser (Playwright web automation), Visualization (data visualization) | ✅ Stable |
+| **Virtual Filesystem Tool** | Filesystem | Isolated virtual filesystem for secure file operations per agent/session | ✅ Stable |
+| **Memory Tool** | Memory | Direct hierarchical memory manipulation, retrieval, and management | ✅ Stable |
+| **Collaboration Tool** | Collaboration | Multi-agent communication, task delegation, and workspace coordination | ✅ Stable |
+| **NeuronDB Integration Tools** | ML, Vector, RAG, Analytics, Hybrid Search, Reranking | Complete NeuronDB integration: ML model training/prediction, vector search, RAG operations, analytics, hybrid search, and reranking | ✅ Stable |
+| **Multimodal Tool** | Multimodal | Image and multimedia processing with embedding generation | ✅ Stable |
+| **Tool Registry** | Custom Tools | Extensible system for registering custom tools with JSON Schema validation | ✅ Stable |
+
+**Total**: 16+ base tools (SQL, HTTP, Code, Shell, Browser, Visualization, Filesystem, Memory, Collaboration, ML, Vector, RAG, Analytics, Hybrid Search, Reranking, Multimodal), with support for custom tool registration.
 
 </details>
 
@@ -80,11 +81,14 @@ NeuronAgent is an AI agent runtime system providing REST API and WebSocket endpo
 
 | Feature | Description | Status |
 |---------|-------------|--------|
-| **Agent Delegation** | Delegate tasks to specialized agents | ✅ Stable |
-| **Inter-Agent Communication** | Message passing between agents | ✅ Stable |
-| **Workspace Management** | Shared workspaces for collaborative agents | ✅ Stable |
-| **Sub-Agents** | Hierarchical agent structures for complex tasks | ✅ Stable |
-| **Collaboration API** | REST endpoints for managing agent collaborations | ✅ Stable |
+| **Agent Delegation** | Delegate tasks to specialized agents with automatic routing | ✅ Stable |
+| **Inter-Agent Communication** | Message passing between agents with structured protocols | ✅ Stable |
+| **Workspace Management** | Shared workspaces for collaborative agents with isolation and permissions | ✅ Stable |
+| **Sub-Agents** | Hierarchical agent structures for complex multi-level task decomposition | ✅ Stable |
+| **Task Coordination** | Coordinate parallel and sequential task execution across agents | ✅ Stable |
+| **Collaboration API** | REST endpoints for managing agent collaborations, workspaces, and delegations | ✅ Stable |
+| **Agent Discovery** | Discover and select appropriate agents for task delegation | ✅ Stable |
+| **Shared Context** | Shared context and state management across collaborating agents | ✅ Stable |
 
 </details>
 
@@ -93,32 +97,50 @@ NeuronAgent is an AI agent runtime system providing REST API and WebSocket endpo
 
 | Feature | Description | Status |
 |---------|-------------|--------|
-| **DAG Workflows** | Directed acyclic graph workflow execution | ✅ Stable |
-| **Workflow Steps** | Agent, tool, HTTP, approval, and conditional steps | ✅ Stable |
-| **Human-in-the-Loop (HITL)** | Approval gates and feedback loops | ✅ Stable |
-| **Idempotency** | Idempotent step execution with key-based caching | ✅ Stable |
-| **Retries** | Configurable retry logic for workflow steps | ✅ Stable |
-| **Workflow API** | Complete CRUD API for workflows and executions | ✅ Stable |
+| **DAG Workflows** | Directed acyclic graph workflow execution with dependency resolution | ✅ Stable |
+| **Workflow Steps** | Multiple step types: agent (execute agent), tool (execute tool), HTTP (HTTP requests), approval (human approval gates), conditional (branching logic) | ✅ Stable |
+| **Dependency Management** | Step dependencies with automatic parallel execution where possible | ✅ Stable |
+| **Input/Output Mapping** | Step input/output mapping with data transformation | ✅ Stable |
+| **Compensation Steps** | Rollback and compensation logic for failed workflow steps | ✅ Stable |
+| **Human-in-the-Loop (HITL)** | Approval gates with email/webhook notifications and feedback loops | ✅ Stable |
+| **Idempotency** | Idempotent step execution with key-based caching to prevent duplicate execution | ✅ Stable |
+| **Retries** | Configurable retry logic with exponential backoff for workflow steps | ✅ Stable |
+| **Workflow Scheduling** | Schedule workflows for future execution with cron-like syntax | ✅ Stable |
+| **Workflow API** | Complete CRUD API for workflows, executions, and schedules | ✅ Stable |
+| **Execution Monitoring** | Real-time workflow execution monitoring and status tracking | ✅ Stable |
 
 </details>
 
-### Planning & Task Management
-- **LLM-Based Planning**: Advanced planning with task decomposition
-- **Task Plans**: Multi-step plan creation and execution
-- **Async Tasks**: Background task execution with job queue
-- **Task Notifications**: Alerts and notifications for task events
-- **Plans API**: Endpoints for creating, managing, and executing plans
+<details>
+<summary><strong>📋 Planning & Task Management</strong></summary>
+
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **LLM-Based Planning** | Advanced planning with LLM-powered task decomposition and strategy generation | ✅ Stable |
+| **Task Decomposition** | Automatic breakdown of complex tasks into manageable sub-tasks | ✅ Stable |
+| **Task Plans** | Multi-step plan creation, validation, and execution with dependency tracking | ✅ Stable |
+| **Plan Templates** | Reusable plan templates for common task patterns | ✅ Stable |
+| **Async Tasks** | Background task execution with PostgreSQL-based job queue | ✅ Stable |
+| **Task Prioritization** | Priority-based task scheduling and execution | ✅ Stable |
+| **Task Notifications** | Alerts and notifications for task events (start, complete, failure) | ✅ Stable |
+| **Plans API** | Complete REST API for creating, managing, executing, and monitoring plans | ✅ Stable |
+| **Plan Execution Tracking** | Real-time tracking of plan execution progress and status | ✅ Stable |
+
+</details>
 
 <details>
 <summary><strong>📊 Quality & Evaluation</strong></summary>
 
 | Feature | Description | Status |
 |---------|-------------|--------|
-| **Reflections** | Agent self-reflection and quality assessment | ✅ Stable |
-| **Quality Scoring** | Automated quality scoring for agent responses | ✅ Stable |
-| **Evaluation Framework** | Built-in evaluation system for agent performance | ✅ Stable |
-| **Verification Agent** | Dedicated agent for verifying outputs | ✅ Stable |
-| **Execution Snapshots** | Capture and replay agent execution states | ✅ Stable |
+| **Reflections** | Agent self-reflection and quality assessment with LLM-powered analysis | ✅ Stable |
+| **Quality Scoring** | Automated quality scoring for agent responses using multiple metrics | ✅ Stable |
+| **Evaluation Framework** | Built-in evaluation system for agent performance with configurable metrics | ✅ Stable |
+| **Performance Metrics** | Comprehensive performance metrics: accuracy, relevance, completeness, latency | ✅ Stable |
+| **Verification Agent** | Dedicated verification agent for validating and cross-checking outputs | ✅ Stable |
+| **Evaluation API** | REST API for running evaluations, viewing results, and comparing agent performance | ✅ Stable |
+| **Execution Snapshots** | Capture and replay agent execution states for debugging and analysis | ✅ Stable |
+| **Quality Reports** | Automated quality reports with trends and recommendations | ✅ Stable |
 
 </details>
 
@@ -127,10 +149,14 @@ NeuronAgent is an AI agent runtime system providing REST API and WebSocket endpo
 
 | Feature | Description | Status |
 |---------|-------------|--------|
-| **Cost Tracking** | Real-time cost tracking for LLM usage | ✅ Stable |
-| **Budget Management** | Per-agent and per-session budget controls | ✅ Stable |
-| **Budget Alerts** | Configurable alerts for budget thresholds | ✅ Stable |
-| **Budget API** | Complete API for managing budgets and tracking costs | ✅ Stable |
+| **Cost Tracking** | Real-time cost tracking for LLM usage with per-request, per-session, and per-agent aggregation | ✅ Stable |
+| **Token Counting** | Accurate token counting for input/output with model-specific tokenizers | ✅ Stable |
+| **Cost Analytics** | Detailed cost analytics with breakdowns by agent, session, model, and time period | ✅ Stable |
+| **Budget Management** | Per-agent and per-session budget controls with hard and soft limits | ✅ Stable |
+| **Budget Alerts** | Configurable alerts for budget thresholds via email and webhooks | ✅ Stable |
+| **Cost Forecasting** | Predictive cost forecasting based on usage patterns | ✅ Stable |
+| **Budget API** | Complete REST API for managing budgets, tracking costs, and viewing analytics | ✅ Stable |
+| **Cost Optimization** | Recommendations for cost optimization based on usage patterns | ✅ Stable |
 
 </details>
 
@@ -139,10 +165,14 @@ NeuronAgent is an AI agent runtime system providing REST API and WebSocket endpo
 
 | Feature | Description | Status |
 |---------|-------------|--------|
-| **Approval Workflows** | Human approval gates in workflows | ✅ Stable |
-| **Feedback System** | Collect and integrate human feedback | ✅ Stable |
-| **Alert Preferences** | Configurable alert preferences for users | ✅ Stable |
-| **HumanLoop API** | Endpoints for approvals and feedback | ✅ Stable |
+| **Approval Workflows** | Human approval gates in workflows with configurable approval rules | ✅ Stable |
+| **Approval Notifications** | Email and webhook notifications for pending approvals with approval links | ✅ Stable |
+| **Approval Timeouts** | Configurable timeouts for approvals with automatic escalation | ✅ Stable |
+| **Feedback System** | Collect and integrate human feedback with structured feedback forms | ✅ Stable |
+| **Feedback Integration** | Automatic integration of feedback into agent learning and improvement | ✅ Stable |
+| **Alert Preferences** | Configurable alert preferences for users with multiple notification channels | ✅ Stable |
+| **HumanLoop API** | Complete REST API for approvals, feedback, and alert management | ✅ Stable |
+| **Approval History** | Complete audit trail of all approvals and feedback | ✅ Stable |
 
 </details>
 
@@ -151,10 +181,14 @@ NeuronAgent is an AI agent runtime system providing REST API and WebSocket endpo
 
 | Feature | Description | Status |
 |---------|-------------|--------|
-| **Version Management** | Version control for agents and configurations | ✅ Stable |
-| **Execution Replay** | Replay previous agent executions | ✅ Stable |
-| **Execution Snapshots** | Capture and restore agent states | ✅ Stable |
-| **Versions API** | API for managing versions and viewing history | ✅ Stable |
+| **Version Management** | Version control for agents, configurations, and prompts with semantic versioning | ✅ Stable |
+| **Version Comparison** | Compare versions side-by-side with diff visualization | ✅ Stable |
+| **Version Rollback** | Rollback to previous versions with one-click restore | ✅ Stable |
+| **Execution Replay** | Replay previous agent executions with full state reconstruction | ✅ Stable |
+| **Execution History** | Complete execution history with search and filtering | ✅ Stable |
+| **Execution Snapshots** | Capture and restore agent states at any point in execution | ✅ Stable |
+| **State Diff** | View differences between execution states for debugging | ✅ Stable |
+| **Versions API** | Complete REST API for managing versions, viewing history, and replaying executions | ✅ Stable |
 
 </details>
 
@@ -185,13 +219,21 @@ NeuronAgent is an AI agent runtime system providing REST API and WebSocket endpo
 
 </details>
 
-### Integrations & Connectors
-- **S3 Connector**: AWS S3 integration for storage
-- **GitHub Connector**: GitHub API integration
-- **GitLab Connector**: GitLab API integration
-- **Slack Connector**: Slack webhook integration
-- **Webhooks**: Outbound webhook support for events
-- **Secrets Management**: AWS Secrets Manager and HashiCorp Vault integration
+<details>
+<summary><strong>🔌 Integrations & Connectors</strong></summary>
+
+| Connector | Description | Status |
+|-----------|-------------|--------|
+| **S3 Connector** | AWS S3 integration for object storage with automatic file management | ✅ Stable |
+| **GitHub Connector** | GitHub API integration for repository access, issue management, and webhooks | ✅ Stable |
+| **GitLab Connector** | GitLab API integration for repository access, CI/CD, and project management | ✅ Stable |
+| **Slack Connector** | Slack webhook integration for notifications and bot interactions | ✅ Stable |
+| **Webhooks** | Outbound webhook support for events with retry logic and authentication | ✅ Stable |
+| **Secrets Management** | AWS Secrets Manager and HashiCorp Vault integration for secure credential storage | ✅ Stable |
+| **Email Service** | SMTP email service for notifications and alerts | ✅ Stable |
+| **Custom Connectors** | Extensible connector framework for custom integrations | ✅ Stable |
+
+</details>
 
 ### Storage & Persistence
 - **Database Storage**: PostgreSQL-based persistence
@@ -199,12 +241,21 @@ NeuronAgent is an AI agent runtime system providing REST API and WebSocket endpo
 - **Multimodal Storage**: Specialized storage for images and media
 - **Session Caching**: Redis-compatible session caching
 
-### Background Workers
-- **Job Queue**: PostgreSQL-based job queue with SKIP LOCKED
-- **Worker Pool**: Configurable worker pool with graceful shutdown
-- **Async Task Worker**: Background execution of async tasks
-- **Memory Promoter**: Promotes important memories to long-term storage
-- **Verifier Worker**: Background verification of agent outputs
+<details>
+<summary><strong>⚙️ Background Workers</strong></summary>
+
+| Worker | Description | Status |
+|--------|-------------|--------|
+| **Job Queue** | PostgreSQL-based job queue with SKIP LOCKED for efficient concurrent processing | ✅ Stable |
+| **Worker Pool** | Configurable worker pool with graceful shutdown and health monitoring | ✅ Stable |
+| **Async Task Worker** | Background execution of async tasks with priority queuing | ✅ Stable |
+| **Memory Promoter** | Promotes important memories to long-term storage based on usage patterns | ✅ Stable |
+| **Verifier Worker** | Background verification of agent outputs with quality checks | ✅ Stable |
+| **Cleanup Worker** | Automatic cleanup of expired sessions, old messages, and temporary data | ✅ Stable |
+| **Metrics Worker** | Background collection and aggregation of metrics and statistics | ✅ Stable |
+| **Notification Worker** | Background processing of email and webhook notifications | ✅ Stable |
+
+</details>
 
 ### Advanced Features
 - **Batch Operations**: Batch processing for multiple requests

@@ -537,7 +537,7 @@ No additional services, ports, or configuration required!
 <details>
 <summary><strong>NeuronMCP documentation</strong></summary>
 
-- **Setup Guide**: [`neurondb_mcp_setup.md`](NeuronMCP/docs/neurondb_mcp_setup.md)
+- **Setup Guide**: [`neurondb-mcp-setup.md`](NeuronMCP/docs/neurondb-mcp-setup.md)
 - **Tool & Resource Catalog**: [`tool-resource-catalog.md`](NeuronMCP/docs/tool-resource-catalog.md)
 - **Examples**: [`README.md`](NeuronMCP/docs/examples/README.md) • [`example-transcript.md`](NeuronMCP/docs/examples/example-transcript.md)
 
@@ -559,7 +559,7 @@ No additional services, ports, or configuration required!
 | Component | Path | What it is |
 |---|---|---|
 | NeuronDB | `NeuronDB/` | PostgreSQL extension with vector search, ML algorithms, GPU acceleration (CUDA/ROCm/Metal), embeddings, RAG pipeline, hybrid search, and background workers |
-| NeuronAgent | `NeuronAgent/` | Agent runtime + REST/WebSocket API (Go) with multi-agent collaboration, DAG-based workflow engine with human-in-the-loop (HITL), hierarchical memory management, planning & reflection, evaluation framework, budget & cost management, 20+ tools (SQL, HTTP, Code, Shell, Browser, Filesystem, Memory, Collaboration, NeuronDB tools, Multimodal), Prometheus metrics, RBAC, audit logging, and background workers |
+| NeuronAgent | `NeuronAgent/` | Agent runtime + REST/WebSocket API (Go) with multi-agent collaboration, DAG-based workflow engine with human-in-the-loop (HITL), hierarchical memory management, planning & reflection, evaluation framework, budget & cost management, 16+ tools (SQL, HTTP, Code, Shell, Browser, Visualization, Filesystem, Memory, Collaboration, NeuronDB tools, Multimodal), Prometheus metrics, RBAC, audit logging, and background workers |
 | NeuronMCP | `NeuronMCP/` | MCP server for MCP-compatible clients (Go) with 100+ tools (50+ vector operations, complete ML pipeline, RAG operations, 27 PostgreSQL admin tools, dataset loading), middleware system (validation, logging, timeout, error handling, auth, rate limiting), enterprise features (Prometheus metrics, webhooks, circuit breaker, caching, connection pooling), batch operations, progress tracking, authentication (JWT, API keys, OAuth2), and full MCP protocol support (prompts, sampling/completions, resources) |
 | NeuronDesktop | `NeuronDesktop/` | Web UI + API for the ecosystem providing a unified interface |
 

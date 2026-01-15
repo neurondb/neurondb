@@ -146,8 +146,8 @@ graph TB
 | Component | Quick Links | Description |
 |-----------|-------------|-------------|
 | **NeuronDB** | [README](NeuronDB/README.md) · [INSTALL](NeuronDB/INSTALL.md) · [Docs](NeuronDB/docs/) | PostgreSQL extension with vector search, 52+ ML algorithms, GPU acceleration |
-| **NeuronAgent** | [README](NeuronAgent/README.md) · [API](NeuronAgent/docs/api.md) · [Architecture](NeuronAgent/docs/architecture.md) | REST/WebSocket agent runtime with multi-agent collaboration, workflow engine, HITL, 20+ tools, hierarchical memory, budget management, and evaluation framework |
-| **NeuronMCP** | [README](NeuronMCP/README.md) · [Tools](NeuronMCP/REGISTERED_TOOLS.md) · [Setup](NeuronMCP/docs/neurondb_mcp_setup.md) | MCP protocol server with 100+ tools (50+ vector operations, complete ML pipeline, RAG operations, 27 PostgreSQL admin tools, dataset loading), middleware system, batch operations, progress tracking, enterprise features (Prometheus metrics, webhooks, circuit breaker, caching), and full MCP protocol support (prompts, sampling/completions, resources) |
+| **NeuronAgent** | [README](NeuronAgent/README.md) · [API](NeuronAgent/docs/api.md) · [Architecture](NeuronAgent/docs/architecture.md) | REST/WebSocket agent runtime with multi-agent collaboration, workflow engine, HITL, 16+ tools, hierarchical memory, budget management, and evaluation framework |
+| **NeuronMCP** | [README](NeuronMCP/README.md) · [Tools](NeuronMCP/REGISTERED_TOOLS.md) · [Setup](NeuronMCP/docs/neurondb-mcp-setup.md) | MCP protocol server with 100+ tools (50+ vector operations, complete ML pipeline, RAG operations, 27 PostgreSQL admin tools, dataset loading), middleware system, batch operations, progress tracking, enterprise features (Prometheus metrics, webhooks, circuit breaker, caching), and full MCP protocol support (prompts, sampling/completions, resources) |
 | **NeuronDesktop** | [README](NeuronDesktop/README.md) · [API](NeuronDesktop/docs/api.md) · [Deployment](NeuronDesktop/docs/deployment.md) | Unified web interface dashboard |
 
 ### Ecosystem Documentation
@@ -311,7 +311,7 @@ graph TB
 | [Tools Reference](NeuronMCP/REGISTERED_TOOLS.md) | Complete tool reference (100+ tools) |
 | [PostgreSQL Tools](NeuronMCP/POSTGRESQL_TOOLS.md) | PostgreSQL administration tools (27 tools) |
 | [Tool Catalog](NeuronMCP/docs/tool-resource-catalog.md) | Complete tool and resource catalog |
-| [Setup Guide](NeuronMCP/docs/neurondb_mcp_setup.md) | MCP server setup |
+| [Setup Guide](NeuronMCP/docs/neurondb-mcp-setup.md) | MCP server setup |
 
 ### NeuronDesktop API
 
@@ -451,7 +451,7 @@ graph TB
 <summary><strong>🔌 Integrate with MCP</strong></summary>
 
 - [ ] Setup MCP server → [NeuronMCP README](NeuronMCP/README.md)
-- [ ] Use with Claude → [Setup Guide](NeuronMCP/docs/neurondb_mcp_setup.md)
+- [ ] Use with Claude → [Setup Guide](NeuronMCP/docs/neurondb-mcp-setup.md)
 - [ ] Explore tools → [Tools Reference](NeuronMCP/REGISTERED_TOOLS.md)
 
 </details>

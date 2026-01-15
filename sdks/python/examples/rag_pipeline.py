@@ -51,7 +51,7 @@ def main():
                 INSERT INTO documents (content, embedding)
                 VALUES (
                     %s,
-                    neurondb_embed_text(%s, 'text-embedding-3-small')
+                    embed_text(%s, 'text-embedding-3-small')
                 )
             """, (doc, doc))
         conn.commit()
@@ -74,7 +74,7 @@ def main():
     with conn.cursor() as cur:
         # Generate query embedding
         cur.execute("""
-            SELECT neurondb_embed_text(%s, 'text-embedding-3-small')
+            SELECT embed_text(%s, 'text-embedding-3-small')
         """, (query,))
         query_embedding = cur.fetchone()[0]
 
