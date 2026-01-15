@@ -88,3 +88,4 @@ export function getIndex(): SearchIndex {
   return { ...searchIndex }
 }
 
+

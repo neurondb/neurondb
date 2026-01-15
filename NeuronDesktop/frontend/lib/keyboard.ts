@@ -143,3 +143,4 @@ export function findShortcut(event: KeyboardEvent): KeyboardShortcut | null {
   return shortcuts.find((shortcut) => matchesShortcut(event, shortcut)) || null
 }
 
+

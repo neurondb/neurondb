@@ -84,3 +84,4 @@ export default function BudgetDashboard({ budgets }: { budgets: Budget[] }) {
   )
 }
 
+

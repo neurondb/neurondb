@@ -43,3 +43,4 @@ export default function AgentCollaboration({ collaborations }: { collaborations:
   return <DataTable data={collaborations} columns={columns} searchable />
 }
 
+

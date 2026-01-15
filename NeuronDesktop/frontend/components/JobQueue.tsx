@@ -44,3 +44,4 @@ export default function JobQueue({ jobs }: { jobs: Job[] }) {
   return <DataTable data={jobs} columns={columns} searchable />
 }
 
+
