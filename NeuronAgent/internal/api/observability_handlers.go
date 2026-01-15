@@ -107,3 +107,4 @@ func (h *ObservabilityHandlers) GetPerformanceProfile(w http.ResponseWriter, r *
 	respondJSON(w, http.StatusOK, profile)
 }
 
+

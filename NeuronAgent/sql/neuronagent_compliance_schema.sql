@@ -51,3 +51,4 @@ CREATE INDEX IF NOT EXISTS idx_compliance_reports_generated_at ON neurondb_agent
 
 COMMENT ON TABLE neurondb_agent.compliance_reports IS 'Compliance reports for SOC2, ISO27001, and GDPR';
 
+

@@ -237,3 +237,4 @@ func (hc *HealthChecker) CheckHealth(ctx context.Context, nodeID string) (bool, 
 	return row.Status == "healthy", nil
 }
 
+

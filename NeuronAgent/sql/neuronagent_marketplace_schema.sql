@@ -98,3 +98,4 @@ CREATE INDEX IF NOT EXISTS idx_marketplace_workflows_rating ON neurondb_agent.ma
 
 COMMENT ON TABLE neurondb_agent.marketplace_workflows IS 'Workflow marketplace for sharing and discovering workflows';
 
+

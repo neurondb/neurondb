@@ -69,3 +69,4 @@ func EscapeSQLIdentifier(identifier string) string {
 	return fmt.Sprintf(`"%s"`, strings.ReplaceAll(identifier, `"`, `""`))
 }
 
+

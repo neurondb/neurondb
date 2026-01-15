@@ -130,3 +130,4 @@ class TestExceptions:
         assert "500" in str(error)
 
 
+

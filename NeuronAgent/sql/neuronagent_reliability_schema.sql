@@ -47,3 +47,4 @@ END $$;
 
 CREATE INDEX IF NOT EXISTS idx_cluster_nodes_role ON neurondb_agent.cluster_nodes(role);
 
+
