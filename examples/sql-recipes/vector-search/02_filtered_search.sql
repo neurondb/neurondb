@@ -118,3 +118,4 @@ ORDER BY embedding <=> query_vector.query_emb;
 
 
 
+

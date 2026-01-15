@@ -168,3 +168,4 @@ WHERE (indexname LIKE '%embedding%' OR indexname LIKE '%vector%')
 
 
 
+
