@@ -17,6 +17,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
+	"strings"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -53,21 +55,80 @@ func (c *RAGClient) ChunkDocument(ctx context.Context, text string, chunkSize, o
 
 /* RetrieveContext retrieves relevant context for a query */
 func (c *RAGClient) RetrieveContext(ctx context.Context, queryEmbedding Vector, tableName, vectorCol string, limit int) ([]RAGContext, error) {
+	/* Validate identifiers to prevent SQL injection */
+	if err := ValidateSQLIdentifier(tableName, "table_name"); err != nil {
+		return nil, fmt.Errorf("invalid table name: %w", err)
+	}
+	if err := ValidateSQLIdentifier(vectorCol, "vector_column"); err != nil {
+		return nil, fmt.Errorf("invalid vector column name: %w", err)
+	}
+
+	/* Validate query embedding dimension */
+	if len(queryEmbedding) == 0 {
+		return nil, fmt.Errorf("query embedding cannot be empty: query_embedding_dimension=0")
+	}
+
+	/* Escape identifiers for safe use in SQL query */
+	escapedTableName := EscapeSQLIdentifier(tableName)
+	escapedVectorCol := EscapeSQLIdentifier(vectorCol)
+
+	/* Check dimension compatibility by querying a sample vector from the table */
+	/* Use vector_dims() function to get dimension, otherwise let PostgreSQL handle dimension mismatch */
+	var storedVectorDim *int
+	dimCheckQuery := fmt.Sprintf(`SELECT vector_dims(%s) FROM %s WHERE %s IS NOT NULL LIMIT 1`,
+		escapedVectorCol, escapedTableName, escapedVectorCol)
+	err := c.db.GetContext(ctx, &storedVectorDim, dimCheckQuery)
+	if err == nil && storedVectorDim != nil && *storedVectorDim > 0 {
+		/* Dimension check succeeded - verify compatibility */
+		if *storedVectorDim != len(queryEmbedding) {
+			return nil, fmt.Errorf("vector dimension mismatch: query_embedding_dimension=%d, stored_vector_dimension=%d, table_name='%s', vector_col='%s'",
+				len(queryEmbedding), *storedVectorDim, tableName, vectorCol)
+		}
+	}
+	/* If dimension check fails (function doesn't exist or no data), we'll let PostgreSQL handle the error during the actual query */
+
+	/* Convert vector to PostgreSQL vector string format */
+	vectorStr := formatVectorForPostgres(queryEmbedding)
+
+	/* Use parameterized query with escaped identifiers */
 	query := fmt.Sprintf(`
-		SELECT id, content, metadata, 1 - (embedding <=> $1::vector) AS similarity
+		SELECT id, content, metadata, 1 - (%s <=> $1::vector) AS similarity
 		FROM %s
-		ORDER BY embedding <=> $1::vector
+		ORDER BY %s <=> $1::vector
 		LIMIT $2`,
-		tableName)
+		escapedVectorCol, escapedTableName, escapedVectorCol)
 
 	var contexts []RAGContext
-	err := c.db.SelectContext(ctx, &contexts, query, queryEmbedding, limit)
+	err = c.db.SelectContext(ctx, &contexts, query, vectorStr, limit)
 	if err != nil {
-		return nil, fmt.Errorf("context retrieval failed via NeuronDB: table_name='%s', vector_col='%s', query_embedding_dimension=%d, limit=%d, error=%w",
-			tableName, vectorCol, len(queryEmbedding), limit, err)
+		return nil, fmt.Errorf("context retrieval failed via NeuronDB: table_name='%s', vector_col='%s', query_embedding_dimension=%d, limit=%d, query_preview='SELECT ... FROM %s ...', error=%w",
+			tableName, vectorCol, len(queryEmbedding), limit, escapedTableName, err)
 	}
 
 	return contexts, nil
+}
+
+/* formatVectorForPostgres formats a Vector as a PostgreSQL vector string */
+func formatVectorForPostgres(vec Vector) string {
+	if len(vec) == 0 {
+		return "[]"
+	}
+	parts := make([]string, len(vec))
+	for i, v := range vec {
+		/* Handle special float values (NaN, Inf) */
+		if math.IsNaN(float64(v)) {
+			parts[i] = "NaN"
+		} else if math.IsInf(float64(v), 0) {
+			if v > 0 {
+				parts[i] = "Infinity"
+			} else {
+				parts[i] = "-Infinity"
+			}
+		} else {
+			parts[i] = fmt.Sprintf("%g", v)
+		}
+	}
+	return "[" + strings.Join(parts, ",") + "]"
 }
 
 /* RerankResults reranks search results using a reranking model */

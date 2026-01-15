@@ -31,7 +31,7 @@ type AdvancedToolSystem struct {
 	registry     *Registry
 	queries      *db.Queries
 	learners     map[string]*ToolLearner
-	versions     map[string][]ToolVersion
+	versions     map[string][]AdvancedToolVersion
 	dependencies map[string][]string
 	mu           sync.RWMutex
 }
@@ -56,8 +56,8 @@ type UsagePattern struct {
 	LastUsed          time.Time
 }
 
-/* ToolVersion represents a versioned tool */
-type ToolVersion struct {
+/* AdvancedToolVersion represents a versioned tool in the advanced tool system */
+type AdvancedToolVersion struct {
 	Version     string
 	Tool        *db.Tool
 	CreatedAt   time.Time
@@ -77,7 +77,7 @@ func NewAdvancedToolSystem(registry *Registry, queries *db.Queries) *AdvancedToo
 		registry:     registry,
 		queries:      queries,
 		learners:     make(map[string]*ToolLearner),
-		versions:     make(map[string][]ToolVersion),
+		versions:     make(map[string][]AdvancedToolVersion),
 		dependencies: make(map[string][]string),
 	}
 }
@@ -172,7 +172,7 @@ func (ats *AdvancedToolSystem) RegisterToolVersion(ctx context.Context, toolName
 	defer ats.mu.Unlock()
 
 	/* Store version */
-	toolVersion := ToolVersion{
+	toolVersion := AdvancedToolVersion{
 		Version:    version,
 		Tool:       tool,
 		CreatedAt:  time.Now(),
@@ -181,7 +181,7 @@ func (ats *AdvancedToolSystem) RegisterToolVersion(ctx context.Context, toolName
 	}
 
 	if _, exists := ats.versions[toolName]; !exists {
-		ats.versions[toolName] = make([]ToolVersion, 0)
+		ats.versions[toolName] = make([]AdvancedToolVersion, 0)
 	}
 	ats.versions[toolName] = append(ats.versions[toolName], toolVersion)
 
@@ -213,7 +213,7 @@ func (ats *AdvancedToolSystem) MigrateToolVersion(ctx context.Context, toolName,
 	defer ats.mu.RUnlock()
 
 	/* Find versions */
-	var fromVer, toVer *ToolVersion
+	var fromVer, toVer *AdvancedToolVersion
 	versions, exists := ats.versions[toolName]
 	if !exists {
 		return fmt.Errorf("tool versions not found: tool_name='%s'", toolName)

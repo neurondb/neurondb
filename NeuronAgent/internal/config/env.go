@@ -89,6 +89,44 @@ func LoadFromEnv(cfg *Config) error {
 		cfg.Logging.Format = format
 	}
 
+	/* Distributed config */
+	if enabled := os.Getenv("DISTRIBUTED_ENABLED"); enabled == "true" {
+		cfg.Distributed.Enabled = true
+	}
+	if addr := os.Getenv("NODE_ADDRESS"); addr != "" {
+		cfg.Distributed.NodeAddress = addr
+	}
+	if port := os.Getenv("NODE_PORT"); port != "" {
+		if p, err := strconv.Atoi(port); err == nil {
+			cfg.Distributed.NodePort = p
+		}
+	}
+	if timeout := os.Getenv("RPC_TIMEOUT"); timeout != "" {
+		if d, err := time.ParseDuration(timeout); err == nil {
+			cfg.Distributed.RPCTimeout = d
+		}
+	}
+
+	/* Cache config */
+	if enabled := os.Getenv("DISTRIBUTED_CACHE_ENABLED"); enabled == "true" {
+		cfg.Cache.Enabled = true
+	}
+	if ttl := os.Getenv("CACHE_TTL"); ttl != "" {
+		if d, err := time.ParseDuration(ttl); err == nil {
+			cfg.Cache.TTL = d
+		}
+	}
+	if syncInterval := os.Getenv("CACHE_SYNC_INTERVAL"); syncInterval != "" {
+		if d, err := time.ParseDuration(syncInterval); err == nil {
+			cfg.Cache.SyncInterval = d
+		}
+	}
+
+	/* Multimodal config */
+	if provider := os.Getenv("OCR_PROVIDER"); provider != "" {
+		cfg.Multimodal.OCRProvider = provider
+	}
+
 	return nil
 }
 

@@ -90,7 +90,15 @@ func NewImageProcessor() ImageProcessor {
 
 /* NewDocumentProcessor creates a new document processor */
 func NewDocumentProcessor() DocumentProcessor {
-	return &basicDocumentProcessor{}
+	/* Get OCR provider from environment or use default */
+	ocrProvider := os.Getenv("OCR_PROVIDER")
+	if ocrProvider == "" {
+		ocrProvider = "tesseract" /* Default to Tesseract */
+	}
+
+	return &basicDocumentProcessor{
+		ocrProvider: ocrProvider,
+	}
 }
 
 /* NewAudioProcessor creates a new audio processor */
@@ -278,17 +286,207 @@ func truncateString(s string, maxLen int) string {
 	return s[:maxLen] + "..."
 }
 
-type basicDocumentProcessor struct{}
+type basicDocumentProcessor struct {
+	ocrProvider string
+}
 
 func (p *basicDocumentProcessor) Process(ctx context.Context, file *MediaFile) (*DocumentAnalysis, error) {
-	/* Placeholder implementation - in production, integrate with OCR/document parsing */
+	metadata := map[string]interface{}{
+		"size":      file.Size,
+		"mime_type": file.MimeType,
+	}
+
+	/* Determine file type and processing method */
+	text := ""
+	pages := 0
+	language := "unknown"
+
+	/* Check if file is an image-based document (PDF, scanned image) */
+	if strings.Contains(file.MimeType, "pdf") {
+		/* PDF processing - try to extract text using pdftotext if available */
+		text, pages = p.extractTextFromPDF(ctx, file)
+		if text == "" {
+			/* If text extraction fails, try OCR on PDF pages */
+			text = p.extractTextWithOCR(ctx, file)
+		}
+	} else if strings.Contains(file.MimeType, "image") {
+		/* Image-based document - use OCR */
+		text = p.extractTextWithOCR(ctx, file)
+		pages = 1
+	} else if strings.Contains(file.MimeType, "text") || strings.Contains(file.MimeType, "plain") {
+		/* Plain text document */
+		if len(file.Data) > 0 {
+			text = string(file.Data)
+		} else if file.URL != "" && strings.HasPrefix(file.URL, "file://") {
+			path := strings.TrimPrefix(file.URL, "file://")
+			if data, err := os.ReadFile(path); err == nil {
+				text = string(data)
+			}
+		}
+		pages = 1
+	} else {
+		/* Try OCR as fallback for unknown types */
+		text = p.extractTextWithOCR(ctx, file)
+		pages = 1
+	}
+
+	/* Detect language if text is available */
+	if text != "" && language == "unknown" {
+		language = p.detectLanguage(text)
+	}
+
+	/* If no text extracted, provide helpful message */
+	if text == "" {
+		text = fmt.Sprintf("Document processing completed. File type: %s, size: %d bytes. Text extraction may require additional OCR configuration or document parsing libraries.", file.MimeType, file.Size)
+		metadata["processing_note"] = "Text extraction may require OCR or document parsing libraries"
+	}
+
+	metadata["pages"] = pages
+	if language != "unknown" {
+		metadata["language"] = language
+	}
+
 	return &DocumentAnalysis{
-		Text: "Document processing not yet implemented. Integrate with OCR libraries like Tesseract, document parsers, etc.",
-		Metadata: map[string]interface{}{
-			"size":      file.Size,
-			"mime_type": file.MimeType,
-		},
+		Text:     text,
+		Pages:    pages,
+		Language: language,
+		Metadata: metadata,
 	}, nil
+}
+
+/* extractTextFromPDF extracts text from PDF using pdftotext */
+func (p *basicDocumentProcessor) extractTextFromPDF(ctx context.Context, file *MediaFile) (string, int) {
+	/* Check if pdftotext is available */
+	if _, err := exec.LookPath("pdftotext"); err != nil {
+		return "", 0
+	}
+
+	/* Create temporary file for PDF */
+	var tempFile *os.File
+	var err error
+
+	if file.URL != "" && strings.HasPrefix(file.URL, "file://") {
+		path := strings.TrimPrefix(file.URL, "file://")
+		tempFile, err = os.Open(path)
+		if err != nil {
+			return "", 0
+		}
+		defer tempFile.Close()
+	} else if len(file.Data) > 0 {
+		tempFile, err = os.CreateTemp("", "pdf-doc-*")
+		if err != nil {
+			return "", 0
+		}
+		defer os.Remove(tempFile.Name())
+		defer tempFile.Close()
+
+		/* Write PDF data */
+		if _, err := tempFile.Write(file.Data); err != nil {
+			return "", 0
+		}
+		tempFile.Close()
+	} else {
+		return "", 0
+	}
+
+	/* Run pdftotext */
+	cmd := exec.CommandContext(ctx, "pdftotext", tempFile.Name(), "-")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", 0
+	}
+
+	/* Get page count */
+	pageCount := 0
+	pageCmd := exec.CommandContext(ctx, "pdfinfo", tempFile.Name())
+	pageOutput, err := pageCmd.CombinedOutput()
+	if err == nil {
+		/* Parse page count from pdfinfo output */
+		outputStr := string(pageOutput)
+		for _, line := range strings.Split(outputStr, "\n") {
+			if strings.HasPrefix(line, "Pages:") {
+				if count, err := strconv.Atoi(strings.TrimSpace(strings.TrimPrefix(line, "Pages:"))); err == nil {
+					pageCount = count
+				}
+			}
+		}
+	}
+
+	return strings.TrimSpace(string(output)), pageCount
+}
+
+/* extractTextWithOCR extracts text using OCR (Tesseract) */
+func (p *basicDocumentProcessor) extractTextWithOCR(ctx context.Context, file *MediaFile) string {
+	/* Check if Tesseract is available */
+	if _, err := exec.LookPath("tesseract"); err != nil {
+		return ""
+	}
+
+	/* Create temporary file for image/document */
+	var tempFile *os.File
+	var err error
+
+	if file.URL != "" && strings.HasPrefix(file.URL, "file://") {
+		path := strings.TrimPrefix(file.URL, "file://")
+		tempFile, err = os.Open(path)
+		if err != nil {
+			return ""
+		}
+		defer tempFile.Close()
+	} else if len(file.Data) > 0 {
+		tempFile, err = os.CreateTemp("", "ocr-doc-*")
+		if err != nil {
+			return ""
+		}
+		defer os.Remove(tempFile.Name())
+		defer tempFile.Close()
+
+		/* Write data */
+		if _, err := tempFile.Write(file.Data); err != nil {
+			return ""
+		}
+		tempFile.Close()
+	} else {
+		return ""
+	}
+
+	/* Run Tesseract OCR */
+	cmd := exec.CommandContext(ctx, "tesseract", tempFile.Name(), "stdout", "-l", "eng")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return ""
+	}
+
+	return strings.TrimSpace(string(output))
+}
+
+/* detectLanguage detects language from text (simple heuristic) */
+func (p *basicDocumentProcessor) detectLanguage(text string) string {
+	/* Simple language detection based on character sets */
+	textLower := strings.ToLower(text)
+
+	/* Check for common language indicators */
+	if strings.ContainsAny(textLower, "àáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ") {
+		return "es" /* Spanish/French/Portuguese */
+	}
+	if strings.ContainsAny(textLower, "äöüß") {
+		return "de" /* German */
+	}
+	if strings.ContainsAny(textLower, "àèéìíîòóù") {
+		return "it" /* Italian */
+	}
+	if strings.ContainsAny(textLower, "абвгдеёжзийклмнопрстуфхцчшщъыьэюя") {
+		return "ru" /* Russian */
+	}
+	if strings.ContainsAny(textLower, "的了一是在不") {
+		return "zh" /* Chinese */
+	}
+	if strings.ContainsAny(textLower, "あいうえおかきくけこ") {
+		return "ja" /* Japanese */
+	}
+
+	/* Default to English if no specific indicators */
+	return "en"
 }
 
 type basicAudioProcessor struct{}

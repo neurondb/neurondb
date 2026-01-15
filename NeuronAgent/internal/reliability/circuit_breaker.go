@@ -1,10 +1,10 @@
 /*-------------------------------------------------------------------------
  *
  * circuit_breaker.go
- *    Circuit breaker pattern for preventing cascade failures
+ *    Circuit breaker pattern for resilience
  *
- * Implements circuit breaker to prevent calling failing services
- * and allow time for recovery.
+ * Provides circuit breakers for LLM calls, tool execution, and database
+ * operations with automatic fallback strategies.
  *
  * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
@@ -21,70 +21,63 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/neurondb/NeuronAgent/internal/metrics"
 )
 
-/* CircuitState represents the state of a circuit breaker */
+/* CircuitBreaker implements the circuit breaker pattern */
+type CircuitBreaker struct {
+	name          string
+	maxFailures   int
+	resetTimeout  time.Duration
+	state         CircuitState
+	failureCount  int
+	lastFailure   time.Time
+	mu            sync.RWMutex
+	onStateChange func(name string, from, to CircuitState)
+}
+
+/* CircuitState represents circuit breaker state */
 type CircuitState string
 
 const (
-	StateClosed   CircuitState = "closed"   /* Normal operation */
-	StateOpen     CircuitState = "open"     /* Failing, reject requests */
-	StateHalfOpen CircuitState = "half-open" /* Testing if service recovered */
+	StateClosed   CircuitState = "closed"   // Normal operation
+	StateOpen     CircuitState = "open"     // Failing, reject requests
+	StateHalfOpen CircuitState = "half_open" // Testing if service recovered
 )
 
-/* CircuitBreaker implements circuit breaker pattern */
-type CircuitBreaker struct {
-	name              string
-	failureThreshold  int
-	successThreshold  int
-	timeout           time.Duration
-	currentState      CircuitState
-	failureCount      int
-	successCount      int
-	lastFailureTime   time.Time
-	mu                sync.RWMutex
-}
-
 /* NewCircuitBreaker creates a new circuit breaker */
-func NewCircuitBreaker(name string, failureThreshold, successThreshold int, timeout time.Duration) *CircuitBreaker {
+func NewCircuitBreaker(name string, maxFailures int, resetTimeout time.Duration) *CircuitBreaker {
 	return &CircuitBreaker{
-		name:             name,
-		failureThreshold: failureThreshold,
-		successThreshold: successThreshold,
-		timeout:          timeout,
-		currentState:     StateClosed,
+		name:         name,
+		maxFailures:  maxFailures,
+		resetTimeout: resetTimeout,
+		state:        StateClosed,
+		failureCount: 0,
 	}
 }
 
 /* Execute executes a function with circuit breaker protection */
 func (cb *CircuitBreaker) Execute(ctx context.Context, fn func() error) error {
 	cb.mu.Lock()
-
-	/* Check circuit state */
-	state := cb.currentState
+	state := cb.state
 	cb.mu.Unlock()
 
-	switch state {
-	case StateOpen:
-		/* Check if timeout has passed */
+	/* Check if circuit is open */
+	if state == StateOpen {
+		/* Check if reset timeout has passed */
 		cb.mu.Lock()
-		if time.Since(cb.lastFailureTime) >= cb.timeout {
-			cb.currentState = StateHalfOpen
-			cb.successCount = 0
+		if time.Since(cb.lastFailure) >= cb.resetTimeout {
+			cb.state = StateHalfOpen
+			cb.failureCount = 0
 			state = StateHalfOpen
-		} else {
-			cb.mu.Unlock()
-			return fmt.Errorf("circuit breaker open: service='%s'", cb.name)
+			cb.notifyStateChange(StateOpen, StateHalfOpen)
 		}
 		cb.mu.Unlock()
 
-	case StateHalfOpen:
-		/* Allow request to test if service recovered */
-		break
-
-	case StateClosed:
-		/* Normal operation */
-		break
+		if state == StateOpen {
+			return fmt.Errorf("circuit breaker open: service=%s", cb.name)
+		}
 	}
 
 	/* Execute function */
@@ -94,52 +87,91 @@ func (cb *CircuitBreaker) Execute(ctx context.Context, fn func() error) error {
 	defer cb.mu.Unlock()
 
 	if err != nil {
-		/* Record failure */
 		cb.failureCount++
-		cb.lastFailureTime = time.Now()
+		cb.lastFailure = time.Now()
 
-		if cb.currentState == StateHalfOpen {
-			/* Test failed, open circuit */
-			cb.currentState = StateOpen
-			cb.failureCount = 0
-		} else if cb.failureCount >= cb.failureThreshold {
-			/* Too many failures, open circuit */
-			cb.currentState = StateOpen
+		if cb.failureCount >= cb.maxFailures {
+			if cb.state != StateOpen {
+				cb.notifyStateChange(cb.state, StateOpen)
+			}
+			cb.state = StateOpen
+		} else if cb.state == StateHalfOpen {
+			/* Failed in half-open state, go back to open */
+			cb.notifyStateChange(StateHalfOpen, StateOpen)
+			cb.state = StateOpen
 		}
-
-		return err
+	} else {
+		/* Success - reset failure count */
+		if cb.state == StateHalfOpen {
+			/* Success in half-open state, close the circuit */
+			cb.notifyStateChange(StateHalfOpen, StateClosed)
+			cb.state = StateClosed
+		}
+		cb.failureCount = 0
 	}
 
-	/* Record success */
-	cb.successCount++
-	cb.failureCount = 0
-
-	if cb.currentState == StateHalfOpen {
-		if cb.successCount >= cb.successThreshold {
-			/* Service recovered, close circuit */
-			cb.currentState = StateClosed
-			cb.successCount = 0
-		}
-	}
-
-	return nil
+	return err
 }
 
-/* GetState returns the current circuit breaker state */
+/* notifyStateChange notifies about state change */
+func (cb *CircuitBreaker) notifyStateChange(from, to CircuitState) {
+	if cb.onStateChange != nil {
+		cb.onStateChange(cb.name, from, to)
+	}
+
+	metrics.InfoWithContext(context.Background(), "Circuit breaker state changed", map[string]interface{}{
+		"circuit": cb.name,
+		"from":    string(from),
+		"to":      string(to),
+	})
+}
+
+/* GetState returns current circuit breaker state */
 func (cb *CircuitBreaker) GetState() CircuitState {
 	cb.mu.RLock()
 	defer cb.mu.RUnlock()
-	return cb.currentState
+	return cb.state
 }
 
-/* Reset resets the circuit breaker to closed state */
-func (cb *CircuitBreaker) Reset() {
+/* SetStateChangeCallback sets callback for state changes */
+func (cb *CircuitBreaker) SetStateChangeCallback(callback func(name string, from, to CircuitState)) {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
-	cb.currentState = StateClosed
-	cb.failureCount = 0
-	cb.successCount = 0
+	cb.onStateChange = callback
 }
 
+/* CircuitBreakerManager manages multiple circuit breakers */
+type CircuitBreakerManager struct {
+	breakers map[string]*CircuitBreaker
+	mu       sync.RWMutex
+}
 
+/* NewCircuitBreakerManager creates a new circuit breaker manager */
+func NewCircuitBreakerManager() *CircuitBreakerManager {
+	return &CircuitBreakerManager{
+		breakers: make(map[string]*CircuitBreaker),
+	}
+}
 
+/* GetOrCreate gets or creates a circuit breaker */
+func (cbm *CircuitBreakerManager) GetOrCreate(name string, maxFailures int, resetTimeout time.Duration) *CircuitBreaker {
+	cbm.mu.Lock()
+	defer cbm.mu.Unlock()
+
+	if breaker, exists := cbm.breakers[name]; exists {
+		return breaker
+	}
+
+	breaker := NewCircuitBreaker(name, maxFailures, resetTimeout)
+	cbm.breakers[name] = breaker
+	return breaker
+}
+
+/* Get gets a circuit breaker */
+func (cbm *CircuitBreakerManager) Get(name string) (*CircuitBreaker, bool) {
+	cbm.mu.RLock()
+	defer cbm.mu.RUnlock()
+
+	breaker, exists := cbm.breakers[name]
+	return breaker, exists
+}

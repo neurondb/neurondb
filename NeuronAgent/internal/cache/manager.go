@@ -233,6 +233,21 @@ func (cm *CacheManager) GetStats() map[string]interface{} {
 	}
 }
 
+/* DeleteResponse deletes a response from cache */
+func (cm *CacheManager) DeleteResponse(key string) {
+	cm.responses.Delete(key)
+}
+
+/* DeleteEmbedding deletes an embedding from cache */
+func (cm *CacheManager) DeleteEmbedding(key string) {
+	cm.embeddings.Delete(key)
+}
+
+/* DeleteToolResult deletes a tool result from cache */
+func (cm *CacheManager) DeleteToolResult(key string) {
+	cm.toolResults.Delete(key)
+}
+
 /* Helper functions for hashing */
 func hashText(text string) string {
 	hash := sha256.Sum256([]byte(text))

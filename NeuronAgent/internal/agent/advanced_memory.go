@@ -43,8 +43,8 @@ type AdvancedMemoryManager struct {
 	llm     *LLMClient
 }
 
-/* EpisodicMemory stores specific events and experiences */
-type EpisodicMemory struct {
+/* AdvancedEpisodicMemory stores specific events and experiences in advanced memory system */
+type AdvancedEpisodicMemory struct {
 	ID          int64
 	AgentID     uuid.UUID
 	Event       string
@@ -56,8 +56,8 @@ type EpisodicMemory struct {
 	RelatedIDs  []int64 /* Related episodic memories */
 }
 
-/* SemanticMemory stores factual knowledge and concepts */
-type SemanticMemory struct {
+/* AdvancedSemanticMemory stores factual knowledge and concepts in advanced memory system */
+type AdvancedSemanticMemory struct {
 	ID          int64
 	AgentID     uuid.UUID
 	Concept     string
@@ -172,7 +172,7 @@ func (m *AdvancedMemoryManager) StoreSemantic(ctx context.Context, agentID uuid.
 }
 
 /* RetrieveEpisodic retrieves episodic memories based on query */
-func (m *AdvancedMemoryManager) RetrieveEpisodic(ctx context.Context, agentID uuid.UUID, queryEmbedding []float32, topK int) ([]EpisodicMemory, error) {
+func (m *AdvancedMemoryManager) RetrieveEpisodic(ctx context.Context, agentID uuid.UUID, queryEmbedding []float32, topK int) ([]AdvancedEpisodicMemory, error) {
 	query := `SELECT id, agent_id, event, context, importance_score, metadata, created_at,
 			  1 - (embedding <=> $1::vector) AS similarity
 		FROM neurondb_agent.memory_episodic
@@ -197,12 +197,12 @@ func (m *AdvancedMemoryManager) RetrieveEpisodic(ctx context.Context, agentID uu
 		return nil, fmt.Errorf("episodic memory retrieval failed: error=%w", err)
 	}
 
-	var memories []EpisodicMemory
+	var memories []AdvancedEpisodicMemory
 	for _, row := range rows {
 		/* Load related IDs */
 		relatedIDs, _ := m.getRelatedMemoryIDs(ctx, row.ID, MemoryTypeEpisodic)
 
-		memories = append(memories, EpisodicMemory{
+		memories = append(memories, AdvancedEpisodicMemory{
 			ID:         row.ID,
 			AgentID:    row.AgentID,
 			Event:      row.Event,
@@ -218,7 +218,7 @@ func (m *AdvancedMemoryManager) RetrieveEpisodic(ctx context.Context, agentID uu
 }
 
 /* RetrieveSemantic retrieves semantic memories based on query */
-func (m *AdvancedMemoryManager) RetrieveSemantic(ctx context.Context, agentID uuid.UUID, queryEmbedding []float32, topK int) ([]SemanticMemory, error) {
+func (m *AdvancedMemoryManager) RetrieveSemantic(ctx context.Context, agentID uuid.UUID, queryEmbedding []float32, topK int) ([]AdvancedSemanticMemory, error) {
 	query := `SELECT id, agent_id, concept, knowledge, confidence, metadata, created_at,
 			  1 - (embedding <=> $1::vector) AS similarity
 		FROM neurondb_agent.memory_semantic
@@ -243,12 +243,12 @@ func (m *AdvancedMemoryManager) RetrieveSemantic(ctx context.Context, agentID uu
 		return nil, fmt.Errorf("semantic memory retrieval failed: error=%w", err)
 	}
 
-	var memories []SemanticMemory
+	var memories []AdvancedSemanticMemory
 	for _, row := range rows {
 		/* Load related IDs */
 		relatedIDs, _ := m.getRelatedMemoryIDs(ctx, row.ID, MemoryTypeSemantic)
 
-		memories = append(memories, SemanticMemory{
+		memories = append(memories, AdvancedSemanticMemory{
 			ID:         row.ID,
 			AgentID:    row.AgentID,
 			Concept:    row.Concept,

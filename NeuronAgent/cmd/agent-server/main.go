@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/google/uuid"
 	"github.com/neurondb/NeuronAgent/internal/agent"
 	"github.com/neurondb/NeuronAgent/internal/api"
 	"github.com/neurondb/NeuronAgent/internal/auth"
@@ -41,6 +42,9 @@ import (
 	"github.com/neurondb/NeuronAgent/internal/tools"
 	"github.com/neurondb/NeuronAgent/internal/workflow"
 	"github.com/neurondb/NeuronAgent/internal/worker"
+	"github.com/neurondb/NeuronAgent/internal/distributed"
+	"github.com/neurondb/NeuronAgent/internal/events"
+	"github.com/neurondb/NeuronAgent/internal/cache"
 	"github.com/neurondb/NeuronAgent/pkg/neurondb"
 )
 
@@ -202,6 +206,49 @@ func main() {
 	multimodalProcessor := multimodal.NewEnhancedMultimodalProcessorWithDB(database.DB)
 	runtime.SetMultimodalProcessor(multimodalProcessor)
 
+	/* Initialize distributed architecture components */
+	ctx := context.Background()
+	nodeID := os.Getenv("NODE_ID")
+	if nodeID == "" {
+		nodeID = fmt.Sprintf("node-%s", uuid.New().String()[:8])
+	}
+
+	coordinator := distributed.NewCoordinator(nodeID, queries, runtime, &cfg.Distributed)
+	/* Enable distributed mode if configured */
+	if cfg.Distributed.Enabled || os.Getenv("DISTRIBUTED_ENABLED") == "true" {
+		if err := coordinator.Enable(ctx); err != nil {
+			metrics.WarnWithContext(ctx, "Failed to enable distributed mode", map[string]interface{}{
+				"error": err.Error(),
+			})
+		} else {
+			runtime.SetCoordinator(coordinator)
+			metrics.InfoWithContext(ctx, "Distributed mode enabled", map[string]interface{}{
+				"node_id": nodeID,
+			})
+		}
+	}
+
+	/* Initialize event broker */
+	eventBroker := events.NewBroker(queries)
+	if os.Getenv("EVENTS_ENABLED") == "true" {
+		if err := eventBroker.Enable(ctx); err != nil {
+			metrics.WarnWithContext(ctx, "Failed to enable event broker", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}
+
+	/* Initialize distributed cache */
+	l1Cache := cache.NewCacheManager(5*time.Minute, 10*time.Minute, 15*time.Minute, 10000)
+	distributedCache := cache.NewDistributedCache(queries, l1Cache)
+	if os.Getenv("DISTRIBUTED_CACHE_ENABLED") == "true" {
+		if err := distributedCache.Enable(ctx); err != nil {
+			metrics.WarnWithContext(ctx, "Failed to enable distributed cache", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}
+
 	/* Initialize session management */
 	sessionCache := session.NewCache(5 * time.Minute)
 	_ = session.NewManager(queries, sessionCache) /* Session manager for future use */
@@ -249,6 +296,11 @@ func main() {
 	router.Use(api.CORSMiddleware)
 	router.Use(api.LoggingMiddleware)
 	router.Use(api.AuthMiddleware(keyManager, principalManager, rateLimiter))
+
+	/* Initialize marketplace and compliance handlers */
+	marketplaceHandlers := api.NewMarketplaceHandlers(queries)
+	complianceHandlers := api.NewComplianceHandlers(queries)
+	observabilityHandlers := api.NewObservabilityHandlers(queries)
 
 	/* API routes */
 	apiRouter := router.PathPrefix("/api/v1").Subrouter()
@@ -318,6 +370,29 @@ func main() {
 	apiRouter.HandleFunc("/memory/{id}/summarize", handlers.SummarizeMemory).Methods("POST")
 	apiRouter.HandleFunc("/analytics/overview", handlers.GetAnalyticsOverview).Methods("GET")
 	apiRouter.HandleFunc("/ws", api.HandleWebSocket(runtime, keyManager)).Methods("GET")
+
+	/* Marketplace routes */
+	apiRouter.HandleFunc("/marketplace/tools", marketplaceHandlers.ListMarketplaceTools).Methods("GET")
+	apiRouter.HandleFunc("/marketplace/tools", marketplaceHandlers.PublishTool).Methods("POST")
+	apiRouter.HandleFunc("/marketplace/tools/{id}/rate", marketplaceHandlers.RateTool).Methods("POST")
+	apiRouter.HandleFunc("/marketplace/agents", marketplaceHandlers.ListMarketplaceAgents).Methods("GET")
+	apiRouter.HandleFunc("/marketplace/agents", marketplaceHandlers.PublishAgent).Methods("POST")
+
+	/* Compliance routes */
+	apiRouter.HandleFunc("/compliance/reports/{type}", complianceHandlers.GenerateComplianceReport).Methods("POST")
+	apiRouter.HandleFunc("/compliance/audit-logs", complianceHandlers.GetAuditLogs).Methods("GET")
+
+	/* Observability routes */
+	apiRouter.HandleFunc("/observability/executions/{id}/decision-tree", observabilityHandlers.GetDecisionTree).Methods("GET")
+	apiRouter.HandleFunc("/observability/executions/{id}/tool-chain", observabilityHandlers.GetToolCallChain).Methods("GET")
+	apiRouter.HandleFunc("/observability/executions/{id}/performance", observabilityHandlers.GetPerformanceProfile).Methods("GET")
+
+	/* Tool versioning routes */
+	toolVersioningHandlers := api.NewToolVersioningHandlers(queries)
+	apiRouter.HandleFunc("/tools/{name}/versions", toolVersioningHandlers.ListToolVersions).Methods("GET")
+	apiRouter.HandleFunc("/tools/{name}/versions", toolVersioningHandlers.CreateToolVersion).Methods("POST")
+	apiRouter.HandleFunc("/tools/{name}/versions/{version}", toolVersioningHandlers.GetToolVersion).Methods("GET")
+	apiRouter.HandleFunc("/tools/{name}/versions/{version}/deprecate", toolVersioningHandlers.DeprecateToolVersion).Methods("POST")
 
 	/* Collaboration workspace routes */
 	apiRouter.HandleFunc("/workspaces", collabHandlers.CreateWorkspace).Methods("POST")

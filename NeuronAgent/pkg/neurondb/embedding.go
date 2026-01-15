@@ -100,75 +100,187 @@ func (c *EmbeddingClient) embedBatchFallback(ctx context.Context, texts []string
 }
 
 /* parseVector parses a vector string like "[1.0, 2.0, 3.0]" into a Vector */
+/* Handles formats: [1,2,3], [1.0, 2.0, 3.0], {1,2,3}, etc. */
 func parseVector(s string) (Vector, error) {
-	/* Remove brackets */
-	if len(s) < 2 || s[0] != '[' || s[len(s)-1] != ']' {
-		return nil, fmt.Errorf("invalid vector format: %s", s)
+	s = strings.TrimSpace(s)
+	if len(s) == 0 {
+		return nil, fmt.Errorf("empty vector string")
 	}
-	s = s[1 : len(s)-1]
 
-	/* Split by comma */
+	/* Remove brackets or braces */
+	if (s[0] == '[' && s[len(s)-1] == ']') || (s[0] == '{' && s[len(s)-1] == '}') {
+		s = s[1 : len(s)-1]
+	} else {
+		return nil, fmt.Errorf("invalid vector format: expected brackets or braces, got: %s", s)
+	}
+
+	s = strings.TrimSpace(s)
+	if len(s) == 0 {
+		/* Empty vector */
+		return Vector([]float32{}), nil
+	}
+
+	/* Split by comma, handling whitespace */
 	var values []float32
 	start := 0
+	inNumber := false
+	
 	for i := 0; i <= len(s); i++ {
-		if i == len(s) || s[i] == ',' {
-			if i > start {
-				var val float32
-				_, err := fmt.Sscanf(s[start:i], "%f", &val)
-				if err != nil {
-					return nil, fmt.Errorf("failed to parse float: %w", err)
+		if i == len(s) {
+			/* End of string - parse last number */
+			if inNumber || start < i {
+				valStr := strings.TrimSpace(s[start:i])
+				if len(valStr) > 0 {
+					var val float32
+					_, err := fmt.Sscanf(valStr, "%f", &val)
+					if err != nil {
+						return nil, fmt.Errorf("failed to parse float at position %d-%d: '%s', error: %w", start, i, valStr, err)
+					}
+					values = append(values, val)
 				}
-				values = append(values, val)
+			}
+			break
+		}
+		
+		char := s[i]
+		if char == ',' {
+			/* Comma found - parse number before it */
+			if inNumber || start < i {
+				valStr := strings.TrimSpace(s[start:i])
+				if len(valStr) > 0 {
+					var val float32
+					_, err := fmt.Sscanf(valStr, "%f", &val)
+					if err != nil {
+						return nil, fmt.Errorf("failed to parse float at position %d-%d: '%s', error: %w", start, i, valStr, err)
+					}
+					values = append(values, val)
+				}
 			}
 			start = i + 1
+			inNumber = false
+		} else if !strings.ContainsRune(" \t\n\r", rune(char)) {
+			/* Non-whitespace character - part of a number */
+			if !inNumber {
+				inNumber = true
+			}
 		}
+	}
+
+	if len(values) == 0 {
+		return nil, fmt.Errorf("no values found in vector string: %s", s)
 	}
 
 	return Vector(values), nil
 }
 
 /* parseVectorArray parses an array of vectors from PostgreSQL array format */
-/* Format: "{[1.0,2.0],[3.0,4.0]}" or "[1.0,2.0],[3.0,4.0]" */
+/* Formats: "{[1.0,2.0],[3.0,4.0]}", "[1.0,2.0],[3.0,4.0]", "{vector(1,2),vector(3,4)}", etc. */
 func parseVectorArray(s string) ([]Vector, error) {
 	s = strings.TrimSpace(s)
+	if len(s) == 0 {
+		return []Vector{}, nil
+	}
 
-	/* Remove outer braces if present */
+	/* Remove outer braces if present (PostgreSQL array format) */
 	if len(s) > 0 && s[0] == '{' && s[len(s)-1] == '}' {
 		s = s[1 : len(s)-1]
+		s = strings.TrimSpace(s)
 	}
 
 	if len(s) == 0 {
 		return []Vector{}, nil
 	}
 
-	/* Split by "],[" to separate vectors */
-	/* Handle both "],[ and ], [" patterns */
-	parts := strings.Split(s, "],[")
+	/* Handle PostgreSQL array format with escaped quotes: {"[1,2]","[3,4]"} */
+	if s[0] == '"' {
+		/* Parse quoted array format */
+		var vectors []Vector
+		i := 0
+		for i < len(s) {
+			/* Skip to next quote */
+			if s[i] != '"' {
+				i++
+				continue
+			}
+			i++ // Skip opening quote
+			start := i
+			
+			/* Find closing quote (handle escaped quotes) */
+			for i < len(s) {
+				if s[i] == '"' && (i == 0 || s[i-1] != '\\') {
+					break
+				}
+				i++
+			}
+			
+			if i >= len(s) {
+				return nil, fmt.Errorf("unclosed quote in vector array at position %d", start)
+			}
+			
+			/* Extract vector string (may have escaped quotes) */
+			vectorStr := s[start:i]
+			/* Unescape quotes */
+			vectorStr = strings.ReplaceAll(vectorStr, "\\\"", "\"")
+			vectorStr = strings.ReplaceAll(vectorStr, "\\\\", "\\")
+			
+			vec, err := parseVector(vectorStr)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse vector at position %d-%d: %w", start, i, err)
+			}
+			vectors = append(vectors, vec)
+			
+			i++ // Skip closing quote
+			/* Skip comma and whitespace */
+			for i < len(s) && (s[i] == ',' || s[i] == ' ' || s[i] == '\t') {
+				i++
+			}
+		}
+		return vectors, nil
+	}
+
+	/* Handle comma-separated vector format: [1,2],[3,4] */
+	/* Split by "],[" or "]," to separate vectors */
 	var vectors []Vector
-
-	for _, part := range parts {
-		/* Clean up brackets */
-		part = strings.TrimSpace(part)
-		if len(part) == 0 {
-			continue
+	start := 0
+	depth := 0
+	
+	for i := 0; i < len(s); i++ {
+		switch s[i] {
+		case '[':
+			depth++
+		case ']':
+			depth--
+			if depth == 0 {
+				/* Found complete vector */
+				vectorStr := strings.TrimSpace(s[start : i+1])
+				if len(vectorStr) > 0 {
+					vec, err := parseVector(vectorStr)
+					if err != nil {
+						return nil, fmt.Errorf("failed to parse vector at position %d-%d: %w", start, i+1, err)
+					}
+					vectors = append(vectors, vec)
+				}
+				/* Skip to next vector (after comma) */
+				i++
+				for i < len(s) && (s[i] == ',' || s[i] == ' ' || s[i] == '\t') {
+					i++
+				}
+				start = i
+				i-- // Adjust for loop increment
+			}
 		}
-
-		/* Remove leading [ if present */
-		if len(part) > 0 && part[0] == '[' {
-			part = part[1:]
+	}
+	
+	/* Handle last vector if not terminated by comma */
+	if start < len(s) {
+		vectorStr := strings.TrimSpace(s[start:])
+		if len(vectorStr) > 0 {
+			vec, err := parseVector(vectorStr)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse last vector: %w", err)
+			}
+			vectors = append(vectors, vec)
 		}
-		/* Remove trailing ] if present */
-		if len(part) > 0 && part[len(part)-1] == ']' {
-			part = part[:len(part)-1]
-		}
-
-		/* Add brackets back for parseVector */
-		vectorStr := "[" + part + "]"
-		vec, err := parseVector(vectorStr)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse vector in array: %w", err)
-		}
-		vectors = append(vectors, vec)
 	}
 
 	return vectors, nil

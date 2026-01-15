@@ -10,11 +10,20 @@ AI agent runtime system providing REST API and WebSocket endpoints for building 
 
 NeuronAgent integrates with NeuronDB PostgreSQL extension to provide agent runtime capabilities. Use it to build autonomous agent systems with persistent memory, tool execution, and streaming responses.
 
-## Official Documentation
+## Documentation
 
 **For comprehensive documentation, detailed tutorials, complete API references, and best practices, visit:**
 
 🌐 **[https://www.neurondb.ai/docs/neuronagent](https://www.neurondb.ai/docs/neuronagent)**
+
+### Local Documentation
+
+- **[Features](docs/features.md)** - Complete feature list and capabilities
+- **[API Reference](docs/API.md)** - Complete REST API documentation
+- **[Architecture](docs/ARCHITECTURE.md)** - System architecture and design
+- **[CLI Guide](docs/CLI_GUIDE.md)** - Command-line interface guide
+- **[Deployment](docs/DEPLOYMENT.md)** - Deployment and configuration
+- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
 
 The official documentation provides:
 - Complete REST API reference with examples
@@ -37,7 +46,7 @@ The official documentation provides:
 | **Planning & Reflection** | LLM-based planning with task decomposition, agent self-reflection, and quality assessment |
 | **Evaluation Framework** | Built-in evaluation system for agent performance with automated quality scoring |
 | **Budget & Cost Management** | Real-time cost tracking, per-agent and per-session budget controls, and budget alerts |
-| **Tool System (20+ Tools)** | Extensible tool registry with SQL, HTTP, Code, Shell, Browser (Playwright), Filesystem (virtual), Memory, Collaboration, NeuronDB tools (RAG, Hybrid Search, Reranking, Vector, ML, Analytics, Visualization), and Multimodal processing |
+| **Tool System (16+ Tools)** | Extensible tool registry with SQL, HTTP, Code, Shell, Browser (Playwright), Visualization, Filesystem (virtual), Memory, Collaboration, NeuronDB tools (RAG, Hybrid Search, Reranking, Vector, ML, Analytics), and Multimodal processing. Supports custom tool registration. |
 | **REST API** | Full CRUD API for agents, sessions, messages, workflows, plans, budgets, and collaborations |
 | **WebSocket Support** | Streaming agent responses in real-time with event streaming |
 | **Authentication & Security** | API key-based authentication with bcrypt hashing, RBAC, fine-grained permissions, and audit logging |

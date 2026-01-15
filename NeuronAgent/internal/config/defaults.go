@@ -47,6 +47,21 @@ func DefaultConfig() *Config {
 		Workflow: WorkflowConfig{
 			BaseURL: "http://localhost:8080",
 		},
+		Distributed: DistributedConfig{
+			Enabled:     false,
+			NodeAddress: "localhost",
+			NodePort:    8080,
+			RPCTimeout:  30 * time.Second,
+		},
+		Cache: CacheConfig{
+			Enabled:      false,
+			TTL:          5 * time.Minute,
+			SyncInterval: 1 * time.Minute,
+		},
+		Multimodal: MultimodalConfig{
+			OCRProvider: "tesseract",
+			APIKeys:     make(map[string]string),
+		},
 	}
 }
 

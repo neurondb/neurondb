@@ -52,6 +52,7 @@ type Runtime struct {
 	embed               *neurondb.EmbeddingClient
 	toolPermChecker     *auth.ToolPermissionChecker
 	deterministicMode   bool
+	coordinator         interface{} /* Distributed coordinator interface */
 }
 
 type ExecutionState struct {
@@ -140,6 +141,16 @@ func (r *Runtime) Execute(ctx context.Context, sessionID uuid.UUID, userMessage 
 	if len(userMessage) > 100000 {
 		return nil, fmt.Errorf("agent execution failed: session_id='%s', user_message_too_large=true, length=%d, max_length=100000",
 			sessionID.String(), len(userMessage))
+	}
+
+	/* Check if distributed coordinator is enabled and route accordingly */
+	if r.coordinator != nil {
+		if coordinator, ok := r.coordinator.(interface {
+			IsEnabled() bool
+			ExecuteAgent(ctx context.Context, sessionID uuid.UUID, userMessage string) (*ExecutionState, error)
+		}); ok && coordinator.IsEnabled() {
+			return coordinator.ExecuteAgent(ctx, sessionID, userMessage)
+		}
 	}
 
 	/* Check if task should be async (long-running tasks) */

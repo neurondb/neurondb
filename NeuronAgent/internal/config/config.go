@@ -22,11 +22,14 @@ import (
 )
 
 type Config struct {
-	Server   ServerConfig   `yaml:"server"`
-	Database DatabaseConfig `yaml:"database"`
-	Auth     AuthConfig     `yaml:"auth"`
-	Logging  LoggingConfig  `yaml:"logging"`
-	Workflow WorkflowConfig `yaml:"workflow"`
+	Server      ServerConfig           `yaml:"server"`
+	Database    DatabaseConfig         `yaml:"database"`
+	Auth        AuthConfig             `yaml:"auth"`
+	Logging     LoggingConfig          `yaml:"logging"`
+	Workflow    WorkflowConfig         `yaml:"workflow"`
+	Distributed DistributedConfig      `yaml:"distributed"`
+	Cache       CacheConfig            `yaml:"cache"`
+	Multimodal  MultimodalConfig       `yaml:"multimodal"`
 }
 
 type WorkflowConfig struct {
@@ -59,6 +62,24 @@ type AuthConfig struct {
 type LoggingConfig struct {
 	Level  string `yaml:"level"`
 	Format string `yaml:"format"`
+}
+
+type DistributedConfig struct {
+	Enabled     bool          `yaml:"enabled"`
+	NodeAddress string        `yaml:"node_address"`
+	NodePort    int           `yaml:"node_port"`
+	RPCTimeout  time.Duration `yaml:"rpc_timeout"`
+}
+
+type CacheConfig struct {
+	Enabled     bool          `yaml:"enabled"`
+	TTL         time.Duration `yaml:"ttl"`
+	SyncInterval time.Duration `yaml:"sync_interval"`
+}
+
+type MultimodalConfig struct {
+	OCRProvider string            `yaml:"ocr_provider"`
+	APIKeys     map[string]string  `yaml:"api_keys"`
 }
 
 func LoadConfig(path string) (*Config, error) {

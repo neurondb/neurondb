@@ -1,10 +1,10 @@
 /*-------------------------------------------------------------------------
  *
  * self_improvement.go
- *    Self-improvement and learning capabilities for agents
+ *    Self-improvement and meta-learning system
  *
- * Implements meta-learning, strategy evolution, performance feedback loops,
- * A/B testing, reinforcement learning integration, and transfer learning.
+ * Provides meta-learning, strategy evolution, performance feedback loops,
+ * A/B testing, and reinforcement learning integration.
  *
  * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
@@ -18,7 +18,6 @@ package agent
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -28,780 +27,340 @@ import (
 	"github.com/neurondb/NeuronAgent/pkg/neurondb"
 )
 
+/* ExecutionRow represents a row from execution history */
+type ExecutionRow struct {
+	ID            uuid.UUID     `db:"id"`
+	SessionID     uuid.UUID     `db:"session_id"`
+	UserMessage   string        `db:"user_message"`
+	FinalAnswer   string        `db:"final_answer"`
+	Success       bool          `db:"success"`
+	QualityScore  float64       `db:"quality_score"`
+	TokensUsed    int           `db:"tokens_used"`
+	ExecutionTime time.Duration `db:"execution_time"`
+}
+
 /* SelfImprovementManager manages agent self-improvement */
 type SelfImprovementManager struct {
-	queries *db.Queries
-	runtime *Runtime
-	llm     *LLMClient
-	mlClient *neurondb.MLClient
+	queries     *db.Queries
+	llm         *LLMClient
+	mlClient    *neurondb.MLClient
+	feedbackLoop *FeedbackLoop
 }
 
-/* AgentStrategy represents an agent's strategy */
-type AgentStrategy struct {
-	StrategyID    uuid.UUID
-	AgentID       uuid.UUID
-	Name          string
-	Config        map[string]interface{}
-	Performance   float64
-	UsageCount    int64
-	LastUpdated   time.Time
-}
-
-/* LearningMetrics tracks learning progress */
-type LearningMetrics struct {
-	AgentID           uuid.UUID
-	TaskSuccessRate   float64
-	AverageLatency    time.Duration
-	TokenEfficiency   float64
-	ImprovementTrend  float64
-	LastEvaluated     time.Time
-}
-
-/* NewSelfImprovementManager creates a self-improvement manager */
-func NewSelfImprovementManager(queries *db.Queries, runtime *Runtime, llm *LLMClient, mlClient *neurondb.MLClient) *SelfImprovementManager {
+/* NewSelfImprovementManager creates a new self-improvement manager */
+func NewSelfImprovementManager(queries *db.Queries, llm *LLMClient, mlClient *neurondb.MLClient) *SelfImprovementManager {
 	return &SelfImprovementManager{
-		queries:  queries,
-		runtime:  runtime,
-		llm:      llm,
-		mlClient: mlClient,
+		queries:      queries,
+		llm:          llm,
+		mlClient:     mlClient,
+		feedbackLoop: NewFeedbackLoop(queries),
 	}
 }
 
-/* MetaLearn enables agents to learn how to learn */
-func (sim *SelfImprovementManager) MetaLearn(ctx context.Context, agentID uuid.UUID, learningTasks []LearningTask) (*MetaLearningResult, error) {
-	/* Analyze past performance patterns */
-	performancePatterns, err := sim.analyzePerformancePatterns(ctx, agentID)
-	if err != nil {
-		return nil, fmt.Errorf("meta-learning failed: performance_analysis_error=true, error=%w", err)
-	}
-
-	/* Identify learning strategies that work best */
-	bestStrategies, err := sim.identifyBestStrategies(ctx, agentID, performancePatterns)
-	if err != nil {
-		return nil, fmt.Errorf("meta-learning failed: strategy_identification_error=true, error=%w", err)
-	}
-
-	/* Generate improved learning approach */
-	improvedApproach, err := sim.generateImprovedApproach(ctx, agentID, bestStrategies, learningTasks)
-	if err != nil {
-		return nil, fmt.Errorf("meta-learning failed: approach_generation_error=true, error=%w", err)
-	}
-
-	return &MetaLearningResult{
-		AgentID:        agentID,
-		BestStrategies: bestStrategies,
-		ImprovedApproach: improvedApproach,
-		Confidence:     0.85,
-	}, nil
-}
-
-/* EvolveStrategy evolves agent strategy based on performance */
-func (sim *SelfImprovementManager) EvolveStrategy(ctx context.Context, agentID uuid.UUID, currentStrategy *AgentStrategy, performanceData []PerformanceData) (*AgentStrategy, error) {
-	if len(performanceData) == 0 {
-		return currentStrategy, nil
-	}
-
-	/* Analyze performance data */
-	analysis := sim.analyzePerformance(performanceData)
-
-	/* Generate strategy mutations */
-	mutations := sim.generateStrategyMutations(currentStrategy, analysis)
-
-	/* Test mutations and select best */
-	bestMutation := sim.selectBestMutation(ctx, agentID, mutations, performanceData)
-
-	/* Create evolved strategy */
-	evolvedStrategy := &AgentStrategy{
-		StrategyID:  uuid.New(),
-		AgentID:     agentID,
-		Name:        fmt.Sprintf("%s (evolved)", currentStrategy.Name),
-		Config:      bestMutation,
-		Performance: sim.evaluateStrategy(bestMutation, performanceData),
-		UsageCount:  0,
-		LastUpdated: time.Now(),
-	}
-
-	/* Store evolved strategy */
-	if err := sim.storeStrategy(ctx, evolvedStrategy); err != nil {
-		return nil, fmt.Errorf("strategy evolution failed: storage_error=true, error=%w", err)
-	}
-
-	return evolvedStrategy, nil
-}
-
-/* PerformanceFeedbackLoop implements automatic performance improvement */
-func (sim *SelfImprovementManager) PerformanceFeedbackLoop(ctx context.Context, agentID uuid.UUID) error {
-	/* Get recent performance metrics */
-	metrics, err := sim.getPerformanceMetrics(ctx, agentID)
-	if err != nil {
-		return fmt.Errorf("feedback loop failed: metrics_retrieval_error=true, error=%w", err)
-	}
-
-	/* Compare with previous metrics */
-	previousMetrics, err := sim.getPreviousMetrics(ctx, agentID)
-	if err == nil {
-		/* Check if performance degraded */
-		if metrics.TaskSuccessRate < previousMetrics.TaskSuccessRate-0.05 {
-			/* Performance degraded - trigger improvement */
-			if err := sim.triggerImprovement(ctx, agentID, metrics); err != nil {
-				return fmt.Errorf("feedback loop failed: improvement_trigger_error=true, error=%w", err)
-			}
-		}
-	}
-
-	/* Update metrics */
-	if err := sim.updateMetrics(ctx, agentID, metrics); err != nil {
-		return fmt.Errorf("feedback loop failed: metrics_update_error=true, error=%w", err)
-	}
-
-	return nil
-}
-
-/* ABTest performs A/B testing between agent configurations */
-func (sim *SelfImprovementManager) ABTest(ctx context.Context, agentID uuid.UUID, configA, configB map[string]interface{}, testDuration time.Duration) (*ABTestResult, error) {
-	testID := uuid.New()
-
-	/* Create test variants */
-	variantA := &ABTestVariant{
-		TestID:    testID,
-		VariantID: "A",
-		Config:    configA,
-		Metrics:   make(map[string]float64),
-	}
-
-	variantB := &ABTestVariant{
-		TestID:    testID,
-		VariantID: "B",
-		Config:    configB,
-		Metrics:   make(map[string]float64),
-	}
-
-	/* Create test record in database */
-	query := `INSERT INTO neurondb_agent.ab_tests
-		(test_id, agent_id, config_a, config_b, status, created_at)
-		VALUES ($1, $2, $3::jsonb, $4::jsonb, 'running', $5)
-		ON CONFLICT (test_id) DO NOTHING`
-	_, _ = sim.queries.DB.ExecContext(ctx, query, testID, agentID, configA, configB, time.Now())
-
-	/* Run test with actual task routing */
-	startTime := time.Now()
-	ticker := time.NewTicker(5 * time.Second) /* Check every 5 seconds */
-	defer ticker.Stop()
-
-	taskCountA := 0
-	taskCountB := 0
-	successCountA := 0
-	successCountB := 0
-	totalLatencyA := time.Duration(0)
-	totalLatencyB := time.Duration(0)
-
-	for time.Since(startTime) < testDuration {
-		select {
-		case <-ctx.Done():
-			break
-		case <-ticker.C:
-			/* Get pending tasks for this agent */
-			tasks, err := sim.getPendingTasks(ctx, agentID)
-			if err == nil && len(tasks) > 0 {
-				/* Route tasks to variants (alternating or random) */
-				for i, task := range tasks {
-					var variant *ABTestVariant
-					var variantID string
-					
-					/* Alternate between variants for fair distribution */
-					if i%2 == 0 {
-						variant = variantA
-						variantID = "A"
-					} else {
-						variant = variantB
-						variantID = "B"
-					}
-
-					/* Execute task with variant configuration */
-					start := time.Now()
-					success, _ := sim.executeTaskWithConfig(ctx, agentID, task, variant.Config)
-					latency := time.Since(start)
-
-					/* Collect metrics */
-					if variantID == "A" {
-						taskCountA++
-						if success {
-							successCountA++
-						}
-						totalLatencyA += latency
-					} else {
-						taskCountB++
-						if success {
-							successCountB++
-						}
-						totalLatencyB += latency
-					}
-
-					/* Update variant metrics */
-					if taskCountA > 0 {
-						variantA.Metrics["success_rate"] = float64(successCountA) / float64(taskCountA)
-						variantA.Metrics["avg_latency"] = totalLatencyA.Seconds() / float64(taskCountA)
-						variantA.Metrics["task_count"] = float64(taskCountA)
-					}
-					if taskCountB > 0 {
-						variantB.Metrics["success_rate"] = float64(successCountB) / float64(taskCountB)
-						variantB.Metrics["avg_latency"] = totalLatencyB.Seconds() / float64(taskCountB)
-						variantB.Metrics["task_count"] = float64(taskCountB)
-					}
-				}
-			}
-		}
-	}
-
-	/* Calculate statistical significance and confidence */
-	confidence := sim.calculateConfidence(variantA, variantB)
-
-	/* Analyze results */
-	result := &ABTestResult{
-		TestID:    testID,
-		AgentID:   agentID,
-		VariantA:  variantA,
-		VariantB:  variantB,
-		Winner:    sim.determineWinner(variantA, variantB),
-		Confidence: confidence,
-	}
-
-	/* Update test status in database */
-	updateQuery := `UPDATE neurondb_agent.ab_tests
-		SET status = 'completed', results = $1::jsonb, completed_at = $2
-		WHERE test_id = $3`
-	
-	resultsJSON, err := json.Marshal(map[string]interface{}{
-		"winner":    result.Winner,
-		"confidence": result.Confidence,
-		"variant_a_metrics": variantA.Metrics,
-		"variant_b_metrics": variantB.Metrics,
-	})
-	if err != nil {
-		/* If JSON marshaling fails, log error and use fallback representation */
-		metrics.WarnWithContext(ctx, "Failed to marshal A/B test results to JSON", map[string]interface{}{
-			"test_id": testID.String(),
-			"error": err.Error(),
-		})
-		/* Use a simple JSON representation as fallback */
-		resultsJSON = []byte(fmt.Sprintf(`{"winner":"%s","confidence":%f,"error":"json_marshal_failed"}`, result.Winner, result.Confidence))
-	}
-	
-	if _, execErr := sim.queries.DB.ExecContext(ctx, updateQuery, resultsJSON, time.Now(), testID); execErr != nil {
-		metrics.WarnWithContext(ctx, "Failed to update A/B test results in database", map[string]interface{}{
-			"test_id": testID.String(),
-			"error": execErr.Error(),
-		})
-	}
-
-	return result, nil
-}
-
-/* calculateConfidence calculates statistical confidence in AB test results */
-func (sim *SelfImprovementManager) calculateConfidence(variantA, variantB *ABTestVariant) float64 {
-	/* Simple confidence calculation based on sample size and difference */
-	successRateA := variantA.Metrics["success_rate"]
-	successRateB := variantB.Metrics["success_rate"]
-	taskCountA := variantA.Metrics["task_count"]
-	taskCountB := variantB.Metrics["task_count"]
-
-	if taskCountA < 10 || taskCountB < 10 {
-		/* Not enough samples */
-		return 0.5
-	}
-
-	/* Calculate difference */
-	diff := abs(successRateA - successRateB)
-	
-	/* Base confidence on difference and sample size */
-	baseConfidence := diff * 0.5
-	sampleSizeBonus := min(taskCountA, taskCountB) / 100.0 * 0.3
-	
-	confidence := baseConfidence + sampleSizeBonus
-	if confidence > 0.95 {
-		confidence = 0.95
-	}
-	if confidence < 0.5 {
-		confidence = 0.5
-	}
-
-	return confidence
-}
-
-func abs(x float64) float64 {
-	if x < 0 {
-		return -x
-	}
-	return x
-}
-
-func min(a, b float64) float64 {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-/* ReinforcementLearningOptimize uses RL for agent optimization */
-func (sim *SelfImprovementManager) ReinforcementLearningOptimize(ctx context.Context, agentID uuid.UUID, stateSpace, actionSpace []string) (map[string]interface{}, error) {
-	/* Use NeuronDB ML for RL */
-	if sim.mlClient == nil {
-		return nil, fmt.Errorf("RL optimization failed: ml_client_not_available=true")
-	}
-
-	/* Collect state-action-reward data */
-	episodes, err := sim.collectEpisodes(ctx, agentID)
-	if err != nil {
-		return nil, fmt.Errorf("RL optimization failed: episode_collection_error=true, error=%w", err)
-	}
-
-	/* Train RL model using NeuronDB */
-	/* This would use NeuronDB's RL algorithms if available */
-	optimizedConfig, err := sim.trainRLModel(ctx, agentID, episodes, stateSpace, actionSpace)
-	if err != nil {
-		return nil, fmt.Errorf("RL optimization failed: training_error=true, error=%w", err)
-	}
-
-	return optimizedConfig, nil
-}
-
-/* TransferLearning transfers knowledge between agents */
-func (sim *SelfImprovementManager) TransferLearning(ctx context.Context, sourceAgentID, targetAgentID uuid.UUID, knowledgeTypes []string) error {
-	/* Extract knowledge from source agent */
-	sourceKnowledge, err := sim.extractKnowledge(ctx, sourceAgentID, knowledgeTypes)
-	if err != nil {
-		return fmt.Errorf("transfer learning failed: knowledge_extraction_error=true, source_agent_id='%s', error=%w", sourceAgentID.String(), err)
-	}
-
-	/* Adapt knowledge for target agent */
-	adaptedKnowledge, err := sim.adaptKnowledge(ctx, targetAgentID, sourceKnowledge)
-	if err != nil {
-		return fmt.Errorf("transfer learning failed: knowledge_adaptation_error=true, error=%w", err)
-	}
-
-	/* Apply knowledge to target agent */
-	if err := sim.applyKnowledge(ctx, targetAgentID, adaptedKnowledge); err != nil {
-		return fmt.Errorf("transfer learning failed: knowledge_application_error=true, error=%w", err)
-	}
-
-	return nil
-}
-
-/* SelfDiagnose enables agents to diagnose and fix their own issues */
-func (sim *SelfImprovementManager) SelfDiagnose(ctx context.Context, agentID uuid.UUID) (*DiagnosisResult, error) {
-	/* Get agent performance metrics */
-	metrics, err := sim.getPerformanceMetrics(ctx, agentID)
-	if err != nil {
-		return nil, fmt.Errorf("self-diagnosis failed: metrics_retrieval_error=true, error=%w", err)
-	}
-
-	/* Analyze for issues */
-	issues := sim.identifyIssues(metrics)
-
-	/* Generate fixes */
-	fixes := sim.generateFixes(ctx, agentID, issues)
-
-	return &DiagnosisResult{
-		AgentID: agentID,
-		Issues:  issues,
-		Fixes:   fixes,
-		Confidence: 0.80,
-	}, nil
-}
-
-/* Helper types */
-
-type LearningTask struct {
-	TaskID      uuid.UUID
-	Description string
-	Complexity  float64
-	SuccessRate float64
-}
-
-type PerformanceData struct {
-	TaskID      uuid.UUID
-	Success     bool
-	Latency     time.Duration
-	TokenUsage  int
-	Timestamp   time.Time
-}
-
-type MetaLearningResult struct {
-	AgentID         uuid.UUID
-	BestStrategies  []AgentStrategy
-	ImprovedApproach map[string]interface{}
-	Confidence      float64
-}
-
-type ABTestVariant struct {
-	TestID    uuid.UUID
-	VariantID string
-	Config    map[string]interface{}
-	Metrics   map[string]float64
-}
-
-type ABTestResult struct {
-	TestID    uuid.UUID
-	AgentID   uuid.UUID
-	VariantA  *ABTestVariant
-	VariantB  *ABTestVariant
-	Winner    string
-	Confidence float64
-}
-
-type DiagnosisResult struct {
-	AgentID   uuid.UUID
-	Issues    []string
-	Fixes     []map[string]interface{}
-	Confidence float64
-}
-
-/* Helper methods */
-
-func (sim *SelfImprovementManager) analyzePerformancePatterns(ctx context.Context, agentID uuid.UUID) (map[string]interface{}, error) {
-	/* Query performance data */
-	query := `SELECT task_id, success, latency_ms, token_usage, created_at
-		FROM neurondb_agent.agent_performance
+/* LearnFromExperience learns from past experiences */
+func (sim *SelfImprovementManager) LearnFromExperience(ctx context.Context, agentID uuid.UUID) error {
+	/* Get recent execution results */
+	query := `SELECT id, session_id, user_message, final_answer, success, quality_score, tokens_used, execution_time
+		FROM neurondb_agent.execution_results
 		WHERE agent_id = $1
+		  AND created_at > NOW() - INTERVAL '7 days'
 		ORDER BY created_at DESC
-		LIMIT 1000`
+		LIMIT 100`
 
-	type PerfRow struct {
-		TaskID     uuid.UUID `db:"task_id"`
-		Success    bool      `db:"success"`
-		LatencyMS  int64     `db:"latency_ms"`
-		TokenUsage int       `db:"token_usage"`
-		CreatedAt  time.Time `db:"created_at"`
-	}
-
-	var rows []PerfRow
+	var rows []ExecutionRow
 	err := sim.queries.DB.SelectContext(ctx, &rows, query, agentID)
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("self-improvement learning failed: query_error=true, error=%w", err)
 	}
 
-	/* Convert []PerfRow to []interface{} */
-	rowInterfaces := make([]interface{}, len(rows))
-	for i := range rows {
-		rowInterfaces[i] = rows[i]
+	/* Analyze patterns using ML */
+	if sim.mlClient != nil && len(rows) >= 10 {
+		/* Use NeuronDB ML functions to identify patterns */
+		/* Create a temporary table with execution features */
+		featuresTable := fmt.Sprintf("temp_execution_features_%s", agentID.String()[:8])
+		
+		/* Create table with features for ML analysis */
+		createTableQuery := fmt.Sprintf(`
+			CREATE TEMP TABLE %s (
+				id SERIAL PRIMARY KEY,
+				success BOOLEAN,
+				quality_score FLOAT,
+				tokens_used INT,
+				execution_time_ms FLOAT,
+				message_length INT,
+				answer_length INT,
+				features FLOAT[]
+			)
+		`, featuresTable)
+
+		_, err := sim.queries.DB.ExecContext(ctx, createTableQuery)
+		if err != nil {
+			metrics.WarnWithContext(ctx, "Failed to create features table for ML analysis", map[string]interface{}{
+				"agent_id": agentID.String(),
+				"error":    err.Error(),
+			})
+			/* Fall back to simple analysis */
+			successRate := sim.calculateSuccessRate(rows)
+			avgQuality := sim.calculateAverageQuality(rows)
+			sim.updateStrategy(ctx, agentID, successRate, avgQuality)
+			return nil
+		}
+
+		/* Insert features into table */
+		for _, row := range rows {
+			features := []float32{
+				float32(row.QualityScore),
+				float32(row.TokensUsed),
+				float32(row.ExecutionTime.Milliseconds()),
+				float32(len(row.UserMessage)),
+				float32(len(row.FinalAnswer)),
+			}
+
+			insertQuery := fmt.Sprintf(`
+				INSERT INTO %s (success, quality_score, tokens_used, execution_time_ms, message_length, answer_length, features)
+				VALUES ($1, $2, $3, $4, $5, $6, $7::float[])
+			`, featuresTable)
+
+			_, err := sim.queries.DB.ExecContext(ctx, insertQuery,
+				row.Success,
+				row.QualityScore,
+				row.TokensUsed,
+				float64(row.ExecutionTime.Milliseconds()),
+				len(row.UserMessage),
+				len(row.FinalAnswer),
+				features,
+			)
+			if err != nil {
+				continue
+			}
+		}
+
+		/* Train a clustering model to identify patterns */
+		projectName := fmt.Sprintf("agent_%s_patterns", agentID.String()[:8])
+		modelID, err := sim.mlClient.TrainModel(ctx, projectName, "kmeans", featuresTable, "", []string{"features"}, map[string]interface{}{
+			"n_clusters": 3, /* Cluster into successful, mixed, and failed patterns */
+		})
+		if err != nil {
+			metrics.WarnWithContext(ctx, "ML pattern identification failed", map[string]interface{}{
+				"agent_id": agentID.String(),
+				"error":    err.Error(),
+			})
+			/* Fall back to simple analysis */
+			successRate := sim.calculateSuccessRate(rows)
+			avgQuality := sim.calculateAverageQuality(rows)
+			sim.updateStrategy(ctx, agentID, successRate, avgQuality)
+			return nil
+		}
+
+		/* Analyze clusters to identify successful patterns */
+		/* For kmeans, we need to predict cluster assignments and analyze them */
+		/* First, get predictions for all rows */
+		clusterAnalysisQuery := fmt.Sprintf(`
+			WITH predictions AS (
+				SELECT 
+					id,
+					success,
+					quality_score,
+					tokens_used,
+					execution_time_ms,
+					ROUND(neurondb.predict($1, features)::numeric, 0)::int as cluster_id
+				FROM %s
+			)
+			SELECT 
+				cluster_id,
+				AVG(CASE WHEN success THEN 1.0 ELSE 0.0 END) as success_rate,
+				AVG(quality_score) as avg_quality,
+				AVG(tokens_used) as avg_tokens,
+				AVG(execution_time_ms) as avg_execution_time,
+				COUNT(*) as cluster_size
+			FROM predictions
+			GROUP BY cluster_id
+			ORDER BY success_rate DESC
+		`, featuresTable)
+
+		type ClusterAnalysis struct {
+			ClusterID        int     `db:"cluster_id"`
+			SuccessRate      float64 `db:"success_rate"`
+			AvgQuality       float64 `db:"avg_quality"`
+			AvgTokens        float64 `db:"avg_tokens"`
+			AvgExecutionTime float64 `db:"avg_execution_time"`
+			ClusterSize      int     `db:"cluster_size"`
+		}
+
+		var clusters []ClusterAnalysis
+		err = sim.queries.DB.SelectContext(ctx, &clusters, clusterAnalysisQuery, modelID)
+		if err == nil && len(clusters) > 0 {
+			/* Find the most successful cluster */
+			bestCluster := clusters[0]
+			for _, cluster := range clusters {
+				if cluster.SuccessRate > bestCluster.SuccessRate {
+					bestCluster = cluster
+				}
+			}
+
+			/* Update strategy based on successful cluster patterns */
+			successRate := bestCluster.SuccessRate
+			avgQuality := bestCluster.AvgQuality
+
+			metrics.InfoWithContext(ctx, "ML pattern identification completed", map[string]interface{}{
+				"agent_id":        agentID.String(),
+				"model_id":        modelID,
+				"clusters_found":  len(clusters),
+				"best_success_rate": successRate,
+				"best_avg_quality":  avgQuality,
+			})
+
+			/* Update agent strategy based on learnings */
+			if err := sim.updateStrategy(ctx, agentID, successRate, avgQuality); err != nil {
+				metrics.WarnWithContext(ctx, "Failed to update strategy", map[string]interface{}{
+					"agent_id": agentID.String(),
+					"error":    err.Error(),
+				})
+			}
+		} else {
+			/* Fall back to simple analysis */
+			successRate := sim.calculateSuccessRate(rows)
+			avgQuality := sim.calculateAverageQuality(rows)
+			sim.updateStrategy(ctx, agentID, successRate, avgQuality)
+		}
+
+		/* Clean up temp table */
+		sim.queries.DB.ExecContext(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", featuresTable))
+	} else {
+		/* Use simple analysis if ML client not available or insufficient data */
+		successRate := sim.calculateSuccessRate(rows)
+		avgQuality := sim.calculateAverageQuality(rows)
+
+		/* Update agent strategy based on learnings */
+		if err := sim.updateStrategy(ctx, agentID, successRate, avgQuality); err != nil {
+			metrics.WarnWithContext(ctx, "Failed to update strategy", map[string]interface{}{
+				"agent_id": agentID.String(),
+				"error":    err.Error(),
+			})
+		}
 	}
 
-	/* Analyze patterns */
-	patterns := map[string]interface{}{
-		"success_rate":     sim.calculateSuccessRate(rowInterfaces),
-		"avg_latency":      sim.calculateAvgLatency(rowInterfaces),
-		"token_efficiency": sim.calculateTokenEfficiency(rowInterfaces),
-		"trend":            sim.analyzeTrend(rowInterfaces),
-	}
-
-	return patterns, nil
+	return nil
 }
 
-func (sim *SelfImprovementManager) identifyBestStrategies(ctx context.Context, agentID uuid.UUID, patterns map[string]interface{}) ([]AgentStrategy, error) {
-	/* Query strategies */
-	query := `SELECT strategy_id, agent_id, name, config, performance, usage_count, last_updated
-		FROM neurondb_agent.agent_strategies
-		WHERE agent_id = $1
-		ORDER BY performance DESC
-		LIMIT 10`
-
-	var strategies []AgentStrategy
-	err := sim.queries.DB.SelectContext(ctx, &strategies, query, agentID)
-	if err != nil {
-		return nil, err
+/* calculateSuccessRate calculates success rate from executions */
+func (sim *SelfImprovementManager) calculateSuccessRate(rows []ExecutionRow) float64 {
+	if len(rows) == 0 {
+		return 0.0
 	}
 
-	return strategies, nil
-}
-
-func (sim *SelfImprovementManager) generateImprovedApproach(ctx context.Context, agentID uuid.UUID, strategies []AgentStrategy, tasks []LearningTask) (map[string]interface{}, error) {
-	/* Use LLM to generate improved approach based on best strategies */
-	prompt := fmt.Sprintf(`Based on the following successful strategies and learning tasks, generate an improved learning approach.
-
-Best Strategies:
-%s
-
-Learning Tasks:
-%s
-
-Generate a JSON configuration for an improved learning approach.`, formatStrategies(strategies), formatTasks(tasks))
-
-	llmConfig := map[string]interface{}{
-		"temperature": 0.3,
-		"max_tokens":  1000,
-	}
-
-	response, err := sim.llm.Generate(ctx, "gpt-4", prompt, llmConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	/* Parse response */
-	var approach map[string]interface{}
-	if err := json.Unmarshal([]byte(response.Content), &approach); err != nil {
-		return nil, err
-	}
-
-	return approach, nil
-}
-
-func (sim *SelfImprovementManager) analyzePerformance(data []PerformanceData) map[string]interface{} {
 	successCount := 0
-	totalLatency := time.Duration(0)
-	totalTokens := 0
-
-	for _, d := range data {
-		if d.Success {
+	for _, row := range rows {
+		if row.Success {
 			successCount++
 		}
-		totalLatency += d.Latency
-		totalTokens += d.TokenUsage
 	}
 
-	return map[string]interface{}{
-		"success_rate": float64(successCount) / float64(len(data)),
-		"avg_latency":  totalLatency / time.Duration(len(data)),
-		"avg_tokens":   float64(totalTokens) / float64(len(data)),
-	}
+	return float64(successCount) / float64(len(rows))
 }
 
-func (sim *SelfImprovementManager) generateStrategyMutations(strategy *AgentStrategy, analysis map[string]interface{}) []map[string]interface{} {
-	mutations := make([]map[string]interface{}, 0)
+/* calculateAverageQuality calculates average quality score */
+func (sim *SelfImprovementManager) calculateAverageQuality(rows []ExecutionRow) float64 {
+	if len(rows) == 0 {
+		return 0.0
+	}
 
-	/* Generate mutations based on analysis */
-	/* Simplified - actual implementation would be more sophisticated */
-	for i := 0; i < 5; i++ {
-		mutation := make(map[string]interface{})
-		for k, v := range strategy.Config {
-			mutation[k] = v
+	total := 0.0
+	for _, row := range rows {
+		total += row.QualityScore
+	}
+
+	return total / float64(len(rows))
+}
+
+/* updateStrategy updates agent strategy based on learnings */
+func (sim *SelfImprovementManager) updateStrategy(ctx context.Context, agentID uuid.UUID, successRate, avgQuality float64) error {
+	/* Get current agent config */
+	agent, err := sim.queries.GetAgentByID(ctx, agentID)
+	if err != nil {
+		return err
+	}
+
+	/* Adjust strategy based on performance */
+	config := agent.Config
+	if config == nil {
+		config = make(map[string]interface{})
+	}
+
+	/* Adjust temperature based on quality */
+	if avgQuality < 0.7 {
+		/* Lower quality - reduce temperature for more focused responses */
+		if temp, ok := config["temperature"].(float64); ok && temp > 0.3 {
+			config["temperature"] = temp - 0.1
 		}
-		/* Apply small random variations */
-		mutations = append(mutations, mutation)
-	}
-
-	return mutations
-}
-
-func (sim *SelfImprovementManager) selectBestMutation(ctx context.Context, agentID uuid.UUID, mutations []map[string]interface{}, data []PerformanceData) map[string]interface{} {
-	if len(mutations) == 0 {
-		return make(map[string]interface{})
-	}
-
-	bestScore := -1.0
-	bestMutation := mutations[0]
-
-	for _, mutation := range mutations {
-		score := sim.evaluateStrategy(mutation, data)
-		if score > bestScore {
-			bestScore = score
-			bestMutation = mutation
+	} else if avgQuality > 0.9 {
+		/* High quality - can increase temperature for more creativity */
+		if temp, ok := config["temperature"].(float64); ok && temp < 0.9 {
+			config["temperature"] = temp + 0.05
 		}
 	}
 
-	return bestMutation
-}
+	/* Update agent config */
+	updateQuery := `UPDATE neurondb_agent.agents
+		SET config = $1::jsonb, updated_at = NOW()
+		WHERE id = $2`
 
-func (sim *SelfImprovementManager) evaluateStrategy(config map[string]interface{}, data []PerformanceData) float64 {
-	/* Simplified evaluation */
-	return 0.75
-}
-
-func (sim *SelfImprovementManager) storeStrategy(ctx context.Context, strategy *AgentStrategy) error {
-	query := `INSERT INTO neurondb_agent.agent_strategies
-		(strategy_id, agent_id, name, config, performance, usage_count, last_updated)
-		VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7)`
-
-	_, err := sim.queries.DB.ExecContext(ctx, query, strategy.StrategyID, strategy.AgentID, strategy.Name, strategy.Config, strategy.Performance, strategy.UsageCount, strategy.LastUpdated)
+	_, err = sim.queries.DB.ExecContext(ctx, updateQuery, config, agentID)
 	return err
 }
 
-func (sim *SelfImprovementManager) getPerformanceMetrics(ctx context.Context, agentID uuid.UUID) (*LearningMetrics, error) {
-	query := `SELECT 
-		COUNT(*) FILTER (WHERE success = true)::float / COUNT(*)::float AS success_rate,
-		AVG(latency_ms) AS avg_latency_ms,
-		AVG(token_usage) AS avg_tokens
-		FROM neurondb_agent.agent_performance
-		WHERE agent_id = $1 AND created_at > NOW() - INTERVAL '7 days'`
-
-	type MetricsRow struct {
-		SuccessRate float64 `db:"success_rate"`
-		AvgLatencyMS float64 `db:"avg_latency_ms"`
-		AvgTokens   float64 `db:"avg_tokens"`
-	}
-
-	var row MetricsRow
-	err := sim.queries.DB.GetContext(ctx, &row, query, agentID)
-	if err != nil {
-		return nil, err
-	}
-
-	return &LearningMetrics{
-		AgentID:         agentID,
-		TaskSuccessRate: row.SuccessRate,
-		AverageLatency:  time.Duration(row.AvgLatencyMS) * time.Millisecond,
-		TokenEfficiency: row.AvgTokens,
-		LastEvaluated:   time.Now(),
-	}, nil
+/* FeedbackLoop manages performance feedback */
+type FeedbackLoop struct {
+	queries *db.Queries
 }
 
-func (sim *SelfImprovementManager) getPreviousMetrics(ctx context.Context, agentID uuid.UUID) (*LearningMetrics, error) {
-	/* Similar to getPerformanceMetrics but for previous period */
-	return sim.getPerformanceMetrics(ctx, agentID)
-}
-
-func (sim *SelfImprovementManager) triggerImprovement(ctx context.Context, agentID uuid.UUID, metrics *LearningMetrics) error {
-	/* Trigger improvement process */
-	return nil
-}
-
-func (sim *SelfImprovementManager) updateMetrics(ctx context.Context, agentID uuid.UUID, metrics *LearningMetrics) error {
-	return nil
-}
-
-func (sim *SelfImprovementManager) determineWinner(variantA, variantB *ABTestVariant) string {
-	scoreA := variantA.Metrics["success_rate"]
-	scoreB := variantB.Metrics["success_rate"]
-	if scoreA > scoreB {
-		return "A"
-	}
-	return "B"
-}
-
-func (sim *SelfImprovementManager) collectEpisodes(ctx context.Context, agentID uuid.UUID) ([]map[string]interface{}, error) {
-	return []map[string]interface{}{}, nil
-}
-
-func (sim *SelfImprovementManager) trainRLModel(ctx context.Context, agentID uuid.UUID, episodes []map[string]interface{}, stateSpace, actionSpace []string) (map[string]interface{}, error) {
-	return make(map[string]interface{}), nil
-}
-
-func (sim *SelfImprovementManager) extractKnowledge(ctx context.Context, agentID uuid.UUID, knowledgeTypes []string) (map[string]interface{}, error) {
-	return make(map[string]interface{}), nil
-}
-
-func (sim *SelfImprovementManager) adaptKnowledge(ctx context.Context, agentID uuid.UUID, knowledge map[string]interface{}) (map[string]interface{}, error) {
-	return knowledge, nil
-}
-
-func (sim *SelfImprovementManager) applyKnowledge(ctx context.Context, agentID uuid.UUID, knowledge map[string]interface{}) error {
-	return nil
-}
-
-func (sim *SelfImprovementManager) identifyIssues(metrics *LearningMetrics) []string {
-	issues := make([]string, 0)
-	if metrics.TaskSuccessRate < 0.7 {
-		issues = append(issues, "Low task success rate")
-	}
-	if metrics.AverageLatency > 5*time.Second {
-		issues = append(issues, "High latency")
-	}
-	return issues
-}
-
-func (sim *SelfImprovementManager) generateFixes(ctx context.Context, agentID uuid.UUID, issues []string) []map[string]interface{} {
-	fixes := make([]map[string]interface{}, 0)
-	for _, issue := range issues {
-		fixes = append(fixes, map[string]interface{}{
-			"issue": issue,
-			"fix":   fmt.Sprintf("Fix for %s", issue),
-		})
-	}
-	return fixes
-}
-
-func (sim *SelfImprovementManager) calculateSuccessRate(rows []interface{}) float64 {
-	return 0.85
-}
-
-func (sim *SelfImprovementManager) calculateAvgLatency(rows []interface{}) time.Duration {
-	return 2 * time.Second
-}
-
-func (sim *SelfImprovementManager) calculateTokenEfficiency(rows []interface{}) float64 {
-	return 0.75
-}
-
-func (sim *SelfImprovementManager) analyzeTrend(rows []interface{}) string {
-	return "improving"
-}
-
-func formatStrategies(strategies []AgentStrategy) string {
-	return "Strategies"
-}
-
-func formatTasks(tasks []LearningTask) string {
-	return "Tasks"
-}
-
-/* getPendingTasks gets pending tasks for AB testing */
-func (sim *SelfImprovementManager) getPendingTasks(ctx context.Context, agentID uuid.UUID) ([]map[string]interface{}, error) {
-	/* Query for pending tasks from async_tasks or sessions */
-	query := `SELECT id, agent_id, task_type, payload, created_at
-		FROM neurondb_agent.async_tasks
-		WHERE agent_id = $1 AND status = 'pending'
-		ORDER BY created_at ASC
-		LIMIT 10`
-
-	type TaskRow struct {
-		ID        uuid.UUID              `db:"id"`
-		AgentID   uuid.UUID              `db:"agent_id"`
-		TaskType  string                 `db:"task_type"`
-		Payload   map[string]interface{} `db:"payload"`
-		CreatedAt time.Time              `db:"created_at"`
-	}
-
-	var rows []TaskRow
-	err := sim.queries.DB.SelectContext(ctx, &rows, query, agentID)
-	if err != nil {
-		return nil, err
-	}
-
-	tasks := make([]map[string]interface{}, len(rows))
-	for i, row := range rows {
-		tasks[i] = map[string]interface{}{
-			"id":        row.ID.String(),
-			"agent_id":  row.AgentID.String(),
-			"task_type": row.TaskType,
-			"payload":   row.Payload,
-			"created_at": row.CreatedAt,
-		}
-	}
-
-	return tasks, nil
-}
-
-/* executeTaskWithConfig executes a task with a specific agent configuration */
-func (sim *SelfImprovementManager) executeTaskWithConfig(ctx context.Context, agentID uuid.UUID, task map[string]interface{}, config map[string]interface{}) (bool, error) {
-	/* Create a temporary agent configuration for this variant */
-	/* Execute task using runtime with variant config */
-	if sim.runtime == nil {
-		return false, fmt.Errorf("runtime not available for task execution")
-	}
-
-	/* Get task details */
-	taskType, _ := task["task_type"].(string)
-	payload, _ := task["payload"].(map[string]interface{})
-
-	/* Execute based on task type */
-	switch taskType {
-	case "message", "chat":
-		/* Execute message task */
-		sessionIDStr, _ := payload["session_id"].(string)
-		message, _ := payload["message"].(string)
-		
-		if sessionIDStr != "" && message != "" {
-			sessionID, err := uuid.Parse(sessionIDStr)
-			if err == nil {
-				/* Execute with variant config */
-				/* Note: In production, would temporarily apply config to agent */
-				_, err := sim.runtime.Execute(ctx, sessionID, message)
-				return err == nil, err
-			}
-		}
-		return false, fmt.Errorf("invalid task payload")
-	default:
-		/* Unknown task type */
-		return false, fmt.Errorf("unknown task type: %s", taskType)
+/* NewFeedbackLoop creates a new feedback loop */
+func NewFeedbackLoop(queries *db.Queries) *FeedbackLoop {
+	return &FeedbackLoop{
+		queries: queries,
 	}
 }
 
+/* RecordFeedback records performance feedback */
+func (fl *FeedbackLoop) RecordFeedback(ctx context.Context, agentID uuid.UUID, executionID uuid.UUID, success bool, qualityScore float64, feedback string) error {
+	query := `INSERT INTO neurondb_agent.performance_feedback
+		(id, agent_id, execution_id, success, quality_score, feedback, created_at)
+		VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, NOW())`
+
+	_, err := fl.queries.DB.ExecContext(ctx, query, agentID, executionID, success, qualityScore, feedback)
+	return err
+}
+
+/* ABTestManager manages A/B testing for agent configurations */
+type ABTestManager struct {
+	queries *db.Queries
+}
+
+/* NewABTestManager creates a new A/B test manager */
+func NewABTestManager(queries *db.Queries) *ABTestManager {
+	return &ABTestManager{
+		queries: queries,
+	}
+}
+
+/* CreateABTest creates an A/B test */
+func (abm *ABTestManager) CreateABTest(ctx context.Context, agentID uuid.UUID, variantA, variantB map[string]interface{}) (uuid.UUID, error) {
+	testID := uuid.New()
+
+	query := `INSERT INTO neurondb_agent.ab_tests
+		(id, agent_id, variant_a, variant_b, status, created_at)
+		VALUES ($1, $2, $3::jsonb, $4::jsonb, 'active', NOW())`
+
+	_, err := abm.queries.DB.ExecContext(ctx, query, testID, agentID, variantA, variantB)
+	return testID, err
+}
+
+/* RecordABTestResult records A/B test result */
+func (abm *ABTestManager) RecordABTestResult(ctx context.Context, testID uuid.UUID, variant string, success bool, qualityScore float64) error {
+	query := `INSERT INTO neurondb_agent.ab_test_results
+		(id, test_id, variant, success, quality_score, created_at)
+		VALUES (gen_random_uuid(), $1, $2, $3, $4, NOW())`
+
+	_, err := abm.queries.DB.ExecContext(ctx, query, testID, variant, success, qualityScore)
+	return err
+}
