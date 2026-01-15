@@ -133,7 +133,7 @@ prove --archive results.tar.gz t/
 
 ## 📚 Documentation Files
 
-1. **readme.md** (Main Documentation)
+1. **README.md** (Main Documentation)
    - Test suite structure
    - Module documentation
    - Running instructions
@@ -206,7 +206,7 @@ vim t/030_new_feature.t
 prove -v t/030_new_feature.t
 
 # Update documentation
-vim t/readme.md
+vim t/README.md
 ```
 
 ### Updating Helpers
@@ -221,7 +221,7 @@ prove -v t/02{0..2}_*.t  # Test all ML tests
 ## 📞 Support
 
 For issues or questions:
-1. Check readme.md for detailed documentation
+1. Check README.md for detailed documentation
 2. Review QUICK_REFERENCE.md for commands
 3. See FINAL_SUMMARY.md for statistics
 4. Review individual test files for examples
