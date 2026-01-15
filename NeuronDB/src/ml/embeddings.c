@@ -370,11 +370,32 @@ embed_text(PG_FUNCTION_ARGS)
 	/* Handle empty text by generating deterministic embeddings */
 	if (input_str == NULL || strlen(input_str) == 0)
 	{
-		/* Empty text: generate deterministic zero vector */
-		dim = 384;
+		/* Try to determine model dimension by attempting a test embedding */
+		/* For empty text, we'll use a default dimension that matches common models */
+		/* Most sentence-transformers models use 384 or 768 dimensions */
+		char *test_model_str = model_str != NULL ? model_str :
+			(neurondb_llm_model != NULL ? neurondb_llm_model : "sentence-transformers/all-MiniLM-L6-v2");
+		
+		/* Default to 384 for common models, but try to get actual dimension if possible */
+		dim = 384; /* Default for all-MiniLM-L6-v2 */
+		
+		/* Check if model name suggests a different dimension */
+		if (test_model_str != NULL)
+		{
+			if (strstr(test_model_str, "768") != NULL || strstr(test_model_str, "bert-base") != NULL)
+				dim = 768;
+			else if (strstr(test_model_str, "1536") != NULL || strstr(test_model_str, "ada-002") != NULL)
+				dim = 1536;
+			else if (strstr(test_model_str, "1024") != NULL)
+				dim = 1024;
+		}
+		
 		nalloc(vec_data, float, dim);
 		for (i = 0; i < dim; i++)
 			vec_data[i] = 0.0f;
+		
+		/* Log warning about empty text */
+		elog(WARNING, "neurondb: embed_text: empty input text, returning zero vector with dimension %d", dim);
 	}
 	else
 	{
@@ -429,7 +450,18 @@ embed_text(PG_FUNCTION_ARGS)
 			int			model_len;
 			int			j;
 
-			dim = 384;
+			/* Use default dimension, but try to infer from model name */
+			dim = 384; /* Default for all-MiniLM-L6-v2 */
+			if (model_str != NULL)
+			{
+				if (strstr(model_str, "768") != NULL || strstr(model_str, "bert-base") != NULL)
+					dim = 768;
+				else if (strstr(model_str, "1536") != NULL || strstr(model_str, "ada-002") != NULL)
+					dim = 1536;
+				else if (strstr(model_str, "1024") != NULL)
+					dim = 1024;
+			}
+			
 			nalloc(vec_data, float, dim);
 
 			/*
@@ -454,6 +486,10 @@ embed_text(PG_FUNCTION_ARGS)
 				/* Convert to float in range [-1, 1] */
 				vec_data[i] = ((float) ((hash % 2000) - 1000)) / 1000.0f;
 			}
+			
+			/* Log warning about fallback embedding generation */
+			elog(WARNING, "neurondb: embed_text: embedding generation failed, using deterministic fallback (model='%s', dimension=%d)",
+				model_str ? model_str : "default", dim);
 		}
 		}
 		if (model_str != NULL)
@@ -587,6 +623,22 @@ embed_text_batch(PG_FUNCTION_ARGS)
 		/* Convert results to Datum array */
 		if (rc == NDB_LLM_ROUTE_SUCCESS && vecs != NULL && dims != NULL && num_success > 0)
 		{
+			/* Validate dimension consistency across batch */
+			int			first_valid_dim = -1;
+			for (i = 0; i < nitems; i++)
+			{
+				if (!text_nulls[i] && vecs[i] != NULL && dims[i] > 0)
+				{
+					if (first_valid_dim == -1)
+						first_valid_dim = dims[i];
+					else if (dims[i] != first_valid_dim)
+					{
+						elog(WARNING, "neurondb: embed_text_batch: dimension mismatch detected (item %d has dimension %d, expected %d)",
+							i, dims[i], first_valid_dim);
+					}
+				}
+			}
+			
 			for (i = 0; i < nitems; i++)
 			{
 				if (text_nulls[i] || vecs[i] == NULL || dims[i] <= 0)
@@ -610,14 +662,18 @@ embed_text_batch(PG_FUNCTION_ARGS)
 				}
 			}
 
-			/* Free batch results */
-			for (i = 0; i < nitems; i++)
+			/* Free batch results - ensure all vectors are freed */
+			if (vecs != NULL)
 			{
-				if (vecs[i] != NULL)
-					nfree(vecs[i]);
+				for (i = 0; i < nitems; i++)
+				{
+					if (vecs[i] != NULL)
+						nfree(vecs[i]);
+				}
+				nfree(vecs);
 			}
-			nfree(vecs);
-			nfree(dims);
+			if (dims != NULL)
+				nfree(dims);
 		}
 		else
 		{

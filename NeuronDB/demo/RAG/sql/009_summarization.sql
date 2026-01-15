@@ -14,16 +14,16 @@ WITH relevant_chunks AS (
     SELECT 
         d.title,
         dc.chunk_text,
-        1 - (dc.embedding <=> neurondb_generate_embedding('sentence-transformers/all-MiniLM-L6-v2'::text,
-            'PostgreSQL database'
+        1 - (dc.embedding <=> embed_text('PostgreSQL database',
+            'sentence-transformers/all-MiniLM-L6-v2'::text
         )) AS relevance
     FROM document_chunks dc
     JOIN documents d ON dc.doc_id = d.doc_id
-    WHERE 1 - (dc.embedding <=> neurondb_generate_embedding('sentence-transformers/all-MiniLM-L6-v2'::text,
-        'PostgreSQL database'
+    WHERE 1 - (dc.embedding <=> embed_text('PostgreSQL database',
+        'sentence-transformers/all-MiniLM-L6-v2'::text
     )) > 0.3
-    ORDER BY dc.embedding <=> neurondb_generate_embedding('sentence-transformers/all-MiniLM-L6-v2'::text,
-        'PostgreSQL database'
+    ORDER BY dc.embedding <=> embed_text('PostgreSQL database',
+        'sentence-transformers/all-MiniLM-L6-v2'::text
     )
     LIMIT 10
 )

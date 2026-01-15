@@ -13,8 +13,8 @@
 EXPLAIN ANALYZE
 SELECT dc.chunk_id, dc.chunk_text
 FROM document_chunks dc
-ORDER BY dc.embedding <=> neurondb_generate_embedding('sentence-transformers/all-MiniLM-L6-v2'::text,
-    'database performance'
+ORDER BY dc.embedding <=> embed_text('database performance',
+    'sentence-transformers/all-MiniLM-L6-v2'::text
 )
 LIMIT 10;
 
@@ -22,8 +22,8 @@ LIMIT 10;
 \echo 'Benchmark 2: Hybrid search performance'
 EXPLAIN ANALYZE
 WITH vector_results AS (
-    SELECT chunk_id, embedding <=> neurondb_generate_embedding('sentence-transformers/all-MiniLM-L6-v2'::text,
-        'machine learning'
+    SELECT chunk_id, embedding <=> embed_text('machine learning',
+        'sentence-transformers/all-MiniLM-L6-v2'::text
     ) AS dist
     FROM document_chunks
     ORDER BY dist

@@ -10,7 +10,7 @@
 -- Using sentence-transformers/all-MiniLM-L6-v2 (384 dimensions)
 
 UPDATE document_chunks
-SET embedding = neurondb_generate_embedding('sentence-transformers/all-MiniLM-L6-v2'::text, chunk_text)
+SET embedding = embed_text(chunk_text, 'sentence-transformers/all-MiniLM-L6-v2'::text)
 WHERE embedding IS NULL;
 
 \echo 'Verifying embeddings...'

@@ -30,12 +30,12 @@ query_results AS (
     SELECT 
         title,
         chunk_text,
-        ROUND((1 - (embedding <=> neurondb_generate_embedding('sentence-transformers/all-MiniLM-L6-v2'::text,
-            'performance optimization'
+        ROUND((1 - (embedding <=> embed_text('performance optimization',
+            'sentence-transformers/all-MiniLM-L6-v2'::text
         )))::numeric, 4) AS score
     FROM filtered_docs
-    ORDER BY embedding <=> neurondb_generate_embedding('sentence-transformers/all-MiniLM-L6-v2'::text,
-        'performance optimization'
+    ORDER BY embedding <=> embed_text('performance optimization',
+        'sentence-transformers/all-MiniLM-L6-v2'::text
     )
     LIMIT 3
 )
@@ -48,12 +48,12 @@ WITH initial_retrieval AS (
     SELECT 
         dc.chunk_id,
         dc.chunk_text,
-        1 - (dc.embedding <=> neurondb_generate_embedding('sentence-transformers/all-MiniLM-L6-v2'::text,
-            'complex database query'
+        1 - (dc.embedding <=> embed_text('complex database query',
+            'sentence-transformers/all-MiniLM-L6-v2'::text
         )) AS confidence
     FROM document_chunks dc
-    ORDER BY dc.embedding <=> neurondb_generate_embedding('sentence-transformers/all-MiniLM-L6-v2'::text,
-        'complex database query'
+    ORDER BY dc.embedding <=> embed_text('complex database query',
+        'sentence-transformers/all-MiniLM-L6-v2'::text
     )
     LIMIT 5
 )

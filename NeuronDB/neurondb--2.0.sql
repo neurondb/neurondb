@@ -4519,10 +4519,25 @@ DECLARE
     context_json jsonb;
     sql_query text;
 BEGIN
+    -- Validate identifiers to prevent SQL injection
+    -- Check that identifiers match valid SQL identifier pattern
+    IF table_name !~ '^[a-zA-Z_][a-zA-Z0-9_$]{0,62}$' THEN
+        RAISE EXCEPTION 'Invalid table name: % (must start with letter/underscore, followed by alphanumeric/underscore/dollar, max 63 chars)', table_name;
+    END IF;
+    
+    IF vector_column !~ '^[a-zA-Z_][a-zA-Z0-9_$]{0,62}$' THEN
+        RAISE EXCEPTION 'Invalid vector column name: % (must start with letter/underscore, followed by alphanumeric/underscore/dollar, max 63 chars)', vector_column;
+    END IF;
+    
+    -- Validate limit
+    IF limit_count <= 0 OR limit_count > 1000 THEN
+        RAISE EXCEPTION 'Invalid limit: % (must be between 1 and 1000)', limit_count;
+    END IF;
+    
     -- Generate embedding for query
     query_embedding := neurondb_embed(query_text, 'sentence-transformers/all-MiniLM-L6-v2');
     
-    -- Build and execute vector search query
+    -- Build and execute vector search query using format() with %I for safe identifier quoting
     sql_query := format(
         'SELECT json_agg(json_build_object(
             ''id'', id,

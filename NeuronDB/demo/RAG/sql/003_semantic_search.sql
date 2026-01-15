@@ -10,8 +10,8 @@
 \echo ''
 \echo 'Query 1: "How do database indexes work?"'
 WITH query_embedding AS (
-    SELECT neurondb_generate_embedding('sentence-transformers/all-MiniLM-L6-v2'::text, 
-        'How do database indexes work?'
+    SELECT embed_text('How do database indexes work?',
+        'sentence-transformers/all-MiniLM-L6-v2'::text
     ) AS embedding
 )
 SELECT 
@@ -30,8 +30,8 @@ LIMIT 5;
 \echo ''
 \echo 'Query 2: "What is retrieval augmented generation?"'
 WITH query_embedding AS (
-    SELECT neurondb_generate_embedding('sentence-transformers/all-MiniLM-L6-v2'::text, 
-        'What is retrieval augmented generation?'
+    SELECT embed_text('What is retrieval augmented generation?',
+        'sentence-transformers/all-MiniLM-L6-v2'::text
     ) AS embedding
 )
 SELECT 
@@ -49,8 +49,8 @@ LIMIT 5;
 \echo ''
 \echo 'Query 3: "machine learning model training tips"'
 WITH query_embedding AS (
-    SELECT neurondb_generate_embedding('sentence-transformers/all-MiniLM-L6-v2'::text, 
-        'machine learning model training tips'
+    SELECT embed_text('machine learning model training tips',
+        'sentence-transformers/all-MiniLM-L6-v2'::text
     ) AS embedding
 )
 SELECT 
@@ -68,8 +68,8 @@ LIMIT 5;
 \echo ''
 \echo 'Query 4: "vector similarity search" (testing semantic understanding)'
 WITH query_embedding AS (
-    SELECT neurondb_generate_embedding('sentence-transformers/all-MiniLM-L6-v2'::text, 
-        'vector similarity search'
+    SELECT embed_text('vector similarity search',
+        'sentence-transformers/all-MiniLM-L6-v2'::text
     ) AS embedding
 )
 SELECT 
@@ -87,8 +87,8 @@ LIMIT 5;
 \echo 'Semantic search performance test:'
 \timing on
 WITH query_embedding AS (
-    SELECT neurondb_generate_embedding('sentence-transformers/all-MiniLM-L6-v2'::text, 
-        'database scalability strategies'
+    SELECT embed_text('database scalability strategies',
+        'sentence-transformers/all-MiniLM-L6-v2'::text
     ) AS embedding
 )
 SELECT COUNT(*) AS results_found

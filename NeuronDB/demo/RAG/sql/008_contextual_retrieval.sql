@@ -10,8 +10,8 @@
 \echo 'Query 1: Search within "machine_learning" category'
 
 WITH query_embedding AS (
-    SELECT neurondb_generate_embedding('sentence-transformers/all-MiniLM-L6-v2'::text,
-        'training models with data'
+    SELECT embed_text('training models with data',
+        'sentence-transformers/all-MiniLM-L6-v2'::text
     ) AS embedding
 )
 SELECT 
@@ -30,8 +30,8 @@ LIMIT 5;
 \echo 'Query 2: Search within "database" category'
 
 WITH query_embedding AS (
-    SELECT neurondb_generate_embedding('sentence-transformers/all-MiniLM-L6-v2'::text,
-        'performance tuning'
+    SELECT embed_text('performance tuning',
+        'sentence-transformers/all-MiniLM-L6-v2'::text
     ) AS embedding
 )
 SELECT 

@@ -37,12 +37,12 @@ WITH multi_query_results AS (
         dc.chunk_id,
         d.title,
         dc.chunk_text,
-        1 - (dc.embedding <=> neurondb_generate_embedding('sentence-transformers/all-MiniLM-L6-v2'::text,
-            qv.query_variation
+        1 - (dc.embedding <=> embed_text(qv.query_variation,
+            'sentence-transformers/all-MiniLM-L6-v2'::text
         )) AS similarity,
         ROW_NUMBER() OVER (PARTITION BY qv.variation_id 
-                          ORDER BY dc.embedding <=> neurondb_generate_embedding('sentence-transformers/all-MiniLM-L6-v2'::text,
-                              qv.query_variation
+                          ORDER BY dc.embedding <=> embed_text(qv.query_variation,
+                              'sentence-transformers/all-MiniLM-L6-v2'::text
                           )) AS rank_in_query
     FROM query_variations qv
     CROSS JOIN document_chunks dc

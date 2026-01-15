@@ -36,8 +36,8 @@ RETURNING query_id AS current_query_id \gset
 
 -- Retrieve top-k most relevant chunks
 WITH query_embedding AS (
-    SELECT neurondb_generate_embedding('sentence-transformers/all-MiniLM-L6-v2'::text,
-        'How can I improve PostgreSQL query performance?'
+    SELECT embed_text('How can I improve PostgreSQL query performance?',
+        'sentence-transformers/all-MiniLM-L6-v2'::text
     ) AS embedding
 ),
 relevant_chunks AS (
@@ -66,8 +66,8 @@ FROM relevant_chunks;
 
 -- Build context from retrieved chunks
 WITH query_embedding AS (
-    SELECT neurondb_generate_embedding('sentence-transformers/all-MiniLM-L6-v2'::text,
-        'How can I improve PostgreSQL query performance?'
+    SELECT embed_text('How can I improve PostgreSQL query performance?',
+        'sentence-transformers/all-MiniLM-L6-v2'::text
     ) AS embedding
 ),
 relevant_chunks AS (
