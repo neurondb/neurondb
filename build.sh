@@ -265,6 +265,11 @@ copy_neuronagent() {
         find "$bin_dir/scripts" -type f -name "*.sh" -exec chmod +x {} \; 2>/dev/null || true
     fi
     
+    # Copy TypeScript SDK if it exists
+    if [[ -d "$REPO_ROOT/NeuronAgent/sdks/typescript/neurondb-agent" ]]; then
+        copy_dir "$REPO_ROOT/NeuronAgent/sdks/typescript/neurondb-agent" "$bin_dir/sdks/typescript/neurondb-agent" "sdks/typescript/neurondb-agent/" && ((copied++)) || true
+    fi
+    
     
     if [[ $missing -eq 0 ]]; then
         log_success "NeuronAgent: $copied files copied"
@@ -416,27 +421,29 @@ copy_sdks() {
     local bin_dir="$REPO_ROOT/bin"
     local copied=0
     
-    # Copy Python SDK if it exists
+    # Copy Python SDK if it exists (shared SDKs)
     if [[ -d "$REPO_ROOT/sdks/python" ]]; then
-        log_verbose "Python SDK found, checking if needed..."
-        # Only copy if any module explicitly needs it
-        # For now, we'll just log it - modules can reference it from sdks/
-        log_verbose "Python SDK available at: sdks/python/"
-        ((copied++))
+        log_verbose "Python SDK found..."
+        copy_dir "$REPO_ROOT/sdks/python" "$bin_dir/sdks/python" "sdks/python/" && ((copied++)) || true
     fi
     
-    # Copy TypeScript SDK if it exists
+    # Copy TypeScript SDK if it exists (shared SDKs, excluding module-specific ones)
     if [[ -d "$REPO_ROOT/sdks/typescript" ]]; then
-        log_verbose "TypeScript SDK found, checking if needed..."
-        # Only copy if any module explicitly needs it
-        log_verbose "TypeScript SDK available at: sdks/typescript/"
-        ((copied++))
+        log_verbose "TypeScript SDK found..."
+        # Copy shared TypeScript SDK files (not module-specific ones which are in modules)
+        if [[ -d "$REPO_ROOT/sdks/typescript/src" ]]; then
+            mkdir -p "$bin_dir/sdks/typescript"
+            copy_file "$REPO_ROOT/sdks/typescript/src/client.ts" "$bin_dir/sdks/typescript/client.ts" "sdks/typescript/client.ts" && ((copied++)) || true
+        fi
+        if [[ -d "$REPO_ROOT/sdks/typescript/examples" ]]; then
+            copy_dir "$REPO_ROOT/sdks/typescript/examples" "$bin_dir/sdks/typescript/examples" "sdks/typescript/examples/" && ((copied++)) || true
+        fi
     fi
     
     if [[ $copied -gt 0 ]]; then
-        log_success "SDKs: Available in sdks/ directory"
+        log_success "SDKs: $copied SDK components copied"
     else
-        log_verbose "No SDKs to copy"
+        log_verbose "No shared SDKs to copy"
     fi
     
     return 0
