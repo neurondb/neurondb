@@ -335,7 +335,7 @@ export default function TemplateGallery({ onSelect, onCancel }: { onSelect?: () 
 
         {filteredTemplates.length === 0 && (
           <div className="card text-center py-12">
-            <p className="text-gray-600 dark:text-slate-400">No templates found matching "{searchQuery}"</p>
+            <p className="text-gray-600 dark:text-slate-400">No templates found matching &quot;{searchQuery}&quot;</p>
           </div>
         )}
       </div>

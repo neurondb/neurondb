@@ -1,6 +1,7 @@
 'use client'
 
-import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { useState } from 'react'
+import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Brush, ReferenceLine } from 'recharts'
 import { useTheme } from '@/contexts/ThemeContext'
 
 interface LineChartProps {
@@ -16,6 +17,14 @@ interface LineChartProps {
   height?: number
   showGrid?: boolean
   showLegend?: boolean
+  interactive?: boolean
+  brush?: boolean
+  referenceLines?: Array<{
+    y?: number
+    x?: string
+    label?: string
+    stroke?: string
+  }>
 }
 
 export default function LineChart({
@@ -26,9 +35,13 @@ export default function LineChart({
   height = 300,
   showGrid = true,
   showLegend = true,
+  interactive = true,
+  brush = false,
+  referenceLines = [],
 }: LineChartProps) {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
+  const [activeIndex, setActiveIndex] = useState<number | null>(null)
 
   return (
     <ResponsiveContainer width="100%" height={height}>
@@ -65,6 +78,16 @@ export default function LineChart({
             iconType="line"
           />
         )}
+        {referenceLines.map((refLine, idx) => (
+          <ReferenceLine
+            key={idx}
+            y={refLine.y}
+            x={refLine.x}
+            label={refLine.label}
+            stroke={refLine.stroke || (isDark ? 'rgb(148, 163, 184)' : 'rgb(71, 85, 105)')}
+            strokeDasharray="3 3"
+          />
+        ))}
         {lines.map((line) => (
           <Line
             key={line.key}
@@ -75,8 +98,17 @@ export default function LineChart({
             strokeWidth={line.strokeWidth || 2}
             dot={{ r: 3 }}
             activeDot={{ r: 5 }}
+            isAnimationActive={interactive}
+            animationDuration={300}
           />
         ))}
+        {brush && (
+          <Brush
+            dataKey={xAxisKey}
+            height={30}
+            stroke={isDark ? 'rgb(148, 163, 184)' : 'rgb(71, 85, 105)'}
+          />
+        )}
       </RechartsLineChart>
     </ResponsiveContainer>
   )

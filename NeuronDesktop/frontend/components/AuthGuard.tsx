@@ -75,13 +75,18 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
   // All pages are full screen (ChatGPT-style) - clean, minimal layout with minimal top nav
   return (
-    <div className="h-screen w-screen overflow-hidden bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900 flex flex-col">
-      <TopMenu />
-      <div className="flex-1 overflow-hidden">
-        {children}
+    <SidebarProvider>
+      <div className="h-screen w-screen overflow-hidden bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900 flex flex-col">
+        <TopMenu />
+        <div className="flex-1 overflow-hidden flex">
+          <Sidebar />
+          <MainContent>
+            {children}
+          </MainContent>
+        </div>
+        <Footer />
       </div>
-      <Footer />
-    </div>
+    </SidebarProvider>
   )
 }
 

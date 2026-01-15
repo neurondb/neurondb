@@ -7,6 +7,15 @@ NeuronDesktop is a full-featured web application that provides a unified interfa
 - **NeuronDB** - Vector database with semantic search and collection management
 - **NeuronAgent** - AI agent runtime with session management
 
+## Documentation
+
+- **[Features](docs/features.md)** - Complete feature list and capabilities
+- **[API Reference](docs/API.md)** - Complete REST API documentation
+- **[Integration Guide](docs/INTEGRATION.md)** - Integration with NeuronMCP and NeuronAgent
+- **[NeuronAgent Usage](docs/NEURONAGENT_USAGE.md)** - How to use NeuronAgent in NeuronDesktop
+- **[NeuronMCP Setup](docs/NEURONMCP_SETUP.md)** - NeuronMCP setup and configuration
+- **[Deployment](docs/DEPLOYMENT.md)** - Deployment and configuration
+
 ## Features
 
 ### 🎯 Core Features

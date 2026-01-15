@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { agentAPI, profilesAPI, type Profile, type Agent, type Model, type CreateAgentRequest } from '@/lib/api'
 import StatusBadge from '@/components/StatusBadge'
 import JSONViewer from '@/components/JSONViewer'
@@ -39,18 +39,7 @@ export default function AgentsPage() {
   const [customModelName, setCustomModelName] = useState('')
   const [selectedModelType, setSelectedModelType] = useState<'preset' | 'custom'>('preset')
 
-  useEffect(() => {
-    loadProfiles()
-  }, [])
-
-  useEffect(() => {
-    if (selectedProfile) {
-      loadAgents()
-      loadModels()
-    }
-  }, [selectedProfile])
-
-  const loadProfiles = async () => {
+  const loadProfiles = useCallback(async () => {
     try {
       const response = await profilesAPI.list()
       setProfiles(response.data)
@@ -69,9 +58,9 @@ export default function AgentsPage() {
     } catch (error: any) {
       showErrorToast('Failed to load profiles: ' + (error.response?.data?.error || error.message))
     }
-  }
+  }, [selectedProfile])
 
-  const loadAgents = async () => {
+  const loadAgents = useCallback(async () => {
     if (!selectedProfile) return
     setLoading(true)
     try {
@@ -82,9 +71,9 @@ export default function AgentsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedProfile])
 
-  const loadModels = async () => {
+  const loadModels = useCallback(async () => {
     if (!selectedProfile) return
     try {
       const response = await agentAPI.listModels(selectedProfile)
@@ -92,7 +81,18 @@ export default function AgentsPage() {
     } catch (error: any) {
       showErrorToast('Failed to load models: ' + (error.response?.data?.error || error.message))
     }
-  }
+  }, [selectedProfile])
+
+  useEffect(() => {
+    loadProfiles()
+  }, [loadProfiles])
+
+  useEffect(() => {
+    if (selectedProfile) {
+      loadAgents()
+      loadModels()
+    }
+  }, [selectedProfile, loadAgents, loadModels])
 
   const handleCreateAgent = async () => {
     if (!selectedProfile) {
@@ -306,7 +306,7 @@ export default function AgentsPage() {
                 <li>Click <strong className="text-gray-900 dark:text-slate-200">Save Agent Configuration</strong></li>
               </ol>
               <p className="text-xs text-gray-600 dark:text-slate-500">
-                The Agent Endpoint should point to your NeuronAgent server URL. If you're running NeuronAgent locally, it's typically <code className="text-gray-700 dark:text-slate-400 bg-gray-100 dark:bg-slate-800 px-1 rounded">http://localhost:8080</code>.
+                The Agent Endpoint should point to your NeuronAgent server URL. If you&apos;re running NeuronAgent locally, it&apos;s typically <code className="text-gray-700 dark:text-slate-400 bg-gray-100 dark:bg-slate-800 px-1 rounded">http://localhost:8080</code>.
               </p>
             </div>
           </div>

@@ -70,7 +70,7 @@ function MCPPage() {
   const conversationThreadRef = useRef<string>('') // Track thread ID for current conversation
 
   // Comprehensive error logging function - NEVER fails silently
-  const logError = (context: string, error: any, additionalInfo?: Record<string, any>) => {
+  const logError = useCallback((context: string, error: any, additionalInfo?: Record<string, any>) => {
     const errorDetails = {
       context,
       timestamp: new Date().toISOString(),
@@ -103,7 +103,7 @@ function MCPPage() {
     // Example: if (process.env.NODE_ENV === 'production') { Sentry.captureException(error, { extra: errorDetails }) }
     
     return errorDetails
-  }
+  }, [])
 
   // Helper to parse error and return simple one-line message
   const parseError = (error: any): string => {
@@ -164,7 +164,7 @@ function MCPPage() {
     return () => {
       isMountedRef.current = false
     }
-  }, [])
+  }, [activeThreadId])
 
   // Save activeThreadId to sessionStorage whenever it changes (survives Fast Refresh)
   useEffect(() => {
@@ -174,310 +174,7 @@ function MCPPage() {
     }
   }, [activeThreadId])
 
-  useEffect(() => {
-    // Prevent double initialization in React StrictMode
-    if (initializedRef.current) return
-    initializedRef.current = true
-    
-    loadProfiles().catch((error) => {
-      logError('loadProfiles initialization', error, { phase: 'initialization' })
-    })
-  }, [])
-
-  // Prevent page reloads from unhandled promise rejections
-  useEffect(() => {
-    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-      console.error('Unhandled promise rejection:', event.reason)
-      // Prevent default browser behavior (page reload) for non-critical errors
-      if (event.reason && typeof event.reason === 'object') {
-        const error = event.reason as any
-        // Only prevent reload for API errors, not critical system errors
-        if (error?.response?.status || error?.code === 'ERR_BAD_RESPONSE' || error?.message?.includes('500')) {
-          event.preventDefault()
-          return
-        }
-      }
-      event.preventDefault() // Prevent default for all promise rejections
-    }
-    
-    const handleError = (event: ErrorEvent) => {
-      console.error('Unhandled error:', event.error)
-      // Prevent default for non-critical errors
-      if (event.error && typeof event.error === 'object') {
-        const error = event.error as any
-        if (error?.response?.status || error?.code === 'ERR_BAD_RESPONSE') {
-          event.preventDefault()
-        }
-      }
-    }
-    
-    window.addEventListener('unhandledrejection', handleUnhandledRejection)
-    window.addEventListener('error', handleError)
-    
-    return () => {
-      window.removeEventListener('unhandledrejection', handleUnhandledRejection)
-      window.removeEventListener('error', handleError)
-    }
-  }, [])
-
-  // Load conversation threads from API when profile is selected
-  useEffect(() => {
-    if (!selectedProfile) return
-    // Prevent reloading if already loading or if it's the same profile
-    if (threadsLoadingRef.current || lastLoadedProfileRef.current === selectedProfile) return
-    
-    lastLoadedProfileRef.current = selectedProfile
-    threadsLoadingRef.current = true
-    
-    let retryCount = 0
-    const maxRetries = 2
-    
-    const loadThreads = async (): Promise<void> => {
-      if (!isMountedRef.current || !selectedProfile) {
-        threadsLoadingRef.current = false
-        return
-      }
-      
-      setLoadingThreads(true)
-      try {
-        const response = await mcpAPI.listThreads(selectedProfile)
-        if (!isMountedRef.current) return
-        
-        const apiThreads = response.data || []
-        
-        if (apiThreads.length > 0) {
-          // Load full thread data with messages (with timeout per thread)
-          const loadThreadWithTimeout = async (apiThread: MCPThread, timeout: number = 5000): Promise<Thread | null> => {
-            try {
-              const threadResponse = await Promise.race([
-                mcpAPI.getThread(selectedProfile, apiThread.id),
-                new Promise<never>((_, reject) => 
-                  setTimeout(() => reject(new Error('Thread load timeout')), timeout)
-                )
-              ])
-              return convertAPIThreadToLocal(threadResponse.data)
-            } catch (error) {
-              logError(`loadThread - ${apiThread.id}`, error, { threadId: apiThread.id, selectedProfile })
-              return null
-            }
-          }
-          
-          const threadsWithMessages = (await Promise.all(
-            apiThreads.map(thread => loadThreadWithTimeout(thread))
-          )).filter((thread): thread is Thread => thread !== null)
-          
-          if (!isMountedRef.current) return
-          
-          if (threadsWithMessages.length > 0) {
-            setThreads(threadsWithMessages)
-            // Only set active thread if we don't already have one selected
-            if (!activeThreadId || !threadsWithMessages.find(t => t.id === activeThreadId)) {
-              setActiveThreadId(threadsWithMessages[0].id)
-            }
-          } else {
-            // All threads failed to load - only create new one if we don't have any threads
-            if (threads.length === 0 && retryCount < maxRetries) {
-              retryCount++
-              console.log(`All threads failed to load, retrying (${retryCount}/${maxRetries})...`)
-              await new Promise(resolve => setTimeout(resolve, 1000 * retryCount)) // Exponential backoff
-              return loadThreads()
-            }
-            
-            // Create a new thread only once
-            try {
-              const newThread = await createNewThreadInDB()
-              if (isMountedRef.current) {
-                setThreads([newThread])
-                setActiveThreadId(newThread.id)
-              }
-            } catch (error) {
-              logError('loadThreads - createNewThread fallback', error, { selectedProfile })
-              if (isMountedRef.current) {
-                setMcpError('Failed to load threads and create new thread. Please check database connection.')
-              }
-            }
-          }
-        } else {
-          // Create initial thread if none exist (only once)
-          if (threads.length === 0) {
-            try {
-              const newThread = await createNewThreadInDB()
-              if (isMountedRef.current) {
-                setThreads([newThread])
-                setActiveThreadId(newThread.id)
-              }
-            } catch (error) {
-              logError('loadThreads - createInitialThread', error, { selectedProfile })
-              if (isMountedRef.current) {
-                setMcpError('Failed to create initial thread. Please check database connection.')
-              }
-            }
-          }
-        }
-      } catch (error: any) {
-        logError('loadThreads', error, { selectedProfile, retryCount })
-        
-        // Only retry if we haven't exceeded max retries and don't have threads
-        if (retryCount < maxRetries && threads.length === 0) {
-          retryCount++
-          console.log(`Thread loading failed, retrying (${retryCount}/${maxRetries})...`)
-          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount)) // Exponential backoff
-          return loadThreads()
-        }
-        
-        // Try to create initial thread on error (only if we don't have threads)
-        if (threads.length === 0) {
-          try {
-            const newThread = await createNewThreadInDB()
-            if (isMountedRef.current) {
-              setThreads([newThread])
-              setActiveThreadId(newThread.id)
-              setMcpError(null) // Clear error if thread creation succeeds
-            }
-          } catch (createError: any) {
-            logError('loadThreads - createThreadOnError', createError, { selectedProfile, originalError: error })
-            if (isMountedRef.current) {
-              setMcpError('Failed to load or create threads. Please check database connection and migration status.')
-            }
-          }
-        }
-      } finally {
-        threadsLoadingRef.current = false
-        if (isMountedRef.current) {
-          setLoadingThreads(false)
-        }
-      }
-    }
-    
-    loadThreads().catch((error) => {
-      logError('loadThreads - unhandled error', error, { selectedProfile })
-      threadsLoadingRef.current = false
-      if (isMountedRef.current) {
-        setLoadingThreads(false)
-      }
-    })
-  }, [selectedProfile])
-
-  // Convert API thread format to local format
-  const convertAPIThreadToLocal = (apiThread: MCPThreadWithMessages | null | undefined): Thread | null => {
-    if (!apiThread || !apiThread.id) {
-      return null
-    }
-    return {
-      id: apiThread.id,
-      title: apiThread.title,
-      createdAt: new Date(apiThread.created_at).getTime(),
-      updatedAt: new Date(apiThread.updated_at).getTime(),
-      messages: (apiThread.messages || []).map((msg) => ({
-        id: msg.id,
-        role: msg.role as Message['role'],
-        content: msg.content,
-        toolName: typeof msg.tool_name === 'string' ? msg.tool_name : (msg.tool_name as any)?.String || undefined,
-        timestamp: new Date(msg.created_at).getTime(),
-        data: msg.data,
-      })),
-    }
-  }
-
-  // Create new thread in database
-  const createNewThreadInDB = async (): Promise<Thread> => {
-    if (!selectedProfile) {
-      throw new Error('No profile selected')
-    }
-    
-    const response = await mcpAPI.createThread(selectedProfile, 'New chat')
-    const apiThread = response.data
-    
-    return {
-      id: apiThread.id,
-      title: apiThread.title,
-      createdAt: new Date(apiThread.created_at).getTime(),
-      updatedAt: new Date(apiThread.updated_at).getTime(),
-      messages: [],
-    }
-  }
-
-  useEffect(() => {
-    if (!selectedProfile || !shouldAutoConnectRef.current) return
-    
-    // Prevent reconnecting if already connected to the same profile
-    if (lastConnectedProfileRef.current === selectedProfile && (connecting || connected)) return
-    
-    // Prevent multiple simultaneous initializations
-    if (connecting || connected) {
-      // If connected to a different profile, close and reconnect
-      if (lastConnectedProfileRef.current && lastConnectedProfileRef.current !== selectedProfile) {
-        if (wsRef.current) {
-          wsRef.current.close()
-          wsRef.current = null
-        }
-        lastConnectedProfileRef.current = ''
-        setConnected(false)
-        setConnecting(false)
-      } else {
-        return
-      }
-    }
-    
-    lastConnectedProfileRef.current = selectedProfile
-    
-    try {
-      loadTools().catch((error) => {
-        logError('useEffect - loadTools', error, { selectedProfile })
-      })
-      loadModelConfigs().catch((error) => {
-        logError('useEffect - loadModelConfigs', error, { selectedProfile })
-      })
-      connectWebSocket()
-    } catch (error) {
-      logError('useEffect - initializeMCPConnection', error, { selectedProfile })
-      // Don't let initialization errors crash the component
-    }
-    
-    return () => {
-      if (wsRef.current) {
-        try {
-          wsRef.current.close()
-        } catch (error) {
-          logError('useEffect cleanup - closeWebSocket', error, { selectedProfile })
-        }
-        wsRef.current = null
-      }
-      if (isMountedRef.current) {
-        setConnected(false)
-        setConnecting(false)
-      }
-    }
-  }, [selectedProfile])
-
-  useEffect(() => {
-    if (selectedModel) {
-      validateModel()
-    } else {
-      setModelError(null)
-    }
-  }, [selectedModel])
-
-  const activeThread = useMemo(() => 
-    threads.find((t) => t.id === activeThreadId) || null,
-    [threads, activeThreadId]
-  )
-  
-  // Deduplicate messages by ID to prevent showing the same message multiple times
-  const messages = useMemo(() => {
-    if (!activeThread?.messages) return []
-    return activeThread.messages.filter((msg, index, self) => 
-      index === self.findIndex((m) => m.id === msg.id)
-    )
-  }, [activeThread])
-
-  useEffect(() => {
-    if (messages.length > 0 && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
-    }
-  }, [messages.length, activeThreadId]) // Only depend on length and thread ID, not the full array
-
-  const loadProfiles = async () => {
+  const loadProfiles = useCallback(async () => {
     if (!isMountedRef.current) return
     
     setLoadingProfiles(true)
@@ -517,9 +214,114 @@ function MCPPage() {
         setLoadingProfiles(false)
       }
     }
+  }, [selectedProfile, logError])
+
+  useEffect(() => {
+    // Prevent double initialization in React StrictMode
+    if (initializedRef.current) return
+    initializedRef.current = true
+    
+    loadProfiles().catch((error) => {
+      logError('loadProfiles initialization', error, { phase: 'initialization' })
+    })
+  }, [loadProfiles, logError])
+
+  // Prevent page reloads from unhandled promise rejections
+  useEffect(() => {
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      console.error('Unhandled promise rejection:', event.reason)
+      // Prevent default browser behavior (page reload) for non-critical errors
+      if (event.reason && typeof event.reason === 'object') {
+        const error = event.reason as any
+        // Only prevent reload for API errors, not critical system errors
+        if (error?.response?.status || error?.code === 'ERR_BAD_RESPONSE' || error?.message?.includes('500')) {
+          event.preventDefault()
+          return
+        }
+      }
+      event.preventDefault() // Prevent default for all promise rejections
+    }
+    
+    const handleError = (event: ErrorEvent) => {
+      console.error('Unhandled error:', event.error)
+      // Prevent default for non-critical errors
+      if (event.error && typeof event.error === 'object') {
+        const error = event.error as any
+        if (error?.response?.status || error?.code === 'ERR_BAD_RESPONSE') {
+          event.preventDefault()
+        }
+      }
+    }
+    
+    window.addEventListener('unhandledrejection', handleUnhandledRejection)
+    window.addEventListener('error', handleError)
+    
+    return () => {
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection)
+      window.removeEventListener('error', handleError)
+    }
+  }, [])
+
+  // Create new thread in database
+  const createNewThreadInDB = useCallback(async (): Promise<Thread> => {
+    if (!selectedProfile) {
+      throw new Error('No profile selected')
+    }
+    
+    const response = await mcpAPI.createThread(selectedProfile, 'New chat')
+    const apiThread = response.data
+    
+    return {
+      id: apiThread.id,
+      title: apiThread.title,
+      createdAt: new Date(apiThread.created_at).getTime(),
+      updatedAt: new Date(apiThread.updated_at).getTime(),
+      messages: [],
+    }
+  }, [selectedProfile])
+
+  // Convert API thread format to local format
+  const convertAPIThreadToLocal = (apiThread: MCPThreadWithMessages | MCPThread | null | undefined): Thread | null => {
+    if (!apiThread || !apiThread.id) {
+      return null
+    }
+    return {
+      id: apiThread.id,
+      title: apiThread.title,
+      createdAt: new Date(apiThread.created_at).getTime(),
+      updatedAt: new Date(apiThread.updated_at).getTime(),
+      messages: ('messages' in apiThread && apiThread.messages) ? apiThread.messages.map((msg) => ({
+        id: msg.id,
+        role: msg.role as Message['role'],
+        content: msg.content,
+        toolName: typeof msg.tool_name === 'string' ? msg.tool_name : (msg.tool_name as any)?.String || undefined,
+        timestamp: new Date(msg.created_at).getTime(),
+        data: msg.data,
+      })) : [],
+    }
   }
 
-  const loadTools = async () => {
+
+  const activeThread = useMemo(() => 
+    threads.find((t) => t.id === activeThreadId) || null,
+    [threads, activeThreadId]
+  )
+  
+  // Deduplicate messages by ID to prevent showing the same message multiple times
+  const messages = useMemo(() => {
+    if (!activeThread?.messages) return []
+    return activeThread.messages.filter((msg, index, self) => 
+      index === self.findIndex((m) => m.id === msg.id)
+    )
+  }, [activeThread])
+
+  useEffect(() => {
+    if (messages.length > 0 && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [messages.length, activeThreadId]) // Only depend on length and thread ID, not the full array
+
+  const loadTools = useCallback(async () => {
     if (!selectedProfile) return
     try {
       const response = await mcpAPI.listTools(selectedProfile)
@@ -530,9 +332,9 @@ function MCPPage() {
       const errorMsg = parseError(error)
       setMcpError(errorMsg)
     }
-  }
+  }, [selectedProfile])
 
-  const loadModelConfigs = async () => {
+  const loadModelConfigs = useCallback(async () => {
     if (!selectedProfile) return
     try {
       const response = await modelConfigAPI.list(selectedProfile, false)
@@ -546,9 +348,9 @@ function MCPPage() {
     } catch (error) {
       console.error('Failed to load model configs:', error)
     }
-  }
+  }, [selectedProfile])
 
-  const validateModel = async () => {
+  const validateModel = useCallback(async () => {
     if (!selectedModel || !selectedProfile) {
       setModelError(null)
       return
@@ -576,9 +378,297 @@ function MCPPage() {
     }
 
     setModelError(null)
+  }, [selectedModel, selectedProfile, modelConfigs])
+
+
+  // Load conversation threads from API when profile is selected
+  const loadThreads = useCallback(async (retryCount: number = 0): Promise<void> => {
+    const maxRetries = 2
+    
+    if (!isMountedRef.current || !selectedProfile) {
+      threadsLoadingRef.current = false
+      return
+    }
+    
+    setLoadingThreads(true)
+    try {
+      const response = await mcpAPI.listThreads(selectedProfile)
+      if (!isMountedRef.current) return
+      
+      const apiThreads = response.data || []
+      
+      if (apiThreads.length > 0) {
+        // Load full thread data with messages (with timeout per thread)
+        const loadThreadWithTimeout = async (apiThread: MCPThread, timeout: number = 5000): Promise<Thread | null> => {
+          try {
+            const threadResponse = await Promise.race([
+              mcpAPI.getThread(selectedProfile, apiThread.id),
+              new Promise<never>((_, reject) => 
+                setTimeout(() => reject(new Error('Thread load timeout')), timeout)
+              )
+            ])
+            
+            return convertAPIThreadToLocal(threadResponse.data)
+          } catch (error) {
+            console.warn(`Thread ${apiThread.id} load timeout or error, using basic info:`, error)
+            return convertAPIThreadToLocal(apiThread)
+          }
+        }
+        
+        const loadedThreads = await Promise.all(
+          apiThreads.map(thread => loadThreadWithTimeout(thread))
+        )
+        
+        const validThreads = loadedThreads.filter((t): t is Thread => t !== null)
+        
+        if (isMountedRef.current) {
+          setThreads(validThreads)
+          
+          // Restore active thread if it exists
+          if (activeThreadId) {
+            const activeThread = validThreads.find(t => t.id === activeThreadId)
+            if (!activeThread && validThreads.length > 0) {
+              setActiveThreadId(validThreads[0].id)
+            }
+          } else if (validThreads.length > 0) {
+            setActiveThreadId(validThreads[0].id)
+          }
+        }
+      } else {
+        // No threads exist - create one
+        if (activeThreadId) {
+          // If we have an activeThreadId but no threads, try to create it
+          try {
+            const newThread = await createNewThreadInDB()
+            if (isMountedRef.current) {
+              setThreads([newThread])
+              setActiveThreadId(newThread.id)
+            }
+          } catch (error) {
+            logError('loadThreads - createNewThread fallback', error, { selectedProfile })
+            if (isMountedRef.current) {
+              setMcpError('Failed to load threads and create new thread. Please check database connection.')
+            }
+          }
+        } else {
+          // Create initial thread if none exist (only once)
+          if (threads.length === 0) {
+            try {
+              const newThread = await createNewThreadInDB()
+              if (isMountedRef.current) {
+                setThreads([newThread])
+                setActiveThreadId(newThread.id)
+              }
+            } catch (error) {
+              logError('loadThreads - createInitialThread', error, { selectedProfile })
+              if (isMountedRef.current) {
+                setMcpError('Failed to create initial thread. Please check database connection.')
+              }
+            }
+          }
+        }
+      }
+    } catch (error: any) {
+      logError('loadThreads', error, { selectedProfile })
+      
+      // Only retry if we haven't exceeded max retries and don't have threads
+      if (threads.length === 0) {
+        // Retry once after a short delay
+        setTimeout(() => {
+          if (isMountedRef.current && selectedProfile) {
+            loadThreads().catch((retryError) => {
+              logError('loadThreads - retry', retryError, { selectedProfile })
+              if (isMountedRef.current) {
+                setMcpError('Failed to load threads after retry. Please check database connection.')
+                setLoadingThreads(false)
+              }
+            })
+          }
+        }, 1000)
+      } else {
+        if (isMountedRef.current) {
+          setLoadingThreads(false)
+        }
+      }
+    } finally {
+      threadsLoadingRef.current = false
+      if (isMountedRef.current) {
+        setLoadingThreads(false)
+      }
+    }
+  }, [selectedProfile, activeThreadId, threads.length, createNewThreadInDB, logError])
+
+  useEffect(() => {
+    if (selectedProfile && activeThreadId === null && threads.length === 0) {
+      loadThreads().catch((error) => {
+        logError('loadThreads - unhandled error', error, { selectedProfile })
+        threadsLoadingRef.current = false
+        if (isMountedRef.current) {
+          setLoadingThreads(false)
+        }
+      })
+    }
+  }, [selectedProfile, activeThreadId, threads.length, loadThreads, logError])
+
+  // This useEffect will be moved after connectWebSocket is defined
+
+  useEffect(() => {
+    if (selectedModel) {
+      validateModel()
+    } else {
+      setModelError(null)
+    }
+  }, [selectedModel, validateModel])
+
+  const createNewThread = async () => {
+    if (!selectedProfile) return
+    
+    try {
+      const newThread = await createNewThreadInDB()
+      setThreads((prev) => [newThread, ...prev])
+      setActiveThreadId(newThread.id)
+      setInput('')
+    } catch (error: any) {
+      console.error('Failed to create thread:', error)
+      setMcpError(parseError(error))
+    }
   }
 
-  const connectWebSocket = () => {
+  const deleteThread = async (threadId: string) => {
+    if (!selectedProfile) return
+    
+    try {
+      await mcpAPI.deleteThread(selectedProfile, threadId)
+      setThreads((prev) => {
+        const next = prev.filter((t) => t.id !== threadId)
+        // Ensure we always have at least one thread.
+        if (next.length === 0) {
+          createNewThreadInDB().then((t) => {
+            setThreads([t])
+            setActiveThreadId(t.id)
+          })
+          return []
+        }
+
+        if (activeThreadId === threadId) {
+          setActiveThreadId(next[0].id)
+        }
+        return next
+      })
+    } catch (error: any) {
+      logError('deleteThread', error, { threadId, selectedProfile })
+      if (isMountedRef.current) {
+        setMcpError(parseError(error))
+      }
+    }
+  }
+
+  const addMessage = useCallback(async (role: Message['role'], content: string, toolName?: string, data?: any) => {
+    if (!selectedProfile || !isMountedRef.current) return
+    
+    // For assistant/tool messages, use the conversation thread if available to ensure they go to the right thread
+    const targetThreadId = (role === 'assistant' || role === 'tool') && conversationThreadRef.current 
+      ? conversationThreadRef.current 
+      : activeThreadId
+    
+    console.log('[addMessage]', { role, targetThreadId, activeThreadId, conversationThread: conversationThreadRef.current })
+    
+    // If no active thread, create one
+    if (!targetThreadId) {
+      try {
+        const newThread = await createNewThreadInDB()
+        if (!isMountedRef.current) return
+        setThreads((prev) => [newThread, ...prev])
+        setActiveThreadId(newThread.id)
+        conversationThreadRef.current = newThread.id
+      } catch (error) {
+        if (!isMountedRef.current) return
+        logError('addMessage - createThread', error, { role, contentLength: content.length })
+        // Create temp thread in memory
+        const tempThread: Thread = {
+          id: `temp-${Date.now()}`,
+          title: 'New chat',
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          messages: [],
+        }
+        setThreads((prev) => [tempThread, ...prev])
+        setActiveThreadId(tempThread.id)
+        conversationThreadRef.current = tempThread.id
+      }
+      return // Exit and let the function be called again with the new thread
+    }
+
+    // Create message with temp ID immediately (don't wait for DB)
+    const now = Date.now()
+    const msg: Message = {
+      id: `temp-${now}-${Math.random().toString(36).slice(2, 9)}`,
+      role,
+      content,
+      toolName,
+      timestamp: now,
+      data,
+    }
+
+    // Add to UI immediately (only if still mounted)
+    if (!isMountedRef.current) return
+    setThreads((prev) => {
+      return prev.map((t) => {
+        if (t.id !== targetThreadId) return t
+        
+        // Check if message already exists to prevent duplicates
+        const messageExists = t.messages.some(m => m.content === content && m.role === role && m.timestamp > now - 1000)
+        if (messageExists) {
+          return t
+        }
+        
+        return {
+          ...t,
+          updatedAt: now,
+          messages: [...t.messages, msg],
+        }
+      })
+    })
+
+    // Try to save to DB in background (don't block UI)
+    // Only save if thread ID is not a temp ID (starts with 'temp-')
+    if (targetThreadId && !targetThreadId.startsWith('temp-')) {
+      try {
+        const response = await mcpAPI.addMessage(selectedProfile, targetThreadId, role, content, toolName, data)
+        if (!isMountedRef.current) return
+        
+        const apiMessage = response.data
+        
+        // Update with real ID from DB
+        setThreads((prev) => {
+          return prev.map((t) => {
+            if (t.id !== targetThreadId) return t
+            return {
+              ...t,
+              messages: t.messages.map((m) => 
+                m.id === msg.id ? { ...m, id: apiMessage.id } : m
+              ),
+            }
+          })
+        })
+      } catch (error: any) {
+        if (!isMountedRef.current) return
+        logError('addMessage - saveToDB', error, { 
+          role, 
+          contentLength: content.length, 
+          threadId: targetThreadId,
+          toolName,
+          note: 'Message displayed in UI but not saved to DB - non-fatal'
+        })
+        // Message is already in UI, so this is non-fatal
+      }
+    } else {
+      // Thread is temporary, don't try to save to DB
+      console.log('Message added to temp thread, skipping DB save')
+    }
+  }, [selectedProfile, activeThreadId, createNewThreadInDB, logError])
+
+  const connectWebSocket = useCallback(() => {
     if (!selectedProfile) return
     
     // Prevent multiple simultaneous connection attempts
@@ -781,155 +871,109 @@ function MCPPage() {
     }
     
     wsRef.current = ws
-  }
+  }, [selectedProfile, connecting, connected, logError, activeThreadId, addMessage])
 
-  const createNewThread = async () => {
-    if (!selectedProfile) return
-    
-    try {
-      const newThread = await createNewThreadInDB()
-      setThreads((prev) => [newThread, ...prev])
-      setActiveThreadId(newThread.id)
-      setInput('')
-    } catch (error: any) {
-      console.error('Failed to create thread:', error)
-      setMcpError(parseError(error))
-    }
-  }
-
-  const deleteThread = async (threadId: string) => {
-    if (!selectedProfile) return
-    
-    try {
-      await mcpAPI.deleteThread(selectedProfile, threadId)
-      setThreads((prev) => {
-        const next = prev.filter((t) => t.id !== threadId)
-        // Ensure we always have at least one thread.
-        if (next.length === 0) {
-          createNewThreadInDB().then((t) => {
-            setThreads([t])
-            setActiveThreadId(t.id)
-          })
-          return []
-        }
-
-        if (activeThreadId === threadId) {
-          setActiveThreadId(next[0].id)
-        }
-        return next
-      })
-    } catch (error: any) {
-      logError('deleteThread', error, { threadId, selectedProfile })
-      if (isMountedRef.current) {
-        setMcpError(parseError(error))
-      }
-    }
-  }
-
-  const addMessage = async (role: Message['role'], content: string, toolName?: string, data?: any) => {
-    if (!selectedProfile || !isMountedRef.current) return
-    
-    // For assistant/tool messages, use the conversation thread if available to ensure they go to the right thread
-    const targetThreadId = (role === 'assistant' || role === 'tool') && conversationThreadRef.current 
-      ? conversationThreadRef.current 
-      : activeThreadId
-    
-    console.log('[addMessage]', { role, targetThreadId, activeThreadId, conversationThread: conversationThreadRef.current })
-    
-    // If no active thread, create one
-    if (!targetThreadId) {
-      try {
-        const newThread = await createNewThreadInDB()
-        if (!isMountedRef.current) return
-        setThreads((prev) => [newThread, ...prev])
-        setActiveThreadId(newThread.id)
-        conversationThreadRef.current = newThread.id
-      } catch (error) {
-        if (!isMountedRef.current) return
-        logError('addMessage - createThread', error, { role, contentLength: content.length })
-        // Create temp thread in memory
-        const tempThread: Thread = {
-          id: `temp-${Date.now()}`,
-          title: 'New chat',
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-          messages: [],
-        }
-        setThreads((prev) => [tempThread, ...prev])
-        setActiveThreadId(tempThread.id)
-        conversationThreadRef.current = tempThread.id
-      }
-      return // Exit and let the function be called again with the new thread
-    }
-
-    // Create message with temp ID immediately (don't wait for DB)
-    const now = Date.now()
-    const msg: Message = {
-      id: `temp-${now}-${Math.random().toString(36).slice(2, 9)}`,
-      role,
-      content,
-      toolName,
-      timestamp: now,
-      data,
-    }
-
-    // Add to UI immediately (only if still mounted)
-    if (!isMountedRef.current) return
-    setThreads((prev) => {
-      return prev.map((t) => {
-        if (t.id !== targetThreadId) return t
-        
-        // Check if message already exists to prevent duplicates
-        const messageExists = t.messages.some(m => m.content === content && m.role === role && m.timestamp > now - 1000)
-        if (messageExists) {
-          return t
-        }
-        
-        return {
-          ...t,
-          updatedAt: now,
-          messages: [...t.messages, msg],
-        }
-      })
-    })
-
-    // Try to save to DB in background (don't block UI)
-    // Only save if thread ID is not a temp ID (starts with 'temp-')
-    if (targetThreadId && !targetThreadId.startsWith('temp-')) {
-      try {
-        const response = await mcpAPI.addMessage(selectedProfile, targetThreadId, role, content, toolName, data)
-        if (!isMountedRef.current) return
-        
-        const apiMessage = response.data
-        
-        // Update with real ID from DB
-        setThreads((prev) => {
-          return prev.map((t) => {
-            if (t.id !== targetThreadId) return t
-            return {
-              ...t,
-              messages: t.messages.map((m) => 
-                m.id === msg.id ? { ...m, id: apiMessage.id } : m
-              ),
-            }
-          })
-        })
-      } catch (error: any) {
-        if (!isMountedRef.current) return
-        logError('addMessage - saveToDB', error, { 
-          role, 
-          contentLength: content.length, 
-          threadId: targetThreadId,
-          toolName,
-          note: 'Message displayed in UI but not saved to DB - non-fatal'
-        })
-        // Message is already in UI, so this is non-fatal
-      }
+  useEffect(() => {
+    if (selectedModel) {
+      validateModel()
     } else {
-      // Thread is temporary, don't try to save to DB
-      console.log('Message added to temp thread, skipping DB save')
+      setModelError(null)
     }
-  }
+  }, [selectedModel, validateModel])
+
+  useEffect(() => {
+    if (!selectedProfile || !shouldAutoConnectRef.current) return
+    
+    // Prevent reconnecting if already connected to the same profile
+    if (lastConnectedProfileRef.current === selectedProfile && (connecting || connected)) return
+    
+    // Prevent multiple simultaneous initializations
+    if (connecting || connected) {
+      // If connected to a different profile, close and reconnect
+      if (lastConnectedProfileRef.current && lastConnectedProfileRef.current !== selectedProfile) {
+        if (wsRef.current) {
+          wsRef.current.close()
+          wsRef.current = null
+        }
+        lastConnectedProfileRef.current = ''
+        setConnected(false)
+        setConnecting(false)
+      } else {
+        return
+      }
+    }
+    
+    lastConnectedProfileRef.current = selectedProfile
+    
+    try {
+      loadTools().catch((error) => {
+        logError('useEffect - loadTools', error, { selectedProfile })
+      })
+      loadModelConfigs().catch((error) => {
+        logError('useEffect - loadModelConfigs', error, { selectedProfile })
+      })
+      connectWebSocket()
+    } catch (error) {
+      logError('useEffect - connectWebSocket', error, { selectedProfile })
+      if (isMountedRef.current) {
+        setConnected(false)
+        setConnecting(false)
+      }
+    }
+  }, [selectedProfile, connecting, connected, loadTools, loadModelConfigs, connectWebSocket, logError])
+
+  useEffect(() => {
+    if (!selectedProfile || !shouldAutoConnectRef.current) return
+    
+    // Prevent reconnecting if already connected to the same profile
+    if (lastConnectedProfileRef.current === selectedProfile && (connecting || connected)) return
+    
+    // Prevent multiple simultaneous initializations
+    if (connecting || connected) {
+      // If connected to a different profile, close and reconnect
+      if (lastConnectedProfileRef.current && lastConnectedProfileRef.current !== selectedProfile) {
+        if (wsRef.current) {
+          wsRef.current.close()
+          wsRef.current = null
+        }
+        lastConnectedProfileRef.current = ''
+        setConnected(false)
+        setConnecting(false)
+      } else {
+        return
+      }
+    }
+    
+    lastConnectedProfileRef.current = selectedProfile
+    
+    try {
+      loadTools().catch((error) => {
+        logError('useEffect - loadTools', error, { selectedProfile })
+      })
+      loadModelConfigs().catch((error) => {
+        logError('useEffect - loadModelConfigs', error, { selectedProfile })
+      })
+      connectWebSocket()
+    } catch (error) {
+      logError('useEffect - initializeMCPConnection', error, { selectedProfile })
+      // Don't let initialization errors crash the component
+    }
+    
+    return () => {
+      if (wsRef.current) {
+        try {
+          wsRef.current.close()
+        } catch (error) {
+          logError('useEffect cleanup - closeWebSocket', error, { selectedProfile })
+        }
+        wsRef.current = null
+      }
+      if (isMountedRef.current) {
+        setConnected(false)
+        setConnecting(false)
+      }
+    }
+  }, [selectedProfile, connectWebSocket, connected, connecting, loadModelConfigs, loadTools, logError])
 
   const handleSendMessage = async () => {
     if (!input.trim() || loading || !selectedModel || modelError) return
@@ -1514,3 +1558,4 @@ function MessageBubble({ message }: { message: Message }) {
     </div>
   )
 }
+

@@ -129,7 +129,7 @@ export default function SetupPage() {
             Welcome to NeuronDesktop
           </h1>
           <p className="text-xl text-slate-700 dark:text-slate-300 mb-8">
-            Let's set up your profile and configure your connections. This will only take a few minutes.
+            Let&apos;s set up your profile and configure your connections. This will only take a few minutes.
           </p>
           <button
             onClick={() => setStep('postgresql')}

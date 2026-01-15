@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { agentAPI, profilesAPI, type Profile, type Agent, type CreateAgentRequest } from '@/lib/api'
 import { ChatBubbleLeftRightIcon, PaperAirplaneIcon, ArrowPathIcon, XMarkIcon } from '@/components/Icons'
 import MarkdownContent from '@/components/MarkdownContent'
@@ -37,36 +37,7 @@ export default function AgentPlayground({ agentId, onClose }: AgentPlaygroundPro
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const wsRef = useRef<WebSocket | null>(null)
 
-  useEffect(() => {
-    loadProfiles()
-    return () => {
-      if (wsRef.current) {
-        wsRef.current.close()
-      }
-    }
-  }, [])
-
-  useEffect(() => {
-    if (selectedProfile) {
-      loadAgents()
-    }
-  }, [selectedProfile])
-
-  useEffect(() => {
-    if (agentId && agents.length > 0) {
-      const agent = agents.find((a) => a.id === agentId)
-      if (agent) {
-        setSelectedAgent(agent)
-        createSession(agent.id)
-      }
-    }
-  }, [agentId, agents])
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, streamingContent])
-
-  const loadProfiles = async () => {
+  const loadProfiles = useCallback(async () => {
     try {
       const response = await profilesAPI.list()
       setProfiles(response.data)
@@ -85,9 +56,21 @@ export default function AgentPlayground({ agentId, onClose }: AgentPlaygroundPro
     } catch (error) {
       console.error('Failed to load profiles:', error)
     }
-  }
+  }, [selectedProfile])
 
-  const loadAgents = async () => {
+  const createSession = useCallback(async (agentId: string) => {
+    if (!selectedProfile) return
+    try {
+      const response = await agentAPI.createSession(selectedProfile, agentId)
+      setSessionId(response.data.id)
+      setMessages([])
+    } catch (error) {
+      console.error('Failed to create session:', error)
+      alert('Failed to create session: ' + (error as any).message)
+    }
+  }, [selectedProfile])
+
+  const loadAgents = useCallback(async () => {
     if (!selectedProfile) return
     try {
       const response = await agentAPI.listAgents(selectedProfile)
@@ -102,19 +85,36 @@ export default function AgentPlayground({ agentId, onClose }: AgentPlaygroundPro
     } catch (error) {
       console.error('Failed to load agents:', error)
     }
-  }
+  }, [selectedProfile, agentId, createSession])
 
-  const createSession = async (agentId: string) => {
-    if (!selectedProfile) return
-    try {
-      const response = await agentAPI.createSession(selectedProfile, agentId)
-      setSessionId(response.data.id)
-      setMessages([])
-    } catch (error) {
-      console.error('Failed to create session:', error)
-      alert('Failed to create session: ' + (error as any).message)
+  useEffect(() => {
+    loadProfiles()
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close()
+      }
     }
-  }
+  }, [loadProfiles])
+
+  useEffect(() => {
+    if (selectedProfile) {
+      loadAgents()
+    }
+  }, [selectedProfile, loadAgents])
+
+  useEffect(() => {
+    if (agentId && agents.length > 0) {
+      const agent = agents.find((a) => a.id === agentId)
+      if (agent) {
+        setSelectedAgent(agent)
+        createSession(agent.id)
+      }
+    }
+  }, [agentId, agents, createSession])
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, streamingContent])
 
   const handleAgentSelect = (agent: Agent) => {
     setSelectedAgent(agent)

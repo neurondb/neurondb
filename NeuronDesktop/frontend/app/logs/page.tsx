@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { 
   DocumentTextIcon,
   FunnelIcon,
@@ -26,19 +26,7 @@ export default function LogsPage() {
     dateRange: 'today',
   })
 
-  useEffect(() => {
-    loadProfiles()
-  }, [])
-
-  useEffect(() => {
-    if (selectedProfile) {
-      loadLogs()
-    } else {
-      setLogs([])
-    }
-  }, [selectedProfile, filter])
-
-  const loadProfiles = async () => {
+  const loadProfiles = useCallback(async () => {
     try {
       const response = await profilesAPI.list()
       setProfiles(response.data)
@@ -57,9 +45,9 @@ export default function LogsPage() {
     } catch (error) {
       showErrorToast('Failed to load profiles')
     }
-  }
+  }, [selectedProfile])
 
-  const loadLogs = async () => {
+  const loadLogs = useCallback(async () => {
     if (!selectedProfile) return
     
     setLoading(true)
@@ -102,7 +90,19 @@ export default function LogsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedProfile, filter])
+
+  useEffect(() => {
+    loadProfiles()
+  }, [loadProfiles])
+
+  useEffect(() => {
+    if (selectedProfile) {
+      loadLogs()
+    } else {
+      setLogs([])
+    }
+  }, [selectedProfile, filter, loadLogs])
 
   const handleDeleteLog = async (logId: string) => {
     if (!selectedProfile) return

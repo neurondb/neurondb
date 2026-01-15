@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { 
   CpuIcon, 
   ServerIcon, 
@@ -66,7 +66,7 @@ export default function MonitoringPage() {
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  const connectWebSocket = () => {
+  const connectWebSocket = useCallback(() => {
     // Build WebSocket URL - system metrics endpoint is at /api/v1/system-metrics/ws
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081/api/v1'
     const baseUrl = apiUrl.replace('/api/v1', '')
@@ -126,7 +126,7 @@ export default function MonitoringPage() {
       setError('Failed to create WebSocket connection. Please check your browser console for details.')
       setConnected(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
     connectWebSocket()
@@ -139,7 +139,7 @@ export default function MonitoringPage() {
         wsRef.current.close()
       }
     }
-  }, [])
+  }, [connectWebSocket])
 
   if (!metrics && !error) {
     return (

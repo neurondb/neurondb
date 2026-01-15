@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { profilesAPI } from '@/lib/api'
 import { showErrorToast } from '@/lib/errors'
 import { 
@@ -54,19 +54,7 @@ export default function ObservabilityPage() {
   const [usageStats, setUsageStats] = useState<UsageStats | null>(null)
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    loadProfiles()
-  }, [])
-
-  useEffect(() => {
-    if (selectedProfile) {
-      loadObservabilityData()
-      const interval = setInterval(loadObservabilityData, 30000) // Refresh every 30s
-      return () => clearInterval(interval)
-    }
-  }, [selectedProfile])
-
-  const loadProfiles = async () => {
+  const loadProfiles = useCallback(async () => {
     try {
       const response = await profilesAPI.list()
       setProfiles(response.data)
@@ -77,9 +65,9 @@ export default function ObservabilityPage() {
     } catch (error: any) {
       showErrorToast('Failed to load profiles: ' + (error.response?.data?.error || error.message))
     }
-  }
+  }, [])
 
-  const loadObservabilityData = async () => {
+  const loadObservabilityData = useCallback(async () => {
     if (!selectedProfile) return
     setLoading(true)
 
@@ -113,7 +101,19 @@ export default function ObservabilityPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedProfile])
+
+  useEffect(() => {
+    loadProfiles()
+  }, [loadProfiles])
+
+  useEffect(() => {
+    if (selectedProfile) {
+      loadObservabilityData()
+      const interval = setInterval(loadObservabilityData, 30000) // Refresh every 30s
+      return () => clearInterval(interval)
+    }
+  }, [selectedProfile, loadObservabilityData])
 
   return (
     <div className="min-h-full bg-transparent p-6">

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { profilesAPI, neurondbAPI, type Profile, type CollectionInfo, type SearchRequest, type SearchResult } from '@/lib/api'
 import JSONViewer from '@/components/JSONViewer'
 import SQLEditor from '@/components/SQLEditor'
@@ -38,17 +38,7 @@ export default function NeuronDBPage() {
   const [sqlLoading, setSqlLoading] = useState(false)
   const [sqlHistory, setSqlHistory] = useState<string[]>([])
 
-  useEffect(() => {
-    loadProfiles()
-  }, [])
-
-  useEffect(() => {
-    if (selectedProfile) {
-      loadCollections()
-    }
-  }, [selectedProfile])
-
-  const loadProfiles = async () => {
+  const loadProfiles = useCallback(async () => {
     try {
       const response = await profilesAPI.list()
       setProfiles(response.data)
@@ -67,9 +57,9 @@ export default function NeuronDBPage() {
     } catch (error) {
       console.error('Failed to load profiles:', error)
     }
-  }
+  }, [selectedProfile])
 
-  const loadCollections = async () => {
+  const loadCollections = useCallback(async () => {
     if (!selectedProfile) return
     setLoadingCollections(true)
     try {
@@ -83,7 +73,17 @@ export default function NeuronDBPage() {
     } finally {
       setLoadingCollections(false)
     }
-  }
+  }, [selectedProfile, selectedCollection])
+
+  useEffect(() => {
+    loadProfiles()
+  }, [loadProfiles])
+
+  useEffect(() => {
+    if (selectedProfile) {
+      loadCollections()
+    }
+  }, [selectedProfile, loadCollections])
 
   const handleSearch = async () => {
     if (!selectedProfile || !selectedCollection || !queryText) return
@@ -234,7 +234,7 @@ export default function NeuronDBPage() {
 );`}
                       </pre>
                       <p className="text-xs text-gray-700 dark:text-slate-400 mt-2">
-                        <strong>Note:</strong> NeuronDB is a PostgreSQL extension. You're connected to PostgreSQL, but you need tables with <code className="bg-slate-200 dark:bg-slate-800 px-1 rounded">vector</code> type columns for vector search.
+                        <strong>Note:</strong> NeuronDB is a PostgreSQL extension. You&apos;re connected to PostgreSQL, but you need tables with <code className="bg-slate-200 dark:bg-slate-800 px-1 rounded">vector</code> type columns for vector search.
                       </p>
                     </>
                   )}

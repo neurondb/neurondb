@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { agentAPI, profilesAPI, type Profile, type CreateAgentRequest, type Model } from '@/lib/api'
 import { CheckIcon, XMarkIcon } from '@/components/Icons'
 import { showSuccessToast, showErrorToast } from '@/lib/errors'
@@ -36,17 +36,7 @@ export default function AgentWizard({ onComplete, onCancel }: { onComplete?: () 
     { id: 5, name: 'Review' },
   ]
 
-  useEffect(() => {
-    loadProfiles()
-  }, [])
-
-  useEffect(() => {
-    if (selectedProfile) {
-      loadModels()
-    }
-  }, [selectedProfile])
-
-  const loadProfiles = async () => {
+  const loadProfiles = useCallback(async () => {
     try {
       const response = await profilesAPI.list()
       setProfiles(response.data)
@@ -57,9 +47,9 @@ export default function AgentWizard({ onComplete, onCancel }: { onComplete?: () 
     } catch (error: any) {
       showErrorToast('Failed to load profiles: ' + (error.response?.data?.error || error.message))
     }
-  }
+  }, [])
 
-  const loadModels = async () => {
+  const loadModels = useCallback(async () => {
     if (!selectedProfile) return
     try {
       const response = await agentAPI.listModels(selectedProfile)
@@ -67,7 +57,17 @@ export default function AgentWizard({ onComplete, onCancel }: { onComplete?: () 
     } catch (error: any) {
       showErrorToast('Failed to load models: ' + (error.response?.data?.error || error.message))
     }
-  }
+  }, [selectedProfile])
+
+  useEffect(() => {
+    loadProfiles()
+  }, [loadProfiles])
+
+  useEffect(() => {
+    if (selectedProfile) {
+      loadModels()
+    }
+  }, [selectedProfile, loadModels])
 
   const handleNext = () => {
     if (currentStep < steps.length - 1) {

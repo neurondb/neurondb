@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/neurondb/NeuronDesktop/api/internal/agent"
 	"github.com/neurondb/NeuronDesktop/api/internal/db"
 	"github.com/neurondb/NeuronDesktop/api/internal/logging"
 	"github.com/neurondb/NeuronDesktop/api/internal/mcp"
@@ -52,7 +53,7 @@ func (b *Bootstrap) Initialize(ctx context.Context) error {
 			"errors": validation.Errors,
 		})
 		for _, errMsg := range validation.Errors {
-			b.logger.Error("Validation error", fmt.Errorf(errMsg), nil)
+			b.logger.Error("Validation error", fmt.Errorf("%s", errMsg), nil)
 		}
 		metrics.TrackStep("validation", time.Since(validationStart), false)
 	} else {
@@ -89,6 +90,19 @@ func (b *Bootstrap) Initialize(ctx context.Context) error {
 
 	if defaultProfile != nil {
 		b.verifyConnections(ctx, defaultProfile)
+	}
+
+	/* Create demo agent if profile has agent endpoint configured */
+	if defaultProfile != nil {
+		demoAgentStart := time.Now()
+		if err := b.ensureDemoAgentWithRetry(ctx, defaultProfile); err != nil {
+			b.logger.Info("Warning: Failed to create demo agent", map[string]interface{}{
+				"error": err.Error(),
+			})
+			metrics.TrackStep("demo_agent", time.Since(demoAgentStart), false)
+		} else {
+			metrics.TrackStep("demo_agent", time.Since(demoAgentStart), true)
+		}
 	}
 
 	healthStart := time.Now()
@@ -223,6 +237,8 @@ func (b *Bootstrap) ensureDefaultProfile(ctx context.Context, adminUser *db.User
 		/* Get default configuration */
 		neurondbDSN := utils.GetDefaultNeuronDBDSN()
 		mcpConfig := utils.GetDefaultMCPConfig()
+		agentEndpoint := os.Getenv("NEURONAGENT_ENDPOINT")
+		agentAPIKey := os.Getenv("NEURONAGENT_API_KEY")
 
 		/* Hash password for admin profile (use same as admin user password) */
 		adminPassword := os.Getenv("ADMIN_PASSWORD")
@@ -242,6 +258,8 @@ func (b *Bootstrap) ensureDefaultProfile(ctx context.Context, adminUser *db.User
 			ProfilePassword: string(profilePasswordHash),
 			NeuronDBDSN:     neurondbDSN,
 			MCPConfig:       mcpConfig,
+			AgentEndpoint:   agentEndpoint,
+			AgentAPIKey:     agentAPIKey,
 			IsDefault:       true,
 		}
 
@@ -476,4 +494,95 @@ func (b *Bootstrap) verifyMCPConnection(ctx context.Context, profile *db.Profile
 		"error":      lastErr.Error(),
 		"attempts":   maxRetries,
 	})
+}
+
+/* ensureDemoAgentWithRetry ensures demo agent exists with retry logic */
+func (b *Bootstrap) ensureDemoAgentWithRetry(ctx context.Context, profile *db.Profile) error {
+	retryFunc := func(ctx context.Context) error {
+		return b.ensureDemoAgent(ctx, profile)
+	}
+
+	return RetryWithBackoff(ctx, b.logger, "ensure demo agent", retryFunc)
+}
+
+/* ensureDemoAgent ensures a demo agent exists for the profile */
+func (b *Bootstrap) ensureDemoAgent(ctx context.Context, profile *db.Profile) error {
+	/* Check if profile has agent endpoint configured */
+	if profile.AgentEndpoint == "" {
+		b.logger.Info("Skipping demo agent creation - no agent endpoint configured", map[string]interface{}{
+			"profile_id": profile.ID,
+		})
+		return nil
+	}
+
+	b.logger.Info("Checking for demo agent", map[string]interface{}{
+		"profile_id":     profile.ID,
+		"agent_endpoint": profile.AgentEndpoint,
+	})
+
+	/* Create agent client */
+	agentClient := agent.NewClient(profile.AgentEndpoint, profile.AgentAPIKey)
+
+	/* Check if NeuronAgent is accessible */
+	healthCtx, healthCancel := context.WithTimeout(ctx, 5*time.Second)
+	defer healthCancel()
+
+	/* Try to list agents as a health check */
+	existingAgents, err := agentClient.ListAgents(healthCtx)
+	if err != nil {
+		b.logger.Info("⚠ NeuronAgent not accessible, skipping demo agent creation", map[string]interface{}{
+			"profile_id":     profile.ID,
+			"agent_endpoint": profile.AgentEndpoint,
+			"error":          err.Error(),
+		})
+		return nil /* Don't fail bootstrap if agent server is not available */
+	}
+
+	/* Check if demo agent already exists */
+	demoAgentName := "demo-agent"
+	for _, existingAgent := range existingAgents {
+		if existingAgent.Name == demoAgentName {
+			b.logger.Info("Demo agent already exists", map[string]interface{}{
+				"profile_id": profile.ID,
+				"agent_name": demoAgentName,
+				"agent_id":   existingAgent.ID,
+			})
+			return nil
+		}
+	}
+
+	/* Create demo agent */
+	b.logger.Info("Creating demo agent", map[string]interface{}{
+		"profile_id":     profile.ID,
+		"agent_endpoint": profile.AgentEndpoint,
+		"agent_name":     demoAgentName,
+	})
+
+	createReq := agent.CreateAgentRequest{
+		Name:         demoAgentName,
+		Description:  "Demo agent for NeuronDesktop - a helpful assistant that can answer questions and help with tasks using NeuronAgent",
+		SystemPrompt: "You are a helpful, harmless, and honest assistant. Answer questions accurately and helpfully. You can use tools to help users with their tasks.",
+		ModelName:    "gpt-4",
+		EnabledTools: []string{"sql", "http"},
+		Config: map[string]interface{}{
+			"temperature": 0.7,
+			"max_tokens":  1000,
+		},
+	}
+
+	createCtx, createCancel := context.WithTimeout(ctx, 10*time.Second)
+	defer createCancel()
+
+	createdAgent, err := agentClient.CreateAgent(createCtx, createReq)
+	if err != nil {
+		return fmt.Errorf("failed to create demo agent: %w", err)
+	}
+
+	b.logger.Info("Demo agent created successfully", map[string]interface{}{
+		"profile_id": profile.ID,
+		"agent_name": demoAgentName,
+		"agent_id":   createdAgent.ID,
+	})
+
+	return nil
 }

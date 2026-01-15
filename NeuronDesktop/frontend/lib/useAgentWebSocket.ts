@@ -123,7 +123,7 @@ export function useAgentWebSocket({
       setError(errorMessage)
       onError?.(err instanceof Error ? err : new Error(errorMessage))
     }
-  }, [enabled, sessionId, profileId, getWebSocketUrl, onMessage, onError, onConnect, onDisconnect])
+  }, [enabled, sessionId, getWebSocketUrl, onMessage, onError, onConnect, onDisconnect])
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {

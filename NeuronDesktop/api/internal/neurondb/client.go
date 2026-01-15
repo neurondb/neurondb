@@ -183,7 +183,8 @@ type SearchRequest struct {
 	QueryText    string                 `json:"query_text,omitempty"` // For hybrid search
 	Limit        int                    `json:"limit,omitempty"`
 	Filter       map[string]interface{} `json:"filter,omitempty"`
-	DistanceType string                 `json:"distance_type,omitempty"` // l2, cosine, inner_product
+	DistanceType string                 `json:"distance_type,omitempty"` // l2, cosine, inner_product, l1, hamming, chebyshev, minkowski
+	MinkowskiP   *float64               `json:"minkowski_p,omitempty"`   // p parameter for Minkowski distance
 }
 
 /* SearchResult represents a single search result */
@@ -227,18 +228,49 @@ func (c *Client) Search(ctx context.Context, req SearchRequest) ([]SearchResult,
 	/* Convert query vector to SQL array format (safe - numeric array) */
 	vectorStr := formatVector(req.QueryVector)
 
-	/* Build distance operator (safe - hardcoded values) */
-	var distanceOp string
+	/* Build distance expression (safe - hardcoded values) */
+	var distanceExpr string
+	var orderByExpr string
+	var queryParams []interface{}
+	queryParams = append(queryParams, vectorStr)
+	paramIndex := 2 // $1 is vector, $2+ for other params
+
 	switch req.DistanceType {
 	case "l2":
-		distanceOp = "<->"
+		distanceExpr = fmt.Sprintf("(%s <-> $1::vector) as distance", quoteIdentifier(vectorCol))
+		orderByExpr = fmt.Sprintf("%s <-> $1::vector", quoteIdentifier(vectorCol))
 	case "cosine":
-		distanceOp = "<=>"
+		distanceExpr = fmt.Sprintf("(%s <=> $1::vector) as distance", quoteIdentifier(vectorCol))
+		orderByExpr = fmt.Sprintf("%s <=> $1::vector", quoteIdentifier(vectorCol))
 	case "inner_product":
-		distanceOp = "<#>"
+		distanceExpr = fmt.Sprintf("(%s <#> $1::vector) as distance", quoteIdentifier(vectorCol))
+		orderByExpr = fmt.Sprintf("%s <#> $1::vector", quoteIdentifier(vectorCol))
+	case "l1":
+		distanceExpr = fmt.Sprintf("vector_l1_distance(%s, $1::vector) as distance", quoteIdentifier(vectorCol))
+		orderByExpr = fmt.Sprintf("vector_l1_distance(%s, $1::vector)", quoteIdentifier(vectorCol))
+	case "hamming":
+		distanceExpr = fmt.Sprintf("vector_hamming_distance(%s, $1::vector) as distance", quoteIdentifier(vectorCol))
+		orderByExpr = fmt.Sprintf("vector_hamming_distance(%s, $1::vector)", quoteIdentifier(vectorCol))
+	case "chebyshev":
+		distanceExpr = fmt.Sprintf("vector_chebyshev_distance(%s, $1::vector) as distance", quoteIdentifier(vectorCol))
+		orderByExpr = fmt.Sprintf("vector_chebyshev_distance(%s, $1::vector)", quoteIdentifier(vectorCol))
+	case "minkowski":
+		p := 2.0
+		if req.MinkowskiP != nil {
+			p = *req.MinkowskiP
+		}
+		queryParams = append(queryParams, p)
+		distanceExpr = fmt.Sprintf("vector_minkowski_distance(%s, $1::vector, $%d::double precision) as distance", quoteIdentifier(vectorCol), paramIndex)
+		orderByExpr = fmt.Sprintf("vector_minkowski_distance(%s, $1::vector, $%d::double precision)", quoteIdentifier(vectorCol), paramIndex)
+		paramIndex++
 	default:
-		distanceOp = "<=>" // Default to cosine
+		/* Default to cosine */
+		distanceExpr = fmt.Sprintf("(%s <=> $1::vector) as distance", quoteIdentifier(vectorCol))
+		orderByExpr = fmt.Sprintf("%s <=> $1::vector", quoteIdentifier(vectorCol))
 	}
+
+	queryParams = append(queryParams, req.Limit)
+	limitParamIndex := paramIndex
 
 	/* Build query with validated identifiers */
 	/* Note: vectorStr is generated from numeric array, so safe to interpolate */
@@ -246,15 +278,14 @@ func (c *Client) Search(ctx context.Context, req SearchRequest) ([]SearchResult,
 	tableName := fmt.Sprintf("%s.%s", quoteIdentifier(req.Schema), quoteIdentifier(req.Collection))
 	query := fmt.Sprintf(`
 		SELECT *, 
-			(%s %s %s::vector) as distance
+			%s
 		FROM %s
-		ORDER BY %s %s %s::vector
-		LIMIT $1
-	`, quoteIdentifier(vectorCol), distanceOp, vectorStr, tableName,
-		quoteIdentifier(vectorCol), distanceOp, vectorStr)
+		ORDER BY %s
+		LIMIT $%d
+	`, distanceExpr, tableName, orderByExpr, limitParamIndex)
 
-	/* Execute query (limit is parameterized, vector is safe numeric string) */
-	rows, err := c.db.QueryContext(ctx, query, req.Limit)
+	/* Execute query (all parameters are safe) */
+	rows, err := c.db.QueryContext(ctx, query, queryParams...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute search: %w", err)
 	}

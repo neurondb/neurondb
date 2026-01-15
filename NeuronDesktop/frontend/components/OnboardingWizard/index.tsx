@@ -175,7 +175,7 @@ export default function OnboardingWizard({ onComplete }: { onComplete?: () => vo
         {/* Header */}
         <div className="mb-8 text-center">
           <h1 className="text-4xl font-bold text-slate-900 mb-2">Welcome to NeuronDesktop</h1>
-          <p className="text-slate-600">Let's get you set up in a few simple steps</p>
+          <p className="text-slate-600">Let&apos;s get you set up in a few simple steps</p>
         </div>
 
         {/* Progress Steps */}
@@ -426,7 +426,7 @@ export default function OnboardingWizard({ onComplete }: { onComplete?: () => vo
               </div>
               <div>
                 <h2 className="text-2xl font-bold text-slate-900 mb-2">Setup Complete!</h2>
-                <p className="text-slate-600">You're all set to start using NeuronDesktop</p>
+                <p className="text-slate-600">You&apos;re all set to start using NeuronDesktop</p>
               </div>
               <button
                 onClick={saveProfile}

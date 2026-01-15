@@ -22,7 +22,7 @@ export default function AgentCreatePage() {
       <div className="max-w-6xl mx-auto">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-slate-100 mb-2">Create New Agent</h1>
-          <p className="text-gray-700 dark:text-slate-400">Choose how you'd like to create your agent</p>
+          <p className="text-gray-700 dark:text-slate-400">Choose how you&apos;d like to create your agent</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

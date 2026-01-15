@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { profilesAPI, modelConfigAPI, type Profile, type ModelConfig } from '@/lib/api'
 import { 
   KeyIcon,
@@ -84,17 +84,7 @@ export default function ModelsPage() {
   const [newIsDefault, setNewIsDefault] = useState(false)
   const [showApiKey, setShowApiKey] = useState(false)
 
-  useEffect(() => {
-    loadProfiles()
-  }, [])
-
-  useEffect(() => {
-    if (selectedProfile) {
-      loadModelConfigs()
-    }
-  }, [selectedProfile])
-
-  const loadProfiles = async () => {
+  const loadProfiles = useCallback(async () => {
     try {
       const response = await profilesAPI.list()
       setProfiles(response.data)
@@ -104,9 +94,9 @@ export default function ModelsPage() {
     } catch (error) {
       console.error('Failed to load profiles:', error)
     }
-  }
+  }, [selectedProfile])
 
-  const loadModelConfigs = async () => {
+  const loadModelConfigs = useCallback(async () => {
     if (!selectedProfile) return
     try {
       const response = await modelConfigAPI.list(selectedProfile, false)
@@ -114,7 +104,17 @@ export default function ModelsPage() {
     } catch (error) {
       console.error('Failed to load model configs:', error)
     }
-  }
+  }, [selectedProfile])
+
+  useEffect(() => {
+    loadProfiles()
+  }, [loadProfiles])
+
+  useEffect(() => {
+    if (selectedProfile) {
+      loadModelConfigs()
+    }
+  }, [selectedProfile, loadModelConfigs])
 
   const handleCreate = async () => {
     if (!selectedProfile) {

@@ -3,6 +3,37 @@
 @tailwind utilities;
 
 :root {
+  /* Design System - 4px/8px Grid System */
+  --spacing-unit: 4px;
+  --spacing-xs: calc(var(--spacing-unit) * 1);   /* 4px */
+  --spacing-sm: calc(var(--spacing-unit) * 2);   /* 8px */
+  --spacing-md: calc(var(--spacing-unit) * 4);   /* 16px */
+  --spacing-lg: calc(var(--spacing-unit) * 6);    /* 24px */
+  --spacing-xl: calc(var(--spacing-unit) * 8);   /* 32px */
+  --spacing-2xl: calc(var(--spacing-unit) * 12); /* 48px */
+  --spacing-3xl: calc(var(--spacing-unit) * 16); /* 64px */
+
+  /* Typography Scale */
+  --font-size-xs: 0.75rem;    /* 12px */
+  --font-size-sm: 0.875rem;  /* 14px */
+  --font-size-base: 1rem;    /* 16px */
+  --font-size-lg: 1.125rem;  /* 18px */
+  --font-size-xl: 1.25rem;   /* 20px */
+  --font-size-2xl: 1.5rem;   /* 24px */
+  --font-size-3xl: 1.875rem; /* 30px */
+  --font-size-4xl: 2.25rem;  /* 36px */
+  --font-size-5xl: 3rem;     /* 48px */
+  
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.75;
+  --line-height-loose: 2;
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
   /* Light color scheme - Professional soothing slate */
   --foreground-rgb: 17, 24, 39;
   --background-start-rgb: 248, 250, 252; /* Soft soothing slate-50 */
@@ -22,6 +53,16 @@
   --gradient-start: 239, 246, 255; /* blue-50 */
   --gradient-mid: 238, 242, 255; /* indigo-50 */
   --gradient-end: 250, 245, 255; /* purple-50 */
+
+  /* Semantic Colors */
+  --color-success: 34, 197, 94;
+  --color-success-bg: 220, 252, 231;
+  --color-error: 239, 68, 68;
+  --color-error-bg: 254, 226, 226;
+  --color-warning: 251, 191, 36;
+  --color-warning-bg: 254, 243, 199;
+  --color-info: 59, 130, 246;
+  --color-info-bg: 219, 234, 254;
 }
 
 .dark {
@@ -44,6 +85,16 @@
   --gradient-start: 15, 23, 42; /* slate-900 */
   --gradient-mid: 15, 23, 42;
   --gradient-end: 15, 23, 42;
+
+  /* Semantic Colors - Dark Mode */
+  --color-success: 74, 222, 128;
+  --color-success-bg: 20, 83, 45;
+  --color-error: 248, 113, 113;
+  --color-error-bg: 127, 29, 29;
+  --color-warning: 251, 191, 36;
+  --color-warning-bg: 113, 63, 18;
+  --color-info: 96, 165, 250;
+  --color-info-bg: 30, 58, 138;
 }
 
 * {
@@ -443,6 +494,46 @@ body.dark {
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 150ms;
 }
+
+/* Page transitions */
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-enter {
+  animation: pageEnter 0.3s ease-out;
+}
+
+/* List stagger animations */
+@keyframes staggerIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.stagger-item {
+  animation: staggerIn 0.3s ease-out;
+  animation-fill-mode: both;
+}
+
+.stagger-item:nth-child(1) { animation-delay: 0.05s; }
+.stagger-item:nth-child(2) { animation-delay: 0.1s; }
+.stagger-item:nth-child(3) { animation-delay: 0.15s; }
+.stagger-item:nth-child(4) { animation-delay: 0.2s; }
+.stagger-item:nth-child(5) { animation-delay: 0.25s; }
+.stagger-item:nth-child(n+6) { animation-delay: 0.3s; }
 
 /* Responsive utilities */
 @media (max-width: 640px) {

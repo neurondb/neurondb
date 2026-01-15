@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { profilesAPI, mcpAPI, agentAPI, modelConfigAPI, factoryAPI, type Profile, type ModelConfig, type FactoryStatus, type ComponentStatus } from '@/lib/api'
 import { getErrorMessage } from '@/lib/errors'
 import { useTheme } from '@/contexts/ThemeContext'
@@ -144,13 +144,51 @@ export default function SettingsPage() {
     },
   }
 
+  const loadProfiles = useCallback(async () => {
+    try {
+      const response = await profilesAPI.list()
+      setProfiles(response.data)
+      if (response.data.length > 0 && !selectedProfileForModels) {
+        const defaultProfile = response.data.find(p => p.is_default)
+        setSelectedProfileForModels(defaultProfile ? defaultProfile.id : response.data[0].id)
+      }
+    } catch (error: any) {
+      showErrorToast('Failed to load profiles: ' + (error.response?.data?.error || error.message))
+    }
+  }, [selectedProfileForModels])
+
+  const loadModelConfigs = useCallback(async () => {
+    if (!selectedProfileForModels) return
+    try {
+      // Load with API keys for inline editing
+      const response = await modelConfigAPI.list(selectedProfileForModels, true)
+      setModelConfigs(response.data)
+    } catch (error: any) {
+      showErrorToast('Failed to load model configs: ' + (error.response?.data?.error || error.message))
+    }
+  }, [selectedProfileForModels])
+
+  const loadConnectionStatus = useCallback(async () => {
+    setStatusLoading(true)
+    setStatusError(null)
+    try {
+      const response = await factoryAPI.getStatus()
+      setConnectionStatus(response.data)
+    } catch (error: any) {
+      showErrorToast('Failed to load connection status: ' + (error.response?.data?.error || error.message))
+      setStatusError(error.response?.data?.error || error.message || 'Failed to load connection status')
+    } finally {
+      setStatusLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     loadProfiles()
     loadConnectionStatus()
     // Refresh status every 30 seconds
     const interval = setInterval(loadConnectionStatus, 30000)
     return () => clearInterval(interval)
-  }, [])
+  }, [loadProfiles, loadConnectionStatus])
 
   // Load current configurations when status is loaded
   useEffect(() => {
@@ -170,51 +208,13 @@ export default function SettingsPage() {
         }
       }
     }
-  }, [connectionStatus, profiles])
+  }, [connectionStatus, profiles, editingNeuronDB, editingNeuronAgent])
 
   useEffect(() => {
     if (selectedProfileForModels) {
       loadModelConfigs()
     }
-  }, [selectedProfileForModels])
-
-  const loadProfiles = async () => {
-    try {
-      const response = await profilesAPI.list()
-      setProfiles(response.data)
-      if (response.data.length > 0 && !selectedProfileForModels) {
-        const defaultProfile = response.data.find(p => p.is_default)
-        setSelectedProfileForModels(defaultProfile ? defaultProfile.id : response.data[0].id)
-      }
-    } catch (error: any) {
-      showErrorToast('Failed to load profiles: ' + (error.response?.data?.error || error.message))
-    }
-  }
-
-  const loadModelConfigs = async () => {
-    if (!selectedProfileForModels) return
-    try {
-      // Load with API keys for inline editing
-      const response = await modelConfigAPI.list(selectedProfileForModels, true)
-      setModelConfigs(response.data)
-    } catch (error: any) {
-      showErrorToast('Failed to load model configs: ' + (error.response?.data?.error || error.message))
-    }
-  }
-
-  const loadConnectionStatus = async () => {
-    setStatusLoading(true)
-    setStatusError(null)
-    try {
-      const response = await factoryAPI.getStatus()
-      setConnectionStatus(response.data)
-    } catch (error: any) {
-      showErrorToast('Failed to load connection status: ' + (error.response?.data?.error || error.message))
-      setStatusError(error.response?.data?.error || error.message || 'Failed to load connection status')
-    } finally {
-      setStatusLoading(false)
-    }
-  }
+  }, [selectedProfileForModels, loadModelConfigs])
 
   const testServiceConnection = async (service: 'neurondb' | 'neuronagent' | 'neuronmcp') => {
     setTestingService(service)

@@ -1,9 +1,9 @@
 'use client'
 
 import { useSidebar } from '@/contexts/SidebarContext'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, memo } from 'react'
 
-export default function MainContent({ children }: { children: React.ReactNode }) {
+export default memo(function MainContent({ children }: { children: React.ReactNode }) {
   const { isOpen } = useSidebar()
   const [isDesktop, setIsDesktop] = useState(false)
 
@@ -20,7 +20,7 @@ export default function MainContent({ children }: { children: React.ReactNode })
   return (
     <main
       className={`
-        flex-1 overflow-auto bg-transparent dark:bg-slate-950/50 transition-all duration-300 ease-in-out
+        flex-1 overflow-auto bg-transparent dark:bg-slate-950/50 transition-all duration-300 ease-in-out page-enter
         ${isOpen && isDesktop ? 'lg:ml-64 xl:ml-72' : 'lg:ml-0'}
         min-h-[calc(100vh-3.5rem)] sm:min-h-[calc(100vh-3.5rem)]
       `}
@@ -32,5 +32,5 @@ export default function MainContent({ children }: { children: React.ReactNode })
       </div>
     </main>
   )
-}
+})
 

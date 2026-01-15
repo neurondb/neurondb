@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { profilesAPI, dashboardAPI, type Profile, type DashboardStats } from '@/lib/api'
 import { LineChart, BarChart, PieChart } from '@/components/Charts'
 import { DraggableGrid } from '@/components/GridLayout'
@@ -22,19 +22,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    loadProfiles()
-  }, [])
-
-  useEffect(() => {
-    if (selectedProfile) {
-      loadDashboard()
-      const interval = setInterval(loadDashboard, 30000) // Refresh every 30s
-      return () => clearInterval(interval)
-    }
-  }, [selectedProfile])
-
-  const loadProfiles = async () => {
+  const loadProfiles = useCallback(async () => {
     try {
       const response = await profilesAPI.list()
       setProfiles(response.data)
@@ -45,9 +33,9 @@ export default function DashboardPage() {
     } catch (err: any) {
       setError('Failed to load profiles: ' + (err.response?.data?.error || err.message))
     }
-  }
+  }, [])
 
-  const loadDashboard = async () => {
+  const loadDashboard = useCallback(async () => {
     if (!selectedProfile) return
     setLoading(true)
     setError(null)
@@ -59,7 +47,19 @@ export default function DashboardPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedProfile])
+
+  useEffect(() => {
+    loadProfiles()
+  }, [loadProfiles])
+
+  useEffect(() => {
+    if (selectedProfile) {
+      loadDashboard()
+      const interval = setInterval(loadDashboard, 30000) // Refresh every 30s
+      return () => clearInterval(interval)
+    }
+  }, [selectedProfile, loadDashboard])
 
   const getHealthColor = (status: string) => {
     switch (status) {

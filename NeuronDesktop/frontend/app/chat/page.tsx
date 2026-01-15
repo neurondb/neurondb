@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { agentAPI, profilesAPI, type Profile, type Agent, type Session, type Message } from '@/lib/api'
 import ChatInterface from '@/components/ChatInterface'
 import { PlusIcon, ChatBubbleLeftRightIcon } from '@/components/Icons'
@@ -16,31 +16,7 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    loadProfiles()
-  }, [])
-
-  useEffect(() => {
-    if (selectedProfile) {
-      loadAgents()
-    }
-  }, [selectedProfile])
-
-  useEffect(() => {
-    if (selectedProfile && selectedAgent) {
-      loadSessions()
-    }
-  }, [selectedProfile, selectedAgent])
-
-  useEffect(() => {
-    if (selectedSession) {
-      loadMessages()
-    } else {
-      setMessages([])
-    }
-  }, [selectedSession])
-
-  const loadProfiles = async () => {
+  const loadProfiles = useCallback(async () => {
     try {
       const response = await profilesAPI.list()
       setProfiles(response.data)
@@ -60,9 +36,9 @@ export default function ChatPage() {
       console.error('Failed to load profiles:', error)
       setError('Failed to load profiles')
     }
-  }
+  }, [selectedProfile])
 
-  const loadAgents = async () => {
+  const loadAgents = useCallback(async () => {
     if (!selectedProfile) return
     setLoading(true)
     setError(null)
@@ -81,9 +57,9 @@ export default function ChatPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedProfile, selectedAgent])
 
-  const loadSessions = async () => {
+  const loadSessions = useCallback(async () => {
     if (!selectedProfile || !selectedAgent) return
     setLoading(true)
     try {
@@ -95,9 +71,9 @@ export default function ChatPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedProfile, selectedAgent])
 
-  const loadMessages = async () => {
+  const loadMessages = useCallback(async () => {
     if (!selectedProfile || !selectedSession) return
     setLoading(true)
     try {
@@ -109,7 +85,31 @@ export default function ChatPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedProfile, selectedSession])
+
+  useEffect(() => {
+    loadProfiles()
+  }, [loadProfiles])
+
+  useEffect(() => {
+    if (selectedProfile) {
+      loadAgents()
+    }
+  }, [selectedProfile, loadAgents])
+
+  useEffect(() => {
+    if (selectedProfile && selectedAgent) {
+      loadSessions()
+    }
+  }, [selectedProfile, selectedAgent, loadSessions])
+
+  useEffect(() => {
+    if (selectedSession) {
+      loadMessages()
+    } else {
+      setMessages([])
+    }
+  }, [selectedSession, loadMessages])
 
   const handleCreateSession = async () => {
     if (!selectedProfile || !selectedAgent) return
@@ -255,7 +255,7 @@ export default function ChatPage() {
           <div className="text-center">
             <ChatBubbleLeftRightIcon className="w-16 h-16 text-slate-600 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-slate-200 mb-2">Start a New Conversation</h3>
-            <p className="text-slate-400 mb-6">Click "New Chat" to begin chatting with {selectedAgent.name}</p>
+            <p className="text-slate-400 mb-6">Click &quot;New Chat&quot; to begin chatting with {selectedAgent.name}</p>
             <button onClick={handleCreateSession} className="btn btn-primary">
               Start Chat
             </button>
