@@ -98,3 +98,4 @@ func (d *DataMasker) MaskRows(rows []map[string]interface{}) []map[string]interf
 
 
 
+
