@@ -638,10 +638,8 @@ func (t *VectorSearchMinkowskiTool) Execute(ctx context.Context, params map[stri
 		limit = int(l)
 	}
 
-	/* Note: Minkowski distance requires p parameter, but ExecuteVectorSearch uses metric name */
-	/* For now, we'll use "minkowski" as the metric and pass p_value separately if needed */
-	/* The actual implementation may need to be adjusted based on how NeuronDB handles Minkowski */
-	results, err := t.executor.ExecuteVectorSearch(ctx, table, vectorColumn, queryVector, "minkowski", limit, nil)
+	/* Pass p_value for Minkowski distance */
+	results, err := t.executor.ExecuteVectorSearchWithMinkowski(ctx, table, vectorColumn, queryVector, "minkowski", limit, nil, &pValue)
 	if err != nil {
 		t.logger.Error("Minkowski vector search failed", err, params)
 		return Error(fmt.Sprintf("Minkowski vector search execution failed: table='%s', vector_column='%s', limit=%d, p_value=%.2f, query_vector_dimension=%d, error=%v", table, vectorColumn, limit, pValue, len(queryVector), err), "SEARCH_ERROR", map[string]interface{}{
@@ -709,7 +707,7 @@ func (t *GenerateEmbeddingTool) Execute(ctx context.Context, params map[string]i
 	
 	textLen := len(text)
 	if textLen == 0 {
-		return Error("text parameter is required and cannot be empty for neurondb_generate_embedding tool", "VALIDATION_ERROR", map[string]interface{}{
+		return Error("text parameter is required and cannot be empty for generate_embedding tool", "VALIDATION_ERROR", map[string]interface{}{
 			"parameter":   "text",
 			"text_length": 0,
 			"params":      params,

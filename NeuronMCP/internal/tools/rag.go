@@ -16,6 +16,7 @@ package tools
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/neurondb/NeuronMCP/internal/database"
 	"github.com/neurondb/NeuronMCP/internal/logging"
@@ -166,15 +167,83 @@ func (t *ProcessDocumentTool) Execute(ctx context.Context, params map[string]int
 		}), nil
 	}
 
-  /* If embeddings requested, generate them */
+  /* If embeddings requested, generate them for each chunk */
 	if generateEmbeddings {
-   /* This would typically be done in a separate step or within the chunking function */
-   /* For now, return the chunks */
+		chunksInterface, ok := result["chunks"]
+		if !ok {
+			t.logger.Warn("No chunks in result, skipping embedding generation", params)
+		} else if chunksArray, ok := chunksInterface.([]interface{}); ok {
+			/* Get default model if available */
+			modelName := "default"
+			if defaultModel, err := t.configHelper.GetDefaultModel(ctx, "embedding"); err == nil && defaultModel != "" {
+				modelName = defaultModel
+			}
+
+			/* Generate embeddings for each chunk */
+			chunksWithEmbeddings := make([]map[string]interface{}, 0, len(chunksArray))
+			for i, chunkInterface := range chunksArray {
+				chunkMap, ok := chunkInterface.(map[string]interface{})
+				if !ok {
+					t.logger.Warn(fmt.Sprintf("Invalid chunk format at index %d, skipping", i), params)
+					continue
+				}
+
+				chunkText, ok := chunkMap["chunk_text"].(string)
+				if !ok || chunkText == "" {
+					t.logger.Warn(fmt.Sprintf("Missing or invalid chunk_text at index %d, skipping", i), params)
+					continue
+				}
+
+				/* Generate embedding for this chunk */
+				embedQuery := `SELECT embed_text($1::text, $2::text)::text AS embedding`
+				embedResult, err := t.executor.ExecuteQueryOne(ctx, embedQuery, []interface{}{chunkText, modelName})
+				if err != nil {
+					t.logger.Warn(fmt.Sprintf("Failed to generate embedding for chunk %d", i), map[string]interface{}{
+						"chunk_index": i,
+						"chunk_text_length": len(chunkText),
+						"model": modelName,
+						"error": err.Error(),
+					})
+					/* Continue without embedding for this chunk */
+					chunkMap["embedding"] = nil
+				} else {
+					/* Extract embedding string */
+					if embStr, ok := embedResult["embedding"].(string); ok {
+						chunkMap["embedding"] = embStr
+					} else if embArr, ok := embedResult["embedding"].([]interface{}); ok {
+						/* Convert array to vector string format */
+						parts := make([]string, 0, len(embArr))
+						for _, v := range embArr {
+							if f, ok := v.(float64); ok {
+								parts = append(parts, fmt.Sprintf("%g", f))
+							} else if f, ok := v.(float32); ok {
+								parts = append(parts, fmt.Sprintf("%g", f))
+							} else {
+								parts = append(parts, fmt.Sprintf("%v", v))
+							}
+						}
+						chunkMap["embedding"] = "[" + strings.Join(parts, ",") + "]"
+					} else {
+						t.logger.Warn(fmt.Sprintf("Invalid embedding format for chunk %d", i), map[string]interface{}{
+							"chunk_index": i,
+							"embedding_type": fmt.Sprintf("%T", embedResult["embedding"]),
+						})
+						chunkMap["embedding"] = nil
+					}
+				}
+
+				chunksWithEmbeddings = append(chunksWithEmbeddings, chunkMap)
+			}
+
+			/* Update result with chunks that have embeddings */
+			result["chunks"] = chunksWithEmbeddings
+		}
 	}
 
 	return Success(result, map[string]interface{}{
 		"chunk_size": chunkSize,
 		"overlap":    overlap,
+		"embeddings_generated": generateEmbeddings,
 	}), nil
 }
 
@@ -289,12 +358,89 @@ func (t *RetrieveContextTool) Execute(ctx context.Context, params map[string]int
 		}), nil
 	}
 
+	/* Validate identifiers to prevent SQL injection */
+	if err := validation.ValidateSQLIdentifier(table, "table"); err != nil {
+		return Error(fmt.Sprintf("Invalid table name for neurondb_retrieve_context tool: %v", err), "VALIDATION_ERROR", map[string]interface{}{
+			"parameter":   "table",
+			"query_length": len(queryText),
+			"error":       err.Error(),
+			"params":      params,
+		}), nil
+	}
+	if err := validation.ValidateSQLIdentifier(vectorColumn, "vector_column"); err != nil {
+		return Error(fmt.Sprintf("Invalid vector column name for neurondb_retrieve_context tool: %v", err), "VALIDATION_ERROR", map[string]interface{}{
+			"parameter":   "vector_column",
+			"query_length": len(queryText),
+			"table":       table,
+			"error":       err.Error(),
+			"params":      params,
+		}), nil
+	}
+
   /* Generate embedding for query */
-	embedQuery := `SELECT embed_text($1) AS embedding`
-	embedResult, err := t.executor.ExecuteQueryOne(ctx, embedQuery, []interface{}{queryText})
+	/* Get default model if available */
+	modelName := "default"
+	if defaultModel, err := t.configHelper.GetDefaultModel(ctx, "embedding"); err == nil && defaultModel != "" {
+		modelName = defaultModel
+	}
+
+	embedQuery := `SELECT embed_text($1::text, $2::text)::text AS embedding`
+	embedResult, err := t.executor.ExecuteQueryOne(ctx, embedQuery, []interface{}{queryText, modelName})
 	if err != nil {
 		t.logger.Error("Embedding generation failed", err, params)
-		return Error(fmt.Sprintf("Embedding generation failed for retrieve_context: query_length=%d, table='%s', vector_column='%s', limit=%d, error=%v", len(queryText), table, vectorColumn, limit, err), "RAG_ERROR", map[string]interface{}{
+		return Error(fmt.Sprintf("Embedding generation failed for retrieve_context: query_length=%d, table='%s', vector_column='%s', limit=%d, model='%s', error=%v", len(queryText), table, vectorColumn, limit, modelName, err), "RAG_ERROR", map[string]interface{}{
+			"query_length":  len(queryText),
+			"table":         table,
+			"vector_column": vectorColumn,
+			"limit":         limit,
+			"model":         modelName,
+			"error":         err.Error(),
+		}), nil
+	}
+
+	/* Extract embedding vector from result */
+	var embeddingStr string
+	if embStr, ok := embedResult["embedding"].(string); ok {
+		embeddingStr = embStr
+	} else if embArr, ok := embedResult["embedding"].([]interface{}); ok {
+		/* Convert array to vector string format */
+		parts := make([]string, 0, len(embArr))
+		for _, v := range embArr {
+			if f, ok := v.(float64); ok {
+				parts = append(parts, fmt.Sprintf("%g", f))
+			} else if f, ok := v.(float32); ok {
+				parts = append(parts, fmt.Sprintf("%g", f))
+			} else {
+				parts = append(parts, fmt.Sprintf("%v", v))
+			}
+		}
+		embeddingStr = "[" + strings.Join(parts, ",") + "]"
+	} else {
+		return Error("Invalid embedding format from embed_text function", "RAG_ERROR", map[string]interface{}{
+			"query_length":  len(queryText),
+			"table":         table,
+			"vector_column": vectorColumn,
+			"embedding_type": fmt.Sprintf("%T", embedResult["embedding"]),
+		}), nil
+	}
+
+	/* Perform vector search using the embedding */
+	/* Use EscapeIdentifier to prevent SQL injection (table and vectorColumn are validated above) */
+	escapedTable := database.EscapeIdentifier(table)
+	escapedVectorCol := database.EscapeIdentifier(vectorColumn)
+	retrieveQuery := fmt.Sprintf(`
+		SELECT 
+			*,
+			1 - (%s <=> $1::vector) AS similarity
+		FROM %s
+		ORDER BY %s <=> $1::vector
+		LIMIT $2
+	`, escapedVectorCol, escapedTable, escapedVectorCol)
+	
+	result, err := t.executor.ExecuteQuery(ctx, retrieveQuery, []interface{}{embeddingStr, limit})
+	if err != nil {
+		t.logger.Error("Context retrieval failed", err, params)
+		return Error(fmt.Sprintf("Context retrieval execution failed: query_length=%d, table='%s', vector_column='%s', limit=%d, error=%v", len(queryText), table, vectorColumn, limit, err), "RAG_ERROR", map[string]interface{}{
 			"query_length":  len(queryText),
 			"table":         table,
 			"vector_column": vectorColumn,
@@ -303,27 +449,9 @@ func (t *RetrieveContextTool) Execute(ctx context.Context, params map[string]int
 		}), nil
 	}
 
-  /* Extract embedding vector (assuming it's in the result) */
-  /* Then perform vector search */
-  /* For now, use the retrieve_context function if available */
-	retrieveQuery := `SELECT neurondb_retrieve_context_c($1, $2, $3, $4) AS context`
-	result, err := t.executor.ExecuteQueryOne(ctx, retrieveQuery, []interface{}{queryText, table, vectorColumn, limit})
-	if err != nil {
-   /* Fallback to manual vector search */
-   /* This is a simplified version - actual implementation would use the embedding */
-		t.logger.Error("Context retrieval failed", err, params)
-		return Error(fmt.Sprintf("Context retrieval execution failed: query_length=%d, table='%s', vector_column='%s', limit=%d, embedding_generated=%v, error=%v", len(queryText), table, vectorColumn, limit, embedResult != nil, err), "RAG_ERROR", map[string]interface{}{
-			"query_length":      len(queryText),
-			"table":             table,
-			"vector_column":     vectorColumn,
-			"limit":             limit,
-			"embedding_generated": embedResult != nil,
-			"error":             err.Error(),
-		}), nil
-	}
-
 	return Success(result, map[string]interface{}{
 		"limit": limit,
+		"count": len(result),
 	}), nil
 }
 

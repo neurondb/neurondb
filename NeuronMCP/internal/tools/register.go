@@ -137,6 +137,75 @@ func RegisterAllTools(registry *ToolRegistry, db *database.Database, logger *log
 	registry.Register(NewWorkerManagementTool(db, logger))
 	registry.Register(NewGPUMonitoringTool(db, logger))
 
+	/* AI Intelligence Layer tools */
+	registry.Register(NewAIModelOrchestrationTool(db, logger))
+	registry.Register(NewAICostTrackingTool(db, logger))
+	registry.Register(NewAIEmbeddingQualityTool(db, logger))
+	registry.Register(NewAIModelComparisonTool(db, logger))
+	registry.Register(NewAIRAGEvaluationTool(db, logger))
+	registry.Register(NewAIEmbeddingDriftDetectionTool(db, logger))
+	registry.Register(NewAIModelFinetuningTool(db, logger))
+	registry.Register(NewAIPromptVersioningTool(db, logger))
+	registry.Register(NewAITokenOptimizationTool(db, logger))
+	registry.Register(NewAIMultiModelEnsembleTool(db, logger))
+
+	/* PostgreSQL Optimization tools */
+	registry.Register(NewPostgreSQLQueryOptimizerTool(db, logger))
+	registry.Register(NewPostgreSQLPerformanceInsightsTool(db, logger))
+	registry.Register(NewPostgreSQLIndexAdvisorTool(db, logger))
+	registry.Register(NewPostgreSQLQueryPlanAnalyzerTool(db, logger))
+	registry.Register(NewPostgreSQLSchemaEvolutionTool(db, logger))
+	registry.Register(NewPostgreSQLMigrationTool(db, logger))
+	registry.Register(NewPostgreSQLConnectionPoolOptimizerTool(db, logger))
+	registry.Register(NewPostgreSQLVacuumAnalyzerTool(db, logger))
+	registry.Register(NewPostgreSQLReplicationLagMonitorTool(db, logger))
+	registry.Register(NewPostgreSQLWaitEventAnalyzerTool(db, logger))
+
+	/* Developer Experience tools */
+	registry.Register(NewNLToSQLTool(db, logger))
+	registry.Register(NewSQLToNLTool(db, logger))
+	registry.Register(NewQueryBuilderTool(db, logger))
+	registry.Register(NewCodeGeneratorTool(db, logger))
+	registry.Register(NewTestDataGeneratorTool(db, logger))
+	registry.Register(NewSchemaVisualizerTool(db, logger))
+	registry.Register(NewQueryExplainerTool(db, logger))
+	registry.Register(NewSchemaDocumentationTool(db, logger))
+	registry.Register(NewMigrationGeneratorTool(db, logger))
+
+	/* Enterprise Features tools */
+	registry.Register(NewMultiTenantManagementTool(db, logger))
+	registry.Register(NewDataGovernanceTool(db, logger))
+	registry.Register(NewDataLineageTool(db, logger))
+	registry.Register(NewComplianceReporterTool(db, logger))
+	registry.Register(NewAuditAnalyzerTool(db, logger))
+	registry.Register(NewBackupAutomationTool(db, logger))
+
+	/* Performance & Scalability tools */
+	registry.Register(NewQueryResultCacheTool(db, logger))
+	registry.Register(NewCacheOptimizerTool(db, logger))
+	registry.Register(NewPerformanceBenchmarkTool(db, logger))
+	registry.Register(NewAutoScalingAdvisorTool(db, logger))
+	registry.Register(NewSlowQueryAnalyzerTool(db, logger))
+
+	/* Integration Ecosystem tools */
+	registry.Register(NewSDKGeneratorTool(db, logger, registry))
+
+	/* Monitoring & Analytics tools */
+	registry.Register(NewRealTimeDashboardTool(db, logger))
+	registry.Register(NewAnomalyDetectionTool(db, logger))
+	registry.Register(NewPredictiveAnalyticsTool(db, logger))
+	registry.Register(NewCostForecastingTool(db, logger))
+	registry.Register(NewUsageAnalyticsTool(db, logger))
+	registry.Register(NewAlertManagerTool(db, logger))
+
+	/* Plugin Enhancement tools */
+	registry.Register(NewPluginMarketplaceTool(db, logger))
+	registry.Register(NewPluginHotReloadTool(db, logger))
+	registry.Register(NewPluginVersioningTool(db, logger))
+	registry.Register(NewPluginSandboxTool(db, logger))
+	registry.Register(NewPluginTestingTool(db, logger))
+	registry.Register(NewPluginBuilderTool(db, logger))
+
 	/* PostgreSQL tools - Server Information (8 tools) */
 	registry.Register(NewPostgreSQLVersionTool(db, logger))
 	registry.Register(NewPostgreSQLStatsTool(db, logger))
@@ -201,15 +270,35 @@ func RegisterAllTools(registry *ToolRegistry, db *database.Database, logger *log
 	registry.Register(NewPostgreSQLQueryHistoryTool(db, logger))
 	registry.Register(NewPostgreSQLQueryOptimizationTool(db, logger))
 
+	/* PostgreSQL tools - Database & Schema Management (6 tools) */
+	registry.Register(NewPostgreSQLCreateDatabaseTool(db, logger))
+	registry.Register(NewPostgreSQLDropDatabaseTool(db, logger))
+	registry.Register(NewPostgreSQLAlterDatabaseTool(db, logger))
+	registry.Register(NewPostgreSQLCreateSchemaTool(db, logger))
+	registry.Register(NewPostgreSQLDropSchemaTool(db, logger))
+	registry.Register(NewPostgreSQLAlterSchemaTool(db, logger))
+
+	/* PostgreSQL tools - User & Role Management (6 tools) */
+	registry.Register(NewPostgreSQLCreateUserTool(db, logger))
+	registry.Register(NewPostgreSQLAlterUserTool(db, logger))
+	registry.Register(NewPostgreSQLDropUserTool(db, logger))
+	registry.Register(NewPostgreSQLCreateRoleTool(db, logger))
+	registry.Register(NewPostgreSQLAlterRoleTool(db, logger))
+	registry.Register(NewPostgreSQLDropRoleTool(db, logger))
+
+	/* PostgreSQL tools - Permission Management (4 tools) */
+	registry.Register(NewPostgreSQLGrantTool(db, logger))
+	registry.Register(NewPostgreSQLRevokeTool(db, logger))
+	registry.Register(NewPostgreSQLGrantRoleTool(db, logger))
+	registry.Register(NewPostgreSQLRevokeRoleTool(db, logger))
+
 	/* PostgreSQL tools - Backup & Recovery (6 tools) */
-	/* TODO: Implement backup tools
 	registry.Register(NewPostgreSQLBackupDatabaseTool(db, logger))
 	registry.Register(NewPostgreSQLRestoreDatabaseTool(db, logger))
 	registry.Register(NewPostgreSQLBackupTableTool(db, logger))
 	registry.Register(NewPostgreSQLListBackupsTool(db, logger))
 	registry.Register(NewPostgreSQLVerifyBackupTool(db, logger))
 	registry.Register(NewPostgreSQLBackupScheduleTool(db, logger))
-	*/
 
 	/* PostgreSQL tools - Schema Modification (7 tools) */
 	registry.Register(NewPostgreSQLCreateTableTool(db, logger))
@@ -220,6 +309,44 @@ func RegisterAllTools(registry *ToolRegistry, db *database.Database, logger *log
 	registry.Register(NewPostgreSQLCreateFunctionTool(db, logger))
 	registry.Register(NewPostgreSQLCreateTriggerTool(db, logger))
 
+	/* PostgreSQL tools - Object Management (17 tools) */
+	registry.Register(NewPostgreSQLAlterIndexTool(db, logger))
+	registry.Register(NewPostgreSQLDropIndexTool(db, logger))
+	registry.Register(NewPostgreSQLAlterViewTool(db, logger))
+	registry.Register(NewPostgreSQLDropViewTool(db, logger))
+	registry.Register(NewPostgreSQLAlterFunctionTool(db, logger))
+	registry.Register(NewPostgreSQLDropFunctionTool(db, logger))
+	registry.Register(NewPostgreSQLAlterTriggerTool(db, logger))
+	registry.Register(NewPostgreSQLDropTriggerTool(db, logger))
+	registry.Register(NewPostgreSQLCreateSequenceTool(db, logger))
+	registry.Register(NewPostgreSQLAlterSequenceTool(db, logger))
+	registry.Register(NewPostgreSQLDropSequenceTool(db, logger))
+	registry.Register(NewPostgreSQLCreateTypeTool(db, logger))
+	registry.Register(NewPostgreSQLAlterTypeTool(db, logger))
+	registry.Register(NewPostgreSQLDropTypeTool(db, logger))
+	registry.Register(NewPostgreSQLCreateDomainTool(db, logger))
+	registry.Register(NewPostgreSQLAlterDomainTool(db, logger))
+	registry.Register(NewPostgreSQLDropDomainTool(db, logger))
+
+	/* PostgreSQL tools - Data Manipulation (5 tools) */
+	registry.Register(NewPostgreSQLInsertTool(db, logger))
+	registry.Register(NewPostgreSQLUpdateTool(db, logger))
+	registry.Register(NewPostgreSQLDeleteTool(db, logger))
+	registry.Register(NewPostgreSQLTruncateTool(db, logger))
+	registry.Register(NewPostgreSQLCopyTool(db, logger))
+
+	/* PostgreSQL tools - Advanced DDL (10 tools) */
+	registry.Register(NewPostgreSQLCreateMaterializedViewTool(db, logger))
+	registry.Register(NewPostgreSQLRefreshMaterializedViewTool(db, logger))
+	registry.Register(NewPostgreSQLDropMaterializedViewTool(db, logger))
+	registry.Register(NewPostgreSQLCreatePartitionTool(db, logger))
+	registry.Register(NewPostgreSQLAttachPartitionTool(db, logger))
+	registry.Register(NewPostgreSQLDetachPartitionTool(db, logger))
+	registry.Register(NewPostgreSQLCreateForeignTableTool(db, logger))
+	registry.Register(NewPostgreSQLDropPartitionTool(db, logger))
+	registry.Register(NewPostgreSQLDropForeignTableTool(db, logger))
+	registry.Register(NewPostgreSQLAlterTableAdvancedTool(db, logger))
+
 	/* PostgreSQL tools - High Availability (5 tools) */
 	registry.Register(NewPostgreSQLReplicationLagTool(db, logger))
 	registry.Register(NewPostgreSQLPromoteReplicaTool(db, logger))
@@ -227,11 +354,14 @@ func RegisterAllTools(registry *ToolRegistry, db *database.Database, logger *log
 	registry.Register(NewPostgreSQLClusterTool(db, logger))
 	registry.Register(NewPostgreSQLFailoverTool(db, logger))
 
-	/* PostgreSQL tools - Security & Compliance (4 tools) */
+	/* PostgreSQL tools - Security & Compliance (7 tools) */
 	registry.Register(NewPostgreSQLAuditLogTool(db, logger))
 	registry.Register(NewPostgreSQLSecurityScanTool(db, logger))
 	registry.Register(NewPostgreSQLComplianceCheckTool(db, logger))
 	registry.Register(NewPostgreSQLEncryptionStatusTool(db, logger))
+	registry.Register(NewPostgreSQLValidateSQLTool(db, logger))
+	registry.Register(NewPostgreSQLCheckPermissionsTool(db, logger))
+	registry.Register(NewPostgreSQLAuditOperationTool(db, logger))
 
 	/* PostgreSQL tools - Maintenance Operations (1 tool) */
 	registry.Register(NewPostgreSQLMaintenanceWindowTool(db, logger))
@@ -356,15 +486,35 @@ func RegisterPostgreSQLOnlyTools(registry *ToolRegistry, db *database.Database, 
 	registry.Register(NewPostgreSQLQueryHistoryTool(db, logger))
 	registry.Register(NewPostgreSQLQueryOptimizationTool(db, logger))
 
+	/* PostgreSQL tools - Database & Schema Management (6 tools) */
+	registry.Register(NewPostgreSQLCreateDatabaseTool(db, logger))
+	registry.Register(NewPostgreSQLDropDatabaseTool(db, logger))
+	registry.Register(NewPostgreSQLAlterDatabaseTool(db, logger))
+	registry.Register(NewPostgreSQLCreateSchemaTool(db, logger))
+	registry.Register(NewPostgreSQLDropSchemaTool(db, logger))
+	registry.Register(NewPostgreSQLAlterSchemaTool(db, logger))
+
+	/* PostgreSQL tools - User & Role Management (6 tools) */
+	registry.Register(NewPostgreSQLCreateUserTool(db, logger))
+	registry.Register(NewPostgreSQLAlterUserTool(db, logger))
+	registry.Register(NewPostgreSQLDropUserTool(db, logger))
+	registry.Register(NewPostgreSQLCreateRoleTool(db, logger))
+	registry.Register(NewPostgreSQLAlterRoleTool(db, logger))
+	registry.Register(NewPostgreSQLDropRoleTool(db, logger))
+
+	/* PostgreSQL tools - Permission Management (4 tools) */
+	registry.Register(NewPostgreSQLGrantTool(db, logger))
+	registry.Register(NewPostgreSQLRevokeTool(db, logger))
+	registry.Register(NewPostgreSQLGrantRoleTool(db, logger))
+	registry.Register(NewPostgreSQLRevokeRoleTool(db, logger))
+
 	/* PostgreSQL tools - Backup & Recovery (6 tools) */
-	/* TODO: Implement backup tools
 	registry.Register(NewPostgreSQLBackupDatabaseTool(db, logger))
 	registry.Register(NewPostgreSQLRestoreDatabaseTool(db, logger))
 	registry.Register(NewPostgreSQLBackupTableTool(db, logger))
 	registry.Register(NewPostgreSQLListBackupsTool(db, logger))
 	registry.Register(NewPostgreSQLVerifyBackupTool(db, logger))
 	registry.Register(NewPostgreSQLBackupScheduleTool(db, logger))
-	*/
 
 	/* PostgreSQL tools - Schema Modification (7 tools) */
 	registry.Register(NewPostgreSQLCreateTableTool(db, logger))
@@ -375,6 +525,44 @@ func RegisterPostgreSQLOnlyTools(registry *ToolRegistry, db *database.Database, 
 	registry.Register(NewPostgreSQLCreateFunctionTool(db, logger))
 	registry.Register(NewPostgreSQLCreateTriggerTool(db, logger))
 
+	/* PostgreSQL tools - Object Management (17 tools) */
+	registry.Register(NewPostgreSQLAlterIndexTool(db, logger))
+	registry.Register(NewPostgreSQLDropIndexTool(db, logger))
+	registry.Register(NewPostgreSQLAlterViewTool(db, logger))
+	registry.Register(NewPostgreSQLDropViewTool(db, logger))
+	registry.Register(NewPostgreSQLAlterFunctionTool(db, logger))
+	registry.Register(NewPostgreSQLDropFunctionTool(db, logger))
+	registry.Register(NewPostgreSQLAlterTriggerTool(db, logger))
+	registry.Register(NewPostgreSQLDropTriggerTool(db, logger))
+	registry.Register(NewPostgreSQLCreateSequenceTool(db, logger))
+	registry.Register(NewPostgreSQLAlterSequenceTool(db, logger))
+	registry.Register(NewPostgreSQLDropSequenceTool(db, logger))
+	registry.Register(NewPostgreSQLCreateTypeTool(db, logger))
+	registry.Register(NewPostgreSQLAlterTypeTool(db, logger))
+	registry.Register(NewPostgreSQLDropTypeTool(db, logger))
+	registry.Register(NewPostgreSQLCreateDomainTool(db, logger))
+	registry.Register(NewPostgreSQLAlterDomainTool(db, logger))
+	registry.Register(NewPostgreSQLDropDomainTool(db, logger))
+
+	/* PostgreSQL tools - Data Manipulation (5 tools) */
+	registry.Register(NewPostgreSQLInsertTool(db, logger))
+	registry.Register(NewPostgreSQLUpdateTool(db, logger))
+	registry.Register(NewPostgreSQLDeleteTool(db, logger))
+	registry.Register(NewPostgreSQLTruncateTool(db, logger))
+	registry.Register(NewPostgreSQLCopyTool(db, logger))
+
+	/* PostgreSQL tools - Advanced DDL (10 tools) */
+	registry.Register(NewPostgreSQLCreateMaterializedViewTool(db, logger))
+	registry.Register(NewPostgreSQLRefreshMaterializedViewTool(db, logger))
+	registry.Register(NewPostgreSQLDropMaterializedViewTool(db, logger))
+	registry.Register(NewPostgreSQLCreatePartitionTool(db, logger))
+	registry.Register(NewPostgreSQLAttachPartitionTool(db, logger))
+	registry.Register(NewPostgreSQLDetachPartitionTool(db, logger))
+	registry.Register(NewPostgreSQLCreateForeignTableTool(db, logger))
+	registry.Register(NewPostgreSQLDropPartitionTool(db, logger))
+	registry.Register(NewPostgreSQLDropForeignTableTool(db, logger))
+	registry.Register(NewPostgreSQLAlterTableAdvancedTool(db, logger))
+
 	/* PostgreSQL tools - High Availability (5 tools) */
 	registry.Register(NewPostgreSQLReplicationLagTool(db, logger))
 	registry.Register(NewPostgreSQLPromoteReplicaTool(db, logger))
@@ -382,11 +570,14 @@ func RegisterPostgreSQLOnlyTools(registry *ToolRegistry, db *database.Database, 
 	registry.Register(NewPostgreSQLClusterTool(db, logger))
 	registry.Register(NewPostgreSQLFailoverTool(db, logger))
 
-	/* PostgreSQL tools - Security & Compliance (4 tools) */
+	/* PostgreSQL tools - Security & Compliance (7 tools) */
 	registry.Register(NewPostgreSQLAuditLogTool(db, logger))
 	registry.Register(NewPostgreSQLSecurityScanTool(db, logger))
 	registry.Register(NewPostgreSQLComplianceCheckTool(db, logger))
 	registry.Register(NewPostgreSQLEncryptionStatusTool(db, logger))
+	registry.Register(NewPostgreSQLValidateSQLTool(db, logger))
+	registry.Register(NewPostgreSQLCheckPermissionsTool(db, logger))
+	registry.Register(NewPostgreSQLAuditOperationTool(db, logger))
 
 	/* PostgreSQL tools - Maintenance Operations (1 tool) */
 	registry.Register(NewPostgreSQLMaintenanceWindowTool(db, logger))
@@ -515,15 +706,35 @@ func RegisterPostgreSQLTools(registry *ToolRegistry, db *database.Database, logg
 	registry.Register(NewPostgreSQLQueryHistoryTool(db, logger))
 	registry.Register(NewPostgreSQLQueryOptimizationTool(db, logger))
 
+	/* PostgreSQL tools - Database & Schema Management (6 tools) */
+	registry.Register(NewPostgreSQLCreateDatabaseTool(db, logger))
+	registry.Register(NewPostgreSQLDropDatabaseTool(db, logger))
+	registry.Register(NewPostgreSQLAlterDatabaseTool(db, logger))
+	registry.Register(NewPostgreSQLCreateSchemaTool(db, logger))
+	registry.Register(NewPostgreSQLDropSchemaTool(db, logger))
+	registry.Register(NewPostgreSQLAlterSchemaTool(db, logger))
+
+	/* PostgreSQL tools - User & Role Management (6 tools) */
+	registry.Register(NewPostgreSQLCreateUserTool(db, logger))
+	registry.Register(NewPostgreSQLAlterUserTool(db, logger))
+	registry.Register(NewPostgreSQLDropUserTool(db, logger))
+	registry.Register(NewPostgreSQLCreateRoleTool(db, logger))
+	registry.Register(NewPostgreSQLAlterRoleTool(db, logger))
+	registry.Register(NewPostgreSQLDropRoleTool(db, logger))
+
+	/* PostgreSQL tools - Permission Management (4 tools) */
+	registry.Register(NewPostgreSQLGrantTool(db, logger))
+	registry.Register(NewPostgreSQLRevokeTool(db, logger))
+	registry.Register(NewPostgreSQLGrantRoleTool(db, logger))
+	registry.Register(NewPostgreSQLRevokeRoleTool(db, logger))
+
 	/* PostgreSQL tools - Backup & Recovery (6 tools) */
-	/* TODO: Implement backup tools
 	registry.Register(NewPostgreSQLBackupDatabaseTool(db, logger))
 	registry.Register(NewPostgreSQLRestoreDatabaseTool(db, logger))
 	registry.Register(NewPostgreSQLBackupTableTool(db, logger))
 	registry.Register(NewPostgreSQLListBackupsTool(db, logger))
 	registry.Register(NewPostgreSQLVerifyBackupTool(db, logger))
 	registry.Register(NewPostgreSQLBackupScheduleTool(db, logger))
-	*/
 
 	/* PostgreSQL tools - Schema Modification (7 tools) */
 	registry.Register(NewPostgreSQLCreateTableTool(db, logger))
@@ -534,6 +745,44 @@ func RegisterPostgreSQLTools(registry *ToolRegistry, db *database.Database, logg
 	registry.Register(NewPostgreSQLCreateFunctionTool(db, logger))
 	registry.Register(NewPostgreSQLCreateTriggerTool(db, logger))
 
+	/* PostgreSQL tools - Object Management (17 tools) */
+	registry.Register(NewPostgreSQLAlterIndexTool(db, logger))
+	registry.Register(NewPostgreSQLDropIndexTool(db, logger))
+	registry.Register(NewPostgreSQLAlterViewTool(db, logger))
+	registry.Register(NewPostgreSQLDropViewTool(db, logger))
+	registry.Register(NewPostgreSQLAlterFunctionTool(db, logger))
+	registry.Register(NewPostgreSQLDropFunctionTool(db, logger))
+	registry.Register(NewPostgreSQLAlterTriggerTool(db, logger))
+	registry.Register(NewPostgreSQLDropTriggerTool(db, logger))
+	registry.Register(NewPostgreSQLCreateSequenceTool(db, logger))
+	registry.Register(NewPostgreSQLAlterSequenceTool(db, logger))
+	registry.Register(NewPostgreSQLDropSequenceTool(db, logger))
+	registry.Register(NewPostgreSQLCreateTypeTool(db, logger))
+	registry.Register(NewPostgreSQLAlterTypeTool(db, logger))
+	registry.Register(NewPostgreSQLDropTypeTool(db, logger))
+	registry.Register(NewPostgreSQLCreateDomainTool(db, logger))
+	registry.Register(NewPostgreSQLAlterDomainTool(db, logger))
+	registry.Register(NewPostgreSQLDropDomainTool(db, logger))
+
+	/* PostgreSQL tools - Data Manipulation (5 tools) */
+	registry.Register(NewPostgreSQLInsertTool(db, logger))
+	registry.Register(NewPostgreSQLUpdateTool(db, logger))
+	registry.Register(NewPostgreSQLDeleteTool(db, logger))
+	registry.Register(NewPostgreSQLTruncateTool(db, logger))
+	registry.Register(NewPostgreSQLCopyTool(db, logger))
+
+	/* PostgreSQL tools - Advanced DDL (10 tools) */
+	registry.Register(NewPostgreSQLCreateMaterializedViewTool(db, logger))
+	registry.Register(NewPostgreSQLRefreshMaterializedViewTool(db, logger))
+	registry.Register(NewPostgreSQLDropMaterializedViewTool(db, logger))
+	registry.Register(NewPostgreSQLCreatePartitionTool(db, logger))
+	registry.Register(NewPostgreSQLAttachPartitionTool(db, logger))
+	registry.Register(NewPostgreSQLDetachPartitionTool(db, logger))
+	registry.Register(NewPostgreSQLCreateForeignTableTool(db, logger))
+	registry.Register(NewPostgreSQLDropPartitionTool(db, logger))
+	registry.Register(NewPostgreSQLDropForeignTableTool(db, logger))
+	registry.Register(NewPostgreSQLAlterTableAdvancedTool(db, logger))
+
 	/* PostgreSQL tools - High Availability (5 tools) */
 	registry.Register(NewPostgreSQLReplicationLagTool(db, logger))
 	registry.Register(NewPostgreSQLPromoteReplicaTool(db, logger))
@@ -541,11 +790,14 @@ func RegisterPostgreSQLTools(registry *ToolRegistry, db *database.Database, logg
 	registry.Register(NewPostgreSQLClusterTool(db, logger))
 	registry.Register(NewPostgreSQLFailoverTool(db, logger))
 
-	/* PostgreSQL tools - Security (4 tools) */
+	/* PostgreSQL tools - Security (7 tools) */
 	registry.Register(NewPostgreSQLAuditLogTool(db, logger))
 	registry.Register(NewPostgreSQLSecurityScanTool(db, logger))
 	registry.Register(NewPostgreSQLComplianceCheckTool(db, logger))
 	registry.Register(NewPostgreSQLEncryptionStatusTool(db, logger))
+	registry.Register(NewPostgreSQLValidateSQLTool(db, logger))
+	registry.Register(NewPostgreSQLCheckPermissionsTool(db, logger))
+	registry.Register(NewPostgreSQLAuditOperationTool(db, logger))
 
 	/* PostgreSQL tools - Maintenance (1 tool) */
 	registry.Register(NewPostgreSQLMaintenanceWindowTool(db, logger))

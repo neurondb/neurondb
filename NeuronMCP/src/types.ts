@@ -6,7 +6,8 @@ export interface VectorSearchParams {
 	vector_column: string;
 	query_vector: number[];
 	limit?: number;
-	distance_metric?: "l2" | "cosine" | "inner_product";
+	distance_metric?: "l2" | "cosine" | "inner_product" | "l1" | "hamming" | "chebyshev" | "minkowski";
+	minkowski_p?: number;
 }
 
 export interface EmbeddingParams {

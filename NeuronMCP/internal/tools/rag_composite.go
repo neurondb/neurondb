@@ -18,6 +18,7 @@ package tools
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/neurondb/NeuronMCP/internal/database"
 	"github.com/neurondb/NeuronMCP/internal/logging"
@@ -126,7 +127,7 @@ func (t *IngestDocumentsTool) Execute(ctx context.Context, params map[string]int
 		}
 
 		/* Generate embedding */
-		embedQuery := `SELECT neurondb_embed_text($1::text, $2::text) AS embedding`
+		embedQuery := `SELECT embed_text($1::text, $2::text)::text AS embedding`
 		var embedParams []interface{}
 		if embeddingModel != "" {
 			embedParams = []interface{}{chunkText, embeddingModel}
@@ -136,21 +137,47 @@ func (t *IngestDocumentsTool) Execute(ctx context.Context, params map[string]int
 
 		embedResult, err := t.executor.ExecuteQueryOne(ctx, embedQuery, embedParams)
 		if err != nil {
-			t.logger.Error(fmt.Sprintf("Failed to generate embedding for chunk %d", i), err, nil)
+			t.logger.Error(fmt.Sprintf("Failed to generate embedding for chunk %d", i), err, map[string]interface{}{
+				"chunk_index": i,
+				"chunk_text_length": len(chunkText),
+				"model": embeddingModel,
+			})
 			continue
 		}
 
-		embedding, ok := embedResult["embedding"].([]float64)
-		if !ok {
-			t.logger.Warn(fmt.Sprintf("Invalid embedding for chunk %d", i), nil)
+		/* Handle embedding result - may be string (vector text format) or array */
+		var embeddingStr string
+		if embStr, ok := embedResult["embedding"].(string); ok {
+			embeddingStr = embStr
+		} else if embArr, ok := embedResult["embedding"].([]interface{}); ok {
+			/* Convert array to vector string format */
+			parts := make([]string, 0, len(embArr))
+			for _, v := range embArr {
+				if f, ok := v.(float64); ok {
+					parts = append(parts, fmt.Sprintf("%g", f))
+				} else if f, ok := v.(float32); ok {
+					parts = append(parts, fmt.Sprintf("%g", f))
+				} else {
+					parts = append(parts, fmt.Sprintf("%v", v))
+				}
+			}
+			embeddingStr = "[" + strings.Join(parts, ",") + "]"
+		} else {
+			t.logger.Warn(fmt.Sprintf("Invalid embedding format for chunk %d: expected string or array, got %T", i, embedResult["embedding"]), map[string]interface{}{
+				"chunk_index": i,
+				"embedding_type": fmt.Sprintf("%T", embedResult["embedding"]),
+			})
 			continue
 		}
 
 		/* Insert into collection (simplified - assumes table has text and embedding columns) */
 		insertQuery := fmt.Sprintf("INSERT INTO %s (text, embedding) VALUES ($1, $2::vector)", collection)
-		_, err = t.executor.ExecuteQueryOne(ctx, insertQuery, []interface{}{chunkText, embedding})
+		_, err = t.executor.ExecuteQueryOne(ctx, insertQuery, []interface{}{chunkText, embeddingStr})
 		if err != nil {
-			t.logger.Error(fmt.Sprintf("Failed to insert chunk %d", i), err, nil)
+			t.logger.Error(fmt.Sprintf("Failed to insert chunk %d", i), err, map[string]interface{}{
+				"chunk_index": i,
+				"collection": collection,
+			})
 			continue
 		}
 		insertedCount++
@@ -235,15 +262,37 @@ func (t *AnswerWithCitationsTool) Execute(ctx context.Context, params map[string
 	}
 
 	/* Step 1: Generate query embedding */
-	embedQuery := `SELECT neurondb_embed_text($1::text, 'default') AS embedding`
+	embedQuery := `SELECT embed_text($1::text, 'default')::text AS embedding`
 	embedResult, err := t.executor.ExecuteQueryOne(ctx, embedQuery, []interface{}{query})
 	if err != nil {
-		return Error(fmt.Sprintf("Failed to generate query embedding: %v", err), "EMBEDDING_ERROR", nil), nil
+		return Error(fmt.Sprintf("Failed to generate query embedding: %v", err), "EMBEDDING_ERROR", map[string]interface{}{
+			"query_length": len(query),
+			"error": err.Error(),
+		}), nil
 	}
 
-	embedding, ok := embedResult["embedding"].([]float64)
-	if !ok {
-		return Error("Invalid embedding result", "EMBEDDING_ERROR", nil), nil
+	/* Handle embedding result - may be string (vector text format) or array */
+	var embeddingStr string
+	if embStr, ok := embedResult["embedding"].(string); ok {
+		embeddingStr = embStr
+	} else if embArr, ok := embedResult["embedding"].([]interface{}); ok {
+		/* Convert array to vector string format */
+		parts := make([]string, 0, len(embArr))
+		for _, v := range embArr {
+			if f, ok := v.(float64); ok {
+				parts = append(parts, fmt.Sprintf("%g", f))
+			} else if f, ok := v.(float32); ok {
+				parts = append(parts, fmt.Sprintf("%g", f))
+			} else {
+				parts = append(parts, fmt.Sprintf("%v", v))
+			}
+		}
+		embeddingStr = "[" + strings.Join(parts, ",") + "]"
+	} else {
+		return Error("Invalid embedding result format: expected string or array", "EMBEDDING_ERROR", map[string]interface{}{
+			"query_length": len(query),
+			"embedding_type": fmt.Sprintf("%T", embedResult["embedding"]),
+		}), nil
 	}
 
 	/* Step 2: Retrieve context (vector search) */
@@ -254,7 +303,7 @@ func (t *AnswerWithCitationsTool) Execute(ctx context.Context, params map[string
 		LIMIT $2
 	`, collection)
 
-	contextResults, err := t.executor.ExecuteQuery(ctx, retrieveQuery, []interface{}{embedding, k})
+	contextResults, err := t.executor.ExecuteQuery(ctx, retrieveQuery, []interface{}{embeddingStr, k})
 	if err != nil {
 		return Error(fmt.Sprintf("Failed to retrieve context: %v", err), "RETRIEVAL_ERROR", nil), nil
 	}

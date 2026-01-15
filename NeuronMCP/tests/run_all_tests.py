@@ -58,6 +58,7 @@ def main():
         ("test_tools_postgresql.py", "PostgreSQL Tools Tests (27 tools)"),
         ("test_resources.py", "Resources Tests (9 resources)"),
         ("test_comprehensive.py", "Comprehensive Tool Tests (100+ tools)"),
+        ("test_dataloading.py", "Dataset Loading Tests (comprehensive)"),
     ]
     
     results = {}

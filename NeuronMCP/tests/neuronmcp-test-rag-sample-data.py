@@ -207,14 +207,14 @@ class RAGTester:
         print("=" * 70)
         
         # Use SQL to generate embeddings directly (more reliable)
-        # This uses neurondb_generate_embedding SQL function
+        # This uses embed_text SQL function
         update_query = f"""
         UPDATE {self.table_name}
-        SET embedding = neurondb_generate_embedding('sentence-transformers/all-MiniLM-L6-v2'::text, content)
+        SET embedding = embed_text(content, 'sentence-transformers/all-MiniLM-L6-v2'::text)
         WHERE embedding IS NULL
         """
         
-        print("Generating embeddings using neurondb_generate_embedding function...")
+        print("Generating embeddings using embed_text function...")
         
         try:
             self.execute_sql(update_query, read_only=False)
@@ -251,7 +251,7 @@ class RAGTester:
             # Generate embedding using SQL function
             update_query = f"""
             UPDATE {self.table_name}
-            SET embedding = neurondb_generate_embedding('sentence-transformers/all-MiniLM-L6-v2'::text, '{content_escaped}'::text)
+            SET embedding = embed_text('{content_escaped}'::text, 'sentence-transformers/all-MiniLM-L6-v2'::text)
             WHERE id = {doc_id}
             """
             

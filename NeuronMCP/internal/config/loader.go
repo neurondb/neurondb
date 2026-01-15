@@ -206,6 +206,21 @@ func (l *ConfigLoader) MergeWithEnv(config *ServerConfig) *ServerConfig {
 		}
 	}
 
+  /* HTTP transport config from env */
+	if httpEnabled := os.Getenv("NEURONMCP_HTTP_ENABLED"); httpEnabled != "" {
+		enabled := httpEnabled == "true" || httpEnabled == "1"
+		if merged.Server.HTTPTransport == nil {
+			merged.Server.HTTPTransport = &HTTPTransportConfig{}
+		}
+		merged.Server.HTTPTransport.Enabled = &enabled
+	}
+	if httpAddr := os.Getenv("NEURONMCP_HTTP_ADDR"); httpAddr != "" {
+		if merged.Server.HTTPTransport == nil {
+			merged.Server.HTTPTransport = &HTTPTransportConfig{}
+		}
+		merged.Server.HTTPTransport.Address = &httpAddr
+	}
+
 	return &merged
 }
 

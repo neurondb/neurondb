@@ -44,6 +44,11 @@ func NewQueryExecutor(db *database.Database) *QueryExecutor {
 
 /* ExecuteVectorSearch executes a vector search query */
 func (e *QueryExecutor) ExecuteVectorSearch(ctx context.Context, table, vectorColumn string, queryVector []interface{}, distanceMetric string, limit int, additionalColumns []interface{}) ([]map[string]interface{}, error) {
+	return e.ExecuteVectorSearchWithMinkowski(ctx, table, vectorColumn, queryVector, distanceMetric, limit, additionalColumns, nil)
+}
+
+/* ExecuteVectorSearchWithMinkowski executes a vector search query with optional Minkowski p parameter */
+func (e *QueryExecutor) ExecuteVectorSearchWithMinkowski(ctx context.Context, table, vectorColumn string, queryVector []interface{}, distanceMetric string, limit int, additionalColumns []interface{}, minkowskiP *float64) ([]map[string]interface{}, error) {
 	if e.db == nil {
 		return nil, fmt.Errorf("query executor database instance is nil: cannot execute vector search on table '%s', column '%s'", table, vectorColumn)
 	}
@@ -100,7 +105,7 @@ func (e *QueryExecutor) ExecuteVectorSearch(ctx context.Context, table, vectorCo
 	}
 
 	qb := &database.QueryBuilder{}
-	query, params := qb.VectorSearch(table, vectorColumn, vec, distanceMetric, limit, cols, nil)
+	query, params := qb.VectorSearch(table, vectorColumn, vec, distanceMetric, limit, cols, minkowskiP)
 
 	queryCtx, cancel := context.WithTimeout(ctx, VectorSearchTimeout)
 	defer cancel()

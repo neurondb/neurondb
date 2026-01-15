@@ -40,8 +40,9 @@ func (s *Server) handleCreateMessage(ctx context.Context, params json.RawMessage
 	}
 	
 	mcpReq := &middleware.MCPRequest{
-		Method: "sampling/createMessage",
-		Params: make(map[string]interface{}),
+		Method:   "sampling/createMessage",
+		Params:   make(map[string]interface{}),
+		Metadata: getHTTPMetadataFromContext(ctx), /* Include HTTP metadata for auth middleware */
 	}
 
 	return s.middleware.Execute(ctx, mcpReq, func(ctx context.Context, _ *middleware.MCPRequest) (*middleware.MCPResponse, error) {

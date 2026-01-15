@@ -40,15 +40,15 @@ func NewDatasetLoadingTool(db *database.Database, logger *logging.Logger) *Datas
 	return &DatasetLoadingTool{
 		BaseTool: NewBaseTool(
 			"postgresql_load_dataset",
-			"Load datasets from multiple sources (HuggingFace, URLs, GitHub, S3, local files) into PostgreSQL with automatic schema detection, embedding generation, and index creation",
+			"Comprehensive modular dataset loader supporting multiple sources (HuggingFace, URLs, GitHub, S3, Azure, GCS, FTP, databases, local), formats (CSV, JSON, Parquet, Excel, HDF5, Avro, ORC, etc.), transformations, schema detection, auto-embedding, and incremental loading",
 			map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
 					"source_type": map[string]interface{}{
 						"type":        "string",
-						"enum":        []interface{}{"huggingface", "url", "github", "s3", "local"},
+						"enum":        []interface{}{"huggingface", "url", "github", "s3", "azure", "gcs", "gs", "ftp", "sftp", "local", "database", "db", "postgresql", "mysql", "sqlite"},
 						"default":     "huggingface",
-						"description": "Data source type: 'huggingface' for HuggingFace datasets, 'url' for direct URLs, 'github' for GitHub repos, 's3' for S3 buckets, 'local' for local files",
+						"description": "Data source type: 'huggingface', 'url', 'github', 's3', 'azure', 'gcs'/'gs', 'ftp'/'sftp', 'local', 'database'/'db'/'postgresql'/'mysql'/'sqlite'",
 					},
 					"source_path": map[string]interface{}{
 						"type":        "string",
@@ -103,9 +103,96 @@ func NewDatasetLoadingTool(db *database.Database, logger *logging.Logger) *Datas
 					},
 					"format": map[string]interface{}{
 						"type":        "string",
-						"enum":        []interface{}{"csv", "json", "jsonl", "parquet", "auto"},
+						"enum":        []interface{}{"auto", "csv", "json", "jsonl", "parquet", "excel", "xlsx", "xls", "hdf5", "h5", "avro", "orc", "feather", "xml", "html", "tsv"},
 						"default":     "auto",
-						"description": "File format hint for URL/local sources: 'csv', 'json', 'jsonl', 'parquet', or 'auto' for auto-detection",
+						"description": "File format: 'auto' for auto-detection, or specific format (csv, json, parquet, excel, hdf5, avro, orc, feather, xml, html, tsv, etc.)",
+					},
+					"compression": map[string]interface{}{
+						"type":        "string",
+						"enum":        []interface{}{"auto", "gzip", "bz2", "xz", "zip", "none"},
+						"default":     "auto",
+						"description": "Compression type: 'auto' for auto-detection, or 'gzip', 'bz2', 'xz', 'zip', 'none'",
+					},
+					"encoding": map[string]interface{}{
+						"type":        "string",
+						"default":     "auto",
+						"description": "File encoding: 'auto' for auto-detection, or specific encoding (utf-8, latin-1, etc.)",
+					},
+					"csv_delimiter": map[string]interface{}{
+						"type":        "string",
+						"description": "CSV delimiter (auto-detect if not specified)",
+					},
+					"csv_header": map[string]interface{}{
+						"type":        "number",
+						"default":     0,
+						"description": "Row to use as header (0 for first row, null for no header)",
+					},
+					"csv_skip_rows": map[string]interface{}{
+						"type":        "number",
+						"default":     0,
+						"description": "Number of rows to skip at start of CSV file",
+					},
+					"excel_sheet": map[string]interface{}{
+						"type":        "string",
+						"description": "Excel sheet name or index (default: first sheet)",
+					},
+					"if_exists": map[string]interface{}{
+						"type":        "string",
+						"enum":        []interface{}{"fail", "replace", "append"},
+						"default":     "fail",
+						"description": "What to do if table exists: 'fail' (default), 'replace', or 'append'",
+					},
+					"load_mode": map[string]interface{}{
+						"type":        "string",
+						"enum":        []interface{}{"insert", "append", "upsert"},
+						"default":     "insert",
+						"description": "Data loading mode: 'insert' (new data), 'append' (add to existing), 'upsert' (update or insert)",
+					},
+					"embedding_dimension": map[string]interface{}{
+						"type":        "number",
+						"default":     384,
+						"description": "Embedding vector dimension (default: 384)",
+					},
+					"transformations": map[string]interface{}{
+						"type":        "object",
+						"description": "JSON object with transformation configuration (rename_columns, filter, cast_types, fill_nulls, etc.)",
+					},
+					"aws_access_key": map[string]interface{}{
+						"type":        "string",
+						"description": "AWS access key ID (for S3 sources)",
+					},
+					"aws_secret_key": map[string]interface{}{
+						"type":        "string",
+						"description": "AWS secret access key (for S3 sources)",
+					},
+					"aws_region": map[string]interface{}{
+						"type":        "string",
+						"description": "AWS region (for S3 sources)",
+					},
+					"azure_connection_string": map[string]interface{}{
+						"type":        "string",
+						"description": "Azure storage connection string (for Azure Blob sources)",
+					},
+					"gcs_credentials": map[string]interface{}{
+						"type":        "string",
+						"description": "GCS credentials file path (for Google Cloud Storage sources)",
+					},
+					"github_token": map[string]interface{}{
+						"type":        "string",
+						"description": "GitHub personal access token (for GitHub sources)",
+					},
+					"query": map[string]interface{}{
+						"type":        "string",
+						"description": "SQL query for database sources",
+					},
+					"checkpoint_key": map[string]interface{}{
+						"type":        "string",
+						"description": "Checkpoint key for incremental loading",
+					},
+					"use_checkpoint": map[string]interface{}{
+						"type":        "boolean",
+						"default":     false,
+						"description": "Use checkpoint if available for incremental loading",
 					},
 					"limit": map[string]interface{}{
 						"type":        "number",
@@ -223,25 +310,143 @@ func (t *DatasetLoadingTool) Execute(ctx context.Context, params map[string]inte
 		}
 	}
 
-	return t.loadDataset(ctx, sourceType, sourcePath, split, limit, batchSize, autoEmbed,
-		embeddingModel, schemaName, tableName, createIndexes, format, streaming, textColumns)
+	/* Get config parameter for HuggingFace */
+	datasetConfig := ""
+	if c, ok := params["config"].(string); ok && c != "" {
+		datasetConfig = c
+	}
+
+	/* Get cache_dir parameter */
+	cacheDir := ""
+	if cd, ok := params["cache_dir"].(string); ok && cd != "" {
+		cacheDir = cd
+	}
+
+	/* Get additional parameters for enhanced loader */
+	compression := ""
+	if comp, ok := params["compression"].(string); ok && comp != "" {
+		compression = comp
+	}
+	encoding := ""
+	if enc, ok := params["encoding"].(string); ok && enc != "" {
+		encoding = enc
+	}
+	ifExists := "fail"
+	if ie, ok := params["if_exists"].(string); ok && ie != "" {
+		ifExists = ie
+	}
+	loadMode := "insert"
+	if lm, ok := params["load_mode"].(string); ok && lm != "" {
+		loadMode = lm
+	}
+	embeddingDimension := 384
+	if ed, ok := params["embedding_dimension"].(float64); ok {
+		embeddingDimension = int(ed)
+	}
+	checkpointKey := ""
+	if ck, ok := params["checkpoint_key"].(string); ok && ck != "" {
+		checkpointKey = ck
+	}
+	useCheckpoint := false
+	if uc, ok := params["use_checkpoint"].(bool); ok {
+		useCheckpoint = uc
+	}
+
+	/* Get CSV options */
+	csvDelimiter := ""
+	if csvD, ok := params["csv_delimiter"].(string); ok && csvD != "" {
+		csvDelimiter = csvD
+	}
+	csvHeader := 0
+	if csvH, ok := params["csv_header"].(float64); ok {
+		csvHeader = int(csvH)
+	}
+	csvSkipRows := 0
+	if csvSR, ok := params["csv_skip_rows"].(float64); ok {
+		csvSkipRows = int(csvSR)
+	}
+
+	/* Get Excel options */
+	excelSheet := ""
+	if excelS, ok := params["excel_sheet"].(string); ok && excelS != "" {
+		excelSheet = excelS
+	}
+
+	/* Get cloud credentials */
+	awsAccessKey := ""
+	if aak, ok := params["aws_access_key"].(string); ok && aak != "" {
+		awsAccessKey = aak
+	}
+	awsSecretKey := ""
+	if ask, ok := params["aws_secret_key"].(string); ok && ask != "" {
+		awsSecretKey = ask
+	}
+	awsRegion := ""
+	if ar, ok := params["aws_region"].(string); ok && ar != "" {
+		awsRegion = ar
+	}
+	azureConnectionString := ""
+	if az, ok := params["azure_connection_string"].(string); ok && az != "" {
+		azureConnectionString = az
+	}
+	gcsCredentials := ""
+	if gc, ok := params["gcs_credentials"].(string); ok && gc != "" {
+		gcsCredentials = gc
+	}
+	githubToken := ""
+	if gt, ok := params["github_token"].(string); ok && gt != "" {
+		githubToken = gt
+	}
+
+	/* Get query for database sources */
+	query := ""
+	if q, ok := params["query"].(string); ok && q != "" {
+		query = q
+	}
+
+	/* Get transformations (JSON object) */
+	var transformations map[string]interface{}
+	if trans, ok := params["transformations"].(map[string]interface{}); ok {
+		transformations = trans
+	}
+
+	return t.loadDataset(ctx, sourceType, sourcePath, split, datasetConfig, limit, batchSize, autoEmbed,
+		embeddingModel, schemaName, tableName, createIndexes, format, streaming, textColumns, cacheDir,
+		compression, encoding, ifExists, loadMode, embeddingDimension, checkpointKey, useCheckpoint,
+		csvDelimiter, csvHeader, csvSkipRows, excelSheet, awsAccessKey, awsSecretKey, awsRegion,
+		azureConnectionString, gcsCredentials, githubToken, query, transformations)
 }
 
 
 /* findDatasetLoaderScript finds the dataset loader Python script */
 func (t *DatasetLoadingTool) findDatasetLoaderScript() string {
-	/* Try to find the dataset_loader.py script */
+	/* Try to find neuronmcp_dataloader.py (consolidated), fallback to dataset_loader.py for backward compatibility */
 	possiblePaths := []string{
+		"internal/tools/neuronmcp_dataloader.py",
+		"NeuronMCP/internal/tools/neuronmcp_dataloader.py",
+		"../internal/tools/neuronmcp_dataloader.py",
+		"../../internal/tools/neuronmcp_dataloader.py",
 		"internal/tools/dataset_loader.py",
 		"NeuronMCP/internal/tools/dataset_loader.py",
 		"../internal/tools/dataset_loader.py",
 		"../../internal/tools/dataset_loader.py",
 	}
 
-	/* Try relative to current working directory */
+	/* Try relative to current working directory - check for consolidated file first */
 	cwd, _ := os.Getwd()
 	for dir := cwd; dir != "/"; dir = filepath.Dir(dir) {
-		testPath := filepath.Join(dir, "NeuronMCP", "internal", "tools", "dataset_loader.py")
+		/* Try consolidated file first */
+		testPath := filepath.Join(dir, "NeuronMCP", "internal", "tools", "neuronmcp_dataloader.py")
+		if _, err := os.Stat(testPath); err == nil {
+			return testPath
+		}
+		testPath = filepath.Join(dir, "internal", "tools", "neuronmcp_dataloader.py")
+		if _, err := os.Stat(testPath); err == nil {
+			return testPath
+		}
+		
+		/* Fallback to old file */
+		testPath = filepath.Join(dir, "NeuronMCP", "internal", "tools", "dataset_loader.py")
 		if _, err := os.Stat(testPath); err == nil {
 			return testPath
 		}
@@ -264,9 +469,13 @@ func (t *DatasetLoadingTool) findDatasetLoaderScript() string {
 }
 
 /* loadDataset loads dataset using the comprehensive Python loader */
-func (t *DatasetLoadingTool) loadDataset(ctx context.Context, sourceType, sourcePath, split string,
+func (t *DatasetLoadingTool) loadDataset(ctx context.Context, sourceType, sourcePath, split, datasetConfig string,
 	limit, batchSize int, autoEmbed bool, embeddingModel, schemaName, tableName string,
-	createIndexes bool, format string, streaming bool, textColumns []string) (*ToolResult, error) {
+	createIndexes bool, format string, streaming bool, textColumns []string, cacheDir string,
+	compression, encoding, ifExists, loadMode string, embeddingDimension int,
+	checkpointKey string, useCheckpoint bool, csvDelimiter string, csvHeader, csvSkipRows int,
+	excelSheet, awsAccessKey, awsSecretKey, awsRegion, azureConnectionString, gcsCredentials,
+	githubToken, query string, transformations map[string]interface{}) (*ToolResult, error) {
 	/* Find the Python loader script */
 	scriptPath := t.findDatasetLoaderScript()
 	if scriptPath == "" {
@@ -274,10 +483,10 @@ func (t *DatasetLoadingTool) loadDataset(ctx context.Context, sourceType, source
 		t.logger.Warn("Dataset loader script not found, using fallback method", map[string]interface{}{
 			"source_type": sourceType,
 			"source_path": sourcePath,
-			"hint":        "Please ensure dataset_loader.py is available in NeuronMCP/internal/tools/",
+			"hint":        "Please ensure neuronmcp_dataloader.py is available in NeuronMCP/internal/tools/",
 		})
 		/* Fallback: try to use inline Python code if script not found */
-		return t.loadGenericDatasetFallback(ctx, sourceType, sourcePath, split, limit)
+		return t.loadGenericDatasetFallback(ctx, sourceType, sourcePath, split, datasetConfig, limit)
 	}
 
 	/* Log that we found the script */
@@ -294,9 +503,15 @@ func (t *DatasetLoadingTool) loadDataset(ctx context.Context, sourceType, source
 	
 	if sourceType == "huggingface" {
 		args = append(args, "--split", split)
+		if datasetConfig != "" {
+			args = append(args, "--config", datasetConfig)
+		}
 	}
 	if limit > 0 {
 		args = append(args, "--limit", fmt.Sprintf("%d", limit))
+	}
+	if cacheDir != "" {
+		args = append(args, "--cache-dir", cacheDir)
 	}
 	args = append(args, "--batch-size", fmt.Sprintf("%d", batchSize))
 	args = append(args, "--schema-name", schemaName)
@@ -325,6 +540,78 @@ func (t *DatasetLoadingTool) loadDataset(ctx context.Context, sourceType, source
 		args = append(args, textColumns...)
 	}
 
+	/* Add format-specific options */
+	if compression != "" && compression != "auto" {
+		args = append(args, "--compression", compression)
+	}
+	if encoding != "" && encoding != "auto" {
+		args = append(args, "--encoding", encoding)
+	}
+	if ifExists != "" && ifExists != "fail" {
+		args = append(args, "--if-exists", ifExists)
+	}
+	if loadMode != "" && loadMode != "insert" {
+		args = append(args, "--load-mode", loadMode)
+	}
+	if embeddingDimension > 0 {
+		args = append(args, "--embedding-dimension", fmt.Sprintf("%d", embeddingDimension))
+	}
+	if checkpointKey != "" {
+		args = append(args, "--checkpoint-key", checkpointKey)
+	}
+	if useCheckpoint {
+		args = append(args, "--use-checkpoint")
+	}
+
+	/* CSV options */
+	if csvDelimiter != "" {
+		args = append(args, "--csv-delimiter", csvDelimiter)
+	}
+	if csvHeader >= 0 {
+		args = append(args, "--csv-header", fmt.Sprintf("%d", csvHeader))
+	}
+	if csvSkipRows > 0 {
+		args = append(args, "--csv-skip-rows", fmt.Sprintf("%d", csvSkipRows))
+	}
+
+	/* Excel options */
+	if excelSheet != "" {
+		args = append(args, "--excel-sheet", excelSheet)
+	}
+
+	/* Cloud credentials */
+	if awsAccessKey != "" {
+		args = append(args, "--aws-access-key", awsAccessKey)
+	}
+	if awsSecretKey != "" {
+		args = append(args, "--aws-secret-key", awsSecretKey)
+	}
+	if awsRegion != "" {
+		args = append(args, "--aws-region", awsRegion)
+	}
+	if azureConnectionString != "" {
+		args = append(args, "--azure-connection-string", azureConnectionString)
+	}
+	if gcsCredentials != "" {
+		args = append(args, "--gcs-credentials", gcsCredentials)
+	}
+	if githubToken != "" {
+		args = append(args, "--github-token", githubToken)
+	}
+
+	/* Database query */
+	if query != "" {
+		args = append(args, "--query", query)
+	}
+
+	/* Transformations (JSON) */
+	if transformations != nil && len(transformations) > 0 {
+		transJSON, err := json.Marshal(transformations)
+		if err == nil {
+			args = append(args, "--transformations", string(transJSON))
+		}
+	}
+
 	/* Set up environment */
 	cfgMgr := config.NewConfigManager()
 	cfgMgr.Load("")
@@ -335,8 +622,14 @@ func (t *DatasetLoadingTool) loadDataset(ctx context.Context, sourceType, source
 	env = append(env, fmt.Sprintf("PGPORT=%d", dbCfg.GetPort()))
 	env = append(env, fmt.Sprintf("PGUSER=%s", dbCfg.GetUser()))
 	env = append(env, fmt.Sprintf("PGDATABASE=%s", dbCfg.GetDatabase()))
-	env = append(env, "HF_HOME=/tmp/hf_cache")
-	env = append(env, "HF_DATASETS_CACHE=/tmp/hf_cache/datasets")
+	
+	/* Set cache directory - use provided or default */
+	hfCacheDir := cacheDir
+	if hfCacheDir == "" {
+		hfCacheDir = "/tmp/hf_cache"
+	}
+	env = append(env, fmt.Sprintf("HF_HOME=%s", hfCacheDir))
+	env = append(env, fmt.Sprintf("HF_DATASETS_CACHE=%s/datasets", hfCacheDir))
 	env = append(env, "HOME=/tmp")
 	if pwd := dbCfg.Password; pwd != nil && *pwd != "" {
 		env = append(env, fmt.Sprintf("PGPASSWORD=%s", *pwd))
@@ -347,26 +640,83 @@ func (t *DatasetLoadingTool) loadDataset(ctx context.Context, sourceType, source
 	cmd.Env = env
 
 	output, err := cmd.CombinedOutput()
+	outputStr := strings.TrimSpace(string(output))
+	
 	if err != nil {
+		/* Try to parse error JSON from Python script for better error messages */
+		var errorResult map[string]interface{}
+		lines := strings.Split(outputStr, "\n")
+		errorMessage := fmt.Sprintf("Failed to load dataset from %s '%s'", sourceType, sourcePath)
+		hint := ""
+		
+		/* Look for error JSON in output */
+		for i := len(lines) - 1; i >= 0; i-- {
+			line := strings.TrimSpace(lines[i])
+			if strings.HasPrefix(line, "{") && strings.HasSuffix(line, "}") {
+				if json.Unmarshal([]byte(line), &errorResult) == nil {
+					if status, ok := errorResult["status"].(string); ok && status == "error" {
+						if errMsg, ok := errorResult["error"].(string); ok {
+							errorMessage = fmt.Sprintf("Error loading dataset from %s '%s': %s", sourceType, sourcePath, errMsg)
+						}
+						if errType, ok := errorResult["error_type"].(string); ok {
+							/* Provide helpful hints based on error type */
+							switch errType {
+							case "ImportError":
+								hint = "Required Python package is missing. Install dependencies: pip install -r requirements.txt"
+							case "FileNotFoundError":
+								hint = "File or dataset not found. Please verify the source path is correct."
+							case "ConnectionError":
+								hint = "Connection failed. Please check your network connection and credentials."
+							case "ValueError":
+								hint = "Invalid configuration. Please check your parameters."
+							case "PermissionError":
+								hint = "Permission denied. Please check file permissions and access credentials."
+							}
+						}
+						if errHint, ok := errorResult["hint"].(string); ok && errHint != "" {
+							hint = errHint
+						}
+						break
+					}
+				}
+			}
+		}
+		
 		t.logger.Error("Dataset loading failed", err, map[string]interface{}{
 			"source_type": sourceType,
 			"source_path": sourcePath,
-			"output":      string(output),
+			"output":      outputStr,
+			"error_result": errorResult,
 		})
+		
+		/* Return user-friendly error message for Claude Desktop */
+		if hint != "" {
+			return Error(
+				fmt.Sprintf("%s\n\nHint: %s", errorMessage, hint),
+				"EXECUTION_ERROR",
+				map[string]interface{}{
+					"source_type": sourceType,
+					"source_path": sourcePath,
+					"error":       errorMessage,
+					"hint":        hint,
+					"output":      outputStr,
+				},
+			), nil
+		}
+		
 		return Error(
-			fmt.Sprintf("Failed to load dataset from %s '%s': %v. Output: %s", sourceType, sourcePath, err, string(output)),
+			errorMessage,
 			"EXECUTION_ERROR",
 			map[string]interface{}{
 				"source_type": sourceType,
 				"source_path": sourcePath,
-				"error":       err.Error(),
-				"output":      string(output),
+				"error":       errorMessage,
+				"output":      outputStr,
 			},
 		), nil
 	}
 
 	/* Parse JSON output - look for the final result */
-	outputStr := strings.TrimSpace(string(output))
 	lines := strings.Split(outputStr, "\n")
 	
 	var finalResult map[string]interface{}
@@ -450,7 +800,7 @@ func (t *DatasetLoadingTool) loadDataset(ctx context.Context, sourceType, source
 }
 
 /* loadGenericDatasetFallback loads dataset using inline Python (fallback if script not found) */
-func (t *DatasetLoadingTool) loadGenericDatasetFallback(ctx context.Context, sourceType, sourcePath, split string, limit int) (*ToolResult, error) {
+func (t *DatasetLoadingTool) loadGenericDatasetFallback(ctx context.Context, sourceType, sourcePath, split, datasetConfig string, limit int) (*ToolResult, error) {
 	/* This is a simplified fallback for backward compatibility */
 	/* Only supports HuggingFace for now */
 	if sourceType != "huggingface" {
@@ -465,6 +815,11 @@ func (t *DatasetLoadingTool) loadGenericDatasetFallback(ctx context.Context, sou
 	}
 
 	/* Use the old inline Python approach for HuggingFace */
+	configValue := "None"
+	if datasetConfig != "" {
+		configValue = fmt.Sprintf("'%s'", datasetConfig)
+	}
+	
 	pythonCode := fmt.Sprintf(`
 import os
 import sys
@@ -491,12 +846,18 @@ try:
     dataset_name = '%s'
     split_name = '%s'
     limit_val = %[3]d
+    config_name = %[4]s
+    
+    load_args = {"split": split_name, "streaming": True}
+    if config_name:
+        load_args["config_name"] = config_name
     
     try:
-        dataset = load_dataset(dataset_name, split=split_name, streaming=True)
+        dataset = load_dataset(dataset_name, **load_args)
     except Exception as load_err:
         try:
-            dataset = load_dataset(dataset_name, split=split_name, streaming=False)
+            load_args["streaming"] = False
+            dataset = load_dataset(dataset_name, **load_args)
             dataset = iter(dataset)
         except Exception as e2:
             print(json.dumps({"error": f"Failed to load dataset: {str(load_err)}. Also tried non-streaming: {str(e2)}", "status": "error"}))
@@ -576,7 +937,7 @@ except ImportError as e:
 except Exception as e:
     print(json.dumps({"error": str(e), "status": "error"}))
     sys.exit(1)
-`, sourcePath, split, limit)
+`, sourcePath, split, limit, configValue)
 
 	/* Set up environment */
 	cfgMgr := config.NewConfigManager()

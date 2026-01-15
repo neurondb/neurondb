@@ -55,12 +55,19 @@ type SSLConfig struct {
 
 /* ServerSettings holds server configuration */
 type ServerSettings struct {
-	Name            *string `json:"name,omitempty"`
-	Version         *string `json:"version,omitempty"`
-	Timeout         *int    `json:"timeout,omitempty"`
-	MaxRequestSize  *int    `json:"maxRequestSize,omitempty"`
-	EnableMetrics   *bool   `json:"enableMetrics,omitempty"`
-	EnableHealthCheck *bool `json:"enableHealthCheck,omitempty"`
+	Name            *string            `json:"name,omitempty"`
+	Version         *string            `json:"version,omitempty"`
+	Timeout         *int               `json:"timeout,omitempty"`
+	MaxRequestSize  *int               `json:"maxRequestSize,omitempty"`
+	EnableMetrics   *bool              `json:"enableMetrics,omitempty"`
+	EnableHealthCheck *bool            `json:"enableHealthCheck,omitempty"`
+	HTTPTransport   *HTTPTransportConfig `json:"httpTransport,omitempty"`
+}
+
+/* HTTPTransportConfig holds HTTP transport configuration */
+type HTTPTransportConfig struct {
+	Enabled *bool   `json:"enabled,omitempty"`
+	Address *string `json:"address,omitempty"`
 }
 
 /* LoggingConfig holds logging configuration */
@@ -261,5 +268,23 @@ func (s *ServerSettings) GetTimeout() time.Duration {
 		return time.Duration(*s.Timeout) * time.Millisecond
 	}
 	return 30 * time.Second
+}
+
+func (s *ServerSettings) GetMaxRequestSize() *int {
+	return s.MaxRequestSize
+}
+
+func (h *HTTPTransportConfig) GetEnabled() bool {
+	if h.Enabled != nil {
+		return *h.Enabled
+	}
+	return false
+}
+
+func (h *HTTPTransportConfig) GetAddress() string {
+	if h.Address != nil {
+		return *h.Address
+	}
+	return ":8080"
 }
 

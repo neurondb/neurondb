@@ -122,16 +122,30 @@ func (m *AuthMiddleware) Execute(ctx context.Context, req *middleware.MCPRequest
 }
 
 /* extractToken extracts token from request */
+/* Supports both stdio (via metadata/params) and HTTP (via headers extracted to metadata) */
 func (m *AuthMiddleware) extractToken(req *middleware.MCPRequest) string {
-	/* Check metadata */
+	/* Check metadata (populated from HTTP headers by HTTP transport, or from stdio metadata) */
 	if req.Metadata != nil {
-		if token, ok := req.Metadata["token"].(string); ok {
-			return token
-		}
+		/* Check for API key in metadata (from X-API-Key header or apiKey metadata) */
 		if apiKey, ok := req.Metadata["apiKey"].(string); ok {
 			return apiKey
 		}
+		/* Check for X-Api-Key header (case-insensitive header extraction) */
+		if apiKey, ok := req.Metadata["X-Api-Key"].(string); ok {
+			return apiKey
+		}
+		if apiKey, ok := req.Metadata["x-api-key"].(string); ok {
+			return apiKey
+		}
+		/* Check for token in metadata */
+		if token, ok := req.Metadata["token"].(string); ok {
+			return token
+		}
+		/* Check for Authorization header (Bearer token) */
 		if auth, ok := req.Metadata["authorization"].(string); ok {
+			return m.extractBearerToken(auth)
+		}
+		if auth, ok := req.Metadata["Authorization"].(string); ok {
 			return m.extractBearerToken(auth)
 		}
 	}

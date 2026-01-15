@@ -51,8 +51,10 @@ func (m *Manager) SetPrometheusHandler(handler http.Handler) {
 }
 
 /* StartHTTP starts the HTTP transport */
+/* Note: This method uses the old signature. For full middleware support, create HTTPTransport directly with server instance */
 func (m *Manager) StartHTTP(addr string) error {
-	httpTransport := NewHTTPTransport(addr, m.mcpServer, m.prometheusHandler)
+	/* Create with minimal parameters - middleware and server instance should be set separately if needed */
+	httpTransport := NewHTTPTransport(addr, m.mcpServer, nil, nil, m.prometheusHandler)
 	m.transports[TransportHTTP] = httpTransport
 	return httpTransport.Start()
 }

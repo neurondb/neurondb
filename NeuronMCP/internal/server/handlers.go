@@ -202,6 +202,7 @@ func (s *Server) handleCallTool(ctx context.Context, params json.RawMessage) (in
 			"idempotencyKey": req.IdempotencyKey,
 			"requireConfirm": req.RequireConfirm,
 		},
+		Metadata: getHTTPMetadataFromContext(ctx), /* Include HTTP metadata for auth middleware */
 	}
 
 	resp, err := s.middleware.Execute(ctx, mcpReq, func(ctx context.Context, _ *middleware.MCPRequest) (*middleware.MCPResponse, error) {

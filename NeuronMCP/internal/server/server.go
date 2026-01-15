@@ -27,6 +27,7 @@ import (
 	"github.com/neurondb/NeuronMCP/internal/resources"
 	"github.com/neurondb/NeuronMCP/internal/sampling"
 	"github.com/neurondb/NeuronMCP/internal/tools"
+	"github.com/neurondb/NeuronMCP/internal/transport"
 	"github.com/neurondb/NeuronMCP/pkg/mcp"
 )
 
@@ -51,6 +52,7 @@ type Server struct {
 	metricsCollector    *metrics.Collector
 	prometheusExporter  *metrics.PrometheusExporter
 	httpServer          *HTTPServer // HTTP server for /metrics and /health
+	httpTransport       *transport.HTTPTransport // HTTP transport for MCP protocol
 }
 
 /*
@@ -173,6 +175,18 @@ func NewServerWithConfig(configPath string) (*Server, error) {
 		httpServer:          httpServer,
 	}
 
+	/* Create HTTP transport if enabled (after server is created so we can pass it) */
+	httpTransportCfg := serverSettings.HTTPTransport
+	if httpTransportCfg != nil && httpTransportCfg.GetEnabled() {
+		httpAddr := httpTransportCfg.GetAddress()
+		/* Create adapter for HTTP transport interface */
+		httpHandler := &httpRequestHandlerAdapter{server: s}
+		s.httpTransport = transport.NewHTTPTransport(httpAddr, mcpServer, mwManager, httpHandler, prometheusExporter.Handler())
+		logger.Info("HTTP transport enabled", map[string]interface{}{
+			"address": httpAddr,
+		})
+	}
+
 	s.setupHandlers()
 	s.setupExperimentalHandlers()
 
@@ -220,6 +234,20 @@ func (s *Server) Start(ctx context.Context) error {
 		})
 	}
 
+	/* Start HTTP transport in background (only if enabled) */
+	if s.httpTransport != nil {
+		go func() {
+			if err := s.httpTransport.Start(); err != nil {
+				s.logger.Error("HTTP transport failed", err, map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
+		}()
+		s.logger.Info("HTTP transport started", map[string]interface{}{
+			"endpoint": "/mcp",
+		})
+	}
+
 	/* Run the MCP server - this will block until context is cancelled or EOF */
 	err := s.mcpServer.Run(ctx)
 	if err != nil && err != context.Canceled {
@@ -249,7 +277,21 @@ func (s *Server) Stop() error {
 	/* Collect shutdown errors */
 	var shutdownErrors []error
 
-	/* Step 1: Shutdown HTTP metrics server first (external connections) */
+	/* Step 1: Shutdown HTTP transport first (external connections) */
+	if s.httpTransport != nil {
+		httpTransportCtx, httpTransportCancel := context.WithTimeout(ctx, 5*time.Second)
+		if err := s.httpTransport.Shutdown(httpTransportCtx); err != nil {
+			shutdownErrors = append(shutdownErrors, fmt.Errorf("HTTP transport shutdown error: %w", err))
+			if s.logger != nil {
+				s.logger.Warn("HTTP transport shutdown error", map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
+		}
+		httpTransportCancel()
+	}
+
+	/* Step 2: Shutdown HTTP metrics server (external connections) */
 	if s.httpServer != nil {
 		httpCtx, httpCancel := context.WithTimeout(ctx, 5*time.Second)
 		if err := s.httpServer.Shutdown(httpCtx); err != nil {
@@ -263,7 +305,7 @@ func (s *Server) Stop() error {
 		httpCancel()
 	}
 
-	/* Step 2: Close idempotency cache (in-memory resources) */
+	/* Step 3: Close idempotency cache (in-memory resources) */
 	if s.idempotencyCache != nil {
 		if err := func() error {
 			defer func() {
@@ -283,7 +325,7 @@ func (s *Server) Stop() error {
 		s.idempotencyCache = nil
 	}
 
-	/* Step 3: Close database connections (external resources) */
+	/* Step 4: Close database connections (external resources) */
 	if s.db != nil {
 		if err := func() error {
 			defer func() {
@@ -302,7 +344,7 @@ func (s *Server) Stop() error {
 		}
 	}
 
-	/* Step 4: Clean up other resources */
+	/* Step 5: Clean up other resources */
 	if s.progress != nil {
 		/* Progress tracker cleanup if needed */
 		s.progress = nil
@@ -313,7 +355,7 @@ func (s *Server) Stop() error {
 		s.batch = nil
 	}
 
-	/* Step 5: Clean up metrics and exporters */
+	/* Step 6: Clean up metrics and exporters */
 	if s.metricsCollector != nil {
 		/* Metrics collector cleanup if needed */
 		s.metricsCollector = nil
@@ -368,4 +410,44 @@ func (s *Server) GetMetricsCollector() *metrics.Collector {
 /* GetPrometheusExporter returns the Prometheus exporter */
 func (s *Server) GetPrometheusExporter() *metrics.PrometheusExporter {
 	return s.prometheusExporter
+}
+
+/* GetConfig returns the config manager */
+func (s *Server) GetConfig() *config.ConfigManager {
+	return s.config
+}
+
+/* httpRequestHandlerAdapter adapts Server to HTTPRequestHandler interface */
+type httpRequestHandlerAdapter struct {
+	server *Server
+}
+
+/* HandleHTTPRequest implements HTTPRequestHandler */
+func (a *httpRequestHandlerAdapter) HandleHTTPRequest(ctx context.Context, mcpReq *middleware.MCPRequest) (*middleware.MCPResponse, error) {
+	return a.server.HandleHTTPRequest(ctx, mcpReq)
+}
+
+/* GetConfig implements HTTPRequestHandler */
+func (a *httpRequestHandlerAdapter) GetConfig() transport.HTTPConfigProvider {
+	return &configAdapter{a.server.config}
+}
+
+/* configAdapter adapts ConfigManager to HTTPConfigProvider interface */
+type configAdapter struct {
+	*config.ConfigManager
+}
+
+/* GetServerSettings implements HTTPConfigProvider */
+func (a *configAdapter) GetServerSettings() transport.HTTPServerSettingsProvider {
+	return &serverSettingsAdapter{a.ConfigManager.GetServerSettings()}
+}
+
+/* serverSettingsAdapter adapts ServerSettings to HTTPServerSettingsProvider interface */
+type serverSettingsAdapter struct {
+	*config.ServerSettings
+}
+
+/* GetMaxRequestSize implements HTTPServerSettingsProvider */
+func (a *serverSettingsAdapter) GetMaxRequestSize() *int {
+	return a.ServerSettings.MaxRequestSize
 }

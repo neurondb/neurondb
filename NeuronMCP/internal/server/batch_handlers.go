@@ -40,8 +40,9 @@ func (s *Server) handleCallBatch(ctx context.Context, params json.RawMessage) (i
 	}
 	
 	mcpReq := &middleware.MCPRequest{
-		Method: "tools/call_batch",
-		Params: make(map[string]interface{}),
+		Method:   "tools/call_batch",
+		Params:   make(map[string]interface{}),
+		Metadata: getHTTPMetadataFromContext(ctx), /* Include HTTP metadata for auth middleware */
 	}
 
 	return s.middleware.Execute(ctx, mcpReq, func(ctx context.Context, _ *middleware.MCPRequest) (*middleware.MCPResponse, error) {

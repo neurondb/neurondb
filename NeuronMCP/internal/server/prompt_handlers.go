@@ -43,8 +43,9 @@ func (s *Server) handleListPrompts(ctx context.Context, params json.RawMessage) 
 	}
 	
 	mcpReq := &middleware.MCPRequest{
-		Method: "prompts/list",
-		Params: make(map[string]interface{}),
+		Method:   "prompts/list",
+		Params:   make(map[string]interface{}),
+		Metadata: getHTTPMetadataFromContext(ctx), /* Include HTTP metadata for auth middleware */
 	}
 
 	return s.middleware.Execute(ctx, mcpReq, func(ctx context.Context, _ *middleware.MCPRequest) (*middleware.MCPResponse, error) {
@@ -80,8 +81,9 @@ func (s *Server) handleGetPrompt(ctx context.Context, params json.RawMessage) (i
 	}
 	
 	mcpReq := &middleware.MCPRequest{
-		Method: "prompts/get",
-		Params: make(map[string]interface{}),
+		Method:   "prompts/get",
+		Params:   make(map[string]interface{}),
+		Metadata: getHTTPMetadataFromContext(ctx), /* Include HTTP metadata for auth middleware */
 	}
 
 	return s.middleware.Execute(ctx, mcpReq, func(ctx context.Context, _ *middleware.MCPRequest) (*middleware.MCPResponse, error) {

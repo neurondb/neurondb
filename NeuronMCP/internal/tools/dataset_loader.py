@@ -130,7 +130,7 @@ class DatasetLoader:
         return None
     
     def load_from_huggingface(self, dataset_name: str, split: str = "train", 
-                              limit: int = 0, streaming: bool = True) -> pd.DataFrame:
+                              limit: int = 0, streaming: bool = True, config: Optional[str] = None) -> pd.DataFrame:
         """Load dataset from HuggingFace"""
         if not HAS_DATASETS:
             raise Exception("datasets library not available. Install with: pip install datasets")
@@ -157,10 +157,14 @@ class DatasetLoader:
             os.makedirs(cache_dir, exist_ok=True)
             os.makedirs(f"{cache_dir}/datasets", exist_ok=True)
             
-            # Load dataset
+            # Load dataset with optional config parameter
+            load_kwargs = {}
+            if config:
+                load_kwargs['config_name'] = config
+            
             if streaming:
                 try:
-                    dataset = load_dataset(dataset_name, split=split, streaming=True)
+                    dataset = load_dataset(dataset_name, split=split, streaming=True, **load_kwargs)
                     data = []
                     count = 0
                     for item in dataset:
@@ -175,12 +179,12 @@ class DatasetLoader:
                     df = pd.DataFrame(data)
                 except Exception:
                     # Fallback to non-streaming
-                    dataset = load_dataset(dataset_name, split=split, streaming=False)
+                    dataset = load_dataset(dataset_name, split=split, streaming=False, **load_kwargs)
                     if limit > 0:
                         dataset = dataset.select(range(min(limit, len(dataset))))
                     df = pd.DataFrame(dataset)
             else:
-                dataset = load_dataset(dataset_name, split=split, streaming=False)
+                dataset = load_dataset(dataset_name, split=split, streaming=False, **load_kwargs)
                 if limit > 0:
                     dataset = dataset.select(range(min(limit, len(dataset))))
                 df = pd.DataFrame(dataset)
@@ -190,7 +194,7 @@ class DatasetLoader:
             raise Exception(f"Failed to load HuggingFace dataset '{dataset_name}': {e}")
     
     def load_from_url(self, url: str, format: str = "auto", limit: int = 0) -> pd.DataFrame:
-        """Load dataset from URL"""
+        """Load dataset from URL with compression support"""
         if not HAS_REQUESTS:
             raise Exception("requests library not available. Install with: pip install requests")
         
@@ -199,13 +203,32 @@ class DatasetLoader:
             response = requests.get(url, stream=True, timeout=30)
             response.raise_for_status()
             
+            # Detect compression from URL or Content-Encoding header
+            compression = None
+            if url.endswith('.gz') or url.endswith('.gzip'):
+                compression = 'gzip'
+            elif url.endswith('.bz2'):
+                compression = 'bz2'
+            elif url.endswith('.xz'):
+                compression = 'xz'
+            elif url.endswith('.zip'):
+                compression = 'zip'
+            elif 'gzip' in response.headers.get('content-encoding', ''):
+                compression = 'gzip'
+            
+            # Remove compression extension from format detection
+            base_url = url
+            if compression:
+                for ext in ['.gz', '.gzip', '.bz2', '.xz', '.zip']:
+                    base_url = base_url.replace(ext, '')
+            
             # Detect format from URL or content
             if format == "auto":
-                if url.endswith('.csv'):
+                if base_url.endswith('.csv'):
                     format = "csv"
-                elif url.endswith('.json') or url.endswith('.jsonl'):
-                    format = "json" if url.endswith('.json') else "jsonl"
-                elif url.endswith('.parquet'):
+                elif base_url.endswith('.json') or base_url.endswith('.jsonl'):
+                    format = "json" if base_url.endswith('.json') else "jsonl"
+                elif base_url.endswith('.parquet'):
                     format = "parquet"
                 else:
                     # Try to detect from content-type
@@ -218,19 +241,23 @@ class DatasetLoader:
                         format = "csv"  # Default to CSV
             
             # Save to temporary file
-            with tempfile.NamedTemporaryFile(delete=False, suffix=f".{format}") as tmp:
+            suffix = f".{format}"
+            if compression:
+                suffix += f".{compression}"
+            
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
                 for chunk in response.iter_content(chunk_size=8192):
                     tmp.write(chunk)
                 tmp_path = tmp.name
             
             try:
-                # Load based on format
+                # Load based on format with compression support
                 if format == "csv":
-                    df = pd.read_csv(tmp_path)
+                    df = pd.read_csv(tmp_path, compression=compression)
                 elif format == "json":
-                    df = pd.read_json(tmp_path)
+                    df = pd.read_json(tmp_path, compression=compression)
                 elif format == "jsonl":
-                    df = pd.read_json(tmp_path, lines=True)
+                    df = pd.read_json(tmp_path, lines=True, compression=compression)
                 elif format == "parquet":
                     if not HAS_PARQUET:
                         raise Exception("pyarrow not available for Parquet support")
@@ -369,28 +396,48 @@ class DatasetLoader:
             raise Exception(f"Failed to load dataset from S3 '{s3_path}': {e}")
     
     def load_from_local(self, file_path: str, limit: int = 0) -> pd.DataFrame:
-        """Load dataset from local file"""
+        """Load dataset from local file with compression support"""
         try:
             if not os.path.exists(file_path):
                 raise Exception(f"File not found: {file_path}")
             
+            # Detect compression
+            compression = None
+            if file_path.endswith('.gz') or file_path.endswith('.gzip'):
+                compression = 'gzip'
+            elif file_path.endswith('.bz2'):
+                compression = 'bz2'
+            elif file_path.endswith('.xz'):
+                compression = 'xz'
+            elif file_path.endswith('.zip'):
+                compression = 'zip'
+            
+            # Remove compression extension for format detection
+            base_path = file_path
+            if compression:
+                for ext in ['.gz', '.gzip', '.bz2', '.xz', '.zip']:
+                    base_path = base_path.replace(ext, '')
+            
             # Detect format from extension
-            if file_path.endswith('.csv'):
-                df = pd.read_csv(file_path)
-            elif file_path.endswith('.json'):
-                df = pd.read_json(file_path)
-            elif file_path.endswith('.jsonl'):
-                df = pd.read_json(file_path, lines=True)
-            elif file_path.endswith('.parquet'):
+            if base_path.endswith('.csv'):
+                df = pd.read_csv(file_path, compression=compression)
+            elif base_path.endswith('.json'):
+                df = pd.read_json(file_path, compression=compression)
+            elif base_path.endswith('.jsonl'):
+                df = pd.read_json(file_path, lines=True, compression=compression)
+            elif base_path.endswith('.parquet'):
                 if not HAS_PARQUET:
                     raise Exception("pyarrow not available for Parquet support")
                 df = pd.read_parquet(file_path)
             else:
                 # Try CSV first, then JSON
                 try:
-                    df = pd.read_csv(file_path)
+                    df = pd.read_csv(file_path, compression=compression)
                 except:
-                    df = pd.read_json(file_path)
+                    try:
+                        df = pd.read_json(file_path, compression=compression)
+                    except:
+                        raise Exception(f"Could not determine file format for '{file_path}'")
             
             if limit > 0:
                 df = df.head(limit)
@@ -486,11 +533,22 @@ class DatasetLoader:
         self.cursor.execute(f"CREATE SCHEMA IF NOT EXISTS {schema_quoted}")
         
         # Build CREATE TABLE statement
-        columns = ["id SERIAL PRIMARY KEY"]
+        columns = []
+        
+        # Check if DataFrame already has an 'id' column
+        has_id_column = 'id' in df.columns
+        
+        if not has_id_column:
+            # Only add SERIAL id if DataFrame doesn't have one
+            columns.append("id SERIAL PRIMARY KEY")
         
         for col_name, col_type in pg_schema.items():
             col_quoted = quote_ident(col_name, self.cursor)
-            columns.append(f"{col_quoted} {col_type}")
+            # If this is the 'id' column and we didn't add SERIAL id, use it as PRIMARY KEY
+            if col_name.lower() == 'id' and has_id_column:
+                columns.append(f"{col_quoted} {col_type} PRIMARY KEY")
+            else:
+                columns.append(f"{col_quoted} {col_type}")
         
         # Add embedding columns for text columns
         if auto_embed and self.text_columns:
@@ -517,8 +575,28 @@ class DatasetLoader:
         total_rows = len(df)
         inserted = 0
         
-        # Prepare column names
+        # Check if table has SERIAL id column (not provided in data)
+        # Query the table structure to see if id is SERIAL
+        check_serial_sql = f"""
+            SELECT column_default 
+            FROM information_schema.columns 
+            WHERE table_schema = %s 
+            AND table_name = %s 
+            AND column_name = 'id'
+        """
+        self.cursor.execute(check_serial_sql, (schema_name, table_name))
+        serial_result = self.cursor.fetchone()
+        has_serial_id = serial_result and serial_result[0] and 'nextval' in str(serial_result[0])
+        
+        # Prepare column names - exclude 'id' if it's SERIAL and not in DataFrame
         columns = list(df.columns)
+        if has_serial_id and 'id' not in columns:
+            # Table has SERIAL id, DataFrame doesn't have id - that's fine
+            pass
+        elif 'id' in columns and has_serial_id:
+            # Both have id - exclude from insert if it's SERIAL
+            columns = [c for c in columns if c != 'id']
+        
         col_names_quoted = [quote_ident(col, self.cursor) for col in columns]
         
         # Process in batches
@@ -712,7 +790,11 @@ def main():
     # HuggingFace specific
     parser.add_argument('--split', default='train',
                        help='Dataset split for HuggingFace')
-    parser.add_argument('--config', help='Dataset config for HuggingFace')
+    parser.add_argument('--config', help='Dataset config for HuggingFace datasets')
+    
+    # Cache configuration
+    parser.add_argument('--cache-dir', dest='cache_dir',
+                       help='Cache directory path for downloads (optional, defaults to /tmp/hf_cache)')
     
     # Loading options
     parser.add_argument('--limit', type=int, default=0,
@@ -749,6 +831,13 @@ def main():
     # Database configuration (from environment)
     args = parser.parse_args()
     
+    # Override cache directory if provided
+    if args.cache_dir:
+        os.environ['HF_HOME'] = args.cache_dir
+        os.environ['HF_DATASETS_CACHE'] = f"{args.cache_dir}/datasets"
+        os.makedirs(args.cache_dir, exist_ok=True)
+        os.makedirs(f"{args.cache_dir}/datasets", exist_ok=True)
+    
     # Get database config from environment
     db_config = {
         'host': os.getenv('PGHOST', 'localhost'),
@@ -775,7 +864,7 @@ def main():
         
         if args.source_type == 'huggingface':
             df = loader.load_from_huggingface(
-                args.source_path, args.split, args.limit, args.streaming
+                args.source_path, args.split, args.limit, args.streaming, args.config
             )
         elif args.source_type == 'url':
             df = loader.load_from_url(args.source_path, args.format, args.limit)

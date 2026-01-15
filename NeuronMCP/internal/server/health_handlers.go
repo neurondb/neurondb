@@ -40,8 +40,9 @@ func (s *Server) handleHealthCheck(ctx context.Context, params json.RawMessage) 
 	}
 	
 	mcpReq := &middleware.MCPRequest{
-		Method: "health/check",
-		Params: make(map[string]interface{}),
+		Method:   "health/check",
+		Params:   make(map[string]interface{}),
+		Metadata: getHTTPMetadataFromContext(ctx), /* Include HTTP metadata for auth middleware */
 	}
 
 	return s.middleware.Execute(ctx, mcpReq, func(ctx context.Context, _ *middleware.MCPRequest) (*middleware.MCPResponse, error) {

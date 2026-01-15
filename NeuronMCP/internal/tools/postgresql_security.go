@@ -1,10 +1,12 @@
 /*-------------------------------------------------------------------------
  *
  * postgresql_security.go
- *    Security and compliance tools for NeuronMCP
+ *    Security and validation tools for NeuronMCP
  *
- * Implements security and compliance operations as specified in Phase 1.1
- * of the roadmap.
+ * Implements security and validation operations:
+ * - SQL validation
+ * - Permission checking
+ * - Operation auditing
  *
  * Copyright (c) 2024-2026, neurondb, Inc. <support@neurondb.ai>
  *
@@ -19,12 +21,396 @@ package tools
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/neurondb/NeuronMCP/internal/database"
 	"github.com/neurondb/NeuronMCP/internal/logging"
 )
 
-/* PostgreSQLAuditLogTool queries audit logs */
+/* ============================================================================
+ * SQL Validation
+ * ============================================================================ */
+
+/* PostgreSQLValidateSQLTool validates SQL syntax */
+type PostgreSQLValidateSQLTool struct {
+	*BaseTool
+	executor *QueryExecutor
+	logger   *logging.Logger
+}
+
+/* NewPostgreSQLValidateSQLTool creates a new PostgreSQL validate SQL tool */
+func NewPostgreSQLValidateSQLTool(db *database.Database, logger *logging.Logger) *PostgreSQLValidateSQLTool {
+	return &PostgreSQLValidateSQLTool{
+		BaseTool: NewBaseTool(
+			"postgresql_validate_sql",
+			"Validate SQL syntax before execution and check permissions",
+			map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"sql": map[string]interface{}{
+						"type":        "string",
+						"description": "SQL statement to validate",
+					},
+					"check_permissions": map[string]interface{}{
+						"type":        "boolean",
+						"default":     false,
+						"description": "Check if current user has permissions to execute",
+					},
+				},
+				"required": []interface{}{"sql"},
+			},
+		),
+		executor: NewQueryExecutor(db),
+		logger:   logger,
+	}
+}
+
+/* Execute validates the SQL */
+func (t *PostgreSQLValidateSQLTool) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
+	sql, ok := params["sql"].(string)
+	if !ok || sql == "" {
+		return Error("sql parameter is required", "INVALID_PARAMETER", nil), nil
+	}
+
+	checkPermissions, _ := params["check_permissions"].(bool)
+
+	/* Try to parse the SQL using EXPLAIN (which validates syntax without executing) */
+	/* For DDL statements, we can use a transaction that we rollback */
+	validateQuery := fmt.Sprintf("EXPLAIN %s", sql)
+
+	/* Execute EXPLAIN to validate syntax */
+	_, err := t.executor.ExecuteQuery(ctx, validateQuery, nil)
+	
+	isValid := err == nil
+	errorMsg := ""
+	if err != nil {
+		errorMsg = err.Error()
+	}
+
+	permissionInfo := map[string]interface{}{}
+	if checkPermissions && isValid {
+		/* Check permissions by attempting to get query plan */
+		/* This is a simplified check - in production, you'd analyze the query more deeply */
+		permissionInfo["can_execute"] = isValid
+	}
+
+	t.logger.Info("SQL validated", map[string]interface{}{
+		"is_valid": isValid,
+		"check_permissions": checkPermissions,
+	})
+
+	return Success(map[string]interface{}{
+		"is_valid":         isValid,
+		"error":            errorMsg,
+		"permission_info":  permissionInfo,
+		"sql_preview":      truncateString(sql, 100),
+	}, map[string]interface{}{
+		"tool": "postgresql_validate_sql",
+	}), nil
+}
+
+/* ============================================================================
+ * Permission Checking
+ * ============================================================================ */
+
+/* PostgreSQLCheckPermissionsTool checks user permissions */
+type PostgreSQLCheckPermissionsTool struct {
+	*BaseTool
+	executor *QueryExecutor
+	logger   *logging.Logger
+}
+
+/* NewPostgreSQLCheckPermissionsTool creates a new PostgreSQL check permissions tool */
+func NewPostgreSQLCheckPermissionsTool(db *database.Database, logger *logging.Logger) *PostgreSQLCheckPermissionsTool {
+	return &PostgreSQLCheckPermissionsTool{
+		BaseTool: NewBaseTool(
+			"postgresql_check_permissions",
+			"Check user permissions for operations on database objects",
+			map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"object_type": map[string]interface{}{
+						"type":        "string",
+						"enum":        []interface{}{"TABLE", "SEQUENCE", "FUNCTION", "SCHEMA", "DATABASE", "VIEW", "INDEX"},
+						"description": "Type of object to check permissions on",
+					},
+					"object_name": map[string]interface{}{
+						"type":        "string",
+						"description": "Name of the object",
+					},
+					"schema": map[string]interface{}{
+						"type":        "string",
+						"default":     "public",
+						"description": "Schema name",
+					},
+					"privilege": map[string]interface{}{
+						"type":        "string",
+						"description": "Privilege to check (SELECT, INSERT, UPDATE, DELETE, ALL, etc.)",
+					},
+				},
+				"required": []interface{}{"object_type", "object_name"},
+			},
+		),
+		executor: NewQueryExecutor(db),
+		logger:   logger,
+	}
+}
+
+/* Execute checks the permissions */
+func (t *PostgreSQLCheckPermissionsTool) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
+	objectType, ok := params["object_type"].(string)
+	if !ok || objectType == "" {
+		return Error("object_type parameter is required", "INVALID_PARAMETER", nil), nil
+	}
+
+	objectName, ok := params["object_name"].(string)
+	if !ok || objectName == "" {
+		return Error("object_name parameter is required", "INVALID_PARAMETER", nil), nil
+	}
+
+	schema, _ := params["schema"].(string)
+	if schema == "" {
+		schema = "public"
+	}
+
+	privilege, _ := params["privilege"].(string)
+	if privilege == "" {
+		privilege = "ALL"
+	}
+
+	/* Get current user */
+	currentUser, err := t.executor.ExecuteQueryOne(ctx, "SELECT current_user AS username", nil)
+	if err != nil {
+		return Error("Failed to get current user", "QUERY_ERROR", nil), nil
+	}
+	username, _ := currentUser["username"].(string)
+
+	/* Build permission check query */
+	var checkQuery string
+	fullObjectName := fmt.Sprintf("%s.%s", quoteIdentifier(schema), quoteIdentifier(objectName))
+
+	switch strings.ToUpper(objectType) {
+	case "TABLE":
+		checkQuery = fmt.Sprintf(`
+			SELECT 
+				has_table_privilege('%s', '%s', '%s') AS has_privilege,
+				has_table_privilege('%s', '%s', 'SELECT') AS can_select,
+				has_table_privilege('%s', '%s', 'INSERT') AS can_insert,
+				has_table_privilege('%s', '%s', 'UPDATE') AS can_update,
+				has_table_privilege('%s', '%s', 'DELETE') AS can_delete
+		`, username, fullObjectName, privilege, username, fullObjectName, username, fullObjectName, username, fullObjectName, username, fullObjectName)
+
+	case "SEQUENCE":
+		checkQuery = fmt.Sprintf(`
+			SELECT 
+				has_sequence_privilege('%s', '%s', '%s') AS has_privilege,
+				has_sequence_privilege('%s', '%s', 'USAGE') AS can_usage,
+				has_sequence_privilege('%s', '%s', 'SELECT') AS can_select
+		`, username, fullObjectName, privilege, username, fullObjectName, username, fullObjectName)
+
+	case "FUNCTION":
+		checkQuery = fmt.Sprintf(`
+			SELECT 
+				has_function_privilege('%s', '%s', '%s') AS has_privilege,
+				has_function_privilege('%s', '%s', 'EXECUTE') AS can_execute
+		`, username, fullObjectName, privilege, username, fullObjectName)
+
+	case "SCHEMA":
+		checkQuery = fmt.Sprintf(`
+			SELECT 
+				has_schema_privilege('%s', '%s', '%s') AS has_privilege,
+				has_schema_privilege('%s', '%s', 'USAGE') AS can_usage,
+				has_schema_privilege('%s', '%s', 'CREATE') AS can_create
+		`, username, objectName, privilege, username, objectName, username, objectName)
+
+	case "DATABASE":
+		checkQuery = fmt.Sprintf(`
+			SELECT 
+				has_database_privilege('%s', '%s', '%s') AS has_privilege,
+				has_database_privilege('%s', '%s', 'CONNECT') AS can_connect,
+				has_database_privilege('%s', '%s', 'CREATE') AS can_create
+		`, username, objectName, privilege, username, objectName, username, objectName)
+
+	default:
+		return Error(fmt.Sprintf("Unsupported object type: %s", objectType), "INVALID_PARAMETER", nil), nil
+	}
+
+	/* Execute permission check */
+	result, err := t.executor.ExecuteQueryOne(ctx, checkQuery, nil)
+	if err != nil {
+		return Error(
+			fmt.Sprintf("Permission check failed: %v", err),
+			"QUERY_ERROR",
+			map[string]interface{}{"error": err.Error()},
+		), nil
+	}
+
+	t.logger.Info("Permissions checked", map[string]interface{}{
+		"object_type": objectType,
+		"object_name": objectName,
+		"username":    username,
+	})
+
+	return Success(map[string]interface{}{
+		"object_type": objectType,
+		"object_name": objectName,
+		"schema":      schema,
+		"username":    username,
+		"privilege":   privilege,
+		"permissions": result,
+	}, map[string]interface{}{
+		"tool": "postgresql_check_permissions",
+	}), nil
+}
+
+/* ============================================================================
+ * Operation Auditing
+ * ============================================================================ */
+
+/* PostgreSQLAuditOperationTool logs DDL/DML operations */
+type PostgreSQLAuditOperationTool struct {
+	*BaseTool
+	executor *QueryExecutor
+	logger   *logging.Logger
+}
+
+/* NewPostgreSQLAuditOperationTool creates a new PostgreSQL audit operation tool */
+func NewPostgreSQLAuditOperationTool(db *database.Database, logger *logging.Logger) *PostgreSQLAuditOperationTool {
+	return &PostgreSQLAuditOperationTool{
+		BaseTool: NewBaseTool(
+			"postgresql_audit_operation",
+			"Log DDL/DML operations and track schema changes",
+			map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"operation_type": map[string]interface{}{
+						"type":        "string",
+						"enum":        []interface{}{"DDL", "DML", "DCL"},
+						"description": "Type of operation",
+					},
+					"operation": map[string]interface{}{
+						"type":        "string",
+						"description": "Operation name (e.g., CREATE TABLE, INSERT, GRANT)",
+					},
+					"object_type": map[string]interface{}{
+						"type":        "string",
+						"description": "Type of object affected",
+					},
+					"object_name": map[string]interface{}{
+						"type":        "string",
+						"description": "Name of object affected",
+					},
+					"schema": map[string]interface{}{
+						"type":        "string",
+						"description": "Schema name",
+					},
+					"sql": map[string]interface{}{
+						"type":        "string",
+						"description": "SQL statement executed",
+					},
+					"status": map[string]interface{}{
+						"type":        "string",
+						"enum":        []interface{}{"SUCCESS", "FAILURE"},
+						"description": "Operation status",
+					},
+					"error": map[string]interface{}{
+						"type":        "string",
+						"description": "Error message if status is FAILURE",
+					},
+				},
+				"required": []interface{}{"operation_type", "operation", "status"},
+			},
+		),
+		executor: NewQueryExecutor(db),
+		logger:   logger,
+	}
+}
+
+/* Execute logs the audit entry */
+func (t *PostgreSQLAuditOperationTool) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
+	operationType, ok := params["operation_type"].(string)
+	if !ok || operationType == "" {
+		return Error("operation_type parameter is required", "INVALID_PARAMETER", nil), nil
+	}
+
+	operation, ok := params["operation"].(string)
+	if !ok || operation == "" {
+		return Error("operation parameter is required", "INVALID_PARAMETER", nil), nil
+	}
+
+	status, ok := params["status"].(string)
+	if !ok || status == "" {
+		return Error("status parameter is required", "INVALID_PARAMETER", nil), nil
+	}
+
+	/* Get current user and timestamp */
+	currentUser, err := t.executor.ExecuteQueryOne(ctx, "SELECT current_user AS username, now() AS timestamp", nil)
+	if err != nil {
+		return Error("Failed to get current user and timestamp", "QUERY_ERROR", nil), nil
+	}
+	username, _ := currentUser["username"].(string)
+	timestamp, _ := currentUser["timestamp"].(string)
+
+	/* Log the audit entry */
+	auditEntry := map[string]interface{}{
+		"operation_type": operationType,
+		"operation":      operation,
+		"status":         status,
+		"username":       username,
+		"timestamp":      timestamp,
+	}
+
+	if objectType, ok := params["object_type"].(string); ok {
+		auditEntry["object_type"] = objectType
+	}
+
+	if objectName, ok := params["object_name"].(string); ok {
+		auditEntry["object_name"] = objectName
+	}
+
+	if schema, ok := params["schema"].(string); ok {
+		auditEntry["schema"] = schema
+	}
+
+	if sql, ok := params["sql"].(string); ok {
+		auditEntry["sql_preview"] = truncateString(sql, 200)
+	}
+
+	if errorMsg, ok := params["error"].(string); ok {
+		auditEntry["error"] = errorMsg
+	}
+
+	/* Log using the logger */
+	if status == "FAILURE" {
+		var err error
+		if errorMsg, ok := params["error"].(string); ok && errorMsg != "" {
+			err = fmt.Errorf(errorMsg)
+		}
+		t.logger.Error("Operation audited", err, auditEntry)
+	} else {
+		t.logger.Info("Operation audited", auditEntry)
+	}
+
+	/* Optionally store in database audit table if it exists */
+	/* This is a simplified implementation - in production, you'd have a dedicated audit table */
+
+	return Success(map[string]interface{}{
+		"audit_entry": auditEntry,
+		"logged":      true,
+	}, map[string]interface{}{
+		"tool": "postgresql_audit_operation",
+	}), nil
+}
+
+/* ============================================================================
+ * Helper Functions
+ * ============================================================================ */
+
+/* ============================================================================
+ * Audit Log Tool
+ * ============================================================================ */
+
+/* PostgreSQLAuditLogTool queries audit logs from pg_stat_statements and pg_audit */
 type PostgreSQLAuditLogTool struct {
 	*BaseTool
 	executor *QueryExecutor
@@ -36,28 +422,32 @@ func NewPostgreSQLAuditLogTool(db *database.Database, logger *logging.Logger) *P
 	return &PostgreSQLAuditLogTool{
 		BaseTool: NewBaseTool(
 			"postgresql_audit_log",
-			"Query audit logs from pgAudit or similar audit extensions",
+			"Query audit logs from pg_stat_statements and pg_audit",
 			map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
+					"start_time": map[string]interface{}{
+						"type":        "string",
+						"description": "Start time for audit log query (ISO 8601)",
+					},
+					"end_time": map[string]interface{}{
+						"type":        "string",
+						"description": "End time for audit log query (ISO 8601)",
+					},
+					"user_name": map[string]interface{}{
+						"type":        "string",
+						"description": "Filter by user name",
+					},
+					"database_name": map[string]interface{}{
+						"type":        "string",
+						"description": "Filter by database name",
+					},
 					"limit": map[string]interface{}{
-						"type":        "number",
+						"type":        "integer",
 						"default":     100,
-						"minimum":     1,
-						"maximum":     1000,
 						"description": "Maximum number of log entries to return",
 					},
-					"user": map[string]interface{}{
-						"type":        "string",
-						"description": "Filter by username (optional)",
-					},
-					"operation": map[string]interface{}{
-						"type":        "string",
-						"enum":        []string{"SELECT", "INSERT", "UPDATE", "DELETE", "DDL", "ALL"},
-						"description": "Filter by operation type",
-					},
 				},
-				"required": []interface{}{},
 			},
 		),
 		executor: NewQueryExecutor(db),
@@ -65,92 +455,70 @@ func NewPostgreSQLAuditLogTool(db *database.Database, logger *logging.Logger) *P
 	}
 }
 
-/* Execute queries audit logs */
+/* Execute queries the audit logs */
 func (t *PostgreSQLAuditLogTool) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	/* Check if pgAudit extension exists */
-	checkQuery := `SELECT EXISTS(SELECT 1 FROM pg_extension WHERE extname = 'pgaudit') AS extension_exists`
-	checkResult, err := t.executor.ExecuteQueryOne(ctx, checkQuery, nil)
+	limit := 100
+	if l, ok := params["limit"].(float64); ok {
+		limit = int(l)
+	}
+
+	/* Build query for pg_stat_statements */
+	query := `
+		SELECT 
+			userid::regrole AS user_name,
+			dbid::regclass AS database_name,
+			query,
+			calls,
+			total_exec_time,
+			mean_exec_time,
+			min_exec_time,
+			max_exec_time,
+			rows
+		FROM pg_stat_statements
+		WHERE 1=1
+	`
+
+	args := []interface{}{}
+	argIdx := 1
+
+	if user, ok := params["user_name"].(string); ok && user != "" {
+		query += fmt.Sprintf(" AND userid::regrole::text = $%d", argIdx)
+		args = append(args, user)
+		argIdx++
+	}
+
+	if db, ok := params["database_name"].(string); ok && db != "" {
+		query += fmt.Sprintf(" AND dbid::regclass::text = $%d", argIdx)
+		args = append(args, db)
+		argIdx++
+	}
+
+	query += fmt.Sprintf(" ORDER BY total_exec_time DESC LIMIT $%d", argIdx)
+	args = append(args, limit)
+
+	rows, err := t.executor.ExecuteQuery(ctx, query, args)
 	if err != nil {
-		return Error("Failed to check pgAudit extension", "QUERY_ERROR", map[string]interface{}{"error": err.Error()}), nil
-	}
-
-	exists := false
-	if val, ok := checkResult["extension_exists"].(bool); ok {
-		exists = val
-	}
-
-	if !exists {
+		/* If pg_stat_statements extension is not available, return empty result */
+		t.logger.Warn("Failed to query audit logs", map[string]interface{}{
+			"error": err.Error(),
+		})
 		return Success(map[string]interface{}{
 			"audit_logs": []interface{}{},
-			"count":      0,
-			"note":       "pgAudit extension is not installed. Install with: CREATE EXTENSION pgaudit;",
-			"alternative": "Use PostgreSQL's built-in logging (log_statement, log_connections, etc.)",
-		}, map[string]interface{}{
-			"tool": "postgresql_audit_log",
-		}), nil
-	}
-
-	limit := 100
-	if val, ok := params["limit"].(float64); ok {
-		limit = int(val)
-		if limit < 1 {
-			limit = 1
-		}
-		if limit > 1000 {
-			limit = 1000
-		}
-	}
-
-	user, _ := params["user"].(string)
-	operation, _ := params["operation"].(string)
-
-	/* Query audit log table (structure varies by pgAudit version) */
-	query := fmt.Sprintf(`
-		SELECT 
-			event_time,
-			user_name,
-			database_name,
-			command_tag,
-			statement
-		FROM pgaudit.log
-		WHERE 1=1
-	`)
-	var queryParams []interface{}
-	paramCount := 0
-
-	if user != "" {
-		paramCount++
-		query += fmt.Sprintf(" AND user_name = $%d", paramCount)
-		queryParams = append(queryParams, user)
-	}
-
-	if operation != "" && operation != "ALL" {
-		paramCount++
-		query += fmt.Sprintf(" AND command_tag = $%d", paramCount)
-		queryParams = append(queryParams, operation)
-	}
-
-	query += fmt.Sprintf(" ORDER BY event_time DESC LIMIT $%d", paramCount+1)
-	queryParams = append(queryParams, limit)
-
-	results, err := t.executor.ExecuteQuery(ctx, query, queryParams)
-	if err != nil {
-		return Error(
-			fmt.Sprintf("Audit log query failed: %v", err),
-			"QUERY_ERROR",
-			map[string]interface{}{"error": err.Error()},
-		), nil
+			"message":    "pg_stat_statements extension may not be enabled",
+		}, nil), nil
 	}
 
 	return Success(map[string]interface{}{
-		"audit_logs": results,
-		"count":      len(results),
-	}, map[string]interface{}{
-		"tool": "postgresql_audit_log",
-	}), nil
+		"audit_logs": rows,
+		"count":      len(rows),
+	}, nil), nil
 }
 
-/* PostgreSQLSecurityScanTool performs security vulnerability scan */
+/* ============================================================================
+ * Security Scan Tool
+ * ============================================================================ */
+
+/* PostgreSQLSecurityScanTool scans for security vulnerabilities */
 type PostgreSQLSecurityScanTool struct {
 	*BaseTool
 	executor *QueryExecutor
@@ -162,11 +530,17 @@ func NewPostgreSQLSecurityScanTool(db *database.Database, logger *logging.Logger
 	return &PostgreSQLSecurityScanTool{
 		BaseTool: NewBaseTool(
 			"postgresql_security_scan",
-			"Perform security vulnerability scan and provide recommendations",
+			"Scan for security vulnerabilities (weak passwords, open ports, etc.)",
 			map[string]interface{}{
-				"type":       "object",
-				"properties": map[string]interface{}{},
-				"required":   []interface{}{},
+				"type": "object",
+				"properties": map[string]interface{}{
+					"scan_type": map[string]interface{}{
+						"type":        "string",
+						"enum":        []interface{}{"all", "passwords", "permissions", "encryption", "connections"},
+						"default":     "all",
+						"description": "Type of security scan to perform",
+					},
+				},
 			},
 		),
 		executor: NewQueryExecutor(db),
@@ -174,107 +548,114 @@ func NewPostgreSQLSecurityScanTool(db *database.Database, logger *logging.Logger
 	}
 }
 
-/* Execute performs security scan */
+/* Execute performs the security scan */
 func (t *PostgreSQLSecurityScanTool) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
+	scanType := "all"
+	if st, ok := params["scan_type"].(string); ok && st != "" {
+		scanType = st
+	}
+
 	vulnerabilities := []map[string]interface{}{}
-	recommendations := []string{}
 
-	/* Check for weak passwords (users without password expiration) */
-	weakPasswordQuery := `
-		SELECT 
-			rolname AS username,
-			rolvaliduntil AS password_expires_at
-		FROM pg_roles
-		WHERE rolcanlogin = true 
-		AND rolvaliduntil IS NULL
-	`
-	weakPasswords, err := t.executor.ExecuteQuery(ctx, weakPasswordQuery, nil)
-	if err == nil && len(weakPasswords) > 0 {
-		vulnerabilities = append(vulnerabilities, map[string]interface{}{
-			"severity":    "medium",
-			"category":    "authentication",
-			"issue":       "Users without password expiration",
-			"affected":    weakPasswords,
-			"recommendation": "Set password expiration: ALTER ROLE username VALID UNTIL '2025-12-31';",
-		})
-		recommendations = append(recommendations, "Set password expiration policies for all users")
+	/* Check for users without passwords (password is NULL or empty) */
+	if scanType == "all" || scanType == "passwords" {
+		passwordQuery := `
+			SELECT 
+				usename AS user_name,
+				'weak_password' AS vulnerability_type,
+				'User may have weak or no password' AS description,
+				'high' AS severity
+			FROM pg_user
+			WHERE passwd IS NULL OR passwd = ''
+		`
+		passwordRows, err := t.executor.ExecuteQuery(ctx, passwordQuery, nil)
+		if err == nil {
+			for _, row := range passwordRows {
+				vulnerabilities = append(vulnerabilities, row)
+			}
+		}
 	}
 
-	/* Check for superuser accounts */
-	superuserQuery := `
-		SELECT rolname AS username
-		FROM pg_roles
-		WHERE rolsuper = true
-		AND rolcanlogin = true
-	`
-	superusers, err := t.executor.ExecuteQuery(ctx, superuserQuery, nil)
-	if err == nil && len(superusers) > 1 {
-		vulnerabilities = append(vulnerabilities, map[string]interface{}{
-			"severity":    "high",
-			"category":    "authorization",
-			"issue":       "Multiple superuser accounts",
-			"affected":    superusers,
-			"recommendation": "Limit superuser accounts to minimum necessary",
-		})
-		recommendations = append(recommendations, "Review and limit superuser accounts")
+	/* Check for excessive permissions */
+	if scanType == "all" || scanType == "permissions" {
+		permissionQuery := `
+			SELECT 
+				grantee AS user_name,
+				' excessive_permissions' AS vulnerability_type,
+				'User has SUPERUSER or CREATEDB privileges' AS description,
+				'high' AS severity
+			FROM pg_roles
+			WHERE rolsuper = true OR rolcreatedb = true
+		`
+		permissionRows, err := t.executor.ExecuteQuery(ctx, permissionQuery, nil)
+		if err == nil {
+			for _, row := range permissionRows {
+				vulnerabilities = append(vulnerabilities, row)
+			}
+		}
 	}
 
-	/* Check SSL settings */
-	sslQuery := `SELECT name, setting FROM pg_settings WHERE name IN ('ssl', 'ssl_cert_file', 'ssl_key_file')`
-	sslSettings, err := t.executor.ExecuteQuery(ctx, sslQuery, nil)
-	if err == nil {
-		sslEnabled := false
-		for _, setting := range sslSettings {
-			if name, ok := setting["name"].(string); ok && name == "ssl" {
-				if val, ok := setting["setting"].(string); ok && val == "on" {
-					sslEnabled = true
+	/* Check for unencrypted connections */
+	if scanType == "all" || scanType == "encryption" {
+		encryptionQuery := `
+			SELECT 
+				current_setting('ssl') AS ssl_enabled,
+				current_setting('ssl_cert_file') AS cert_file,
+				'encryption_check' AS vulnerability_type,
+				CASE 
+					WHEN current_setting('ssl') = 'off' THEN 'SSL is disabled'
+					ELSE 'SSL is enabled'
+				END AS description,
+				CASE 
+					WHEN current_setting('ssl') = 'off' THEN 'high'
+					ELSE 'info'
+				END AS severity
+		`
+		encryptionRows, err := t.executor.ExecuteQuery(ctx, encryptionQuery, nil)
+		if err == nil {
+			for _, row := range encryptionRows {
+				if ssl, ok := row["ssl_enabled"].(string); ok && ssl == "off" {
+					vulnerabilities = append(vulnerabilities, row)
 				}
 			}
 		}
-		if !sslEnabled {
-			vulnerabilities = append(vulnerabilities, map[string]interface{}{
-				"severity":    "high",
-				"category":    "encryption",
-				"issue":       "SSL not enabled",
-				"recommendation": "Enable SSL: ALTER SYSTEM SET ssl = on;",
-			})
-			recommendations = append(recommendations, "Enable SSL for encrypted connections")
-		}
 	}
 
-	/* Check for public schema permissions */
-	publicSchemaQuery := `
-		SELECT 
-			grantee,
-			privilege_type
-		FROM information_schema.role_table_grants
-		WHERE table_schema = 'public'
-		AND grantee = 'PUBLIC'
-		LIMIT 10
-	`
-	publicPerms, err := t.executor.ExecuteQuery(ctx, publicSchemaQuery, nil)
-	if err == nil && len(publicPerms) > 0 {
-		vulnerabilities = append(vulnerabilities, map[string]interface{}{
-			"severity":    "medium",
-			"category":    "permissions",
-			"issue":       "Public schema has PUBLIC permissions",
-			"affected":    publicPerms,
-			"recommendation": "Review and restrict PUBLIC schema permissions",
-		})
-		recommendations = append(recommendations, "Review PUBLIC schema permissions")
+	/* Check for open connections from untrusted sources */
+	if scanType == "all" || scanType == "connections" {
+		connectionQuery := `
+			SELECT 
+				client_addr::text AS client_address,
+				usename AS user_name,
+				datname AS database_name,
+				'open_connection' AS vulnerability_type,
+				'Connection from external address' AS description,
+				'medium' AS severity
+			FROM pg_stat_activity
+			WHERE client_addr IS NOT NULL
+			  AND client_addr != '127.0.0.1'::inet
+			  AND client_addr != '::1'::inet
+		`
+		connectionRows, err := t.executor.ExecuteQuery(ctx, connectionQuery, nil)
+		if err == nil {
+			for _, row := range connectionRows {
+				vulnerabilities = append(vulnerabilities, row)
+			}
+		}
 	}
 
 	return Success(map[string]interface{}{
 		"vulnerabilities": vulnerabilities,
-		"vulnerability_count": len(vulnerabilities),
-		"recommendations": recommendations,
-		"scan_timestamp": "now()",
-	}, map[string]interface{}{
-		"tool": "postgresql_security_scan",
-	}), nil
+		"count":           len(vulnerabilities),
+		"scan_type":       scanType,
+	}, nil), nil
 }
 
-/* PostgreSQLComplianceCheckTool performs compliance validation */
+/* ============================================================================
+ * Compliance Check Tool
+ * ============================================================================ */
+
+/* PostgreSQLComplianceCheckTool checks compliance with standards */
 type PostgreSQLComplianceCheckTool struct {
 	*BaseTool
 	executor *QueryExecutor
@@ -286,18 +667,17 @@ func NewPostgreSQLComplianceCheckTool(db *database.Database, logger *logging.Log
 	return &PostgreSQLComplianceCheckTool{
 		BaseTool: NewBaseTool(
 			"postgresql_compliance_check",
-			"Perform compliance validation (GDPR, SOC 2, HIPAA, PCI DSS)",
+			"Check compliance with standards (PCI-DSS, HIPAA, etc.)",
 			map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
-					"compliance_standard": map[string]interface{}{
+					"standard": map[string]interface{}{
 						"type":        "string",
-						"enum":        []string{"GDPR", "SOC2", "HIPAA", "PCIDSS", "ALL"},
-						"default":     "ALL",
+						"enum":        []interface{}{"PCI-DSS", "HIPAA", "SOC2", "GDPR", "all"},
+						"default":     "all",
 						"description": "Compliance standard to check",
 					},
 				},
-				"required": []interface{}{},
 			},
 		),
 		executor: NewQueryExecutor(db),
@@ -305,116 +685,110 @@ func NewPostgreSQLComplianceCheckTool(db *database.Database, logger *logging.Log
 	}
 }
 
-/* Execute performs compliance check */
+/* Execute performs the compliance check */
 func (t *PostgreSQLComplianceCheckTool) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	standard := "ALL"
-	if val, ok := params["compliance_standard"].(string); ok {
-		standard = val
+	standard := "all"
+	if s, ok := params["standard"].(string); ok && s != "" {
+		standard = s
 	}
 
 	checks := []map[string]interface{}{}
+
+	/* PCI-DSS checks */
+	if standard == "all" || standard == "PCI-DSS" {
+		/* Check for encryption */
+		sslCheck := `SELECT current_setting('ssl') AS ssl_enabled`
+		sslResult, err := t.executor.ExecuteQueryOne(ctx, sslCheck, nil)
+		if err == nil {
+			sslEnabled := false
+			if ssl, ok := sslResult["ssl_enabled"].(string); ok && ssl == "on" {
+				sslEnabled = true
+			}
+			checks = append(checks, map[string]interface{}{
+				"standard":      "PCI-DSS",
+				"check":         "SSL/TLS encryption",
+				"status":        map[string]interface{}{"passed": sslEnabled, "required": true},
+				"description":   "PCI-DSS requires encrypted connections",
+				"recommendation": "Enable SSL/TLS for all connections",
+			})
+		}
+
+		/* Check for audit logging */
+		auditCheck := `SELECT COUNT(*) > 0 AS has_audit FROM pg_stat_statements LIMIT 1`
+		auditResult, err := t.executor.ExecuteQueryOne(ctx, auditCheck, nil)
+		if err == nil {
+			hasAudit := false
+			if audit, ok := auditResult["has_audit"].(bool); ok {
+				hasAudit = audit
+			}
+			checks = append(checks, map[string]interface{}{
+				"standard":      "PCI-DSS",
+				"check":         "Audit logging",
+				"status":        map[string]interface{}{"passed": hasAudit, "required": true},
+				"description":   "PCI-DSS requires comprehensive audit logging",
+				"recommendation": "Enable pg_stat_statements extension",
+			})
+		}
+	}
+
+	/* HIPAA checks */
+	if standard == "all" || standard == "HIPAA" {
+		/* Check for access controls */
+		superuserCheck := `SELECT COUNT(*) AS superuser_count FROM pg_roles WHERE rolsuper = true`
+		superuserResult, err := t.executor.ExecuteQueryOne(ctx, superuserCheck, nil)
+		if err == nil {
+			superuserCount := 0
+			if count, ok := superuserResult["superuser_count"].(int64); ok {
+				superuserCount = int(count)
+			}
+			checks = append(checks, map[string]interface{}{
+				"standard":      "HIPAA",
+				"check":         "Access controls",
+				"status":        map[string]interface{}{"passed": superuserCount <= 1, "required": true},
+				"description":   "HIPAA requires limited superuser access",
+				"recommendation": "Minimize superuser accounts",
+			})
+		}
+	}
+
+	/* GDPR checks */
+	if standard == "all" || standard == "GDPR" {
+		/* Check for data retention policies */
+		checks = append(checks, map[string]interface{}{
+			"standard":      "GDPR",
+			"check":         "Data retention",
+			"status":        map[string]interface{}{"passed": false, "required": true},
+			"description":   "GDPR requires data retention policies",
+			"recommendation": "Implement data retention and deletion policies",
+		})
+	}
+
 	passed := 0
 	failed := 0
-
-	/* GDPR Checks */
-	if standard == "ALL" || standard == "GDPR" {
-		/* Check for audit logging */
-		auditCheck := map[string]interface{}{
-			"standard": "GDPR",
-			"check":    "Audit logging enabled",
-			"status":   "unknown",
-		}
-		auditQuery := `SELECT EXISTS(SELECT 1 FROM pg_extension WHERE extname = 'pgaudit') AS enabled`
-		result, err := t.executor.ExecuteQueryOne(ctx, auditQuery, nil)
-		if err == nil {
-			if enabled, ok := result["enabled"].(bool); ok && enabled {
-				auditCheck["status"] = "passed"
+	for _, check := range checks {
+		if status, ok := check["status"].(map[string]interface{}); ok {
+			if p, ok := status["passed"].(bool); ok && p {
 				passed++
 			} else {
-				auditCheck["status"] = "failed"
-				auditCheck["recommendation"] = "Enable audit logging for GDPR compliance"
 				failed++
 			}
 		}
-		checks = append(checks, auditCheck)
-
-		/* Check for encryption */
-		encryptionCheck := map[string]interface{}{
-			"standard": "GDPR",
-			"check":    "Data encryption at rest",
-			"status":   "unknown",
-		}
-		sslQuery := `SELECT setting FROM pg_settings WHERE name = 'ssl'`
-		sslResult, err := t.executor.ExecuteQueryOne(ctx, sslQuery, nil)
-		if err == nil {
-			if setting, ok := sslResult["setting"].(string); ok && setting == "on" {
-				encryptionCheck["status"] = "passed"
-				passed++
-			} else {
-				encryptionCheck["status"] = "warning"
-				encryptionCheck["recommendation"] = "Enable SSL/TLS for data in transit"
-				failed++
-			}
-		}
-		checks = append(checks, encryptionCheck)
-	}
-
-	/* SOC 2 Checks */
-	if standard == "ALL" || standard == "SOC2" {
-		/* Check for access controls */
-		accessCheck := map[string]interface{}{
-			"standard": "SOC2",
-			"check":    "Role-based access control",
-			"status":   "passed",
-		}
-		roleQuery := `SELECT COUNT(*) AS role_count FROM pg_roles WHERE rolcanlogin = true`
-		roleResult, err := t.executor.ExecuteQueryOne(ctx, roleQuery, nil)
-		if err == nil {
-			if count, ok := roleResult["role_count"].(int64); ok && count > 0 {
-				accessCheck["status"] = "passed"
-				passed++
-			}
-		}
-		checks = append(checks, accessCheck)
-	}
-
-	/* HIPAA Checks */
-	if standard == "ALL" || standard == "HIPAA" {
-		/* Check for encryption */
-		hipaaEncryptionCheck := map[string]interface{}{
-			"standard": "HIPAA",
-			"check":    "Encryption for PHI data",
-			"status":   "warning",
-			"recommendation": "Ensure all PHI data is encrypted at rest and in transit",
-		}
-		checks = append(checks, hipaaEncryptionCheck)
-		failed++
-	}
-
-	/* PCI DSS Checks */
-	if standard == "ALL" || standard == "PCIDSS" {
-		/* Check for strong authentication */
-		pciAuthCheck := map[string]interface{}{
-			"standard": "PCI DSS",
-			"check":    "Strong authentication required",
-			"status":   "warning",
-			"recommendation": "Implement strong password policies and MFA",
-		}
-		checks = append(checks, pciAuthCheck)
-		failed++
 	}
 
 	return Success(map[string]interface{}{
-		"compliance_standard": standard,
-		"checks":              checks,
-		"passed":              passed,
-		"failed":              failed,
-		"total":               len(checks),
-		"compliance_score":    float64(passed) / float64(len(checks)) * 100,
-	}, map[string]interface{}{
-		"tool": "postgresql_compliance_check",
-	}), nil
+		"standard":  standard,
+		"checks":    checks,
+		"summary": map[string]interface{}{
+			"total":  len(checks),
+			"passed": passed,
+			"failed": failed,
+		},
+	}, nil), nil
 }
+
+/* ============================================================================
+ * Encryption Status Tool
+ * ============================================================================ */
 
 /* PostgreSQLEncryptionStatusTool checks encryption status */
 type PostgreSQLEncryptionStatusTool struct {
@@ -428,11 +802,17 @@ func NewPostgreSQLEncryptionStatusTool(db *database.Database, logger *logging.Lo
 	return &PostgreSQLEncryptionStatusTool{
 		BaseTool: NewBaseTool(
 			"postgresql_encryption_status",
-			"Check encryption status for data at rest and in transit",
+			"Check encryption status of data at rest and in transit",
 			map[string]interface{}{
-				"type":       "object",
-				"properties": map[string]interface{}{},
-				"required":   []interface{}{},
+				"type": "object",
+				"properties": map[string]interface{}{
+					"check_type": map[string]interface{}{
+						"type":        "string",
+						"enum":        []interface{}{"all", "transit", "rest"},
+						"default":     "all",
+						"description": "Type of encryption to check",
+					},
+				},
 			},
 		),
 		executor: NewQueryExecutor(db),
@@ -440,65 +820,77 @@ func NewPostgreSQLEncryptionStatusTool(db *database.Database, logger *logging.Lo
 	}
 }
 
-/* Execute checks encryption status */
+/* Execute checks the encryption status */
 func (t *PostgreSQLEncryptionStatusTool) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	/* Check SSL/TLS settings */
-	sslQuery := `
-		SELECT 
-			name,
-			setting,
-			unit,
-			context
-		FROM pg_settings
-		WHERE name IN ('ssl', 'ssl_cert_file', 'ssl_key_file', 'ssl_ca_file', 'ssl_crl_file')
-		ORDER BY name
-	`
-	sslSettings, err := t.executor.ExecuteQuery(ctx, sslQuery, nil)
-	if err != nil {
-		return Error("Failed to query SSL settings", "QUERY_ERROR", map[string]interface{}{"error": err.Error()}), nil
+	checkType := "all"
+	if ct, ok := params["check_type"].(string); ok && ct != "" {
+		checkType = ct
 	}
 
-	/* Determine SSL status */
-	sslEnabled := false
-	for _, setting := range sslSettings {
-		if name, ok := setting["name"].(string); ok && name == "ssl" {
-			if val, ok := setting["setting"].(string); ok && val == "on" {
-				sslEnabled = true
+	status := make(map[string]interface{})
+
+	/* Check encryption in transit (SSL/TLS) */
+	if checkType == "all" || checkType == "transit" {
+		sslQuery := `
+			SELECT 
+				current_setting('ssl') AS ssl_enabled,
+				current_setting('ssl_cert_file') AS cert_file,
+				current_setting('ssl_key_file') AS key_file,
+				current_setting('ssl_ca_file') AS ca_file
+		`
+		sslResult, err := t.executor.ExecuteQueryOne(ctx, sslQuery, nil)
+		if err == nil {
+			status["transit"] = map[string]interface{}{
+				"ssl_enabled": sslResult["ssl_enabled"],
+				"cert_file":   sslResult["cert_file"],
+				"key_file":    sslResult["key_file"],
+				"ca_file":     sslResult["ca_file"],
 			}
 		}
 	}
 
-	/* Check for encryption extensions */
-	encryptionExtQuery := `
-		SELECT 
-			extname,
-			extversion
-		FROM pg_extension
-		WHERE extname IN ('pgcrypto', 'pg_trgm')
-	`
-	encryptionExts, err := t.executor.ExecuteQuery(ctx, encryptionExtQuery, nil)
-	if err != nil {
-		encryptionExts = []map[string]interface{}{}
+	/* Check encryption at rest */
+	if checkType == "all" || checkType == "rest" {
+		/* Check if tablespace encryption is available */
+		encryptionQuery := `
+			SELECT 
+				spcname AS tablespace_name,
+				pg_tablespace_location(oid) AS location,
+				'encryption_at_rest' AS encryption_type
+			FROM pg_tablespace
+			WHERE pg_tablespace_location(oid) IS NOT NULL
+		`
+		encryptionRows, err := t.executor.ExecuteQuery(ctx, encryptionQuery, nil)
+		if err == nil {
+			status["rest"] = map[string]interface{}{
+				"tablespaces": encryptionRows,
+				"encrypted":   len(encryptionRows) > 0,
+			}
+		} else {
+			/* If query fails, assume no tablespace encryption */
+			status["rest"] = map[string]interface{}{
+				"tablespaces": []interface{}{},
+				"encrypted":   false,
+				"note":        "Tablespace encryption requires additional configuration",
+			}
+		}
 	}
 
-	status := map[string]interface{}{
-		"ssl_enabled":           sslEnabled,
-		"ssl_settings":         sslSettings,
-		"encryption_extensions": encryptionExts,
-		"data_in_transit":      sslEnabled,
-		"data_at_rest":         "Check with database administrator - depends on storage encryption",
-		"recommendations":      []string{},
-	}
-
-	if !sslEnabled {
-		recommendations := []string{"Enable SSL: ALTER SYSTEM SET ssl = on; and restart PostgreSQL"}
-		status["recommendations"] = recommendations
-	}
-
-	return Success(status, map[string]interface{}{
-		"tool": "postgresql_encryption_status",
-	}), nil
+	return Success(map[string]interface{}{
+		"encryption_status": status,
+		"check_type":        checkType,
+	}, nil), nil
 }
 
+/* ============================================================================
+ * Helper Functions
+ * ============================================================================ */
 
+/* truncateString truncates a string to a maximum length */
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
+}
 

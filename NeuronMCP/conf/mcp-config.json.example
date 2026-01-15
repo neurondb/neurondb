@@ -19,7 +19,11 @@
     "timeout": 30000,
     "maxRequestSize": 10485760,
     "enableMetrics": true,
-    "enableHealthCheck": true
+    "enableHealthCheck": true,
+    "httpTransport": {
+      "enabled": false,
+      "address": ":8080"
+    }
   },
   "logging": {
     "level": "info",

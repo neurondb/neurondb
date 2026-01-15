@@ -17,24 +17,49 @@ export class VectorTools {
 			query_vector,
 			limit = 10,
 			distance_metric = "l2",
+			minkowski_p,
 		} = params;
 
 		const vectorStr = `[${query_vector.join(",")}]`;
-		let operator = "<->";
-		if (distance_metric === "cosine") {
-			operator = "<=>";
-		} else if (distance_metric === "inner_product") {
-			operator = "<#>";
+		let distanceExpr: string;
+		const queryParams: any[] = [vectorStr];
+
+		// Build distance expression based on metric
+		switch (distance_metric) {
+			case "cosine":
+				distanceExpr = `${this.db.escapeIdentifier(vector_column)} <=> $1::vector AS distance`;
+				break;
+			case "inner_product":
+				distanceExpr = `${this.db.escapeIdentifier(vector_column)} <#> $1::vector AS distance`;
+				break;
+			case "l1":
+				distanceExpr = `vector_l1_distance(${this.db.escapeIdentifier(vector_column)}, $1::vector) AS distance`;
+				break;
+			case "hamming":
+				distanceExpr = `vector_hamming_distance(${this.db.escapeIdentifier(vector_column)}, $1::vector) AS distance`;
+				break;
+			case "chebyshev":
+				distanceExpr = `vector_chebyshev_distance(${this.db.escapeIdentifier(vector_column)}, $1::vector) AS distance`;
+				break;
+			case "minkowski":
+				const p = minkowski_p ?? 2.0;
+				queryParams.push(p);
+				distanceExpr = `vector_minkowski_distance(${this.db.escapeIdentifier(vector_column)}, $1::vector, $2::double precision) AS distance`;
+				break;
+			default: // l2
+				distanceExpr = `${this.db.escapeIdentifier(vector_column)} <-> $1::vector AS distance`;
 		}
 
+		queryParams.push(limit);
+
 		const query = `
-			SELECT *, ${this.db.escapeIdentifier(vector_column)} ${operator} $1::vector AS distance
+			SELECT *, ${distanceExpr}
 			FROM ${this.db.escapeIdentifier(table)}
 			ORDER BY distance
-			LIMIT $2
+			LIMIT $${queryParams.length}
 		`;
 
-		const result = await this.db.query(query, [vectorStr, limit]);
+		const result = await this.db.query(query, queryParams);
 		return result.rows;
 	}
 

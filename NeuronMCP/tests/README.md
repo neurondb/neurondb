@@ -10,6 +10,7 @@ tests/
 ├── test_tools_postgresql.py   # PostgreSQL tools tests (27 tools)
 ├── test_resources.py          # Resources tests (9 resources)
 ├── test_comprehensive.py      # Comprehensive tool tests (100+ tools)
+├── test_dataloading.py        # Dataset loading comprehensive tests
 └── run_all_tests.py          # Test runner script
 ```
 
@@ -48,6 +49,17 @@ tests/
 - RAG operations
 - And more...
 
+### 5. Dataset Loading Tests (`test_dataloading.py`)
+- HuggingFace dataset loading (basic, with embeddings, streaming, configs)
+- URL dataset loading (CSV, JSON, auto-format detection, compression)
+- Local file loading (CSV, JSON, JSONL, auto-format)
+- GitHub repository loading
+- CSV-specific options (delimiters, headers, skip rows)
+- Table management (if_exists, load_mode)
+- Embedding features (auto-embedding, custom dimensions, index creation)
+- Parameter validation and error handling
+- 30+ test cases covering all dataloading features
+
 ## Running Tests
 
 ### Prerequisites
@@ -83,6 +95,9 @@ python3 tests/test_resources.py
 
 # Comprehensive tests
 python3 tests/test_comprehensive.py
+
+# Dataset loading tests
+python3 tests/test_dataloading.py
 ```
 
 ### Running Go Tests
