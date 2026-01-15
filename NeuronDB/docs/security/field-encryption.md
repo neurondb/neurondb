@@ -101,3 +101,4 @@ Encrypted vectors are stored as BYTEA containing the `EncryptedVector` structure
 - [Audit Logging](audit-logging.md)
 
 
+
