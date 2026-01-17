@@ -2,6 +2,22 @@
 
 Thank you for your interest in contributing to NeuronDB!
 
+## Table of Contents
+
+- [Getting Started](#getting-started)
+- [Code Standards](#code-standards)
+  - [Code Style Enforcement](#code-style-enforcement)
+  - [Build Requirements](#build-requirements)
+  - [Testing](#testing)
+- [Pull Request Process](#pull-request-process)
+  - [PR Checklist](#pr-checklist)
+  - [Review Process](#review-process)
+  - [Test Requirements](#test-requirements)
+- [Code Review](#code-review)
+- [Community](#community)
+- [Commit Message Guidelines](#commit-message-guidelines)
+- [License](#license)
+
 ## Getting Started
 
 1. Fork the repository
@@ -387,3 +403,10 @@ By contributing, you agree that your contributions will be licensed under
 the same proprietary license as the project (see LICENSE file in the root
 directory).
 
+---
+
+<div align="center">
+
+[⬆ Back to Top](#contributing-to-neurondb)
+
+</div>

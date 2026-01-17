@@ -22,16 +22,21 @@
     <a href="https://github.com/neurondb/neurondb/actions/workflows/neurondb-docker.yml">
       <img alt="Docker" src="https://img.shields.io/badge/Docker-Build-blue.svg" />
     </a>
-  </p>
-  <p>
     <a href="#gpu-profiles-cuda--rocm--metal">
       <img alt="GPU Backends" src="https://img.shields.io/badge/GPU-CUDA%20%7C%20ROCm%20%7C%20Metal-green.svg" />
     </a>
+  </p>
+  <p>
+    <img alt="Version" src="https://img.shields.io/badge/version-2.0-blue.svg" />
+    <img alt="Status" src="https://img.shields.io/badge/status-stable-brightgreen.svg" />
     <a href="LICENSE">
       <img alt="License: Proprietary" src="https://img.shields.io/badge/license-proprietary-red.svg" />
     </a>
     <a href="https://www.neurondb.ai/docs">
       <img alt="Docs" src="https://img.shields.io/badge/docs-neurondb.ai-brightgreen.svg" />
+    </a>
+    <a href="https://github.com/neurondb/neurondb">
+      <img alt="GitHub Stars" src="https://img.shields.io/github/stars/neurondb/neurondb?style=social" />
     </a>
   </p>
 
@@ -53,17 +58,40 @@
 
 Get vector search working in under a minute:
 
+<details>
+<summary><strong>📋 Quick Start Checklist</strong></summary>
+
+- [ ] Docker and Docker Compose installed
+- [ ] Ports 5433, 8080, 8081, 3000 available
+- [ ] 4 GB+ RAM available
+- [ ] Ready to run commands
+
+</details>
+
+### Step-by-Step Guide
+
+**Step 1: Start PostgreSQL with NeuronDB**
+
 ```bash
-# 1. Start PostgreSQL with NeuronDB (CPU profile, default)
+# Start NeuronDB (CPU profile, default)
 docker compose up -d neurondb
 
 # Wait for service to be healthy (about 30-60 seconds)
 docker compose ps
+```
 
-# 2. Connect and create extension
-psql "postgresql://neurondb:neurondb@localhost:5433/neurondb" -c "CREATE EXTENSION IF NOT EXISTS neurondb;"
+**Step 2: Create Extension**
 
-# 3. Create table, insert vectors, create index, and search
+```bash
+# Connect and create extension
+psql "postgresql://neurondb:neurondb@localhost:5433/neurondb" \
+  -c "CREATE EXTENSION IF NOT EXISTS neurondb;"
+```
+
+**Step 3: Create Table, Insert Vectors, and Search**
+
+```bash
+# Create table, insert vectors, create index, and search
 psql "postgresql://neurondb:neurondb@localhost:5433/neurondb" <<EOF
 CREATE TABLE documents (
   id SERIAL PRIMARY KEY,
@@ -86,6 +114,7 @@ EOF
 ```
 
 **Expected output:**
+
 ```
  id |              content               |     distance      
 ----+------------------------------------+-------------------
@@ -95,24 +124,49 @@ EOF
 (3 rows)
 ```
 
+> [!SUCCESS]
+> **Congratulations!** You've successfully set up vector search. The results show documents ordered by similarity to your query vector, with the closest match first.
+
 > [!SECURITY]
 > The default password (`neurondb`) is for development only. **Always change it in production** by setting `POSTGRES_PASSWORD` in your `.env` file. See [Service URLs & ports](#service-urls--ports) for connection details.
 
-## Table of contents
+## 📑 Table of Contents
 
-- [What you can build](#what-you-can-build)
+<details>
+<summary><strong>Expand full table of contents</strong></summary>
+
+- [Hello NeuronDB (60 seconds)](#hello-neurondb-60-seconds)
+- [What You Can Build](#-what-you-can-build)
+  - [Semantic & Hybrid Search](#-semantic--hybrid-search)
+  - [RAG Pipelines](#-rag-pipelines)
+  - [Agent Backends](#-agent-backends)
+  - [MCP Integrations](#-mcp-integrations)
+- [What Makes NeuronDB Different](#-what-makes-neurondb-different)
+  - [Feature Comparison](#-feature-comparison)
+  - [Key Advantages](#-key-advantages)
 - [Architecture](#architecture)
+  - [Ecosystem Overview](#ecosystem-overview)
+  - [Component Interaction Flow](#component-interaction-flow)
 - [Installation](#installation)
+  - [Pick one component](#pick-one-component)
   - [Quick start (Docker)](#quick-start-docker)
   - [Native install](#native-install)
   - [Minimal mode (extension only)](#minimal-mode-extension-only)
 - [Service URLs & ports](#service-urls--ports)
 - [Documentation](#documentation)
+  - [Module-wise Documentation](#module-wise-documentation)
 - [Repo layout](#repo-layout)
 - [Benchmarks](#benchmarks)
+  - [Quick start](#quick-start)
+  - [Benchmark suite](#benchmark-suite)
+  - [Vector Performance Benchmark](#vector-performance-benchmark)
+  - [Reproducible benchmarks](#reproducible-benchmarks)
 - [GPU profiles (CUDA / ROCm / Metal)](#gpu-profiles-cuda--rocm--metal)
+- [Operations](#operations)
 - [Contributing / security / license](#contributing--security--license)
 - [Project statistics](#project-statistics)
+
+</details>
 
 ## 🎯 What You Can Build
 
@@ -248,15 +302,72 @@ LIMIT 5;
 
 ## Architecture
 
+### Ecosystem Overview
+
 ```mermaid
-flowchart LR
-  subgraph DB["NeuronDB PostgreSQL"]
-    EXT["NeuronDB extension"]
-  end
-  AG["NeuronAgent"] -->|SQL| DB
-  MCP["NeuronMCP"] -->|tools/resources| DB
-  UI["NeuronDesktop UI"] --> API["NeuronDesktop API"]
-  API -->|SQL| DB
+flowchart TB
+    subgraph Clients["Client Applications"]
+        CLI[CLI Tools]
+        WEB[Web Browser]
+        MCP_CLIENT[MCP Clients<br/>Claude Desktop]
+        API_CLIENT[API Clients]
+    end
+    
+    subgraph Services["NeuronDB Services"]
+        DESKTOP[NeuronDesktop<br/>Web UI + API<br/>Ports: 3000, 8081]
+        AGENT[NeuronAgent<br/>REST/WebSocket API<br/>Port: 8080]
+        MCP[NeuronMCP<br/>MCP Protocol Server<br/>stdio]
+    end
+    
+    subgraph Core["Core Database"]
+        DB[(NeuronDB PostgreSQL<br/>Port: 5433-5436)]
+        EXT[NeuronDB Extension<br/>Vector Search + ML]
+    end
+    
+    CLI -->|SQL| DB
+    WEB -->|HTTP| DESKTOP
+    MCP_CLIENT -->|JSON-RPC| MCP
+    API_CLIENT -->|HTTP| AGENT
+    
+    DESKTOP -->|HTTP| AGENT
+    DESKTOP -->|SQL| DB
+    AGENT -->|SQL| DB
+    MCP -->|SQL| DB
+    
+    DB --> EXT
+    
+    style DB fill:#e1f5ff,stroke:#01579b,stroke-width:3px
+    style EXT fill:#b3e5fc,stroke:#0277bd
+    style AGENT fill:#fff4e1,stroke:#e65100
+    style MCP fill:#e8f5e9,stroke:#2e7d32
+    style DESKTOP fill:#f3e5f5,stroke:#6a1b9a
+```
+
+### Component Interaction Flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Desktop as NeuronDesktop
+    participant Agent as NeuronAgent
+    participant MCP as NeuronMCP
+    participant DB as NeuronDB
+    
+    User->>Desktop: Access Web UI
+    Desktop->>DB: Query vector data
+    DB-->>Desktop: Return results
+    
+    User->>Desktop: Create agent task
+    Desktop->>Agent: POST /api/v1/agents
+    Agent->>DB: Store agent state
+    Agent->>DB: Vector search (memory)
+    DB-->>Agent: Context results
+    Agent-->>Desktop: Agent response
+    
+    User->>MCP: MCP client request
+    MCP->>DB: Execute tool (vector search)
+    DB-->>MCP: Results
+    MCP-->>User: Tool response
 ```
 
 > [!NOTE]
@@ -393,7 +504,7 @@ neurondb.maintenance_work_mem = 256MB # Index build memory
 
 **Upgrade path:**
 ```sql
--- Check current version
+-- Check current extension version
 SELECT extversion FROM pg_extension WHERE extname = 'neurondb';
 
 -- Expected output: 2.0
@@ -401,13 +512,17 @@ SELECT extversion FROM pg_extension WHERE extname = 'neurondb';
 -- Upgrade to latest (if newer version available)
 ALTER EXTENSION neurondb UPDATE;
 
--- Verify upgrade
+-- Verify upgrade (returns JSONB with detailed version info)
 SELECT neurondb.version();
 ```
 
+> [!NOTE]
+> `SELECT extversion FROM pg_extension WHERE extname = 'neurondb';` returns the extension version as text (e.g., `2.0`).  
+> `SELECT neurondb.version();` returns a JSONB object with version, PostgreSQL version, and capabilities information.
+
 </details>
 
-For detailed installation instructions, see [`NeuronDB/INSTALL.md`](NeuronDB/INSTALL.md).
+For detailed installation instructions, see [`NeuronDB/install.md`](NeuronDB/install.md).
 
 #### Ecosystem Components (NeuronMCP, NeuronAgent, NeuronDesktop)
 
@@ -612,14 +727,24 @@ NeuronDB HNSW index building performance compared to pgvector:
 - **Index Parameters**: `m = 16`, `ef_construction = 200`
 - **Distance Metric**: L2 (Euclidean)
 
+**Performance Formula:**
+
+The speedup factor is calculated as:
+
+$$Speedup = \frac{Time_{pgvector}}{Time_{NeuronDB}}$$
+
+For throughput (vectors per second):
+
+$$Throughput = \frac{Vector\ Count}{Build\ Time\ (seconds)}$$
+
 **Results:**
 
-| Test Case | NeuronDB Optimized | pgvector | Speedup |
-|-----------|-------------------|----------|---------|
-| 50K vectors (128-dim L2) | 606ms (0.606s) ✅ | 6,108ms (6.108s) | **10.1x faster** |
-| 50K vectors (128-dim Cosine) | 583ms (0.583s) ✅ | 5,113ms (5.113s) | **8.8x faster** |
-| 10K vectors (768-dim L2) | 146ms (0.146s) ✅ | 3,960ms (3.960s) | **27.1x faster** |
-| 100K vectors (128-dim L2) | 1,208ms (1.208s) ✅ | 15,696ms (15.696s) | **13.0x faster** |
+| Test Case | NeuronDB Optimized | pgvector | Speedup | Throughput (NeuronDB) |
+|:---------|:------------------|:---------|:--------|:---------------------|
+| 50K vectors (128-dim L2) | 606ms (0.606s) ✅ | 6,108ms (6.108s) | **10.1×** | 82,508 vec/s |
+| 50K vectors (128-dim Cosine) | 583ms (0.583s) ✅ | 5,113ms (5.113s) | **8.8×** | 85,763 vec/s |
+| 10K vectors (768-dim L2) | 146ms (0.146s) ✅ | 3,960ms (3.960s) | **27.1×** | 68,493 vec/s |
+| 100K vectors (128-dim L2) | 1,208ms (1.208s) ✅ | 15,696ms (15.696s) | **13.0×** | 82,781 vec/s |
 
 **Optimizations Applied:**
 - ✅ In-memory graph building using `maintenance_work_mem`
