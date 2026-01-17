@@ -17,13 +17,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/neurondb/NeuronAgent/internal/auth"
 	"github.com/neurondb/NeuronAgent/internal/db"
+	"github.com/neurondb/NeuronAgent/internal/validation"
 )
 
 type SQLTool struct {
@@ -54,62 +54,21 @@ func (t *SQLTool) Execute(ctx context.Context, tool *db.Tool, args map[string]in
 			tool.Name, len(args), argKeys)
 	}
 
-	/* Security: Only allow SELECT, EXPLAIN, and schema introspection queries */
-	queryUpper := strings.TrimSpace(strings.ToUpper(query))
-	queryType := "UNKNOWN"
-	if strings.HasPrefix(queryUpper, "SELECT") {
-		queryType = "SELECT"
-	} else if strings.HasPrefix(queryUpper, "EXPLAIN") {
-		queryType = "EXPLAIN"
-	} else if strings.HasPrefix(queryUpper, "SHOW") {
-		queryType = "SHOW"
-	} else if strings.HasPrefix(queryUpper, "DESCRIBE") {
-		queryType = "DESCRIBE"
-	} else if strings.HasPrefix(queryUpper, "\\d") {
-		queryType = "DESCRIBE"
-	}
-
-	if queryType == "UNKNOWN" {
+	/* Security: Only allow SELECT, EXPLAIN, and schema introspection queries using centralized validator */
+	validationResult := validation.ValidateSQLQuery(query, validation.AllowReadOnly)
+	if !validationResult.Valid {
 		queryPreview := query
 		if len(queryPreview) > 100 {
 			queryPreview = queryPreview[:100] + "..."
 		}
-		return "", fmt.Errorf("SQL tool execution failed: tool_name='%s', handler_type='sql', query_type='%s', query_preview='%s', query_length=%d, validation_error='only SELECT, EXPLAIN, SHOW, and DESCRIBE queries are allowed'",
-			tool.Name, queryType, queryPreview, len(query))
-	}
-
-	/* Check for dangerous keywords - comprehensive list to prevent bypasses */
-	/* Include variations and subqueries that could be used to bypass restrictions */
-	dangerous := []string{
-		"DROP", "DELETE", "UPDATE", "INSERT", "ALTER", "CREATE", "TRUNCATE",
-		"INTO", "RETURNING", "EXEC", "EXECUTE", "CALL", "COPY", "GRANT", "REVOKE",
-		"BEGIN", "COMMIT", "ROLLBACK", "SAVEPOINT", "RELEASE",
-	}
-	var foundKeywords []string
-	for _, keyword := range dangerous {
-		/* Use word boundary matching to avoid false positives in strings/comments */
-		/* This is more accurate than simple Contains() but still not perfect */
-		/* For production, a proper SQL parser would be better */
-		pattern := "\\b" + keyword + "\\b"
-		matched, err := regexp.MatchString(pattern, queryUpper)
-		if err != nil {
-			/* If regex compilation fails, fall back to simple string contains check */
-			/* This should rarely happen with our simple patterns, but handle gracefully */
-			if strings.Contains(queryUpper, " "+keyword+" ") {
-				foundKeywords = append(foundKeywords, keyword)
-			}
-		} else if matched {
-			foundKeywords = append(foundKeywords, keyword)
+		var forbiddenKeywordsStr string
+		if len(validationResult.ForbiddenKeywords) > 0 {
+			forbiddenKeywordsStr = fmt.Sprintf(", forbidden_keywords=[%v]", validationResult.ForbiddenKeywords)
 		}
+		return "", fmt.Errorf("SQL tool execution failed: tool_name='%s', handler_type='sql', query_type='%s', query_preview='%s', query_length=%d%s, validation_error='%v'",
+			tool.Name, validationResult.QueryType, queryPreview, len(query), forbiddenKeywordsStr, validationResult.Error)
 	}
-	if len(foundKeywords) > 0 {
-		queryPreview := query
-		if len(queryPreview) > 100 {
-			queryPreview = queryPreview[:100] + "..."
-		}
-		return "", fmt.Errorf("SQL tool execution failed: tool_name='%s', handler_type='sql', query_type='%s', query_preview='%s', query_length=%d, forbidden_keywords=[%v], validation_error='query contains forbidden keywords'",
-			tool.Name, queryType, queryPreview, len(query), foundKeywords)
-	}
+	queryType := validationResult.QueryType
 
 	/* Execute query (read-only) */
 	if t.db == nil {
@@ -264,6 +223,7 @@ func (t *SQLTool) Execute(ctx context.Context, tool *db.Tool, args map[string]in
 			sessionIDPtr = &sessionID
 		}
 
+		/* Ignore audit logging errors - audit logging failures should not block SQL tool execution */
 		_ = t.auditLogger.LogSQLStatement(bgCtx, nil, nil, agentIDPtr, sessionIDPtr, query, args, outputs)
 	}()
 

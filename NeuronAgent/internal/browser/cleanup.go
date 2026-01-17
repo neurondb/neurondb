@@ -121,5 +121,6 @@ func (w *CleanupWorker) cleanup() {
 		AND created_at < $1
 	`
 
+	/* Ignore errors from screenshot cleanup - this is a non-critical maintenance operation */
 	_, _ = w.db.ExecContext(ctx, screenshotQuery, cutoffTime)
 }

@@ -29,6 +29,7 @@ import (
 	"github.com/neurondb/NeuronAgent/internal/db"
 	"github.com/neurondb/NeuronAgent/internal/metrics"
 	"github.com/neurondb/NeuronAgent/internal/notifications"
+	"github.com/neurondb/NeuronAgent/internal/validation"
 )
 
 type Engine struct {
@@ -185,6 +186,7 @@ func (e *Engine) ExecuteWorkflow(ctx context.Context, workflowID uuid.UUID, trig
 			execution.Status = "failed"
 			errorMsg := err.Error()
 			execution.ErrorMessage = &errorMsg
+			/* Ignore update errors - workflow is already in failed state, error is returned to caller */
 			_ = e.queries.UpdateWorkflowExecution(ctx, execution)
 			return nil, fmt.Errorf("step execution failed: step_name='%s', error=%w", step.StepName, err)
 		}
@@ -556,21 +558,9 @@ func (e *Engine) executeSQLStep(ctx context.Context, step *db.WorkflowStep, inpu
 		return nil, fmt.Errorf("query is required and must be a string")
 	}
 
-	/* Validate query - only allow SELECT, EXPLAIN, SHOW, DESCRIBE */
-	queryUpper := strings.TrimSpace(strings.ToUpper(query))
-	if !strings.HasPrefix(queryUpper, "SELECT") &&
-		!strings.HasPrefix(queryUpper, "EXPLAIN") &&
-		!strings.HasPrefix(queryUpper, "SHOW") &&
-		!strings.HasPrefix(queryUpper, "DESCRIBE") {
-		return nil, fmt.Errorf("only SELECT, EXPLAIN, SHOW, and DESCRIBE queries are allowed")
-	}
-
-	/* Check for dangerous keywords */
-	dangerous := []string{"DROP", "DELETE", "UPDATE", "INSERT", "ALTER", "CREATE", "TRUNCATE"}
-	for _, keyword := range dangerous {
-		if strings.Contains(queryUpper, " "+keyword+" ") {
-			return nil, fmt.Errorf("query contains forbidden keyword: %s", keyword)
-		}
+	/* Validate query using centralized validator - only allow SELECT, EXPLAIN, SHOW, DESCRIBE */
+	if err := validation.ValidateSQLQuerySimple(query, validation.AllowReadOnly); err != nil {
+		return nil, fmt.Errorf("SQL query validation failed: %w", err)
 	}
 
 	/* Execute query */

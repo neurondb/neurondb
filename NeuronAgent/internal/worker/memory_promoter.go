@@ -54,14 +54,16 @@ func (m *MemoryPromoter) Start(ctx context.Context) error {
 			/* Run promotion cycle */
 			err := m.runPromotionCycle(ctx)
 			if err != nil {
-				/* Log error but continue - silently handle */
+				/* Ignore promotion cycle errors - worker should continue processing */
+				/* Errors are logged by the runPromotionCycle function internally */
 				_ = err
 			}
 
 			/* Run cleanup */
 			_, err = m.hierMemory.CleanupExpired(ctx)
 			if err != nil {
-				/* Silently handle cleanup errors */
+				/* Ignore cleanup errors - cleanup failures should not stop the worker */
+				/* Will retry on next cycle */
 				_ = err
 			}
 		}
@@ -128,7 +130,8 @@ func (m *MemoryPromoter) promoteSTMToMTM(ctx context.Context) error {
 
 		_, err := m.hierMemory.PromoteToMTM(ctx, agentID, stmIDs, topic)
 		if err != nil {
-			/* Log error but continue with other agents - silently handle */
+			/* Ignore promotion errors for individual agents - continue processing other agents */
+			/* Promotion failures are non-fatal and will be retried on next cycle */
 			_ = err
 			continue
 		}
@@ -180,7 +183,8 @@ func (m *MemoryPromoter) promoteMTMToLPM(ctx context.Context) error {
 		category := agentCategories[agentID]
 		_, err := m.hierMemory.PromoteToLPM(ctx, agentID, mtmIDs, category, nil)
 		if err != nil {
-			/* Log error but continue with other agents - silently handle */
+			/* Ignore promotion errors for individual agents - continue processing other agents */
+			/* Promotion failures are non-fatal and will be retried on next cycle */
 			_ = err
 			continue
 		}

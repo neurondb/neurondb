@@ -52,7 +52,8 @@ def test_agent(agent_manager):
     # Cleanup
     try:
         agent_manager.delete(agent['id'])
-    except:
+    except Exception:
+        # Cleanup failures are non-critical, ignore silently
         pass
 
 
@@ -197,6 +198,8 @@ class TestIntegration:
         # Note: May require workspace setup
         # This test verifies the manager can be instantiated
         assert collab_mgr is not None
+
+
 
 
 

@@ -166,7 +166,8 @@ class NeuronAgentClient:
                 try:
                     error_data = response.json()
                     error_msg = error_data.get('error', 'Request failed')
-                except:
+                except (ValueError, TypeError):
+                    # JSON parsing failed, use text response
                     error_msg = response.text or 'Request failed'
                 raise ServerError(response.status_code, error_msg)
             

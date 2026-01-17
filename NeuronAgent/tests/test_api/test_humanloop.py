@@ -9,6 +9,6 @@ class TestHumanLoop:
         try:
             response = api_client.get("/api/v1/approvals")
             assert isinstance(response, (list, dict))
-        except:
+        except Exception:
             pytest.skip("HumanLoop API not available")
 

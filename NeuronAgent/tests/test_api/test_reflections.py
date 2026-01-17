@@ -9,6 +9,6 @@ class TestReflections:
         try:
             response = api_client.get(f"/api/v1/sessions/{test_session['id']}/reflections")
             assert isinstance(response, (list, dict))
-        except:
+        except Exception:
             pytest.skip("Reflections API not available")
 

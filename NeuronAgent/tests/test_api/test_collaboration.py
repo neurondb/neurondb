@@ -9,6 +9,6 @@ class TestCollaboration:
         try:
             response = api_client.get("/api/v1/collaborations")
             assert isinstance(response, (list, dict))
-        except:
+        except Exception:
             pytest.skip("Collaboration API not available")
 

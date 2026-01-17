@@ -1,5 +1,24 @@
 # NeuronAgent API Documentation
 
+## Table of Contents
+
+- [Base URL](#base-url)
+- [OpenAPI Specification](#openapi-specification)
+- [Authentication](#authentication)
+- [Endpoints](#endpoints)
+  - [Agents](#agents)
+  - [Sessions](#sessions)
+  - [Messages](#messages)
+  - [Workflows](#workflows)
+  - [Plans](#plans)
+  - [Budgets](#budgets)
+  - [Collaborations](#collaborations)
+  - [Tools](#tools)
+  - [Memory](#memory)
+  - [WebSocket](#websocket)
+- [Error Handling](#error-handling)
+- [Rate Limiting](#rate-limiting)
+
 ## Base URL
 
 ```
@@ -319,3 +338,10 @@ DELETE /api/v1/agents/{agent_id}/specialization
 
 For complete API documentation including all endpoints, request/response schemas, and examples, see the [OpenAPI specification](../openapi/openapi.yaml).
 
+---
+
+<div align="center">
+
+[⬆ Back to Top](#neuronagent-api-documentation)
+
+</div>

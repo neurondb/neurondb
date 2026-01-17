@@ -35,3 +35,5 @@ CREATE INDEX IF NOT EXISTS idx_tool_versions_deprecated ON neurondb_agent.tool_v
 COMMENT ON TABLE neurondb_agent.tool_versions IS 'Tool versioning with migration support';
 
 
+
+

@@ -9,6 +9,6 @@ class TestAnalytics:
         try:
             response = api_client.get("/api/v1/analytics/overview")
             assert isinstance(response, dict)
-        except:
+        except Exception:
             pytest.skip("Analytics API not available")
 

@@ -9,6 +9,6 @@ class TestWorkflows:
         try:
             response = api_client.get("/api/v1/workflows")
             assert isinstance(response, (list, dict))
-        except:
+        except Exception:
             pytest.skip("Workflow API not available")
 
