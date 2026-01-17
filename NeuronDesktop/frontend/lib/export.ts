@@ -78,7 +78,7 @@ export function exportToPDF(data: any[], filename = 'export.pdf') {
   window.open(url, '_blank')
   
   // Note: This is a simplified PDF export. For production, use a proper PDF library
-  console.warn('PDF export opened in new window. For proper PDF generation, use a library like jsPDF.')
+  // Logged via logger if needed - this is an informational message, not an error
 }
 
 export function exportData(data: any[], options: ExportOptions) {
@@ -98,5 +98,7 @@ export function exportData(data: any[], options: ExportOptions) {
       throw new Error(`Unsupported export format: ${options.format}`)
   }
 }
+
+
 
 

@@ -16,15 +16,18 @@ import (
 
 /* Client wraps an MCP server process and provides JSON-RPC communication */
 type Client struct {
-	cmd      *exec.Cmd
-	stdin    io.WriteCloser
-	stdout   *bufio.Reader
-	stderr   io.ReadCloser
-	mu       sync.Mutex
-	requests map[string]chan *JSONRPCResponse
-	nextID   int64
-	ctx      context.Context
-	cancel   context.CancelFunc
+	cmd         *exec.Cmd
+	stdin       io.WriteCloser
+	stdout      *bufio.Reader
+	stdoutPipe  io.ReadCloser /* Keep reference to underlying pipe for cleanup */
+	stderr      io.ReadCloser
+	mu          sync.Mutex
+	requests    map[string]chan *JSONRPCResponse
+	nextID      int64
+	ctx         context.Context
+	cancel      context.CancelFunc
+	closed      bool
+	closeMu     sync.Mutex
 }
 
 /* MCPConfig defines how to spawn an MCP server */
@@ -51,7 +54,7 @@ func NewClient(config MCPConfig) (*Client, error) {
 		return nil, fmt.Errorf("failed to create stdin pipe: %w", err)
 	}
 
-	stdout, err := cmd.StdoutPipe()
+	stdoutPipe, err := cmd.StdoutPipe()
 	if err != nil {
 		cancel()
 		stdin.Close()
@@ -62,22 +65,27 @@ func NewClient(config MCPConfig) (*Client, error) {
 	if err != nil {
 		cancel()
 		stdin.Close()
+		stdoutPipe.Close()
 		return nil, fmt.Errorf("failed to create stderr pipe: %w", err)
 	}
 
 	client := &Client{
-		cmd:      cmd,
-		stdin:    stdin,
-		stdout:   bufio.NewReader(stdout),
-		stderr:   stderr,
-		requests: make(map[string]chan *JSONRPCResponse),
-		ctx:      ctx,
-		cancel:   cancel,
+		cmd:        cmd,
+		stdin:      stdin,
+		stdout:     bufio.NewReader(stdoutPipe),
+		stdoutPipe: stdoutPipe,
+		stderr:     stderr,
+		requests:   make(map[string]chan *JSONRPCResponse),
+		ctx:        ctx,
+		cancel:     cancel,
+		closed:     false,
 	}
 
 	if err := cmd.Start(); err != nil {
 		cancel()
 		stdin.Close()
+		stdoutPipe.Close()
+		stderr.Close()
 		return nil, fmt.Errorf("failed to start MCP server: %w", err)
 	}
 
@@ -96,6 +104,13 @@ func NewClient(config MCPConfig) (*Client, error) {
 
 /* readStderr reads from stderr to prevent pipe blocking */
 func (c *Client) readStderr() {
+	defer func() {
+		/* Ensure stderr is closed when goroutine exits */
+		if c.stderr != nil {
+			c.stderr.Close()
+		}
+	}()
+
 	buf := make([]byte, 4096)
 	for {
 		select {
@@ -105,6 +120,13 @@ func (c *Client) readStderr() {
 			n, err := c.stderr.Read(buf)
 			if err != nil {
 				if err == io.EOF {
+					return
+				}
+				/* Check if we're closed */
+				c.closeMu.Lock()
+				closed := c.closed
+				c.closeMu.Unlock()
+				if closed {
 					return
 				}
 				return
@@ -239,6 +261,13 @@ func (c *Client) Notify(method string, params interface{}) error {
 
 /* readResponses reads JSON-RPC responses from stdout */
 func (c *Client) readResponses() {
+	defer func() {
+		/* Ensure stdout pipe is closed when goroutine exits */
+		if c.stdoutPipe != nil {
+			c.stdoutPipe.Close()
+		}
+	}()
+
 	for {
 		/* Check context cancellation */
 		select {
@@ -260,6 +289,13 @@ func (c *Client) readResponses() {
 			line, err := c.stdout.ReadString('\n')
 			if err != nil {
 				if err == io.EOF {
+					return
+				}
+				/* Check if we're closed */
+				c.closeMu.Lock()
+				closed := c.closed
+				c.closeMu.Unlock()
+				if closed {
 					return
 				}
 				c.mu.Lock()
@@ -471,16 +507,52 @@ func (c *Client) CreateMessage(messages []map[string]interface{}, model string, 
 
 /* Close shuts down the MCP client and process */
 func (c *Client) Close() error {
+	c.closeMu.Lock()
+	if c.closed {
+		c.closeMu.Unlock()
+		return nil
+	}
+	c.closed = true
+	c.closeMu.Unlock()
+
+	/* Cancel context to signal goroutines to stop */
 	c.cancel()
 
+	/* Close stdin first to signal the process to stop */
 	if c.stdin != nil {
 		c.stdin.Close()
 	}
 
+	/* Close stdout pipe */
+	if c.stdoutPipe != nil {
+		c.stdoutPipe.Close()
+	}
+
+	/* Close stderr pipe */
+	if c.stderr != nil {
+		c.stderr.Close()
+	}
+
+	/* Wait for goroutines to finish (with timeout) */
+	done := make(chan struct{})
+	go func() {
+		/* Give goroutines a moment to finish */
+		time.Sleep(100 * time.Millisecond)
+		close(done)
+	}()
+
+	/* Signal process to stop */
 	if c.cmd != nil && c.cmd.Process != nil {
 		c.cmd.Process.Signal(os.Interrupt)
-		time.Sleep(100 * time.Millisecond)
-		c.cmd.Process.Kill()
+		select {
+		case <-done:
+		case <-time.After(100 * time.Millisecond):
+		}
+
+		/* If process is still running, kill it */
+		if c.cmd.ProcessState == nil || !c.cmd.ProcessState.Exited() {
+			c.cmd.Process.Kill()
+		}
 		c.cmd.Wait()
 	}
 

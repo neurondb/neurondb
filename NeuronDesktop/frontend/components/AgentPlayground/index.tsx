@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { agentAPI, profilesAPI, type Profile, type Agent, type CreateAgentRequest } from '@/lib/api'
+import { logger } from '@/lib/logger'
 import { ChatBubbleLeftRightIcon, PaperAirplaneIcon, ArrowPathIcon, XMarkIcon } from '@/components/Icons'
 import MarkdownContent from '@/components/MarkdownContent'
 
@@ -54,7 +55,7 @@ export default function AgentPlayground({ agentId, onClose }: AgentPlaygroundPro
         setSelectedProfile(defaultProfile ? defaultProfile.id : response.data[0].id)
       }
     } catch (error) {
-      console.error('Failed to load profiles:', error)
+      logger.error('Failed to load profiles', error)
     }
   }, [selectedProfile])
 
@@ -65,8 +66,9 @@ export default function AgentPlayground({ agentId, onClose }: AgentPlaygroundPro
       setSessionId(response.data.id)
       setMessages([])
     } catch (error) {
-      console.error('Failed to create session:', error)
-      alert('Failed to create session: ' + (error as any).message)
+      logger.error('Failed to create session', error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      alert('Failed to create session: ' + errorMessage)
     }
   }, [selectedProfile])
 
@@ -83,7 +85,7 @@ export default function AgentPlayground({ agentId, onClose }: AgentPlaygroundPro
         }
       }
     } catch (error) {
-      console.error('Failed to load agents:', error)
+      logger.error('Failed to load agents', error)
     }
   }, [selectedProfile, agentId, createSession])
 
@@ -164,7 +166,7 @@ export default function AgentPlayground({ agentId, onClose }: AgentPlaygroundPro
             setStreamingContent((prev) => prev + (data.content || ''))
           } else if (data.type === 'tool_call') {
             // Handle tool calls
-            console.log('Tool call:', data)
+            logger.debug('Tool call received', { tool: data.tool, input: data.input })
           } else if (data.type === 'done') {
             setStreaming(false)
             setLoading(false)
@@ -181,7 +183,7 @@ export default function AgentPlayground({ agentId, onClose }: AgentPlaygroundPro
             ws.close()
           }
         } catch (error) {
-          console.error('Failed to parse WebSocket message:', error)
+          logger.error('Failed to parse WebSocket message', error)
         }
       }
 
@@ -212,12 +214,13 @@ export default function AgentPlayground({ agentId, onClose }: AgentPlaygroundPro
       }
 
       setMessages((prev) => [...prev, assistantMessage])
-    } catch (error: any) {
-      console.error('Failed to send message:', error)
+    } catch (error: unknown) {
+      logger.error('Failed to send message', error)
+      const errorObj = error as { response?: { data?: { error?: string } }, message?: string }
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'system',
-        content: `Error: ${error.response?.data?.error || error.message || 'Failed to send message'}`,
+        content: `Error: ${errorObj.response?.data?.error || errorObj.message || 'Failed to send message'}`,
         timestamp: new Date(),
       }
       setMessages((prev) => [...prev, errorMessage])

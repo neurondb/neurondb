@@ -11,6 +11,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/neurondb/NeuronDesktop/api/internal/agent"
 	"github.com/neurondb/NeuronDesktop/api/internal/db"
+	"github.com/neurondb/NeuronDesktop/api/internal/logging"
 )
 
 /* AgentHandlers handles NeuronAgent proxy endpoints */
@@ -19,6 +20,7 @@ type AgentHandlers struct {
 	clients    map[string]*agent.Client
 	mu         sync.RWMutex
 	corsConfig *CORSConfig
+	logger     *logging.Logger
 }
 
 /* GetQueries returns the queries instance (for use in websocket handler) */
@@ -34,6 +36,7 @@ func NewAgentHandlers(queries *db.Queries) *AgentHandlers {
 		corsConfig: &CORSConfig{
 			AllowedOrigins: []string{"*"}, /* Default to allow all */
 		},
+		logger: nil, /* Will be set via SetLogger if needed */
 	}
 }
 
@@ -42,6 +45,11 @@ func (h *AgentHandlers) SetCORSConfig(allowedOrigins []string) {
 	h.corsConfig = &CORSConfig{
 		AllowedOrigins: allowedOrigins,
 	}
+}
+
+/* SetLogger sets the logger for Agent handlers */
+func (h *AgentHandlers) SetLogger(logger *logging.Logger) {
+	h.logger = logger
 }
 
 /* InvalidateClient removes and closes a client for a profile */
