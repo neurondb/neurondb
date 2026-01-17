@@ -660,7 +660,7 @@ write_config_header() {
 #ifndef NEURONDB_CONFIG_H
 #define NEURONDB_CONFIG_H
 
-#define NEURONDB_VERSION "1.0"
+#define NEURONDB_VERSION "2.1.0"
 #define NEURONDB_BUILD_DATE "${build_date}"
 #define NEURONDB_PLATFORM_${platform_upper} 1
 #define NEURONDB_PG_VERSION ${pg_major}

@@ -25,7 +25,7 @@ import sys
 from pathlib import Path
 
 # Version
-__version__ = "2.0.0"
+__version__ = "2.1.0"
 
 # Import all functions from the original neurondb_gen_dataset.py
 # We'll import it as a module

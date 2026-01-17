@@ -15,7 +15,7 @@
 
 MODULE_big = neurondb
 EXTENSION = neurondb
-DATA = neurondb--1.0.sql neurondb--2.0.sql neurondb--1.0--2.0.sql
+DATA = neurondb--1.0.sql neurondb--2.0.sql neurondb--2.1.0.sql neurondb--1.0--2.0.sql neurondb--2.0--2.1.0.sql
 DOCS = README.md
 
 PG_CPPFLAGS += -I$(srcdir)/include
@@ -54,7 +54,8 @@ OBJS += \
 	src/index/index_tuning.o \
 	src/index/index_validator.o \
 	src/index/index_cache.o \
-	src/index/sparse_index.o
+	src/index/sparse_index.o \
+	src/index/index_replication.o
 
 # Scan nodes
 OBJS += \
@@ -196,6 +197,14 @@ OBJS += \
 OBJS += \
 	src/storage/ann_buffer.o \
 	src/storage/buffer.o
+
+# Backup and replication
+OBJS += \
+	src/backup/vector_backup.o
+
+# Cache
+OBJS += \
+	src/cache/query_cache.o
 
 # Multi-tenancy
 OBJS += \

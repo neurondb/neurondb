@@ -37,6 +37,14 @@ extern Datum vector_l2_distance_gpu(PG_FUNCTION_ARGS);
 extern Datum vector_cosine_distance_gpu(PG_FUNCTION_ARGS);
 extern Datum vector_inner_product_gpu(PG_FUNCTION_ARGS);
 
+/* Correlation-based distance functions */
+extern Datum vector_pearson_correlation(PG_FUNCTION_ARGS);
+extern Datum vector_weighted_distance(PG_FUNCTION_ARGS);
+
+/* Information-theoretic distance functions */
+extern Datum vector_kl_divergence(PG_FUNCTION_ARGS);
+extern Datum vector_js_divergence(PG_FUNCTION_ARGS);
+
 /* Operator class comparison functions */
 extern Datum vector_l2_less(PG_FUNCTION_ARGS);
 extern Datum vector_l2_less_equal(PG_FUNCTION_ARGS);

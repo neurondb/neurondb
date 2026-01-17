@@ -24,6 +24,7 @@
 #include "postgres.h"
 #include "neurondb.h"
 #include "neurondb_types.h"
+#include "neurondb_replication.h"
 #include "fmgr.h"
 
 /* Forward declaration for fp16_to_float from quantization.c */
@@ -1290,6 +1291,14 @@ hnswinsert(Relation index,
 
 	MarkBufferDirty(metaBuffer);
 	UnlockReleaseBuffer(metaBuffer);
+
+	/* Call replication hook if replication is enabled */
+	/* Note: Block number tracking would be added in full implementation */
+	if (neurondb_replication_enabled())
+	{
+		/* In full implementation, track the inserted block number */
+		neurondb_hnsw_replication_hook(index, InvalidBlockNumber, true);
+	}
 
 	pfree(vectorData);
 
@@ -5483,6 +5492,12 @@ hnswdelete(Relation index,
 
 	UnlockReleaseBuffer(nodeBuf);
 	UnlockReleaseBuffer(metaBuffer);
+
+	/* Call replication hook if replication is enabled */
+	if (neurondb_replication_enabled())
+	{
+		neurondb_hnsw_replication_hook(index, nodeBlkno, false);
+	}
 
 	return true;
 }

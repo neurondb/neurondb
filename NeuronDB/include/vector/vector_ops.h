@@ -37,4 +37,25 @@ extern Datum vector_to_int8_gpu(PG_FUNCTION_ARGS);
 extern Datum vector_to_fp16_gpu(PG_FUNCTION_ARGS);
 extern Datum vector_to_binary_gpu(PG_FUNCTION_ARGS);
 
+/* Advanced mathematical operations */
+extern Datum vector_exp(PG_FUNCTION_ARGS);
+extern Datum vector_log(PG_FUNCTION_ARGS);
+extern Datum vector_log10(PG_FUNCTION_ARGS);
+extern Datum vector_sin(PG_FUNCTION_ARGS);
+extern Datum vector_cos(PG_FUNCTION_ARGS);
+extern Datum vector_tan(PG_FUNCTION_ARGS);
+extern Datum vector_asin(PG_FUNCTION_ARGS);
+extern Datum vector_acos(PG_FUNCTION_ARGS);
+extern Datum vector_atan(PG_FUNCTION_ARGS);
+extern Datum vector_sinh(PG_FUNCTION_ARGS);
+extern Datum vector_cosh(PG_FUNCTION_ARGS);
+extern Datum vector_tanh(PG_FUNCTION_ARGS);
+extern Datum vector_erf(PG_FUNCTION_ARGS);
+extern Datum vector_erfc(PG_FUNCTION_ARGS);
+
+/* Advanced statistical functions */
+extern Datum vector_skewness(PG_FUNCTION_ARGS);
+extern Datum vector_kurtosis(PG_FUNCTION_ARGS);
+extern Datum vector_entropy(PG_FUNCTION_ARGS);
+
 #endif							/* VECTOR_OPS_H */
