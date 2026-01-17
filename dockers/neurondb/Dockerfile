@@ -191,7 +191,8 @@ RUN chmod +x /usr/local/bin/docker-entrypoint-neurondb.sh && \
     chown root:root /usr/local/bin/docker-entrypoint-neurondb.sh
 
 # Copy NeuronMCP SQL files for auto-setup
-COPY NeuronMCP/sql/ /docker-entrypoint-initdb.d/neurondb_mcp/
+RUN mkdir -p /docker-entrypoint-initdb.d/neurondb_mcp
+COPY NeuronMCP/neuron-mcp.sql /docker-entrypoint-initdb.d/neurondb_mcp/neuron-mcp.sql
 
 # Copy NeuronAgent migration files for auto-setup
 COPY NeuronAgent/sql/ /docker-entrypoint-initdb.d/neurondb_agent/
