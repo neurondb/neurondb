@@ -37,6 +37,7 @@ type IdempotencyCache struct {
 	ttl     time.Duration
 	cleanupInterval time.Duration
 	stopCleanup     chan struct{}
+	closeOnce       sync.Once /* Ensure Close() is only called once */
 }
 
 /* NewIdempotencyCache creates a new idempotency cache */
@@ -143,9 +144,19 @@ func (c *IdempotencyCache) cleanupExpired() {
 }
 
 /* Close stops the cleanup goroutine and clears the cache */
+/* Safe to call multiple times - uses sync.Once to ensure cleanup only happens once */
 func (c *IdempotencyCache) Close() {
-	close(c.stopCleanup)
-	c.Clear()
+	c.closeOnce.Do(func() {
+		/* Stop the cleanup goroutine */
+		select {
+		case <-c.stopCleanup:
+			/* Channel already closed */
+		default:
+			close(c.stopCleanup)
+		}
+		/* Clear the cache */
+		c.Clear()
+	})
 }
 
 /* Size returns the number of entries in the cache */

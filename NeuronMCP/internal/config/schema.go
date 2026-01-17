@@ -17,12 +17,15 @@ import "time"
 
 /* ServerConfig is the root configuration structure */
 type ServerConfig struct {
-	Database DatabaseConfig `json:"database"`
-	Server   ServerSettings `json:"server"`
-	Logging  LoggingConfig  `json:"logging"`
-	Features FeaturesConfig `json:"features"`
-	Plugins  []PluginConfig `json:"plugins,omitempty"`
-	Middleware []MiddlewareConfig `json:"middleware,omitempty"`
+	Database      DatabaseConfig      `json:"database"`
+	Server        ServerSettings      `json:"server"`
+	Logging       LoggingConfig       `json:"logging"`
+	Features      FeaturesConfig      `json:"features"`
+	Safety        *SafetyConfig       `json:"safety,omitempty"`
+	Observability *ObservabilityConfig `json:"observability,omitempty"`
+	Reliability   *ReliabilityConfig  `json:"reliability,omitempty"`
+	Plugins       []PluginConfig      `json:"plugins,omitempty"`
+	Middleware    []MiddlewareConfig  `json:"middleware,omitempty"`
 }
 
 /* DatabaseConfig holds database connection configuration */
@@ -191,6 +194,28 @@ type MiddlewareConfig struct {
 	Config   map[string]interface{} `json:"config,omitempty"`
 }
 
+/* SafetyConfig holds safety mode configuration */
+type SafetyConfig struct {
+	DefaultMode       string   `json:"defaultMode"` // "read_only", "read_write", "allowlist"
+	AllowWriteAccess  bool     `json:"allowWriteAccess"`
+	StatementAllowlist []string `json:"statementAllowlist,omitempty"`
+}
+
+/* ObservabilityConfig holds observability configuration */
+type ObservabilityConfig struct {
+	EnableTracing     bool   `json:"enableTracing"`
+	TracingEndpoint   string `json:"tracingEndpoint,omitempty"`
+	EnableRequestIDs  bool   `json:"enableRequestIDs"`
+}
+
+/* ReliabilityConfig holds reliability configuration */
+type ReliabilityConfig struct {
+	DefaultTimeout int            `json:"defaultTimeout"` // seconds
+	ToolTimeouts   map[string]int `json:"toolTimeouts,omitempty"`
+	EnableRetries   bool           `json:"enableRetries"`
+	MaxRetries      int            `json:"maxRetries"`
+}
+
 /* Helper methods for getting values with defaults */
 
 func (c *DatabaseConfig) GetHost() string {
@@ -288,3 +313,37 @@ func (h *HTTPTransportConfig) GetAddress() string {
 	return ":8080"
 }
 
+/* GetSafetyConfig returns safety configuration with defaults */
+func (c *ServerConfig) GetSafetyConfig() *SafetyConfig {
+	if c.Safety != nil {
+		return c.Safety
+	}
+	/* Default: read-only mode */
+	return &SafetyConfig{
+		DefaultMode:      "read_only",
+		AllowWriteAccess: false,
+	}
+}
+
+/* GetObservabilityConfig returns observability configuration with defaults */
+func (c *ServerConfig) GetObservabilityConfig() *ObservabilityConfig {
+	if c.Observability != nil {
+		return c.Observability
+	}
+	return &ObservabilityConfig{
+		EnableTracing:    false,
+		EnableRequestIDs: true, /* Enabled by default */
+	}
+}
+
+/* GetReliabilityConfig returns reliability configuration with defaults */
+func (c *ServerConfig) GetReliabilityConfig() *ReliabilityConfig {
+	if c.Reliability != nil {
+		return c.Reliability
+	}
+	return &ReliabilityConfig{
+		DefaultTimeout: 60, /* 60 seconds default */
+		EnableRetries:  false,
+		MaxRetries:     3,
+	}
+}

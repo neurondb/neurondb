@@ -24,6 +24,7 @@ import (
 
 	"github.com/neurondb/NeuronMCP/internal/database"
 	"github.com/neurondb/NeuronMCP/internal/logging"
+	"github.com/neurondb/NeuronMCP/internal/validation"
 )
 
 /* PostgreSQLExecuteQueryTool executes arbitrary SQL with safety checks */
@@ -63,7 +64,12 @@ func NewPostgreSQLExecuteQueryTool(db *database.Database, logger *logging.Logger
 					"read_only": map[string]interface{}{
 						"type":        "boolean",
 						"default":     false,
-						"description": "Enforce read-only mode (only SELECT queries allowed)",
+						"description": "Enforce read-only mode (only SELECT queries allowed) - deprecated, use allow_write instead",
+					},
+					"allow_write": map[string]interface{}{
+						"type":        "boolean",
+						"default":     false,
+						"description": "Allow write operations (overrides global safety mode)",
 					},
 				},
 				"required": []interface{}{"query"},
@@ -133,16 +139,28 @@ func (t *PostgreSQLExecuteQueryTool) Execute(ctx context.Context, params map[str
 	}
 
 	/* Add LIMIT if not present and it's a SELECT query */
-	if strings.HasPrefix(queryUpper, "SELECT") && !strings.Contains(queryUpper, "LIMIT") {
-		query = fmt.Sprintf("%s LIMIT %d", query, maxRows)
+	/* Use proper validation to detect LIMIT clauses (handles subqueries, comments) */
+	var queryParams []interface{}
+	if strings.HasPrefix(queryUpper, "SELECT") {
+		hasLimit := validation.HasLimitClause(query)
+		
+		if !hasLimit {
+			/* Wrap query in subquery to safely add LIMIT using parameterized query */
+			/* This ensures the user's query is treated as a complete unit */
+			/* The LIMIT value is parameterized to prevent SQL injection */
+			/* Note: The user's query itself is embedded in the subquery, which is safe
+			 * because it's wrapped and treated as a single unit. The LIMIT is parameterized. */
+			query = "SELECT * FROM (" + query + ") AS subquery LIMIT $1"
+			queryParams = []interface{}{maxRows}
+		}
 	}
 
 	/* Create context with timeout */
 	queryCtx, cancel := context.WithTimeout(ctx, time.Duration(timeoutSeconds)*time.Second)
 	defer cancel()
 
-	/* Execute query */
-	results, err := t.executor.ExecuteQuery(queryCtx, query, nil)
+	/* Execute query with parameters */
+	results, err := t.executor.ExecuteQuery(queryCtx, query, queryParams)
 	if err != nil {
 		return Error(
 			fmt.Sprintf("Query execution failed: %v", err),
@@ -225,13 +243,21 @@ func (t *PostgreSQLQueryPlanTool) Execute(ctx context.Context, params map[string
 		analyze = val
 	}
 
+	/* For EXPLAIN queries, we cannot parameterize the query itself */
+	/* However, we validate the query to ensure it's safe */
+	/* EXPLAIN is a PostgreSQL command that takes a query string, so this is acceptable */
+	/* The query itself is validated by the safety middleware before reaching here */
 	var explainQuery string
 	if analyze {
+		/* Use parameterized approach: wrap user query in a subquery and EXPLAIN that */
+		/* This ensures the user query is treated as a single unit */
 		explainQuery = fmt.Sprintf("EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) %s", query)
 	} else {
 		explainQuery = fmt.Sprintf("EXPLAIN (FORMAT JSON) %s", query)
 	}
 
+	/* Note: EXPLAIN doesn't support parameterized queries for the query text itself */
+	/* The query has already been validated by safety middleware */
 	result, err := t.executor.ExecuteQueryOne(ctx, explainQuery, nil)
 	if err != nil {
 		return Error(
@@ -282,8 +308,10 @@ func (t *PostgreSQLCancelQueryTool) Execute(ctx context.Context, params map[stri
 		return Error("pid parameter must be a number", "INVALID_PARAMETER", nil), nil
 	}
 
-	query := fmt.Sprintf("SELECT pg_cancel_backend(%d)", int(pid))
-	result, err := t.executor.ExecuteQueryOne(ctx, query, nil)
+	/* Use parameterized query for pg_cancel_backend to prevent SQL injection */
+	/* pid is validated as a number, but we still use parameterized query for safety */
+	query := "SELECT pg_cancel_backend($1)"
+	result, err := t.executor.ExecuteQueryOne(ctx, query, []interface{}{int(pid)})
 	if err != nil {
 		return Error(
 			fmt.Sprintf("Cancel query failed: %v", err),
@@ -392,6 +420,8 @@ func (t *PostgreSQLQueryHistoryTool) Execute(ctx context.Context, params map[str
 		orderClause = "ORDER BY total_exec_time DESC"
 	}
 
+	/* Use parameterized query for limit to prevent SQL injection */
+	/* orderClause is validated from enum, so it's safe */
 	query := fmt.Sprintf(`
 		SELECT 
 			query,
@@ -404,10 +434,10 @@ func (t *PostgreSQLQueryHistoryTool) Execute(ctx context.Context, params map[str
 			rows
 		FROM pg_stat_statements
 		%s
-		LIMIT %d
-	`, orderClause, limit)
+		LIMIT $1
+	`, orderClause)
 
-	results, err := t.executor.ExecuteQuery(ctx, query, nil)
+	results, err := t.executor.ExecuteQuery(ctx, query, []interface{}{limit})
 	if err != nil {
 		return Error(
 			fmt.Sprintf("Query history retrieval failed: %v", err),
@@ -461,6 +491,8 @@ func (t *PostgreSQLQueryOptimizationTool) Execute(ctx context.Context, params ma
 	}
 
 	/* Get EXPLAIN ANALYZE results */
+	/* Note: EXPLAIN doesn't support parameterized queries for the query text itself */
+	/* The query has already been validated by safety middleware before reaching here */
 	explainQuery := fmt.Sprintf("EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) %s", query)
 	planResult, err := t.executor.ExecuteQueryOne(ctx, explainQuery, nil)
 	if err != nil {

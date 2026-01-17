@@ -101,3 +101,17 @@ func (m *ConfigManager) GetPlugins() []PluginConfig {
 	return m.GetConfig().Plugins
 }
 
+/* GetSafetyConfig returns safety configuration */
+func (m *ConfigManager) GetSafetyConfig() *SafetyConfig {
+	return m.GetConfig().GetSafetyConfig()
+}
+
+/* GetObservabilityConfig returns observability configuration */
+func (m *ConfigManager) GetObservabilityConfig() *ObservabilityConfig {
+	return m.GetConfig().GetObservabilityConfig()
+}
+
+/* GetReliabilityConfig returns reliability configuration */
+func (m *ConfigManager) GetReliabilityConfig() *ReliabilityConfig {
+	return m.GetConfig().GetReliabilityConfig()
+}

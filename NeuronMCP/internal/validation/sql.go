@@ -43,6 +43,7 @@ var (
 )
 
 /* ValidateSQLIdentifier validates a SQL identifier (table, column name) */
+/* Handles both simple identifiers and schema-qualified names (schema.table) */
 func ValidateSQLIdentifier(identifier, fieldName string) error {
 	if identifier == "" {
 		return fmt.Errorf("%s cannot be empty", fieldName)
@@ -50,6 +51,32 @@ func ValidateSQLIdentifier(identifier, fieldName string) error {
 	
 	identifier = strings.TrimSpace(identifier)
 	
+	/* Handle schema-qualified identifiers */
+	if strings.Contains(identifier, ".") {
+		parts := strings.Split(identifier, ".")
+		if len(parts) > 2 {
+			return fmt.Errorf("%s contains too many dots (max 1 for schema.table): %s", fieldName, identifier)
+		}
+		/* Validate each part */
+		for i, part := range parts {
+			partName := fieldName
+			if i == 0 {
+				partName = "schema_name"
+			} else {
+				partName = "table_name"
+			}
+			if err := validateIdentifierPart(part, partName); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	
+	return validateIdentifierPart(identifier, fieldName)
+}
+
+/* validateIdentifierPart validates a single identifier part */
+func validateIdentifierPart(identifier, fieldName string) error {
 	/* Check length (PostgreSQL limit is 63 bytes, but we'll be more conservative) */
 	if len(identifier) > 63 {
 		return fmt.Errorf("%s exceeds maximum length of 63 characters: %s", fieldName, identifier)
@@ -120,8 +147,63 @@ func ValidateSQLQuery(query string) error {
 	return nil
 }
 
+/* HasLimitClause checks if a SQL query contains a LIMIT clause */
+/* Handles case-insensitive matching, comments, and subqueries */
+func HasLimitClause(query string) bool {
+	queryUpper := strings.ToUpper(query)
+	
+	/* Remove single-line comments */
+	lines := strings.Split(queryUpper, "\n")
+	var cleanedLines []string
+	for _, line := range lines {
+		if idx := strings.Index(line, "--"); idx >= 0 {
+			line = line[:idx]
+		}
+		cleanedLines = append(cleanedLines, line)
+	}
+	queryUpper = strings.Join(cleanedLines, "\n")
+	
+	/* Remove multi-line comments */
+	for {
+		startIdx := strings.Index(queryUpper, "/*")
+		if startIdx == -1 {
+			break
+		}
+		endIdx := strings.Index(queryUpper[startIdx:], "*/")
+		if endIdx == -1 {
+			break
+		}
+		queryUpper = queryUpper[:startIdx] + queryUpper[startIdx+endIdx+2:]
+	}
+	
+	/* Check for LIMIT keyword followed by a number or parameter */
+	/* Use word boundary matching to avoid false positives */
+	limitPattern := regexp.MustCompile(`\bLIMIT\s+(\d+|[$]\d+|\?)`)
+	return limitPattern.MatchString(queryUpper)
+}
+
 /* EscapeSQLIdentifier escapes a SQL identifier for safe use */
+/* Handles all PostgreSQL identifier rules including schema-qualified names */
 func EscapeSQLIdentifier(identifier string) string {
+	if identifier == "" {
+		return `""`
+	}
+	
+	/* Handle schema-qualified identifiers (e.g., "schema.table") */
+	if strings.Contains(identifier, ".") {
+		parts := strings.Split(identifier, ".")
+		escapedParts := make([]string, len(parts))
+		for i, part := range parts {
+			escapedParts[i] = escapeIdentifierPart(part)
+		}
+		return strings.Join(escapedParts, ".")
+	}
+	
+	return escapeIdentifierPart(identifier)
+}
+
+/* escapeIdentifierPart escapes a single identifier part */
+func escapeIdentifierPart(identifier string) string {
 	/* Remove any non-printable characters */
 	var builder strings.Builder
 	for _, r := range identifier {
@@ -132,6 +214,7 @@ func EscapeSQLIdentifier(identifier string) string {
 	result := builder.String()
 	
 	/* PostgreSQL identifier escaping: wrap in double quotes */
+	/* Escape double quotes by doubling them */
 	return fmt.Sprintf(`"%s"`, strings.ReplaceAll(result, `"`, `""`))
 }
 

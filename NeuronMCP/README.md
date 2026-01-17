@@ -1,21 +1,72 @@
 # NeuronMCP
 
+<div align="center">
+
+**Model Context Protocol server for NeuronDB PostgreSQL extension, implemented in Go**
+
+Enables MCP-compatible clients to access NeuronDB vector search, ML algorithms, and RAG capabilities.
+
 [![Go](https://img.shields.io/badge/Go-1.23+-00ADD8.svg)](https://golang.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16+-blue.svg)](https://www.postgresql.org/)
-[![License](https://img.shields.io/badge/License-Proprietary-red.svg)](../LICENSE)
 [![MCP](https://img.shields.io/badge/MCP-Protocol-blue.svg)](https://modelcontextprotocol.io/)
+[![Version](https://img.shields.io/badge/version-2.0-blue.svg)](https://github.com/neurondb/neurondb)
+[![License](https://img.shields.io/badge/License-Proprietary-red.svg)](../LICENSE)
+[![Documentation](https://img.shields.io/badge/docs-neurondb.ai-brightgreen.svg)](https://www.neurondb.ai/docs/neuronmcp)
 
-Model Context Protocol server for NeuronDB PostgreSQL extension, implemented in Go. Enables MCP-compatible clients to access NeuronDB vector search, ML algorithms, and RAG capabilities.
+</div>
 
 ## Overview
 
 NeuronMCP implements the Model Context Protocol using JSON-RPC 2.0 over stdio. It provides tools and resources for MCP clients to interact with NeuronDB, including vector operations, ML model training, and database schema management.
 
+### Key Capabilities
+
+- 🔌 **MCP Protocol** - Full JSON-RPC 2.0 implementation with stdio, HTTP, and SSE transport
+- 🛠️ **100+ Tools** - Comprehensive tool catalog covering vector ops, ML, RAG, and PostgreSQL administration
+- 📊 **Resources** - Real-time access to schema, models, indexes, and system stats
+- 🔐 **Enterprise Security** - JWT, API keys, OAuth2, rate limiting, and audit logging
+- ⚡ **High Performance** - TTL caching, connection pooling, and optimized query execution
+- 📈 **Observability** - Prometheus metrics, structured logging, and health checks
+
+## 📑 Table of Contents
+
+<details>
+<summary><strong>Expand full table of contents</strong></summary>
+
+- [Overview](#overview)
+  - [Key Capabilities](#key-capabilities)
+- [Documentation](#documentation)
+- [Tool Registration Modes](#tool-registration-modes)
+- [Official Documentation](#official-documentation)
+- [Features](#features)
+- [Architecture](#architecture)
+  - [System Architecture](#system-architecture)
+  - [MCP Protocol Flow](#mcp-protocol-flow)
+  - [Tool Catalog Overview](#tool-catalog-overview)
+- [Quick Start](#quick-start)
+- [MCP Protocol](#mcp-protocol)
+- [Configuration](#configuration)
+- [Tools](#tools)
+- [Resources](#resources)
+- [Using with Claude Desktop](#using-with-claude-desktop)
+- [Using with Other MCP Clients](#using-with-other-mcp-clients)
+- [Documentation](#documentation-1)
+- [System Requirements](#system-requirements)
+- [Integration with NeuronDB](#integration-with-neurondb)
+- [Troubleshooting](#troubleshooting)
+- [Security](#security)
+- [Support](#support)
+- [License](#license)
+
+</details>
+
+---
+
 ## Documentation
 
 - **[Features](docs/features.md)** - Complete feature list and capabilities
 - **[Tool & Resource Catalog](docs/tool-resource-catalog.md)** - Complete catalog of all tools and resources
-- **[Setup Guide](setup_guide.md)** - Setup and configuration guide
+- **[Setup Guide](docs/neurondb-mcp-setup.md)** - Setup and configuration guide
 
 ## Tool Registration Modes
 
@@ -98,58 +149,159 @@ The official documentation provides:
 
 ## Features
 
-| Feature | Description |
-|---------|-------------|
-| **MCP Protocol** | Full JSON-RPC 2.0 implementation with stdio, HTTP, and SSE transport |
-| **Vector Operations** | 50+ tools for vector search (L2, cosine, inner product), embedding generation, indexing (HNSW, IVF), quantization (int8, fp16, binary, uint8, ternary, int4), and 7+ distance metrics |
-| **ML Tools** | Complete ML pipeline: training (52+ algorithms), prediction, evaluation, AutoML, ONNX model support, time series analysis, and analytics |
-| **RAG Operations** | Document processing, context retrieval, response generation with multiple reranking methods (cross-encoder, LLM, Cohere, ColBERT, LTR, ensemble) |
-| **PostgreSQL Tools** | 100+ comprehensive PostgreSQL tools providing complete database control: DDL (CREATE/ALTER/DROP for databases, schemas, tables, indexes, views, functions, triggers, sequences, types, domains), DML (INSERT, UPDATE, DELETE, TRUNCATE, COPY), DCL (GRANT/REVOKE), user/role management, backup/restore, materialized views, partitioning, foreign tables, security validation, and full administration capabilities |
-| **Dataset Loading** | Load datasets from HuggingFace, URLs, GitHub, S3, and local files with automatic schema detection, embedding generation, and index creation |
-| **Resources** | Schema, models, indexes, config, workers, stats with real-time subscriptions |
-| **Prompts Protocol** | Full prompts/list and prompts/get with template engine |
-| **Sampling/Completions** | sampling/createMessage with streaming support |
-| **Progress Tracking** | Long-running operation progress with progress/get |
-| **Batch Operations** | Transactional batch tool calls (tools/call_batch) |
-| **Tool Discovery** | Search and filter tools with categorization |
-| **Middleware System** | Pluggable middleware pipeline: request validation, structured logging, configurable timeouts, comprehensive error handling, authentication (JWT, API keys, OAuth2), and rate limiting with per-key quotas |
-| **Security** | Multiple authentication methods (JWT, API keys, OAuth2), rate limiting, request validation, and secure credential storage |
-| **Performance** | TTL-based caching layer with idempotency support, connection pooling, and optimized query execution |
-| **Enterprise Features** | Prometheus metrics export, webhook notifications, circuit breaker for resilience, retry mechanisms, health checks, and comprehensive monitoring |
-| **Health Checks** | Database, tools, and resource availability monitoring |
-| **Configuration** | JSON config files with environment variable overrides |
-| **Modular Architecture** | 19 independent packages with clean separation of concerns |
+<details>
+<summary><strong>📊 Complete Feature List</strong></summary>
+
+| Feature | Description | Count |
+|:--------|:------------|:-----|
+| **MCP Protocol** | Full JSON-RPC 2.0 implementation with stdio, HTTP, and SSE transport | ✅ |
+| **Vector Operations** | Vector search (L2, cosine, inner product), embedding generation, indexing (HNSW, IVF), quantization | 50+ tools |
+| **ML Tools** | Complete ML pipeline: training, prediction, evaluation, AutoML, ONNX, time series | 52+ algorithms |
+| **RAG Operations** | Document processing, context retrieval, response generation with multiple reranking methods | ✅ |
+| **PostgreSQL Tools** | Complete database control: DDL, DML, DCL, user/role management, backup/restore | 100+ tools |
+| **Dataset Loading** | Load from HuggingFace, URLs, GitHub, S3, local files with auto-embedding | ✅ |
+| **Resources** | Schema, models, indexes, config, workers, stats with real-time subscriptions | 6+ resources |
+| **Prompts Protocol** | Full prompts/list and prompts/get with template engine | ✅ |
+| **Sampling/Completions** | sampling/createMessage with streaming support | ✅ |
+| **Progress Tracking** | Long-running operation progress with progress/get | ✅ |
+| **Batch Operations** | Transactional batch tool calls (tools/call_batch) | ✅ |
+| **Tool Discovery** | Search and filter tools with categorization | ✅ |
+| **Middleware System** | Request validation, logging, timeouts, error handling, auth, rate limiting | ✅ |
+| **Security** | JWT, API keys, OAuth2, rate limiting, request validation, secure storage | ✅ |
+| **Performance** | TTL caching, connection pooling, optimized query execution | ✅ |
+| **Enterprise Features** | Prometheus metrics, webhooks, circuit breaker, retry, health checks | ✅ |
+| **Modular Architecture** | 19 independent packages with clean separation of concerns | ✅ |
+
+</details>
 
 > 📊 **See [COMPARISON.md](COMPARISON.md) for a detailed comparison with other MCP servers**
 
 ## Architecture
 
+### System Architecture
+
+```mermaid
+graph TB
+    subgraph CLIENT["MCP Clients"]
+        CLAUDE[Claude Desktop]
+        CUSTOM[Custom MCP Clients]
+        CLI[CLI Tools]
+    end
+    
+    subgraph MCP["NeuronMCP Server"]
+        PROTOCOL[MCP Protocol Handler<br/>JSON-RPC 2.0]
+        TOOLS[Tool Registry<br/>100+ Tools]
+        RESOURCES[Resource Manager<br/>Schema, Models, Indexes]
+        MIDDLEWARE[Middleware Pipeline<br/>Auth, Logging, Rate Limit]
+        CACHE[TTL Cache<br/>Idempotency]
+    end
+    
+    subgraph CATEGORIES["Tool Categories"]
+        VEC[Vector Operations<br/>50+ tools]
+        ML[ML Pipeline<br/>52+ algorithms]
+        RAG[RAG Operations<br/>Document processing]
+        PG[PostgreSQL Tools<br/>100+ DDL/DML/DCL]
+        DATASET[Dataset Loading<br/>HuggingFace, S3, GitHub]
+    end
+    
+    subgraph DB["NeuronDB PostgreSQL"]
+        VECTOR[Vector Search<br/>HNSW/IVF]
+        EMBED[Embeddings<br/>Text/Image/Multimodal]
+        ML_FUNC[ML Functions<br/>52+ Algorithms]
+        ADMIN[PostgreSQL Admin<br/>Full DDL/DML/DCL]
+    end
+    
+    CLAUDE -->|stdio| PROTOCOL
+    CUSTOM -->|stdio/HTTP/SSE| PROTOCOL
+    CLI -->|stdio| PROTOCOL
+    
+    PROTOCOL --> MIDDLEWARE
+    MIDDLEWARE --> CACHE
+    CACHE --> TOOLS
+    CACHE --> RESOURCES
+    
+    TOOLS --> VEC
+    TOOLS --> ML
+    TOOLS --> RAG
+    TOOLS --> PG
+    TOOLS --> DATASET
+    
+    VEC --> VECTOR
+    ML --> ML_FUNC
+    RAG --> EMBED
+    PG --> ADMIN
+    DATASET --> VECTOR
+    
+    style CLIENT fill:#e3f2fd
+    style MCP fill:#fff3e0
+    style CATEGORIES fill:#f3e5f5
+    style DB fill:#e8f5e9
 ```
-┌─────────────────────────────────────────────┐
-│          MCP Client                         │
-│  (Claude Desktop, etc.)                     │
-└──────────────┬──────────────────────────────┘
-               │ stdio (JSON-RPC 2.0)
-┌──────────────▼──────────────────────────────┐
-│          NeuronMCP Server                   │
-├─────────────────────────────────────────────┤
-│  MCP Protocol Handler                       │
-├─────────────────────────────────────────────┤
-│  Tools │  Resources │  Middleware           │
-├─────────────────────────────────────────────┤
-│          NeuronDB PostgreSQL                │
-│  (Vector Search │  ML │  Embeddings)        │
-└─────────────────────────────────────────────┘
+
+### MCP Protocol Flow
+
+```mermaid
+sequenceDiagram
+    participant Client as MCP Client
+    participant Server as NeuronMCP Server
+    participant Tools as Tool Registry
+    participant DB as NeuronDB
+    
+    Client->>Server: Initialize (JSON-RPC)
+    Server-->>Client: Server Capabilities
+    
+    Client->>Server: tools/list
+    Server->>Tools: Get available tools
+    Tools-->>Server: Tool catalog
+    Server-->>Client: Tool list (100+ tools)
+    
+    Client->>Server: tools/call {"name": "vector_search", ...}
+    Server->>Server: Validate & authenticate
+    Server->>Tools: Execute tool
+    Tools->>DB: Execute SQL query
+    DB-->>Tools: Query results
+    Tools-->>Server: Tool response
+    Server-->>Client: JSON-RPC response
+    
+    Note over Client,DB: Streaming supported via SSE
 ```
+
+### Tool Catalog Overview
+
+```mermaid
+graph LR
+    subgraph TOOLS["100+ Tools"]
+        VEC_TOOLS[Vector Operations<br/>50+ tools<br/>Search, Embeddings, Indexing]
+        ML_TOOLS[ML Pipeline<br/>52+ algorithms<br/>Training, Prediction, Evaluation]
+        RAG_TOOLS[RAG Operations<br/>Document Processing<br/>Context Retrieval]
+        PG_TOOLS[PostgreSQL Tools<br/>100+ tools<br/>DDL, DML, DCL, Admin]
+        DATASET_TOOLS[Dataset Loading<br/>HuggingFace, S3, GitHub<br/>Auto-embedding]
+    end
+    
+    style VEC_TOOLS fill:#ffebee
+    style ML_TOOLS fill:#e8f5e9
+    style RAG_TOOLS fill:#fff3e0
+    style PG_TOOLS fill:#e3f2fd
+    style DATASET_TOOLS fill:#f3e5f5
+```
+
+> [!TIP]
+> Use category-based tool selection to control which tools are available. This is especially useful for Claude Desktop which has a 5-tool limit per server.
 
 ## Quick Start
 
 ### Prerequisites
 
-- PostgreSQL 16 or later
-- NeuronDB extension installed
-- Go 1.23 or later (for building from source)
-- MCP-compatible client (e.g., Claude Desktop)
+<details>
+<summary><strong>📋 Prerequisites Checklist</strong></summary>
+
+- [ ] PostgreSQL 16 or later installed
+- [ ] NeuronDB extension installed and enabled
+- [ ] Go 1.23 or later (for building from source)
+- [ ] MCP-compatible client (e.g., Claude Desktop)
+- [ ] API keys configured (for LLM models, if using embeddings/RAG)
+
+</details>
 
 ### Database Setup
 
@@ -686,3 +838,11 @@ env | grep -E "^NEURONDB_"
 ## License
 
 See [LICENSE](../LICENSE) file for license information.
+
+---
+
+<div align="center">
+
+[⬆ Back to Top](#neuronmcp)
+
+</div>

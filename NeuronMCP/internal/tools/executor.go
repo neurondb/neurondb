@@ -110,14 +110,32 @@ func (e *QueryExecutor) ExecuteVectorSearchWithMinkowski(ctx context.Context, ta
 	queryCtx, cancel := context.WithTimeout(ctx, VectorSearchTimeout)
 	defer cancel()
 
+	/* Check if context is already cancelled before executing query */
+	select {
+	case <-ctx.Done():
+		return nil, fmt.Errorf("vector search cancelled: table='%s', vector_column='%s', distance_metric='%s', limit=%d, error=%w", table, vectorColumn, distanceMetric, limit, ctx.Err())
+	default:
+	}
+
 	rows, err := e.db.Query(queryCtx, query, params...)
 	if err != nil {
 		if queryCtx.Err() != nil {
 			return nil, fmt.Errorf("vector search timeout after %v: table='%s', vector_column='%s', distance_metric='%s', limit=%d, error=%w", VectorSearchTimeout, table, vectorColumn, distanceMetric, limit, queryCtx.Err())
 		}
+		/* Check if parent context was cancelled */
+		if ctx.Err() != nil {
+			return nil, fmt.Errorf("vector search cancelled: table='%s', vector_column='%s', distance_metric='%s', limit=%d, error=%w", table, vectorColumn, distanceMetric, limit, ctx.Err())
+		}
 		return nil, fmt.Errorf("vector search execution failed: table='%s', vector_column='%s', distance_metric='%s', limit=%d, vector_dimension=%d, additional_columns=%v, error=%w", table, vectorColumn, distanceMetric, limit, len(vec), cols, err)
 	}
 	defer rows.Close()
+
+	/* Check context before scanning rows */
+	select {
+	case <-ctx.Done():
+		return nil, fmt.Errorf("vector search cancelled during row scanning: table='%s', vector_column='%s', distance_metric='%s', limit=%d, error=%w", table, vectorColumn, distanceMetric, limit, ctx.Err())
+	default:
+	}
 
 	results, err := scanRowsToMaps(rows)
 	if err != nil {
@@ -144,14 +162,32 @@ func (e *QueryExecutor) ExecuteQuery(ctx context.Context, query string, params [
 	queryCtx, cancel := context.WithTimeout(ctx, DefaultQueryTimeout)
 	defer cancel()
 	
+	/* Check if context is already cancelled before executing query */
+	select {
+	case <-ctx.Done():
+		return nil, fmt.Errorf("query cancelled: query='%s', parameter_count=%d, error=%w", query, len(params), ctx.Err())
+	default:
+	}
+	
 	rows, err := e.db.Query(queryCtx, query, params...)
 	if err != nil {
 		if queryCtx.Err() != nil {
 			return nil, fmt.Errorf("query timeout after %v: query='%s', parameter_count=%d, error=%w", DefaultQueryTimeout, query, len(params), queryCtx.Err())
 		}
+		/* Check if parent context was cancelled */
+		if ctx.Err() != nil {
+			return nil, fmt.Errorf("query cancelled: query='%s', parameter_count=%d, error=%w", query, len(params), ctx.Err())
+		}
 		return nil, fmt.Errorf("query execution failed: query='%s', parameter_count=%d, parameters=%v, error=%w", query, len(params), params, err)
 	}
 	defer rows.Close()
+
+	/* Check context before scanning rows */
+	select {
+	case <-ctx.Done():
+		return nil, fmt.Errorf("query cancelled during row scanning: query='%s', parameter_count=%d, error=%w", query, len(params), ctx.Err())
+	default:
+	}
 
 	results, err := scanRowsToMaps(rows)
 	if err != nil {
@@ -183,17 +219,33 @@ func (e *QueryExecutor) ExecuteQueryOneWithTimeout(ctx context.Context, query st
 	queryCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	
+	/* Check if context is already cancelled before executing query */
+	select {
+	case <-ctx.Done():
+		return nil, fmt.Errorf("query cancelled: query='%s', parameter_count=%d, error=%w", query, len(params), ctx.Err())
+	default:
+	}
+	
 	rows, err := e.db.Query(queryCtx, query, params...)
 	if err != nil {
 		/* Check if error is due to context cancellation/timeout */
 		if queryCtx.Err() != nil {
 			return nil, fmt.Errorf("query timeout after %v: query='%s', parameter_count=%d, error=%w", timeout, query, len(params), queryCtx.Err())
 		}
+		/* Check if parent context was cancelled */
+		if ctx.Err() != nil {
+			return nil, fmt.Errorf("query cancelled: query='%s', parameter_count=%d, error=%w", query, len(params), ctx.Err())
+		}
 		return nil, fmt.Errorf("single-row query execution failed: query='%s', parameter_count=%d, parameters=%v, error=%w", query, len(params), params, err)
 	}
 	defer rows.Close()
 
 	/* Check context before scanning */
+	select {
+	case <-ctx.Done():
+		return nil, fmt.Errorf("query cancelled before scanning: query='%s', parameter_count=%d, error=%w", query, len(params), ctx.Err())
+	default:
+	}
 	if queryCtx.Err() != nil {
 		return nil, fmt.Errorf("query timeout after %v: query='%s', parameter_count=%d, error=%w", timeout, query, len(params), queryCtx.Err())
 	}
@@ -205,6 +257,11 @@ func (e *QueryExecutor) ExecuteQueryOneWithTimeout(ctx context.Context, query st
 	result, err := scanRowToMap(rows)
 	if err != nil {
 		/* Check context again after scanning */
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("query cancelled during row scanning: query='%s', parameter_count=%d, error=%w", query, len(params), ctx.Err())
+		default:
+		}
 		if queryCtx.Err() != nil {
 			return nil, fmt.Errorf("query timeout after %v during row scanning: query='%s', parameter_count=%d, error=%w", timeout, query, len(params), queryCtx.Err())
 		}
@@ -216,6 +273,11 @@ func (e *QueryExecutor) ExecuteQueryOneWithTimeout(ctx context.Context, query st
 	}
 
 	/* Final context check */
+	select {
+	case <-ctx.Done():
+		return nil, fmt.Errorf("query cancelled: query='%s', parameter_count=%d, error=%w", query, len(params), ctx.Err())
+	default:
+	}
 	if queryCtx.Err() != nil {
 		return nil, fmt.Errorf("query timeout after %v: query='%s', parameter_count=%d, error=%w", timeout, query, len(params), queryCtx.Err())
 	}
@@ -237,14 +299,27 @@ func (e *QueryExecutor) Exec(ctx context.Context, query string, params []interfa
 		return fmt.Errorf("query string is empty: cannot execute empty DDL query")
 	}
 	
+	/* Check if context is already cancelled before executing */
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("query cancelled: query='%s', parameter_count=%d, error=%w", query, len(params), ctx.Err())
+	default:
+	}
+	
 	_, err := e.db.Exec(ctx, query, params...)
 	if err != nil {
+		/* Check if context was cancelled */
+		if ctx.Err() != nil {
+			return fmt.Errorf("query cancelled: query='%s', parameter_count=%d, error=%w", query, len(params), ctx.Err())
+		}
 		return fmt.Errorf("DDL query execution failed: query='%s', parameter_count=%d, parameters=%v, error=%w", query, len(params), params, err)
 	}
 	return nil
 }
 
 /* scanRowsToMaps scans all rows into maps */
+/* Note: Context cancellation is handled by the database driver during query execution */
+/* This function processes already-fetched rows, so context checks here are minimal */
 func scanRowsToMaps(rows pgx.Rows) ([]map[string]interface{}, error) {
 	var results []map[string]interface{}
 	rowNum := 0

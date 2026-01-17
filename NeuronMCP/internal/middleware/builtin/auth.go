@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/neurondb/NeuronMCP/internal/context/contextkeys"
 	"github.com/neurondb/NeuronMCP/internal/logging"
 	"github.com/neurondb/NeuronMCP/internal/middleware"
 )
@@ -94,8 +95,8 @@ func (m *AuthMiddleware) Execute(ctx context.Context, req *middleware.MCPRequest
 	/* Try API key authentication first */
 	if m.config.APIKeys != nil {
 		if user, ok := m.config.APIKeys[token]; ok {
-			/* Add user to context */
-			ctx = context.WithValue(ctx, "user", user)
+			/* Add user to context using typed key */
+			ctx = context.WithValue(ctx, contextkeys.UserKey{}, user)
 			return next(ctx, req)
 		}
 	}
@@ -104,7 +105,7 @@ func (m *AuthMiddleware) Execute(ctx context.Context, req *middleware.MCPRequest
 	if m.config.JWTSecret != "" || m.config.JWTPublicKey != nil {
 		user, err := m.validateJWT(token)
 		if err == nil {
-			ctx = context.WithValue(ctx, "user", user)
+			ctx = context.WithValue(ctx, contextkeys.UserKey{}, user)
 			return next(ctx, req)
 		}
 		m.logger.Debug("JWT validation failed", map[string]interface{}{

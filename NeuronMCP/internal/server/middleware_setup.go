@@ -21,6 +21,9 @@ import (
 	"github.com/neurondb/NeuronMCP/internal/logging"
 	"github.com/neurondb/NeuronMCP/internal/middleware"
 	"github.com/neurondb/NeuronMCP/internal/middleware/builtin"
+	"github.com/neurondb/NeuronMCP/internal/observability"
+	"github.com/neurondb/NeuronMCP/internal/reliability"
+	"github.com/neurondb/NeuronMCP/internal/safety"
 )
 
 /* setupBuiltInMiddleware registers all built-in middleware */
@@ -59,8 +62,32 @@ func setupBuiltInMiddleware(mgr *middleware.Manager, cfgMgr *config.ConfigManage
   /* Validation middleware (order: 1) */
 	mgr.Register(builtin.NewValidationMiddleware())
 
+  /* Safety middleware (order: 5) - enforce safety modes */
+	safetyCfg := cfgMgr.GetSafetyConfig()
+	safetyMode := safety.SafetyMode(safetyCfg.DefaultMode)
+	if safetyMode == "" {
+		safetyMode = safety.SafetyModeReadOnly
+	}
+	var allowlist *safety.StatementAllowlist
+	if safetyMode == safety.SafetyModeAllowlist {
+		allowlist = safety.NewStatementAllowlist(safetyCfg.StatementAllowlist)
+	}
+	safetyManager := safety.NewSafetyManager(safetyMode, allowlist, logger)
+	mgr.Register(builtin.NewSafetyMiddleware(safetyManager, logger))
+
   /* Idempotency middleware (order: 18, after validation, before logging) */
 	mgr.Register(builtin.NewIdempotencyMiddleware(logger, true))
+
+  /* Tracing middleware (order: 2) - before logging */
+	observabilityCfg := cfgMgr.GetObservabilityConfig()
+	enableTracing := observabilityCfg.EnableTracing
+	var tracer *observability.Tracer
+	var dbTiming *observability.DBTimingTracker
+	if enableTracing {
+		tracer = observability.NewTracer()
+		dbTiming = observability.NewDBTimingTracker(1 * time.Second)
+	}
+	mgr.Register(builtin.NewTracingMiddleware(tracer, dbTiming, logger, enableTracing))
 
   /* Logging middleware (order: 2) */
 	mgr.Register(builtin.NewLoggingMiddleware(
@@ -69,9 +96,19 @@ func setupBuiltInMiddleware(mgr *middleware.Manager, cfgMgr *config.ConfigManage
 		loggingCfg.EnableResponseLogging != nil && *loggingCfg.EnableResponseLogging,
 	))
 
-  /* Timeout middleware (order: 3) - only if timeout is configured */
-	if serverCfg.Timeout != nil {
-		mgr.Register(builtin.NewTimeoutMiddleware(serverCfg.GetTimeout(), logger))
+  /* Timeout middleware (order: 3) - with per-tool timeout support */
+	reliabilityCfg := cfgMgr.GetReliabilityConfig()
+	var timeoutManager *reliability.TimeoutManager
+	if serverCfg.Timeout != nil || reliabilityCfg.DefaultTimeout > 0 {
+		defaultTimeout := serverCfg.GetTimeout()
+		if reliabilityCfg.DefaultTimeout > 0 {
+			defaultTimeout = time.Duration(reliabilityCfg.DefaultTimeout) * time.Second
+		}
+		timeoutManager = reliability.NewTimeoutManager(defaultTimeout, reliabilityCfg.ToolTimeouts)
+		mgr.Register(builtin.NewTimeoutMiddlewareWithManager(timeoutManager, logger))
+	} else {
+		/* Fallback to default timeout if nothing configured */
+		mgr.Register(builtin.NewTimeoutMiddleware(60*time.Second, logger))
 	}
 
   /* Retry middleware (order: 4) - with exponential backoff and circuit breaker */

@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -133,6 +134,8 @@ func (t *HTTPTransport) handleMCP(w http.ResponseWriter, r *http.Request) {
 	/* Recover from panics */
 	defer func() {
 		if rec := recover(); rec != nil {
+			/* Log panic for debugging */
+			log.Printf("PANIC in handleMCP: %v", rec)
 			t.writeJSONRPCError(w, nil, mcp.ErrCodeInternalError, fmt.Sprintf("Internal server error: %v", rec))
 		}
 	}()
@@ -433,6 +436,8 @@ func (t *HTTPTransport) handleSSE(w http.ResponseWriter, r *http.Request) {
 	/* Recover from panics */
 	defer func() {
 		if rec := recover(); rec != nil {
+			/* Log panic for debugging */
+			log.Printf("PANIC in handleSSE: %v", rec)
 			http.Error(w, fmt.Sprintf("Internal server error: %v", rec), http.StatusInternalServerError)
 		}
 	}()
@@ -469,6 +474,8 @@ func (t *HTTPTransport) handleHealth(w http.ResponseWriter, r *http.Request) {
 	/* Recover from panics */
 	defer func() {
 		if rec := recover(); rec != nil {
+			/* Log panic for debugging */
+			log.Printf("PANIC in handleSSE: %v", rec)
 			http.Error(w, fmt.Sprintf("Internal server error: %v", rec), http.StatusInternalServerError)
 		}
 	}()

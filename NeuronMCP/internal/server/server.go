@@ -53,6 +53,7 @@ type Server struct {
 	prometheusExporter  *metrics.PrometheusExporter
 	httpServer          *HTTPServer // HTTP server for /metrics and /health
 	httpTransport       *transport.HTTPTransport // HTTP transport for MCP protocol
+	httpTransportDone   chan error // Channel to track HTTP transport goroutine completion
 }
 
 /*
@@ -236,11 +237,14 @@ func (s *Server) Start(ctx context.Context) error {
 
 	/* Start HTTP transport in background (only if enabled) */
 	if s.httpTransport != nil {
+		s.httpTransportDone = make(chan error, 1)
 		go func() {
-			if err := s.httpTransport.Start(); err != nil {
-				s.logger.Error("HTTP transport failed", err, map[string]interface{}{
-					"error": err.Error(),
-				})
+			err := s.httpTransport.Start()
+			/* Send error (or nil) to done channel */
+			select {
+			case s.httpTransportDone <- err:
+			default:
+				/* Channel already closed or full, ignore */
 			}
 		}()
 		s.logger.Info("HTTP transport started", map[string]interface{}{
@@ -289,6 +293,23 @@ func (s *Server) Stop() error {
 			}
 		}
 		httpTransportCancel()
+		
+		/* Wait for HTTP transport goroutine to complete (with timeout) */
+		if s.httpTransportDone != nil {
+			select {
+			case err := <-s.httpTransportDone:
+				if err != nil && s.logger != nil {
+					s.logger.Debug("HTTP transport goroutine completed", map[string]interface{}{
+						"error": err.Error(),
+					})
+				}
+			case <-time.After(2 * time.Second):
+				/* Timeout waiting for goroutine - it should have exited after Shutdown */
+				if s.logger != nil {
+					s.logger.Warn("HTTP transport goroutine did not complete within timeout", nil)
+				}
+			}
+		}
 	}
 
 	/* Step 2: Shutdown HTTP metrics server (external connections) */

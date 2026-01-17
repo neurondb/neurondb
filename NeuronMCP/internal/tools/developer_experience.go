@@ -23,6 +23,7 @@ import (
 
 	"github.com/neurondb/NeuronMCP/internal/database"
 	"github.com/neurondb/NeuronMCP/internal/logging"
+	"github.com/neurondb/NeuronMCP/internal/validation"
 )
 
 /* NLToSQLTool converts natural language to SQL */
@@ -380,7 +381,7 @@ func (t *QueryBuilderTool) Execute(ctx context.Context, params map[string]interf
 	}
 }
 
-/* buildQuery builds a SQL query */
+/* buildQuery builds a SQL query with proper parameterization and identifier escaping */
 func (t *QueryBuilderTool) buildQuery(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
 	table, _ := params["table"].(string)
 	columnsRaw, _ := params["columns"].([]interface{})
@@ -390,22 +391,36 @@ func (t *QueryBuilderTool) buildQuery(ctx context.Context, params map[string]int
 		return Error("table is required", "INVALID_PARAMS", nil), nil
 	}
 
-	/* Build SELECT clause */
+	/* Validate and escape table name */
+	if err := validation.ValidateTableName(table); err != nil {
+		return Error(fmt.Sprintf("Invalid table name: %v", err), "INVALID_PARAMS", nil), nil
+	}
+	escapedTable := database.EscapeIdentifier(table)
+
+	/* Build SELECT clause with escaped column names */
 	selectClause := "SELECT "
+	var queryParams []interface{}
+	paramIndex := 1
+	
 	if len(columnsRaw) == 0 {
 		selectClause += "*"
 	} else {
 		columns := []string{}
 		for _, col := range columnsRaw {
-			columns = append(columns, fmt.Sprintf("%v", col))
+			colStr := fmt.Sprintf("%v", col)
+			/* Validate column name */
+			if err := validation.ValidateColumnName(colStr); err != nil {
+				return Error(fmt.Sprintf("Invalid column name '%s': %v", colStr, err), "INVALID_PARAMS", nil), nil
+			}
+			columns = append(columns, database.EscapeIdentifier(colStr))
 		}
 		selectClause += strings.Join(columns, ", ")
 	}
 
-	/* Build FROM clause */
-	fromClause := fmt.Sprintf(" FROM %s", table)
+	/* Build FROM clause with escaped table name */
+	fromClause := fmt.Sprintf(" FROM %s", escapedTable)
 
-	/* Build WHERE clause */
+	/* Build WHERE clause with parameterized values */
 	whereClause := ""
 	if len(filtersRaw) > 0 {
 		conditions := []string{}
@@ -416,7 +431,30 @@ func (t *QueryBuilderTool) buildQuery(ctx context.Context, params map[string]int
 				value, _ := filterMap["value"].(interface{})
 
 				if column != "" && operator != "" {
-					conditions = append(conditions, fmt.Sprintf("%s %s %v", column, operator, value))
+					/* Validate column name */
+					if err := validation.ValidateColumnName(column); err != nil {
+						return Error(fmt.Sprintf("Invalid column name '%s': %v", column, err), "INVALID_PARAMS", nil), nil
+					}
+					escapedColumn := database.EscapeIdentifier(column)
+					
+					/* Validate operator to prevent SQL injection */
+					validOperators := map[string]bool{
+						"=": true, "!=": true, "<>": true, "<": true, ">": true, "<=": true, ">=": true,
+						"LIKE": true, "ILIKE": true, "IN": true, "NOT IN": true, "IS NULL": true, "IS NOT NULL": true,
+					}
+					operatorUpper := strings.ToUpper(strings.TrimSpace(operator))
+					if !validOperators[operatorUpper] {
+						return Error(fmt.Sprintf("Invalid operator: %s", operator), "INVALID_PARAMS", nil), nil
+					}
+					
+					/* Use parameterized query for values to prevent SQL injection */
+					if operatorUpper == "IS NULL" || operatorUpper == "IS NOT NULL" {
+						conditions = append(conditions, fmt.Sprintf("%s %s", escapedColumn, operatorUpper))
+					} else {
+						conditions = append(conditions, fmt.Sprintf("%s %s $%d", escapedColumn, operatorUpper, paramIndex))
+						queryParams = append(queryParams, value)
+						paramIndex++
+					}
 				}
 			}
 		}
@@ -428,8 +466,9 @@ func (t *QueryBuilderTool) buildQuery(ctx context.Context, params map[string]int
 	sql := selectClause + fromClause + whereClause + ";"
 
 	return Success(map[string]interface{}{
-		"sql":    sql,
-		"table":  table,
+		"sql":     sql,
+		"params":  queryParams,
+		"table":   table,
 		"columns": columnsRaw,
 		"filters": filtersRaw,
 	}, nil), nil

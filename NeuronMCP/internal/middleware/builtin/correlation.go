@@ -15,21 +15,15 @@ package builtin
 
 import (
 	"context"
-	"fmt"
-	"sync/atomic"
-	"time"
 
 	"github.com/neurondb/NeuronMCP/internal/logging"
 	"github.com/neurondb/NeuronMCP/internal/middleware"
+	"github.com/neurondb/NeuronMCP/internal/observability"
 )
 
-/* CorrelationIDKey is the context key for correlation ID */
-type CorrelationIDKey struct{}
-
-/* CorrelationMiddleware adds correlation IDs to requests */
+/* CorrelationMiddleware adds correlation IDs (request IDs) to requests */
 type CorrelationMiddleware struct {
-	counter atomic.Uint64
-	logger  *logging.Logger
+	logger *logging.Logger
 }
 
 /* NewCorrelationMiddleware creates a new correlation middleware */
@@ -54,46 +48,39 @@ func (m *CorrelationMiddleware) Enabled() bool {
 	return true /* Always enabled */
 }
 
-/* Execute adds correlation ID to request context */
+/* Execute adds request ID (correlation ID) to request context */
 func (m *CorrelationMiddleware) Execute(ctx context.Context, req *middleware.MCPRequest, next middleware.Handler) (*middleware.MCPResponse, error) {
-	/* Generate correlation ID */
-	correlationID := m.generateCorrelationID()
-	
-	/* Add to context */
-	ctx = context.WithValue(ctx, CorrelationIDKey{}, correlationID)
+	/* Generate or get request ID */
+	ctx, reqID := observability.GetOrCreateRequestID(ctx)
+	requestIDStr := reqID.String()
 	
 	/* Add to request metadata if available */
 	if req.Metadata == nil {
 		req.Metadata = make(map[string]interface{})
 	}
-	req.Metadata["correlationId"] = correlationID
+	req.Metadata["request_id"] = requestIDStr
+	req.Metadata["correlationId"] = requestIDStr /* Keep for backward compatibility */
 	
-	/* Log request with correlation ID */
+	/* Log request with request ID */
 	if m.logger != nil {
 		m.logger.Debug("Request received", map[string]interface{}{
-			"correlationId": correlationID,
-			"method":        req.Method,
+			"request_id": requestIDStr,
+			"method":     req.Method,
 		})
 	}
 	
 	/* Execute next middleware */
 	resp, err := next(ctx, req)
 	
-	/* Add correlation ID to response metadata */
+	/* Add request ID to response metadata */
 	if resp != nil {
 		if resp.Metadata == nil {
 			resp.Metadata = make(map[string]interface{})
 		}
-		resp.Metadata["correlationId"] = correlationID
+		resp.Metadata["request_id"] = requestIDStr
+		resp.Metadata["correlationId"] = requestIDStr /* Keep for backward compatibility */
 	}
 	
 	return resp, err
-}
-
-/* generateCorrelationID generates a unique correlation ID */
-func (m *CorrelationMiddleware) generateCorrelationID() string {
-	counter := m.counter.Add(1)
-	timestamp := uint64(time.Now().UnixNano())
-	return fmt.Sprintf("req-%d-%d", timestamp, counter)
 }
 

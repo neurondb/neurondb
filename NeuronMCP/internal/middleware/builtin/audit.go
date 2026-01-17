@@ -20,7 +20,9 @@ import (
 	"time"
 
 	"github.com/neurondb/NeuronMCP/internal/audit"
+	"github.com/neurondb/NeuronMCP/internal/context/contextkeys"
 	"github.com/neurondb/NeuronMCP/internal/middleware"
+	"github.com/neurondb/NeuronMCP/internal/observability"
 )
 
 /* AuditMiddleware provides audit logging */
@@ -58,8 +60,11 @@ func (m *AuditMiddleware) Execute(ctx context.Context, req *middleware.MCPReques
 
 	/* Create request context with audit info */
 	reqCtx := audit.NewRequestContext(ctx)
-	ctx = context.WithValue(ctx, "request_id", reqCtx.RequestID)
-	ctx = context.WithValue(ctx, "audit_context", reqCtx)
+	/* Use observability package's RequestIDKey for request_id */
+	if reqID, ok := observability.GetRequestIDFromContext(ctx); ok {
+		ctx = observability.WithRequestID(ctx, reqID)
+	}
+	ctx = context.WithValue(ctx, contextkeys.AuditContextKey{}, reqCtx)
 
 	/* Extract tool name from request */
 	toolName := ""

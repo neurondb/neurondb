@@ -20,17 +20,13 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/neurondb/NeuronMCP/internal/context/contextkeys"
 	"github.com/neurondb/NeuronMCP/internal/middleware"
 )
 
-/* contextKey for storing HTTP metadata in context */
-type contextKey string
-
-const httpMetadataKey contextKey = "http_metadata"
-
 /* getHTTPMetadataFromContext retrieves HTTP metadata from context if available */
 func getHTTPMetadataFromContext(ctx context.Context) map[string]interface{} {
-	if md := ctx.Value(httpMetadataKey); md != nil {
+	if md := ctx.Value(contextkeys.HTTPMetadataKey{}); md != nil {
 		if metadata, ok := md.(map[string]interface{}); ok {
 			return metadata
 		}
@@ -107,7 +103,7 @@ func (s *Server) HandleHTTPRequest(ctx context.Context, mcpReq *middleware.MCPRe
 
 	/* Store HTTP metadata in context so handlers that execute middleware can access it */
 	if mcpReq.Metadata != nil {
-		ctx = context.WithValue(ctx, httpMetadataKey, mcpReq.Metadata)
+		ctx = context.WithValue(ctx, contextkeys.HTTPMetadataKey{}, mcpReq.Metadata)
 	}
 
 	/* Route to appropriate handler based on method */
