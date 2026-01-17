@@ -1,0 +1,51 @@
+groups:
+  - name: neurondb_ecosystem
+    interval: 30s
+    rules:
+      - alert: NeuronDBHighLatency
+        expr: histogram_quantile(0.95, neurondb_vector_search_duration_seconds_bucket) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "NeuronDB vector search latency is high"
+          description: "P95 latency is {{ $value }}s"
+
+      - alert: NeuronAgentHighErrorRate
+        expr: rate(neurondb_agent_errors_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "NeuronAgent error rate is high"
+          description: "Error rate is {{ $value }} errors/sec"
+
+      - alert: NeuronMCPToolFailure
+        expr: rate(neurondb_mcp_tool_failures_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "NeuronMCP tool failure rate is high"
+          description: "Tool failure rate is {{ $value }} failures/sec"
+
+      - alert: DatabaseConnectionPoolExhausted
+        expr: neurondb_connection_pool_active / neurondb_connection_pool_max > 0.9
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Database connection pool is nearly exhausted"
+          description: "{{ $value }}% of connections are in use"
+
+      - alert: ReplicationLagHigh
+        expr: neurondb_replication_lag_bytes > 1073741824
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Replication lag is high"
+          description: "Replication lag is {{ $value }} bytes"
+
+
+
