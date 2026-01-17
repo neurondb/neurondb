@@ -31,7 +31,7 @@
 set -euo pipefail
 
 # Version
-VERSION="3.0.0-devel"
+VERSION="2.1.0"
 
 # Default values
 DOC_DIR=""

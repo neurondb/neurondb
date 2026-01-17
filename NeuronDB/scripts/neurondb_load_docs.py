@@ -29,7 +29,7 @@ from neurondb_db_operations import DatabaseSchema, DocumentLoader, StatisticsMan
 from neurondb_embeddings import EmbeddingGenerator, VectorIndexManager
 
 # Version
-__version__ = "3.0.0-devel"
+__version__ = "2.1.0"
 
 
 class DocumentationLoader:

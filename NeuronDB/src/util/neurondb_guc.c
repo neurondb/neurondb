@@ -103,6 +103,9 @@ bool		neurondb_audit_ml_enabled = false;
 bool		neurondb_audit_rag_enabled = false;
 int			neurondb_audit_retention_days = 365;
 
+/* Replication GUCs */
+bool		neurondb_enable_replication = false;
+
 NeuronDBConfig *neurondb_config = NULL;
 
 static bool
@@ -892,6 +895,16 @@ neurondb_init_all_gucs(void)
 							NULL,
 							NULL);
 
+	DefineCustomBoolVariable("neurondb.enable_replication",
+							 "Enable replication support for vector indexes",
+							 "When enabled, supports streaming replication for HNSW and IVF indexes with consistency guarantees.",
+							 &neurondb_enable_replication,
+							 false,
+							 PGC_SIGHUP,
+							 0,
+							 NULL,
+							 NULL,
+							 NULL);
 
 	neurondb_sync_config_from_gucs();
 }

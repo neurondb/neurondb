@@ -490,3 +490,189 @@ vector_where(PG_FUNCTION_ARGS)
 
 	PG_RETURN_VECTOR_P(result);
 }
+
+/*
+ * ============================================================================
+ * Advanced Geometric Transformations
+ * ============================================================================
+ */
+
+/*
+ * Project vector onto another vector
+ */
+PG_FUNCTION_INFO_V1(vector_project);
+Datum
+vector_project(PG_FUNCTION_ARGS)
+{
+	Vector	   *v = NULL;
+	Vector	   *onto = NULL;
+	Vector	   *result = NULL;
+	float4		dot_product = 0.0;
+	float4		onto_norm_sq = 0.0;
+	int			i;
+
+	if (PG_NARGS() != 2)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("vector_project requires 2 arguments")));
+
+	v = PG_GETARG_VECTOR_P(0);
+	NDB_CHECK_VECTOR_VALID(v);
+	onto = PG_GETARG_VECTOR_P(1);
+	NDB_CHECK_VECTOR_VALID(onto);
+
+	if (v->dim != onto->dim)
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("vector dimensions must match")));
+
+	/* Compute dot product and norm squared */
+	for (i = 0; i < v->dim; i++)
+	{
+		dot_product += v->data[i] * onto->data[i];
+		onto_norm_sq += onto->data[i] * onto->data[i];
+	}
+
+	if (onto_norm_sq == 0.0)
+		ereport(ERROR,
+				(errcode(ERRCODE_DIVISION_BY_ZERO),
+				 errmsg("cannot project onto zero vector")));
+
+	result = new_vector(v->dim);
+	for (i = 0; i < v->dim; i++)
+		result->data[i] = (dot_product / onto_norm_sq) * onto->data[i];
+
+	PG_RETURN_VECTOR_P(result);
+}
+
+/*
+ * Reject component (orthogonal projection)
+ */
+PG_FUNCTION_INFO_V1(vector_reject);
+Datum
+vector_reject(PG_FUNCTION_ARGS)
+{
+	Vector	   *v = NULL;
+	Vector	   *from = NULL;
+	Vector	   *projected = NULL;
+	Vector	   *result = NULL;
+	int			i;
+
+	if (PG_NARGS() != 2)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("vector_reject requires 2 arguments")));
+
+	v = PG_GETARG_VECTOR_P(0);
+	NDB_CHECK_VECTOR_VALID(v);
+	from = PG_GETARG_VECTOR_P(1);
+	NDB_CHECK_VECTOR_VALID(from);
+
+	/* Compute projection first */
+	projected = DatumGetVector(DirectFunctionCall2(vector_project,
+													PointerGetDatum(v),
+													PointerGetDatum(from)));
+
+	/* Reject = v - projection */
+	result = new_vector(v->dim);
+	for (i = 0; i < v->dim; i++)
+		result->data[i] = v->data[i] - projected->data[i];
+
+	PG_RETURN_VECTOR_P(result);
+}
+
+/*
+ * Reflect vector across a plane (defined by normal vector)
+ */
+PG_FUNCTION_INFO_V1(vector_reflect);
+Datum
+vector_reflect(PG_FUNCTION_ARGS)
+{
+	Vector	   *v = NULL;
+	Vector	   *normal = NULL;
+	Vector	   *result = NULL;
+	float4		dot_product = 0.0;
+	float4		normal_norm_sq = 0.0;
+	int			i;
+
+	if (PG_NARGS() != 2)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("vector_reflect requires 2 arguments")));
+
+	v = PG_GETARG_VECTOR_P(0);
+	NDB_CHECK_VECTOR_VALID(v);
+	normal = PG_GETARG_VECTOR_P(1);
+	NDB_CHECK_VECTOR_VALID(normal);
+
+	if (v->dim != normal->dim)
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("vector dimensions must match")));
+
+	/* Compute dot product and norm squared */
+	for (i = 0; i < v->dim; i++)
+	{
+		dot_product += v->data[i] * normal->data[i];
+		normal_norm_sq += normal->data[i] * normal->data[i];
+	}
+
+	if (normal_norm_sq == 0.0)
+		ereport(ERROR,
+				(errcode(ERRCODE_DIVISION_BY_ZERO),
+				 errmsg("cannot reflect across zero vector")));
+
+	result = new_vector(v->dim);
+	for (i = 0; i < v->dim; i++)
+		result->data[i] = v->data[i] - 2.0 * (dot_product / normal_norm_sq) * normal->data[i];
+
+	PG_RETURN_VECTOR_P(result);
+}
+
+/*
+ * Rotate 2D vector by angle (in radians)
+ * For higher dimensions, rotates in the plane defined by first two dimensions
+ */
+PG_FUNCTION_INFO_V1(vector_rotate);
+Datum
+vector_rotate(PG_FUNCTION_ARGS)
+{
+	Vector	   *v = NULL;
+	float8		angle;
+	Vector	   *result = NULL;
+	double		cos_a, sin_a;
+	int			i;
+
+	if (PG_NARGS() != 2)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("vector_rotate requires 2 arguments")));
+
+	v = PG_GETARG_VECTOR_P(0);
+	NDB_CHECK_VECTOR_VALID(v);
+	angle = PG_GETARG_FLOAT8(1);
+
+	if (v->dim < 2)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("vector_rotate requires at least 2 dimensions")));
+
+	cos_a = cos(angle);
+	sin_a = sin(angle);
+
+	result = new_vector(v->dim);
+	if (result == NULL)
+		ereport(ERROR,
+				(errcode(ERRCODE_OUT_OF_MEMORY),
+				 errmsg("out of memory")));
+
+	/* Rotate first two dimensions */
+	result->data[0] = v->data[0] * cos_a - v->data[1] * sin_a;
+	result->data[1] = v->data[0] * sin_a + v->data[1] * cos_a;
+
+	/* Copy remaining dimensions unchanged */
+	for (i = 2; i < v->dim; i++)
+		result->data[i] = v->data[i];
+
+	PG_RETURN_VECTOR_P(result);
+}

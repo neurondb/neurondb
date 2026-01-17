@@ -8470,4 +8470,3 @@ GRANT EXECUTE ON FUNCTION rotate_encryption_key(text, text, text, text) TO PUBLI
 GRANT EXECUTE ON FUNCTION log_ml_inference(integer, text, text, text, jsonb) TO PUBLIC;
 GRANT EXECUTE ON FUNCTION log_rag_operation(text, text, text, integer, jsonb) TO PUBLIC;
 GRANT EXECUTE ON FUNCTION query_audit_log(text, timestamptz, timestamptz, text, text) TO PUBLIC;
-

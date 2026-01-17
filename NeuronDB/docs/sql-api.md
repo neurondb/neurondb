@@ -2,6 +2,15 @@
 
 Complete reference for all NeuronDB SQL functions, operators, types, and configuration parameters.
 
+## Table of Contents
+
+- [Vector Types](#vector-types)
+- [Distance Operators](#distance-operators)
+- [Embedding Functions](#embedding-functions)
+- [GPU Distance Functions](#gpu-distance-functions)
+- [ML Analytics Functions](#ml-analytics-functions)
+- [ML Project Management](#ml-project-management)
+
 ## Vector Types
 
 ### `vector(n)`
@@ -285,3 +294,11 @@ All functions in this reference are classified according to their stability leve
 - [Configuration Guide](configuration.md): Detailed GUC reference
 - [Function Stability Policy](function-stability.md): Understand API stability classifications
 - [Deprecation Policy](deprecation-policy.md): Learn how deprecations are handled
+
+---
+
+<div align="center">
+
+[⬆ Back to Top](#sql-api-reference)
+
+</div>

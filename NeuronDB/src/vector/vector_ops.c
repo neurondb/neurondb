@@ -478,6 +478,157 @@ vector_stddev(PG_FUNCTION_ARGS)
 	PG_RETURN_FLOAT8(sqrt(variance / v->dim));
 }
 
+/*
+ * Skewness of vector elements
+ */
+PG_FUNCTION_INFO_V1(vector_skewness);
+Datum
+vector_skewness(PG_FUNCTION_ARGS)
+{
+	Vector	   *v = NULL;
+	double		mean = 0.0;
+	double		stddev = 0.0;
+	double		skewness = 0.0;
+	int			i;
+
+	if (PG_NARGS() != 1)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("neurondb: vector_skewness requires 1 argument")));
+
+	v = PG_GETARG_VECTOR_P(0);
+	NDB_CHECK_VECTOR_VALID(v);
+
+	if (v->dim <= 2)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("skewness requires at least 3 elements")));
+
+	/* Compute mean */
+	for (i = 0; i < v->dim; i++)
+		mean += v->data[i];
+	mean /= v->dim;
+
+	/* Compute standard deviation */
+	for (i = 0; i < v->dim; i++)
+	{
+		double		diff = v->data[i] - mean;
+		stddev += diff * diff;
+	}
+	stddev = sqrt(stddev / v->dim);
+
+	if (stddev == 0.0)
+		PG_RETURN_FLOAT8(0.0);
+
+	/* Compute skewness */
+	for (i = 0; i < v->dim; i++)
+	{
+		double		diff = v->data[i] - mean;
+		skewness += (diff / stddev) * (diff / stddev) * (diff / stddev);
+	}
+	skewness /= v->dim;
+
+	PG_RETURN_FLOAT8(skewness);
+}
+
+/*
+ * Kurtosis of vector elements
+ */
+PG_FUNCTION_INFO_V1(vector_kurtosis);
+Datum
+vector_kurtosis(PG_FUNCTION_ARGS)
+{
+	Vector	   *v = NULL;
+	double		mean = 0.0;
+	double		stddev = 0.0;
+	double		kurtosis = 0.0;
+	int			i;
+
+	if (PG_NARGS() != 1)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("neurondb: vector_kurtosis requires 1 argument")));
+
+	v = PG_GETARG_VECTOR_P(0);
+	NDB_CHECK_VECTOR_VALID(v);
+
+	if (v->dim <= 2)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("kurtosis requires at least 3 elements")));
+
+	/* Compute mean */
+	for (i = 0; i < v->dim; i++)
+		mean += v->data[i];
+	mean /= v->dim;
+
+	/* Compute standard deviation */
+	for (i = 0; i < v->dim; i++)
+	{
+		double		diff = v->data[i] - mean;
+		stddev += diff * diff;
+	}
+	stddev = sqrt(stddev / v->dim);
+
+	if (stddev == 0.0)
+		PG_RETURN_FLOAT8(0.0);
+
+	/* Compute kurtosis (excess kurtosis, so subtract 3) */
+	for (i = 0; i < v->dim; i++)
+	{
+		double		diff = v->data[i] - mean;
+		double		normalized = diff / stddev;
+		kurtosis += normalized * normalized * normalized * normalized;
+	}
+	kurtosis = (kurtosis / v->dim) - 3.0;
+
+	PG_RETURN_FLOAT8(kurtosis);
+}
+
+/*
+ * Shannon entropy of vector elements (treating as probability distribution)
+ */
+PG_FUNCTION_INFO_V1(vector_entropy);
+Datum
+vector_entropy(PG_FUNCTION_ARGS)
+{
+	Vector	   *v = NULL;
+	double		sum = 0.0;
+	double		entropy = 0.0;
+	int			i;
+
+	if (PG_NARGS() != 1)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("neurondb: vector_entropy requires 1 argument")));
+
+	v = PG_GETARG_VECTOR_P(0);
+	NDB_CHECK_VECTOR_VALID(v);
+
+	/* Normalize to probability distribution */
+	for (i = 0; i < v->dim; i++)
+	{
+		if (v->data[i] < 0.0)
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					 errmsg("entropy requires non-negative values")));
+		sum += v->data[i];
+	}
+
+	if (sum == 0.0)
+		PG_RETURN_FLOAT8(0.0);
+
+	/* Compute entropy */
+	for (i = 0; i < v->dim; i++)
+	{
+		double		p = v->data[i] / sum;
+		if (p > 0.0)
+			entropy -= p * log(p);
+	}
+
+	PG_RETURN_FLOAT8(entropy);
+}
+
 PG_FUNCTION_INFO_V1(vector_min);
 Datum
 vector_min(PG_FUNCTION_ARGS)
@@ -920,6 +1071,414 @@ vector_minmax_normalize(PG_FUNCTION_ARGS)
 		{
 			for (i = 0; i < v->dim; i++)
 				result->data[i] = 0.5;
+	}
+
+	PG_RETURN_VECTOR_P(result);
+}
+
+/*
+ * ============================================================================
+ * Advanced Mathematical Operations
+ * ============================================================================
+ */
+
+/*
+ * Element-wise exponential
+ */
+PG_FUNCTION_INFO_V1(vector_exp);
+Datum
+vector_exp(PG_FUNCTION_ARGS)
+{
+	Vector	   *v = NULL;
+	Vector	   *result = NULL;
+	int			i;
+
+	if (PG_NARGS() != 1)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("neurondb: vector_exp requires 1 argument")));
+
+	v = PG_GETARG_VECTOR_P(0);
+	NDB_CHECK_VECTOR_VALID(v);
+
+	result = new_vector(v->dim);
+	for (i = 0; i < v->dim; i++)
+		result->data[i] = exp(v->data[i]);
+
+	PG_RETURN_VECTOR_P(result);
+}
+
+/*
+ * Element-wise natural logarithm
+ */
+PG_FUNCTION_INFO_V1(vector_log);
+Datum
+vector_log(PG_FUNCTION_ARGS)
+{
+	Vector	   *v = NULL;
+	Vector	   *result = NULL;
+	int			i;
+
+	if (PG_NARGS() != 1)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("neurondb: vector_log requires 1 argument")));
+
+	v = PG_GETARG_VECTOR_P(0);
+	NDB_CHECK_VECTOR_VALID(v);
+
+	result = new_vector(v->dim);
+	for (i = 0; i < v->dim; i++)
+	{
+		if (v->data[i] <= 0.0)
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					 errmsg("cannot take logarithm of non-positive number")));
+		result->data[i] = log(v->data[i]);
+	}
+
+	PG_RETURN_VECTOR_P(result);
+}
+
+/*
+ * Element-wise base-10 logarithm
+ */
+PG_FUNCTION_INFO_V1(vector_log10);
+Datum
+vector_log10(PG_FUNCTION_ARGS)
+{
+	Vector	   *v = NULL;
+	Vector	   *result = NULL;
+	int			i;
+
+	if (PG_NARGS() != 1)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("neurondb: vector_log10 requires 1 argument")));
+
+	v = PG_GETARG_VECTOR_P(0);
+	NDB_CHECK_VECTOR_VALID(v);
+
+	result = new_vector(v->dim);
+	for (i = 0; i < v->dim; i++)
+	{
+		if (v->data[i] <= 0.0)
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					 errmsg("cannot take logarithm of non-positive number")));
+		result->data[i] = log10(v->data[i]);
+	}
+
+	PG_RETURN_VECTOR_P(result);
+}
+
+/*
+ * Element-wise sine
+ */
+PG_FUNCTION_INFO_V1(vector_sin);
+Datum
+vector_sin(PG_FUNCTION_ARGS)
+{
+	Vector	   *v = NULL;
+	Vector	   *result = NULL;
+	int			i;
+
+	if (PG_NARGS() != 1)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("neurondb: vector_sin requires 1 argument")));
+
+	v = PG_GETARG_VECTOR_P(0);
+	NDB_CHECK_VECTOR_VALID(v);
+
+	result = new_vector(v->dim);
+	for (i = 0; i < v->dim; i++)
+		result->data[i] = sin(v->data[i]);
+
+	PG_RETURN_VECTOR_P(result);
+}
+
+/*
+ * Element-wise cosine
+ */
+PG_FUNCTION_INFO_V1(vector_cos);
+Datum
+vector_cos(PG_FUNCTION_ARGS)
+{
+	Vector	   *v = NULL;
+	Vector	   *result = NULL;
+	int			i;
+
+	if (PG_NARGS() != 1)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("neurondb: vector_cos requires 1 argument")));
+
+	v = PG_GETARG_VECTOR_P(0);
+	NDB_CHECK_VECTOR_VALID(v);
+
+	result = new_vector(v->dim);
+	for (i = 0; i < v->dim; i++)
+		result->data[i] = cos(v->data[i]);
+
+	PG_RETURN_VECTOR_P(result);
+}
+
+/*
+ * Element-wise tangent
+ */
+PG_FUNCTION_INFO_V1(vector_tan);
+Datum
+vector_tan(PG_FUNCTION_ARGS)
+{
+	Vector	   *v = NULL;
+	Vector	   *result = NULL;
+	int			i;
+
+	if (PG_NARGS() != 1)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("neurondb: vector_tan requires 1 argument")));
+
+	v = PG_GETARG_VECTOR_P(0);
+	NDB_CHECK_VECTOR_VALID(v);
+
+	result = new_vector(v->dim);
+	for (i = 0; i < v->dim; i++)
+		result->data[i] = tan(v->data[i]);
+
+	PG_RETURN_VECTOR_P(result);
+}
+
+/*
+ * Element-wise arcsine
+ */
+PG_FUNCTION_INFO_V1(vector_asin);
+Datum
+vector_asin(PG_FUNCTION_ARGS)
+{
+	Vector	   *v = NULL;
+	Vector	   *result = NULL;
+	int			i;
+
+	if (PG_NARGS() != 1)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("neurondb: vector_asin requires 1 argument")));
+
+	v = PG_GETARG_VECTOR_P(0);
+	NDB_CHECK_VECTOR_VALID(v);
+
+	result = new_vector(v->dim);
+	for (i = 0; i < v->dim; i++)
+	{
+		if (v->data[i] < -1.0 || v->data[i] > 1.0)
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					 errmsg("arcsine argument must be in range [-1, 1]")));
+		result->data[i] = asin(v->data[i]);
+	}
+
+	PG_RETURN_VECTOR_P(result);
+}
+
+/*
+ * Element-wise arccosine
+ */
+PG_FUNCTION_INFO_V1(vector_acos);
+Datum
+vector_acos(PG_FUNCTION_ARGS)
+{
+	Vector	   *v = NULL;
+	Vector	   *result = NULL;
+	int			i;
+
+	if (PG_NARGS() != 1)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("neurondb: vector_acos requires 1 argument")));
+
+	v = PG_GETARG_VECTOR_P(0);
+	NDB_CHECK_VECTOR_VALID(v);
+
+	result = new_vector(v->dim);
+	for (i = 0; i < v->dim; i++)
+	{
+		if (v->data[i] < -1.0 || v->data[i] > 1.0)
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					 errmsg("arccosine argument must be in range [-1, 1]")));
+		result->data[i] = acos(v->data[i]);
+	}
+
+	PG_RETURN_VECTOR_P(result);
+}
+
+/*
+ * Element-wise arctangent
+ */
+PG_FUNCTION_INFO_V1(vector_atan);
+Datum
+vector_atan(PG_FUNCTION_ARGS)
+{
+	Vector	   *v = NULL;
+	Vector	   *result = NULL;
+	int			i;
+
+	if (PG_NARGS() != 1)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("neurondb: vector_atan requires 1 argument")));
+
+	v = PG_GETARG_VECTOR_P(0);
+	NDB_CHECK_VECTOR_VALID(v);
+
+	result = new_vector(v->dim);
+	for (i = 0; i < v->dim; i++)
+		result->data[i] = atan(v->data[i]);
+
+	PG_RETURN_VECTOR_P(result);
+}
+
+/*
+ * Element-wise hyperbolic sine
+ */
+PG_FUNCTION_INFO_V1(vector_sinh);
+Datum
+vector_sinh(PG_FUNCTION_ARGS)
+{
+	Vector	   *v = NULL;
+	Vector	   *result = NULL;
+	int			i;
+
+	if (PG_NARGS() != 1)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("neurondb: vector_sinh requires 1 argument")));
+
+	v = PG_GETARG_VECTOR_P(0);
+	NDB_CHECK_VECTOR_VALID(v);
+
+	result = new_vector(v->dim);
+	for (i = 0; i < v->dim; i++)
+		result->data[i] = sinh(v->data[i]);
+
+	PG_RETURN_VECTOR_P(result);
+}
+
+/*
+ * Element-wise hyperbolic cosine
+ */
+PG_FUNCTION_INFO_V1(vector_cosh);
+Datum
+vector_cosh(PG_FUNCTION_ARGS)
+{
+	Vector	   *v = NULL;
+	Vector	   *result = NULL;
+	int			i;
+
+	if (PG_NARGS() != 1)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("neurondb: vector_cosh requires 1 argument")));
+
+	v = PG_GETARG_VECTOR_P(0);
+	NDB_CHECK_VECTOR_VALID(v);
+
+	result = new_vector(v->dim);
+	for (i = 0; i < v->dim; i++)
+		result->data[i] = cosh(v->data[i]);
+
+	PG_RETURN_VECTOR_P(result);
+}
+
+/*
+ * Element-wise hyperbolic tangent
+ */
+PG_FUNCTION_INFO_V1(vector_tanh);
+Datum
+vector_tanh(PG_FUNCTION_ARGS)
+{
+	Vector	   *v = NULL;
+	Vector	   *result = NULL;
+	int			i;
+
+	if (PG_NARGS() != 1)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("neurondb: vector_tanh requires 1 argument")));
+
+	v = PG_GETARG_VECTOR_P(0);
+	NDB_CHECK_VECTOR_VALID(v);
+
+	result = new_vector(v->dim);
+	for (i = 0; i < v->dim; i++)
+		result->data[i] = tanh(v->data[i]);
+
+	PG_RETURN_VECTOR_P(result);
+}
+
+/*
+ * Element-wise error function
+ */
+PG_FUNCTION_INFO_V1(vector_erf);
+Datum
+vector_erf(PG_FUNCTION_ARGS)
+{
+	Vector	   *v = NULL;
+	Vector	   *result = NULL;
+	int			i;
+	double		x, t, y;
+
+	if (PG_NARGS() != 1)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("neurondb: vector_erf requires 1 argument")));
+
+	v = PG_GETARG_VECTOR_P(0);
+	NDB_CHECK_VECTOR_VALID(v);
+
+	result = new_vector(v->dim);
+	for (i = 0; i < v->dim; i++)
+	{
+		x = v->data[i];
+		/* Approximation of error function */
+		t = 1.0 / (1.0 + 0.47047 * fabs(x));
+		y = 1.0 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * exp(-x * x);
+		result->data[i] = (x >= 0.0) ? y : -y;
+	}
+
+	PG_RETURN_VECTOR_P(result);
+}
+
+/*
+ * Element-wise complementary error function
+ */
+PG_FUNCTION_INFO_V1(vector_erfc);
+Datum
+vector_erfc(PG_FUNCTION_ARGS)
+{
+	Vector	   *v = NULL;
+	Vector	   *result = NULL;
+	int			i;
+	double		x, t, y;
+
+	if (PG_NARGS() != 1)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("neurondb: vector_erfc requires 1 argument")));
+
+	v = PG_GETARG_VECTOR_P(0);
+	NDB_CHECK_VECTOR_VALID(v);
+
+	result = new_vector(v->dim);
+	for (i = 0; i < v->dim; i++)
+	{
+		x = v->data[i];
+		/* Approximation of complementary error function */
+		t = 1.0 / (1.0 + 0.47047 * fabs(x));
+		y = (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * exp(-x * x);
+		result->data[i] = (x >= 0.0) ? y : 2.0 - y;
 	}
 
 	PG_RETURN_VECTOR_P(result);

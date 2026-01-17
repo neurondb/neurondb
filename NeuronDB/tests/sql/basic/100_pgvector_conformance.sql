@@ -53,6 +53,7 @@ DROP TABLE t1, t2;
 \echo 'Test 2: Distance Operators'
 \echo '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
 
+DROP TABLE IF EXISTS t CASCADE;
 CREATE TABLE t (id int, embedding vector(3));
 INSERT INTO t VALUES (1, '[1,2,3]'), (2, '[4,5,6]'), (3, '[1,1,1]');
 
@@ -397,6 +398,8 @@ SELECT l2_norm('[0,0,0]'::vector) AS zero_norm;
 \echo '  ✓ Compatibility function aliases'
 \echo '  ✓ Edge cases (NULLs, empty sets, zero vectors)'
 \echo ''
+
+
 
 
 

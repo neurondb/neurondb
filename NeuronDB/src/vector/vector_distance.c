@@ -735,3 +735,203 @@ vector_mahalanobis_distance(PG_FUNCTION_ARGS)
 
 	PG_RETURN_FLOAT8(sqrt(sum));
 }
+
+/*
+ * ============================================================================
+ * Correlation-Based Distance Metrics
+ * ============================================================================
+ */
+
+/*
+ * Pearson correlation coefficient
+ */
+PG_FUNCTION_INFO_V1(vector_pearson_correlation);
+Datum
+vector_pearson_correlation(PG_FUNCTION_ARGS)
+{
+	Vector	   *a = NULL;
+	Vector	   *b = NULL;
+	double		mean_a = 0.0;
+	double		mean_b = 0.0;
+	double		cov = 0.0;
+	double		var_a = 0.0;
+	double		var_b = 0.0;
+	int			i;
+
+	if (PG_NARGS() != 2)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("vector_pearson_correlation requires 2 arguments")));
+
+	a = PG_GETARG_VECTOR_P(0);
+	NDB_CHECK_VECTOR_VALID(a);
+	b = PG_GETARG_VECTOR_P(1);
+	NDB_CHECK_VECTOR_VALID(b);
+
+	check_dimensions(a, b);
+
+	/* Compute means */
+	for (i = 0; i < a->dim; i++)
+	{
+		mean_a += a->data[i];
+		mean_b += b->data[i];
+	}
+	mean_a /= a->dim;
+	mean_b /= a->dim;
+
+	/* Compute covariance and variances */
+	for (i = 0; i < a->dim; i++)
+	{
+		double		diff_a = a->data[i] - mean_a;
+		double		diff_b = b->data[i] - mean_b;
+
+		cov += diff_a * diff_b;
+		var_a += diff_a * diff_a;
+		var_b += diff_b * diff_b;
+	}
+
+	if (var_a == 0.0 || var_b == 0.0)
+		PG_RETURN_FLOAT8(0.0);
+
+	PG_RETURN_FLOAT8(cov / sqrt(var_a * var_b));
+}
+
+/*
+ * Weighted distance with per-dimension weights
+ */
+PG_FUNCTION_INFO_V1(vector_weighted_distance);
+Datum
+vector_weighted_distance(PG_FUNCTION_ARGS)
+{
+	Vector	   *a = NULL;
+	Vector	   *b = NULL;
+	Vector	   *weights = NULL;
+	double		sum = 0.0;
+	int			i;
+
+	if (PG_NARGS() != 3)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("vector_weighted_distance requires 3 arguments")));
+
+	a = PG_GETARG_VECTOR_P(0);
+	NDB_CHECK_VECTOR_VALID(a);
+	b = PG_GETARG_VECTOR_P(1);
+	NDB_CHECK_VECTOR_VALID(b);
+	weights = PG_GETARG_VECTOR_P(2);
+	NDB_CHECK_VECTOR_VALID(weights);
+
+	check_dimensions(a, b);
+
+	if (weights->dim != a->dim)
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("weights vector dimension must match input vectors")));
+
+	for (i = 0; i < a->dim; i++)
+	{
+		double		diff = a->data[i] - b->data[i];
+		double		weight = weights->data[i];
+
+		if (weight < 0.0)
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					 errmsg("weights must be non-negative")));
+
+		sum += weight * diff * diff;
+	}
+
+	PG_RETURN_FLOAT8(sqrt(sum));
+}
+
+/*
+ * ============================================================================
+ * Information-Theoretic Distance Metrics
+ * ============================================================================
+ */
+
+/*
+ * Kullback-Leibler divergence (requires probability distributions)
+ */
+PG_FUNCTION_INFO_V1(vector_kl_divergence);
+Datum
+vector_kl_divergence(PG_FUNCTION_ARGS)
+{
+	Vector	   *p = NULL;
+	Vector	   *q = NULL;
+	double		kl = 0.0;
+	int			i;
+
+	if (PG_NARGS() != 2)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("vector_kl_divergence requires 2 arguments")));
+
+	p = PG_GETARG_VECTOR_P(0);
+	NDB_CHECK_VECTOR_VALID(p);
+	q = PG_GETARG_VECTOR_P(1);
+	NDB_CHECK_VECTOR_VALID(q);
+
+	check_dimensions(p, q);
+
+	for (i = 0; i < p->dim; i++)
+	{
+		if (p->data[i] < 0.0 || q->data[i] < 0.0)
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					 errmsg("KL divergence requires non-negative probability distributions")));
+
+		if (q->data[i] == 0.0 && p->data[i] > 0.0)
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					 errmsg("KL divergence undefined when q[i]=0 and p[i]>0")));
+
+		if (p->data[i] > 0.0 && q->data[i] > 0.0)
+			kl += p->data[i] * log(p->data[i] / q->data[i]);
+	}
+
+	PG_RETURN_FLOAT8(kl);
+}
+
+/*
+ * Jensen-Shannon divergence
+ */
+PG_FUNCTION_INFO_V1(vector_js_divergence);
+Datum
+vector_js_divergence(PG_FUNCTION_ARGS)
+{
+	Vector	   *p = NULL;
+	Vector	   *q = NULL;
+	Vector	   *m = NULL;
+	double		js = 0.0;
+	int			i;
+
+	if (PG_NARGS() != 2)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("vector_js_divergence requires 2 arguments")));
+
+	p = PG_GETARG_VECTOR_P(0);
+	NDB_CHECK_VECTOR_VALID(p);
+	q = PG_GETARG_VECTOR_P(1);
+	NDB_CHECK_VECTOR_VALID(q);
+
+	check_dimensions(p, q);
+
+	/* Create mixture distribution m = (p + q) / 2 */
+	m = new_vector(p->dim);
+	for (i = 0; i < p->dim; i++)
+		m->data[i] = (p->data[i] + q->data[i]) / 2.0;
+
+	/* JS = (KL(p||m) + KL(q||m)) / 2 */
+	js = (DatumGetFloat8(DirectFunctionCall2(vector_kl_divergence,
+											 PointerGetDatum(p),
+											 PointerGetDatum(m))) +
+		  DatumGetFloat8(DirectFunctionCall2(vector_kl_divergence,
+											 PointerGetDatum(q),
+											 PointerGetDatum(m)))) / 2.0;
+
+	pfree(m);
+
+	PG_RETURN_FLOAT8(js);
+}

@@ -2,7 +2,7 @@
 -- NeurondB Extension SQL Definitions
 -- Advanced AI Database Extension for PostgreSQL
 -- 
--- Copyright (c) 2024-2026, neurondb, Inc. <admin@neurondb.com>
+-- Copyright (c) 2024-2025, neurondb, Inc. <admin@neurondb.com>
 -- 
 -- Version Compatibility:
 -- - PostgreSQL 16: Full support with PL/pgSQL fallbacks for macOS dylib loader issues
@@ -26,7 +26,7 @@ BEGIN
     v_pg_major := v_pg_version_num / 10000;
     
     -- Log version info
-    RAISE NOTICE 'NeurondB v2.0: Supports PostgreSQL 16-18';
+    RAISE NOTICE 'NeurondB v2.1: Supports PostgreSQL 16-18';
     RAISE NOTICE 'NeurondB: Current PostgreSQL version: %.%', 
                  v_pg_major, (v_pg_version_num - v_pg_major * 10000) / 100;
     
@@ -181,7 +181,7 @@ CREATE TYPE rtext (
 
 COMMENT ON TYPE rtext IS 'Retrievable text type with token metadata for RAG pipelines';
 
--- Half-precision vector type (halfvec): FP16 quantized vectors (past compatibility)
+-- Half-precision vector type (halfvec): FP16 quantized vectors (compatibility)
 CREATE TYPE halfvec;
 
 CREATE FUNCTION halfvec_in(cstring) RETURNS halfvec
@@ -354,6 +354,17 @@ CREATE FUNCTION vector_normalize(vector) RETURNS vector
     LANGUAGE C IMMUTABLE STRICT;
 COMMENT ON FUNCTION vector_normalize IS 'Normalize vector to unit length';
 
+-- pgvector compatibility aliases
+CREATE FUNCTION normalize_l2(vector) RETURNS vector
+    AS $$ SELECT vector_normalize($1); $$
+    LANGUAGE SQL IMMUTABLE STRICT PARALLEL SAFE;
+COMMENT ON FUNCTION normalize_l2(vector) IS 'Normalize vector to unit length (pgvector compatibility alias)';
+
+CREATE FUNCTION l2_normalize(vector) RETURNS vector
+    AS $$ SELECT vector_normalize($1); $$
+    LANGUAGE SQL IMMUTABLE STRICT PARALLEL SAFE;
+COMMENT ON FUNCTION l2_normalize(vector) IS 'Normalize vector to unit length (compatibility alias)';
+
 CREATE FUNCTION vector_concat(vector, vector) RETURNS vector
     AS 'MODULE_PATHNAME', 'vector_concat'
     LANGUAGE C IMMUTABLE STRICT;
@@ -402,14 +413,24 @@ CREATE OPERATOR * (
     COMMUTATOR = *
 );
 
--- Element-wise vector multiplication (Hadamard product)
-CREATE OPERATOR * (
+CREATE FUNCTION vector_div(vector, double precision) RETURNS vector
+    AS 'MODULE_PATHNAME', 'vector_div_scalar'
+    LANGUAGE C IMMUTABLE STRICT;
+
+CREATE OPERATOR / (
     LEFTARG = vector,
-    RIGHTARG = vector,
-    PROCEDURE = vector_hadamard,
-    COMMUTATOR = *
+    RIGHTARG = double precision,
+    PROCEDURE = vector_div
 );
-COMMENT ON OPERATOR *(vector, vector) IS 'Element-wise vector multiplication (Hadamard product)';
+
+CREATE FUNCTION vector_neg(vector) RETURNS vector
+    AS 'MODULE_PATHNAME', 'vector_neg'
+    LANGUAGE C IMMUTABLE STRICT;
+
+CREATE OPERATOR - (
+    RIGHTARG = vector,
+    PROCEDURE = vector_neg
+);
 
 -- ============================================================================
 -- DISTANCE FUNCTIONS & OPERATORS
@@ -491,6 +512,18 @@ CREATE FUNCTION vector_squared_l2_distance(vector, vector) RETURNS double precis
     LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 COMMENT ON FUNCTION vector_squared_l2_distance IS 'Squared Euclidean distance (L2^2, faster, no sqrt)';
 
+-- L2 Squared Distance (alias for index optimization)
+CREATE FUNCTION vector_l2_squared_distance(vector, vector) RETURNS double precision
+    AS 'MODULE_PATHNAME', 'vector_l2_squared_distance'
+    LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+COMMENT ON FUNCTION vector_l2_squared_distance IS 'L2 squared distance (optimized for index operations, no sqrt)';
+
+-- Negative Inner Product (for index optimization)
+CREATE FUNCTION vector_negative_inner_product(vector, vector) RETURNS double precision
+    AS 'MODULE_PATHNAME', 'vector_negative_inner_product'
+    LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+COMMENT ON FUNCTION vector_negative_inner_product IS 'Negative inner product (optimized for index operations)';
+
 -- Jaccard Distance
 CREATE FUNCTION vector_jaccard_distance(vector, vector) RETURNS double precision
     AS 'MODULE_PATHNAME', 'vector_jaccard_distance'
@@ -508,6 +541,28 @@ CREATE FUNCTION vector_mahalanobis_distance(vector, vector, vector) RETURNS doub
     AS 'MODULE_PATHNAME', 'vector_mahalanobis_distance'
     LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 COMMENT ON FUNCTION vector_mahalanobis_distance IS 'Mahalanobis distance with diagonal covariance matrix (3rd arg: inverse variances)';
+
+-- Correlation-based distance metrics
+CREATE FUNCTION vector_pearson_correlation(vector, vector) RETURNS double precision
+    AS 'MODULE_PATHNAME', 'vector_pearson_correlation'
+    LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+COMMENT ON FUNCTION vector_pearson_correlation IS 'Pearson correlation coefficient between two vectors';
+
+CREATE FUNCTION vector_weighted_distance(vector, vector, vector) RETURNS double precision
+    AS 'MODULE_PATHNAME', 'vector_weighted_distance'
+    LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+COMMENT ON FUNCTION vector_weighted_distance IS 'Weighted L2 distance with per-dimension weights';
+
+-- Information-theoretic distance metrics
+CREATE FUNCTION vector_kl_divergence(vector, vector) RETURNS double precision
+    AS 'MODULE_PATHNAME', 'vector_kl_divergence'
+    LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+COMMENT ON FUNCTION vector_kl_divergence IS 'Kullback-Leibler divergence (requires probability distributions)';
+
+CREATE FUNCTION vector_js_divergence(vector, vector) RETURNS double precision
+    AS 'MODULE_PATHNAME', 'vector_js_divergence'
+    LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+COMMENT ON FUNCTION vector_js_divergence IS 'Jensen-Shannon divergence between two probability distributions';
 
 -- ============================================================================
 -- QUANTIZATION FUNCTIONS
@@ -542,29 +597,38 @@ COMMENT ON FUNCTION vector_to_binary IS 'Convert vector to binary (32x compressi
 CREATE FUNCTION binary_quantize(vector) RETURNS bit
     AS 'MODULE_PATHNAME', 'binary_quantize'
     LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
-COMMENT ON FUNCTION binary_quantize IS 'Convert vector to bit type via binary quantization (past compatibility)';
+COMMENT ON FUNCTION binary_quantize IS 'Convert vector to bit type via binary quantization (compatibility)';
 
--- Bit type support for binary vectors (past compatibility)
+-- Bit type support for binary vectors (compatibility)
 CREATE FUNCTION vector_to_bit(vector) RETURNS bit
     AS 'MODULE_PATHNAME', 'vector_to_bit'
     LANGUAGE C IMMUTABLE STRICT;
-COMMENT ON FUNCTION vector_to_bit IS 'Convert vector to PostgreSQL bit type (past compatibility)';
+COMMENT ON FUNCTION vector_to_bit IS 'Convert vector to PostgreSQL bit type (compatibility)';
 
 CREATE FUNCTION bit_to_vector(bit) RETURNS vector
     AS 'MODULE_PATHNAME', 'bit_to_vector'
     LANGUAGE C IMMUTABLE STRICT;
 COMMENT ON FUNCTION bit_to_vector IS 'Convert PostgreSQL bit type to vector';
 
--- Type conversion functions (past compatibility)
+-- Type conversion functions (compatibility)
 CREATE FUNCTION vector_to_halfvec(vector) RETURNS halfvec
-    AS 'MODULE_PATHNAME', 'vector_to_halfvec'
+    AS 'MODULE_PATHNAME', 'vector_to_float16'
     LANGUAGE C IMMUTABLE STRICT;
 COMMENT ON FUNCTION vector_to_halfvec IS 'Convert vector to halfvec (compatible)';
 
 CREATE FUNCTION halfvec_to_vector(halfvec) RETURNS vector
-    AS 'MODULE_PATHNAME', 'halfvec_to_vector'
+    AS 'MODULE_PATHNAME', 'float16_to_vector'
     LANGUAGE C IMMUTABLE STRICT;
 COMMENT ON FUNCTION halfvec_to_vector IS 'Convert halfvec to vector (compatible)';
+
+-- Casts between halfvec and vector
+CREATE CAST (halfvec AS vector)
+    WITH FUNCTION halfvec_to_vector(halfvec)
+    AS IMPLICIT;
+
+CREATE CAST (vector AS halfvec)
+    WITH FUNCTION vector_to_halfvec(vector)
+    AS ASSIGNMENT;
 
 CREATE FUNCTION vector_to_sparsevec(vector) RETURNS sparsevec
     AS 'MODULE_PATHNAME', 'vector_to_sparsevec'
@@ -1306,6 +1370,12 @@ CREATE FUNCTION predict_xgboost(integer, real[])
     LANGUAGE C STABLE STRICT;
 COMMENT ON FUNCTION predict_xgboost(integer, real[]) IS 'Predict using XGBoost model by model_id';
 
+CREATE FUNCTION evaluate_xgboost_by_model_id(integer, text, text, text)
+    RETURNS jsonb
+    AS 'MODULE_PATHNAME', 'evaluate_xgboost_by_model_id'
+    LANGUAGE C STABLE STRICT;
+COMMENT ON FUNCTION evaluate_xgboost_by_model_id IS 'Evaluate XGBoost model by model_id. Returns classification or regression metrics based on label type.';
+
 -- ============================================================================
 -- CATBOOST FUNCTIONS
 -- ============================================================================
@@ -1328,6 +1398,12 @@ CREATE FUNCTION predict_catboost(integer, real[])
     LANGUAGE C STABLE STRICT;
 COMMENT ON FUNCTION predict_catboost(integer, real[]) IS 'Predict using CatBoost model by model_id';
 
+CREATE FUNCTION evaluate_catboost_by_model_id(integer, text, text, text)
+    RETURNS jsonb
+    AS 'MODULE_PATHNAME', 'evaluate_catboost_by_model_id'
+    LANGUAGE C STABLE STRICT;
+COMMENT ON FUNCTION evaluate_catboost_by_model_id IS 'Evaluate CatBoost model by model_id. Returns classification or regression metrics based on label type.';
+
 -- ============================================================================
 -- LIGHTGBM FUNCTIONS
 -- ============================================================================
@@ -1348,6 +1424,12 @@ CREATE FUNCTION predict_lightgbm(integer, real[])
     RETURNS float8
     AS 'MODULE_PATHNAME', 'predict_lightgbm'
     LANGUAGE C STABLE STRICT;
+
+CREATE FUNCTION evaluate_lightgbm_by_model_id(integer, text, text, text)
+    RETURNS jsonb
+    AS 'MODULE_PATHNAME', 'evaluate_lightgbm_by_model_id'
+    LANGUAGE C STABLE STRICT;
+COMMENT ON FUNCTION evaluate_lightgbm_by_model_id IS 'Evaluate LightGBM model by model_id. Returns classification or regression metrics based on label type.';
 COMMENT ON FUNCTION predict_lightgbm(integer, real[]) IS 'Predict using LightGBM model by model_id';
 
 -- ============================================================================
@@ -1843,7 +1925,7 @@ COMMENT ON FUNCTION evaluate_collaborative_filter_by_model_id IS 'Evaluate colla
 
 -- ARIMA models storage table
 CREATE TABLE IF NOT EXISTS neurondb.arima_models (
-    model_id serial PRIMARY KEY,
+    model_id SERIAL NOT NULL UNIQUE,
     p integer NOT NULL,
     d integer NOT NULL,
     q integer NOT NULL,
@@ -1856,7 +1938,7 @@ COMMENT ON TABLE neurondb.arima_models IS 'ARIMA time series model storage';
 
 -- ARIMA history table for forecasting
 CREATE TABLE IF NOT EXISTS neurondb.arima_history (
-    observed_id serial PRIMARY KEY,
+    observed_id SERIAL NOT NULL UNIQUE,
     model_id integer NOT NULL REFERENCES neurondb.arima_models(model_id),
     observed float8 NOT NULL,
     observed_at timestamptz DEFAULT now()
@@ -2010,7 +2092,9 @@ CREATE FUNCTION array_to_vector(real[]) RETURNS vector
 COMMENT ON FUNCTION array_to_vector IS 'Convert float array to vector';
 
 -- Overload to accept double precision[] by casting to real[]
-CREATE OR REPLACE FUNCTION array_to_vector(double precision[]) RETURNS vector
+-- Drop existing function if it exists (may have been created outside extension)
+DROP FUNCTION IF EXISTS public.array_to_vector(double precision[]) CASCADE;
+CREATE FUNCTION array_to_vector(double precision[]) RETURNS vector
 LANGUAGE sql IMMUTABLE STRICT AS $$
 	SELECT array_to_vector($1::real[]);
 $$;
@@ -2167,6 +2251,27 @@ CREATE FUNCTION vector_translate(vector, vector) RETURNS vector
     LANGUAGE C IMMUTABLE STRICT;
 COMMENT ON FUNCTION vector_translate IS 'Translate vector by adding offset vector';
 
+-- Advanced geometric transformations
+CREATE FUNCTION vector_project(vector, vector) RETURNS vector
+    AS 'MODULE_PATHNAME', 'vector_project'
+    LANGUAGE C IMMUTABLE STRICT;
+COMMENT ON FUNCTION vector_project IS 'Project vector onto another vector';
+
+CREATE FUNCTION vector_reject(vector, vector) RETURNS vector
+    AS 'MODULE_PATHNAME', 'vector_reject'
+    LANGUAGE C IMMUTABLE STRICT;
+COMMENT ON FUNCTION vector_reject IS 'Reject component (orthogonal projection)';
+
+CREATE FUNCTION vector_reflect(vector, vector) RETURNS vector
+    AS 'MODULE_PATHNAME', 'vector_reflect'
+    LANGUAGE C IMMUTABLE STRICT;
+COMMENT ON FUNCTION vector_reflect IS 'Reflect vector across plane defined by normal vector';
+
+CREATE FUNCTION vector_rotate(vector, double precision) RETURNS vector
+    AS 'MODULE_PATHNAME', 'vector_rotate'
+    LANGUAGE C IMMUTABLE STRICT;
+COMMENT ON FUNCTION vector_rotate IS 'Rotate 2D vector by angle (in radians), or rotate first two dimensions for higher-D vectors';
+
 -- Filtering operations
 CREATE FUNCTION vector_filter(vector, boolean[]) RETURNS vector
     AS 'MODULE_PATHNAME', 'vector_filter'
@@ -2179,7 +2284,7 @@ CREATE FUNCTION vector_where(vector, vector, real) RETURNS vector
 COMMENT ON FUNCTION vector_where IS 'Conditional vector assignment: where(condition, value_if_true, value_if_false)';
 
 -- =============================================================================
--- Advanced Vector Operations (Superior to other extensions)
+-- Advanced Vector Operations
 -- =============================================================================
 
 -- Element access and manipulation
@@ -2198,10 +2303,11 @@ CREATE FUNCTION vector_slice(vector, integer, integer) RETURNS vector
     LANGUAGE C IMMUTABLE STRICT;
 COMMENT ON FUNCTION vector_slice IS 'Extract subvector from start to end index';
 
-CREATE FUNCTION subvector(vector, integer, integer) RETURNS vector
-    AS 'MODULE_PATHNAME', 'subvector'
-    LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
-COMMENT ON FUNCTION subvector IS 'Extract subvector from start to end index (alias for vector_slice)';
+-- CREATE FUNCTION subvector(vector, integer, integer) RETURNS vector
+--     AS 'MODULE_PATHNAME', 'subvector'
+--     LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+-- COMMENT ON FUNCTION subvector IS 'Extract subvector from start to end index (alias for vector_slice)';
+-- NOTE: Temporarily disabled - function symbol not exported. Use vector_slice instead.
 
 CREATE FUNCTION vector_append(vector, real) RETURNS vector
     AS 'MODULE_PATHNAME', 'vector_append'
@@ -2244,6 +2350,77 @@ CREATE FUNCTION vector_divide(vector, vector) RETURNS vector
     LANGUAGE C IMMUTABLE STRICT;
 COMMENT ON FUNCTION vector_divide IS 'Element-wise division';
 
+-- Advanced mathematical operations
+CREATE FUNCTION vector_exp(vector) RETURNS vector
+    AS 'MODULE_PATHNAME', 'vector_exp'
+    LANGUAGE C IMMUTABLE STRICT;
+COMMENT ON FUNCTION vector_exp IS 'Element-wise exponential';
+
+CREATE FUNCTION vector_log(vector) RETURNS vector
+    AS 'MODULE_PATHNAME', 'vector_log'
+    LANGUAGE C IMMUTABLE STRICT;
+COMMENT ON FUNCTION vector_log IS 'Element-wise natural logarithm';
+
+CREATE FUNCTION vector_log10(vector) RETURNS vector
+    AS 'MODULE_PATHNAME', 'vector_log10'
+    LANGUAGE C IMMUTABLE STRICT;
+COMMENT ON FUNCTION vector_log10 IS 'Element-wise base-10 logarithm';
+
+CREATE FUNCTION vector_sin(vector) RETURNS vector
+    AS 'MODULE_PATHNAME', 'vector_sin'
+    LANGUAGE C IMMUTABLE STRICT;
+COMMENT ON FUNCTION vector_sin IS 'Element-wise sine';
+
+CREATE FUNCTION vector_cos(vector) RETURNS vector
+    AS 'MODULE_PATHNAME', 'vector_cos'
+    LANGUAGE C IMMUTABLE STRICT;
+COMMENT ON FUNCTION vector_cos IS 'Element-wise cosine';
+
+CREATE FUNCTION vector_tan(vector) RETURNS vector
+    AS 'MODULE_PATHNAME', 'vector_tan'
+    LANGUAGE C IMMUTABLE STRICT;
+COMMENT ON FUNCTION vector_tan IS 'Element-wise tangent';
+
+CREATE FUNCTION vector_asin(vector) RETURNS vector
+    AS 'MODULE_PATHNAME', 'vector_asin'
+    LANGUAGE C IMMUTABLE STRICT;
+COMMENT ON FUNCTION vector_asin IS 'Element-wise arcsine';
+
+CREATE FUNCTION vector_acos(vector) RETURNS vector
+    AS 'MODULE_PATHNAME', 'vector_acos'
+    LANGUAGE C IMMUTABLE STRICT;
+COMMENT ON FUNCTION vector_acos IS 'Element-wise arccosine';
+
+CREATE FUNCTION vector_atan(vector) RETURNS vector
+    AS 'MODULE_PATHNAME', 'vector_atan'
+    LANGUAGE C IMMUTABLE STRICT;
+COMMENT ON FUNCTION vector_atan IS 'Element-wise arctangent';
+
+CREATE FUNCTION vector_sinh(vector) RETURNS vector
+    AS 'MODULE_PATHNAME', 'vector_sinh'
+    LANGUAGE C IMMUTABLE STRICT;
+COMMENT ON FUNCTION vector_sinh IS 'Element-wise hyperbolic sine';
+
+CREATE FUNCTION vector_cosh(vector) RETURNS vector
+    AS 'MODULE_PATHNAME', 'vector_cosh'
+    LANGUAGE C IMMUTABLE STRICT;
+COMMENT ON FUNCTION vector_cosh IS 'Element-wise hyperbolic cosine';
+
+CREATE FUNCTION vector_tanh(vector) RETURNS vector
+    AS 'MODULE_PATHNAME', 'vector_tanh'
+    LANGUAGE C IMMUTABLE STRICT;
+COMMENT ON FUNCTION vector_tanh IS 'Element-wise hyperbolic tangent';
+
+CREATE FUNCTION vector_erf(vector) RETURNS vector
+    AS 'MODULE_PATHNAME', 'vector_erf'
+    LANGUAGE C IMMUTABLE STRICT;
+COMMENT ON FUNCTION vector_erf IS 'Element-wise error function';
+
+CREATE FUNCTION vector_erfc(vector) RETURNS vector
+    AS 'MODULE_PATHNAME', 'vector_erfc'
+    LANGUAGE C IMMUTABLE STRICT;
+COMMENT ON FUNCTION vector_erfc IS 'Element-wise complementary error function';
+
 -- Statistical functions
 CREATE FUNCTION vector_mean(vector) RETURNS double precision
     AS 'MODULE_PATHNAME', 'vector_mean'
@@ -2260,6 +2437,21 @@ CREATE FUNCTION vector_stddev(vector) RETURNS double precision
     LANGUAGE C IMMUTABLE STRICT;
 COMMENT ON FUNCTION vector_stddev IS 'Standard deviation of vector elements';
 
+CREATE FUNCTION vector_skewness(vector) RETURNS double precision
+    AS 'MODULE_PATHNAME', 'vector_skewness'
+    LANGUAGE C IMMUTABLE STRICT;
+COMMENT ON FUNCTION vector_skewness IS 'Skewness of vector elements';
+
+CREATE FUNCTION vector_kurtosis(vector) RETURNS double precision
+    AS 'MODULE_PATHNAME', 'vector_kurtosis'
+    LANGUAGE C IMMUTABLE STRICT;
+COMMENT ON FUNCTION vector_kurtosis IS 'Kurtosis (excess) of vector elements';
+
+CREATE FUNCTION vector_entropy(vector) RETURNS double precision
+    AS 'MODULE_PATHNAME', 'vector_entropy'
+    LANGUAGE C IMMUTABLE STRICT;
+COMMENT ON FUNCTION vector_entropy IS 'Shannon entropy of vector elements (as probability distribution)';
+
 CREATE FUNCTION vector_min(vector) RETURNS real
     AS 'MODULE_PATHNAME', 'vector_min'
     LANGUAGE C IMMUTABLE STRICT;
@@ -2269,6 +2461,16 @@ CREATE FUNCTION vector_max(vector) RETURNS real
     AS 'MODULE_PATHNAME', 'vector_max'
     LANGUAGE C IMMUTABLE STRICT;
 COMMENT ON FUNCTION vector_max IS 'Maximum element in vector';
+
+CREATE FUNCTION vector_min(vector, vector) RETURNS vector
+    AS 'MODULE_PATHNAME', 'vector_min_2arg'
+    LANGUAGE C IMMUTABLE STRICT;
+COMMENT ON FUNCTION vector_min(vector, vector) IS 'Element-wise minimum of two vectors';
+
+CREATE FUNCTION vector_max(vector, vector) RETURNS vector
+    AS 'MODULE_PATHNAME', 'vector_max_2arg'
+    LANGUAGE C IMMUTABLE STRICT;
+COMMENT ON FUNCTION vector_max(vector, vector) IS 'Element-wise maximum of two vectors';
 
 CREATE FUNCTION vector_element_sum(vector) RETURNS double precision
     AS 'MODULE_PATHNAME', 'vector_sum'
@@ -2287,7 +2489,7 @@ CREATE FUNCTION vector_avg_finalfn(internal) RETURNS vector
 COMMENT ON FUNCTION vector_avg_finalfn IS 'Final function for vector_avg aggregate';
 
 CREATE FUNCTION vector_sum_transfn(internal, vector) RETURNS internal
-    AS 'MODULE_PATHNAME', 'vector_sum_transfn'
+    AS 'MODULE_PATHNAME', 'vector_avg_transfn'
     LANGUAGE C STABLE;
 COMMENT ON FUNCTION vector_sum_transfn IS 'Transition function for vector_sum aggregate (reuses vector_avg_transfn)';
 
@@ -2300,8 +2502,7 @@ COMMENT ON FUNCTION vector_sum_finalfn IS 'Final function for vector_sum aggrega
 CREATE AGGREGATE vector_avg(vector) (
     SFUNC = vector_avg_transfn,
     STYPE = internal,
-    FINALFUNC = vector_avg_finalfn,
-    INITCOND = ''
+    FINALFUNC = vector_avg_finalfn
 );
 COMMENT ON AGGREGATE vector_avg(vector) IS 'Average of vectors (element-wise mean)';
 
@@ -2309,8 +2510,7 @@ COMMENT ON AGGREGATE vector_avg(vector) IS 'Average of vectors (element-wise mea
 CREATE AGGREGATE vector_sum(vector) (
     SFUNC = vector_sum_transfn,
     STYPE = internal,
-    FINALFUNC = vector_sum_finalfn,
-    INITCOND = ''
+    FINALFUNC = vector_sum_finalfn
 );
 COMMENT ON AGGREGATE vector_sum(vector) IS 'Sum of vectors (element-wise sum)';
 
@@ -2331,7 +2531,7 @@ CREATE FUNCTION vector_hash(vector) RETURNS integer
     LANGUAGE C IMMUTABLE STRICT;
 COMMENT ON FUNCTION vector_hash IS 'Hash function for vector type (supports hash joins)';
 
--- Vector Comparison Operators (past compatibility)
+-- Vector Comparison Operators (compatibility)
 CREATE OPERATOR = (
     LEFTARG = vector,
     RIGHTARG = vector,
@@ -2405,26 +2605,6 @@ CREATE FUNCTION halfvec_ne(halfvec, halfvec) RETURNS boolean
     LANGUAGE C IMMUTABLE STRICT;
 COMMENT ON FUNCTION halfvec_ne IS 'Halfvec inequality comparison';
 
-CREATE FUNCTION halfvec_lt(halfvec, halfvec) RETURNS bool
-    AS 'MODULE_PATHNAME', 'halfvec_lt'
-    LANGUAGE C IMMUTABLE STRICT;
-COMMENT ON FUNCTION halfvec_lt IS 'Halfvec less than comparison (lexicographic)';
-
-CREATE FUNCTION halfvec_le(halfvec, halfvec) RETURNS bool
-    AS 'MODULE_PATHNAME', 'halfvec_le'
-    LANGUAGE C IMMUTABLE STRICT;
-COMMENT ON FUNCTION halfvec_le IS 'Halfvec less than or equal comparison (lexicographic)';
-
-CREATE FUNCTION halfvec_gt(halfvec, halfvec) RETURNS bool
-    AS 'MODULE_PATHNAME', 'halfvec_gt'
-    LANGUAGE C IMMUTABLE STRICT;
-COMMENT ON FUNCTION halfvec_gt IS 'Halfvec greater than comparison (lexicographic)';
-
-CREATE FUNCTION halfvec_ge(halfvec, halfvec) RETURNS bool
-    AS 'MODULE_PATHNAME', 'halfvec_ge'
-    LANGUAGE C IMMUTABLE STRICT;
-COMMENT ON FUNCTION halfvec_ge IS 'Halfvec greater than or equal comparison (lexicographic)';
-
 CREATE FUNCTION halfvec_hash(halfvec) RETURNS integer
     AS 'MODULE_PATHNAME', 'halfvec_hash'
     LANGUAGE C IMMUTABLE STRICT;
@@ -2450,33 +2630,67 @@ CREATE OPERATOR <> (
 );
 COMMENT ON OPERATOR <>(halfvec, halfvec) IS 'Halfvec inequality operator';
 
-CREATE OPERATOR < (
-    LEFTARG = halfvec,
-    RIGHTARG = halfvec,
-    PROCEDURE = halfvec_lt
-);
-COMMENT ON OPERATOR <(halfvec, halfvec) IS 'Halfvec less than operator (lexicographic)';
+-- Arithmetic operators for halfvec type
+CREATE FUNCTION halfvec_add(halfvec, halfvec) RETURNS halfvec
+    AS 'MODULE_PATHNAME', 'halfvec_add'
+    LANGUAGE C IMMUTABLE STRICT;
+COMMENT ON FUNCTION halfvec_add IS 'Add two halfvec vectors element-wise';
 
-CREATE OPERATOR <= (
+CREATE OPERATOR + (
     LEFTARG = halfvec,
     RIGHTARG = halfvec,
-    PROCEDURE = halfvec_le
+    PROCEDURE = halfvec_add,
+    COMMUTATOR = +
 );
-COMMENT ON OPERATOR <=(halfvec, halfvec) IS 'Halfvec less than or equal operator (lexicographic)';
+COMMENT ON OPERATOR +(halfvec, halfvec) IS 'Halfvec addition operator';
 
-CREATE OPERATOR > (
-    LEFTARG = halfvec,
-    RIGHTARG = halfvec,
-    PROCEDURE = halfvec_gt
-);
-COMMENT ON OPERATOR >(halfvec, halfvec) IS 'Halfvec greater than operator (lexicographic)';
+CREATE FUNCTION halfvec_sub(halfvec, halfvec) RETURNS halfvec
+    AS 'MODULE_PATHNAME', 'halfvec_sub'
+    LANGUAGE C IMMUTABLE STRICT;
+COMMENT ON FUNCTION halfvec_sub IS 'Subtract two halfvec vectors element-wise';
 
-CREATE OPERATOR >= (
+CREATE OPERATOR - (
     LEFTARG = halfvec,
     RIGHTARG = halfvec,
-    PROCEDURE = halfvec_ge
+    PROCEDURE = halfvec_sub
 );
-COMMENT ON OPERATOR >=(halfvec, halfvec) IS 'Halfvec greater than or equal operator (lexicographic)';
+COMMENT ON OPERATOR -(halfvec, halfvec) IS 'Halfvec subtraction operator';
+
+CREATE FUNCTION halfvec_mul(halfvec, double precision) RETURNS halfvec
+    AS 'MODULE_PATHNAME', 'halfvec_mul'
+    LANGUAGE C IMMUTABLE STRICT;
+COMMENT ON FUNCTION halfvec_mul IS 'Multiply halfvec by scalar';
+
+CREATE OPERATOR * (
+    LEFTARG = halfvec,
+    RIGHTARG = double precision,
+    PROCEDURE = halfvec_mul,
+    COMMUTATOR = *
+);
+COMMENT ON OPERATOR *(halfvec, double precision) IS 'Halfvec scalar multiplication operator';
+
+CREATE FUNCTION halfvec_div(halfvec, double precision) RETURNS halfvec
+    AS 'MODULE_PATHNAME', 'halfvec_div'
+    LANGUAGE C IMMUTABLE STRICT;
+COMMENT ON FUNCTION halfvec_div IS 'Divide halfvec by scalar';
+
+CREATE OPERATOR / (
+    LEFTARG = halfvec,
+    RIGHTARG = double precision,
+    PROCEDURE = halfvec_div
+);
+COMMENT ON OPERATOR /(halfvec, double precision) IS 'Halfvec scalar division operator';
+
+CREATE FUNCTION halfvec_neg(halfvec) RETURNS halfvec
+    AS 'MODULE_PATHNAME', 'halfvec_neg'
+    LANGUAGE C IMMUTABLE STRICT;
+COMMENT ON FUNCTION halfvec_neg IS 'Negate halfvec';
+
+CREATE OPERATOR - (
+    RIGHTARG = halfvec,
+    PROCEDURE = halfvec_neg
+);
+COMMENT ON OPERATOR -(NONE, halfvec) IS 'Halfvec negation operator';
 
 -- Comparison operators for sparsevec type
 CREATE FUNCTION sparsevec_eq(sparsevec, sparsevec) RETURNS boolean
@@ -2514,6 +2728,45 @@ CREATE OPERATOR <> (
 );
 COMMENT ON OPERATOR <>(sparsevec, sparsevec) IS 'Sparsevec inequality operator';
 
+-- Arithmetic operators for sparsevec type
+CREATE FUNCTION sparsevec_add(sparsevec, sparsevec) RETURNS sparsevec
+    AS 'MODULE_PATHNAME', 'sparsevec_add'
+    LANGUAGE C IMMUTABLE STRICT;
+COMMENT ON FUNCTION sparsevec_add IS 'Add two sparsevec vectors element-wise';
+
+CREATE OPERATOR + (
+    LEFTARG = sparsevec,
+    RIGHTARG = sparsevec,
+    PROCEDURE = sparsevec_add,
+    COMMUTATOR = +
+);
+COMMENT ON OPERATOR +(sparsevec, sparsevec) IS 'Sparsevec addition operator';
+
+CREATE FUNCTION sparsevec_sub(sparsevec, sparsevec) RETURNS sparsevec
+    AS 'MODULE_PATHNAME', 'sparsevec_sub'
+    LANGUAGE C IMMUTABLE STRICT;
+COMMENT ON FUNCTION sparsevec_sub IS 'Subtract two sparsevec vectors element-wise';
+
+CREATE OPERATOR - (
+    LEFTARG = sparsevec,
+    RIGHTARG = sparsevec,
+    PROCEDURE = sparsevec_sub
+);
+COMMENT ON OPERATOR -(sparsevec, sparsevec) IS 'Sparsevec subtraction operator';
+
+CREATE FUNCTION sparsevec_mul(sparsevec, double precision) RETURNS sparsevec
+    AS 'MODULE_PATHNAME', 'sparsevec_mul'
+    LANGUAGE C IMMUTABLE STRICT;
+COMMENT ON FUNCTION sparsevec_mul IS 'Multiply sparsevec by scalar';
+
+CREATE OPERATOR * (
+    LEFTARG = sparsevec,
+    RIGHTARG = double precision,
+    PROCEDURE = sparsevec_mul,
+    COMMUTATOR = *
+);
+COMMENT ON OPERATOR *(sparsevec, double precision) IS 'Sparsevec scalar multiplication operator';
+
 -- Note: bit type already has native = and <> operators in PostgreSQL
 
 -- ============================================================================
@@ -2535,11 +2788,6 @@ CREATE FUNCTION halfvec_inner_product(halfvec, halfvec) RETURNS real
     AS 'MODULE_PATHNAME', 'halfvec_inner_product'
     LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 COMMENT ON FUNCTION halfvec_inner_product IS 'Inner product (negative for distance ordering) between halfvec vectors';
-
-CREATE FUNCTION halfvec_l1_distance(halfvec, halfvec) RETURNS real
-    AS 'MODULE_PATHNAME', 'halfvec_l1_distance'
-    LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
-COMMENT ON FUNCTION halfvec_l1_distance IS 'L1 (Manhattan) distance between halfvec vectors';
 
 CREATE FUNCTION l2_norm(halfvec) RETURNS double precision
     AS 'MODULE_PATHNAME', 'halfvec_l2_norm'
@@ -2573,14 +2821,6 @@ CREATE OPERATOR <#> (
     COMMUTATOR = '<#>'
 );
 
-CREATE OPERATOR <+> (
-    LEFTARG = halfvec,
-    RIGHTARG = halfvec,
-    PROCEDURE = halfvec_l1_distance,
-    COMMUTATOR = '<+>'
-);
-COMMENT ON OPERATOR <+>(halfvec, halfvec) IS 'L1 (Manhattan) distance operator for halfvec';
-
 -- Distance functions for sparsevec type
 CREATE FUNCTION sparsevec_l2_distance(sparsevec, sparsevec) RETURNS real
     AS 'MODULE_PATHNAME', 'sparsevec_l2_distance'
@@ -2597,7 +2837,7 @@ CREATE FUNCTION sparsevec_inner_product(sparsevec, sparsevec) RETURNS real
     LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 COMMENT ON FUNCTION sparsevec_inner_product IS 'Inner product (negative for distance ordering) between sparsevec vectors';
 
--- Norm functions for sparsevec type (past compatibility)
+-- Norm functions for sparsevec type (compatibility)
 CREATE FUNCTION sparsevec_l2_norm(sparsevec) RETURNS double precision
     AS 'MODULE_PATHNAME', 'sparsevec_l2_norm'
     LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
@@ -2636,20 +2876,6 @@ CREATE FUNCTION bit_hamming_distance(bit, bit) RETURNS integer
     LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 COMMENT ON FUNCTION bit_hamming_distance IS 'Hamming distance between bit vectors';
 
--- Bit distance function aliases (compatibility)
--- Drop existing function if it exists (may have been created outside extension)
-DROP FUNCTION IF EXISTS public.hamming_distance(bit, bit) CASCADE;
-CREATE FUNCTION hamming_distance(bit, bit) RETURNS integer
-    AS $$ SELECT bit_hamming_distance($1, $2); $$
-    LANGUAGE SQL IMMUTABLE STRICT PARALLEL SAFE;
-COMMENT ON FUNCTION hamming_distance(bit, bit) IS 'Hamming distance for bit (compatibility alias)';
-
-DROP FUNCTION IF EXISTS public.jaccard_distance(bit, bit) CASCADE;
-CREATE FUNCTION jaccard_distance(bit, bit) RETURNS double precision
-    AS $$ SELECT bit_jaccard_distance($1, $2); $$
-    LANGUAGE SQL IMMUTABLE STRICT PARALLEL SAFE;
-COMMENT ON FUNCTION jaccard_distance(bit, bit) IS 'Jaccard distance for bit (compatibility alias)';
-
 CREATE FUNCTION bit_jaccard_distance(bit, bit) RETURNS double precision
     AS 'MODULE_PATHNAME', 'bit_jaccard_distance'
     LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
@@ -2669,7 +2895,7 @@ CREATE OPERATOR <~> (
     PROCEDURE = bit_hamming_distance,
     COMMUTATOR = '<~>'
 );
-COMMENT ON OPERATOR <~>(bit, bit) IS 'Hamming distance operator for bit vectors (past compatibility)';
+COMMENT ON OPERATOR <~>(bit, bit) IS 'Hamming distance operator for bit vectors (compatibility)';
 
 CREATE OPERATOR <%> (
     LEFTARG = bit,
@@ -2980,7 +3206,7 @@ CREATE OPERATOR <=> (
 );
 COMMENT ON OPERATOR <=>(vector, vector) IS 'Cosine distance operator';
 
--- L1 (Manhattan/Taxicab) Distance Operator <+> (past compatibility)
+-- L1 (Manhattan/Taxicab) Distance Operator <+> (compatibility)
 CREATE OPERATOR <+> (
     LEFTARG = vector,
     RIGHTARG = vector,
@@ -2989,7 +3215,7 @@ CREATE OPERATOR <+> (
 );
 COMMENT ON OPERATOR <+>(vector, vector) IS 'L1 (Manhattan/Taxicab) distance operator (compatible)';
 
--- Hamming Distance Operator <~> (past compatibility)
+-- Hamming Distance Operator <~> (compatibility)
 CREATE OPERATOR <~> (
     LEFTARG = vector,
     RIGHTARG = vector,
@@ -2998,7 +3224,7 @@ CREATE OPERATOR <~> (
 );
 COMMENT ON OPERATOR <~>(vector, vector) IS 'Hamming distance operator (compatible)';
 
--- Jaccard Distance Operator <*~*> (past compatibility)
+-- Jaccard Distance Operator <*~*> (compatibility)
 CREATE OPERATOR <*~*> (
     LEFTARG = vector,
     RIGHTARG = vector,
@@ -3066,6 +3292,190 @@ CREATE FUNCTION neurondb_has_opclass(opclass_name text) RETURNS boolean
     AS 'MODULE_PATHNAME', 'neurondb_has_opclass'
     LANGUAGE C STABLE;
 COMMENT ON FUNCTION neurondb_has_opclass IS 'Check if NeurondB operator class exists';
+
+-- ============================================================================
+-- COMPATIBILITY FUNCTION ALIASES
+-- ============================================================================
+-- These aliases provide compatible function names for easier migration
+
+-- Vector distance function aliases (compatibility)
+-- Drop existing functions if they exist (may have been created outside extension)
+DROP FUNCTION IF EXISTS public.l2_distance(vector, vector) CASCADE;
+CREATE FUNCTION l2_distance(vector, vector) RETURNS real
+    AS $$ SELECT vector_l2_distance($1, $2); $$
+    LANGUAGE SQL IMMUTABLE STRICT PARALLEL SAFE;
+COMMENT ON FUNCTION l2_distance(vector, vector) IS 'L2 (Euclidean) distance (compatibility alias)';
+
+DROP FUNCTION IF EXISTS public.inner_product(vector, vector) CASCADE;
+CREATE FUNCTION inner_product(vector, vector) RETURNS real
+    AS $$ SELECT vector_inner_product($1, $2); $$
+    LANGUAGE SQL IMMUTABLE STRICT PARALLEL SAFE;
+COMMENT ON FUNCTION inner_product(vector, vector) IS 'Inner product distance (compatibility alias)';
+
+DROP FUNCTION IF EXISTS public.cosine_distance(vector, vector) CASCADE;
+CREATE FUNCTION cosine_distance(vector, vector) RETURNS real
+    AS $$ SELECT vector_cosine_distance($1, $2); $$
+    LANGUAGE SQL IMMUTABLE STRICT PARALLEL SAFE;
+COMMENT ON FUNCTION cosine_distance(vector, vector) IS 'Cosine distance (compatibility alias)';
+
+DROP FUNCTION IF EXISTS public.l1_distance(vector, vector) CASCADE;
+CREATE FUNCTION l1_distance(vector, vector) RETURNS real
+    AS $$ SELECT vector_l1_distance($1, $2); $$
+    LANGUAGE SQL IMMUTABLE STRICT PARALLEL SAFE;
+COMMENT ON FUNCTION l1_distance(vector, vector) IS 'L1 (Manhattan) distance (compatibility alias)';
+
+DROP FUNCTION IF EXISTS public.l2_normalize(vector) CASCADE;
+CREATE FUNCTION l2_normalize(vector) RETURNS vector
+    AS $$ SELECT vector_normalize($1); $$
+    LANGUAGE SQL IMMUTABLE STRICT PARALLEL SAFE;
+COMMENT ON FUNCTION l2_normalize(vector) IS 'L2 normalize vector (compatibility alias)';
+
+-- Halfvec distance function aliases (compatibility)
+-- Drop existing functions if they exist (may have been created outside extension)
+DROP FUNCTION IF EXISTS public.l2_distance(halfvec, halfvec) CASCADE;
+CREATE FUNCTION l2_distance(halfvec, halfvec) RETURNS real
+    AS $$ SELECT halfvec_l2_distance($1, $2); $$
+    LANGUAGE SQL IMMUTABLE STRICT PARALLEL SAFE;
+COMMENT ON FUNCTION l2_distance(halfvec, halfvec) IS 'L2 distance for halfvec (compatibility alias)';
+
+DROP FUNCTION IF EXISTS public.inner_product(halfvec, halfvec) CASCADE;
+CREATE FUNCTION inner_product(halfvec, halfvec) RETURNS real
+    AS $$ SELECT halfvec_inner_product($1, $2); $$
+    LANGUAGE SQL IMMUTABLE STRICT PARALLEL SAFE;
+COMMENT ON FUNCTION inner_product(halfvec, halfvec) IS 'Inner product for halfvec (compatibility alias)';
+
+DROP FUNCTION IF EXISTS public.cosine_distance(halfvec, halfvec) CASCADE;
+CREATE FUNCTION cosine_distance(halfvec, halfvec) RETURNS real
+    AS $$ SELECT halfvec_cosine_distance($1, $2); $$
+    LANGUAGE SQL IMMUTABLE STRICT PARALLEL SAFE;
+COMMENT ON FUNCTION cosine_distance(halfvec, halfvec) IS 'Cosine distance for halfvec (compatibility alias)';
+
+-- Halfvec norm functions (compatibility)
+-- Note: These convert to vector for norm calculation
+-- Drop existing functions if they exist (may have been created outside extension)
+DROP FUNCTION IF EXISTS public.l2_norm(halfvec) CASCADE;
+CREATE FUNCTION l2_norm(halfvec) RETURNS double precision
+    AS $$ SELECT vector_norm(halfvec_to_vector($1)); $$
+    LANGUAGE SQL IMMUTABLE STRICT PARALLEL SAFE;
+COMMENT ON FUNCTION l2_norm(halfvec) IS 'L2 norm of halfvec (compatibility alias)';
+
+DROP FUNCTION IF EXISTS public.l2_normalize(halfvec) CASCADE;
+CREATE FUNCTION l2_normalize(halfvec) RETURNS halfvec
+    AS $$ SELECT vector_to_halfvec(vector_normalize(halfvec_to_vector($1))); $$
+    LANGUAGE SQL IMMUTABLE STRICT PARALLEL SAFE;
+COMMENT ON FUNCTION l2_normalize(halfvec) IS 'L2 normalize halfvec (compatibility alias)';
+
+-- Sparsevec norm function alias
+-- Drop existing function if it exists (may have been created outside extension)
+DROP FUNCTION IF EXISTS public.l2_norm(sparsevec) CASCADE;
+CREATE FUNCTION l2_norm(sparsevec) RETURNS double precision
+    AS $$ SELECT sparsevec_l2_norm($1); $$
+    LANGUAGE SQL IMMUTABLE STRICT PARALLEL SAFE;
+COMMENT ON FUNCTION l2_norm(sparsevec) IS 'L2 norm of sparsevec (compatibility alias)';
+
+-- Bit distance function aliases (compatibility)
+-- Drop existing functions if they exist (may have been created outside extension)
+DROP FUNCTION IF EXISTS public.hamming_distance(bit, bit) CASCADE;
+CREATE FUNCTION hamming_distance(bit, bit) RETURNS integer
+    AS $$ SELECT bit_hamming_distance($1, $2); $$
+    LANGUAGE SQL IMMUTABLE STRICT PARALLEL SAFE;
+COMMENT ON FUNCTION hamming_distance(bit, bit) IS 'Hamming distance for bit (compatibility alias)';
+
+DROP FUNCTION IF EXISTS public.jaccard_distance(bit, bit) CASCADE;
+CREATE FUNCTION jaccard_distance(bit, bit) RETURNS double precision
+    AS $$ SELECT bit_jaccard_distance($1, $2); $$
+    LANGUAGE SQL IMMUTABLE STRICT PARALLEL SAFE;
+COMMENT ON FUNCTION jaccard_distance(bit, bit) IS 'Jaccard distance for bit (compatibility alias)';
+
+-- Comparison functions for btree compatibility (compatibility)
+-- These return -1, 0, or 1 for less than, equal, or greater than
+-- Drop existing function if it exists (may have been created outside extension)
+DROP FUNCTION IF EXISTS public.vector_cmp(vector, vector) CASCADE;
+CREATE FUNCTION vector_cmp(vector, vector) RETURNS integer
+    AS $$
+    SELECT CASE
+        WHEN $1 < $2 THEN -1
+        WHEN $1 = $2 THEN 0
+        ELSE 1
+    END;
+    $$
+    LANGUAGE SQL IMMUTABLE STRICT PARALLEL SAFE;
+COMMENT ON FUNCTION vector_cmp(vector, vector) IS 'Comparison function for vector (compatibility)';
+
+-- Note: halfvec and sparsevec comparison functions require comparison operators
+-- For now, these use equality check only (full comparison requires <, > operators)
+-- Drop existing functions if they exist (may have been created outside extension)
+DROP FUNCTION IF EXISTS public.halfvec_cmp(halfvec, halfvec) CASCADE;
+CREATE FUNCTION halfvec_cmp(halfvec, halfvec) RETURNS integer
+    AS $$
+    SELECT CASE
+        WHEN $1 = $2 THEN 0
+        -- For now, use hash-based comparison as fallback
+        WHEN halfvec_hash($1) < halfvec_hash($2) THEN -1
+        ELSE 1
+    END;
+    $$
+    LANGUAGE SQL IMMUTABLE STRICT PARALLEL SAFE;
+COMMENT ON FUNCTION halfvec_cmp(halfvec, halfvec) IS 'Comparison function for halfvec (compatibility)';
+
+DROP FUNCTION IF EXISTS public.sparsevec_cmp(sparsevec, sparsevec) CASCADE;
+CREATE FUNCTION sparsevec_cmp(sparsevec, sparsevec) RETURNS integer
+    AS $$
+    SELECT CASE
+        WHEN $1 = $2 THEN 0
+        -- For now, use text representation for comparison
+        WHEN $1::text < $2::text THEN -1
+        ELSE 1
+    END;
+    $$
+    LANGUAGE SQL IMMUTABLE STRICT PARALLEL SAFE;
+COMMENT ON FUNCTION sparsevec_cmp(sparsevec, sparsevec) IS 'Comparison function for sparsevec (compatibility)';
+
+-- B-tree operator classes for vector types
+-- Note: vector type already has <, <=, >, >= operators defined above
+CREATE OPERATOR CLASS vector_btree_ops
+    DEFAULT FOR TYPE vector USING btree AS
+    OPERATOR 1 < (vector, vector),
+    OPERATOR 2 <= (vector, vector),
+    OPERATOR 3 = (vector, vector),
+    OPERATOR 4 >= (vector, vector),
+    OPERATOR 5 > (vector, vector),
+    FUNCTION 1 vector_cmp(vector, vector);
+
+COMMENT ON OPERATOR CLASS vector_btree_ops USING btree IS 'B-tree operator class for vector type';
+
+-- Note: halfvec and sparsevec btree operator classes require <, <=, >, >= operators
+-- These are not yet implemented, so btree indexes on halfvec/sparsevec are not supported
+-- For now, only equality-based operations are supported via hash indexes
+
+-- Subvector alias for compatibility
+-- uses 1-based indexing: subvector(vec, start, count) where start is 1-based
+-- NeuronDB uses 0-based indexing: vector_slice(vec, start, end) where end is exclusive
+-- Convert: subvector(vec, start, count) -> vector_slice(vec, start-1, start-1+count)
+-- Handle edge cases: count=0 returns empty, invalid bounds return error
+-- Drop existing function if it exists (may have been created outside extension)
+DROP FUNCTION IF EXISTS public.subvector(vector, integer, integer) CASCADE;
+CREATE FUNCTION subvector(vector, integer, integer) RETURNS vector
+    AS $$
+    SELECT CASE
+        WHEN $3 <= 0 THEN
+            -- Return empty vector for count <= 0 (but vector must have at least 1 dim)
+            -- Use a single zero element as minimum
+            '[0]'::vector
+        WHEN $2 < 1 OR $2 > vector_dims($1) THEN
+            -- Invalid start position
+            (SELECT NULL)::vector
+        ELSE
+            vector_slice($1, GREATEST(0, $2 - 1), LEAST(vector_dims($1), $2 - 1 + $3))
+    END;
+    $$
+    LANGUAGE SQL IMMUTABLE STRICT PARALLEL SAFE;
+COMMENT ON FUNCTION subvector(vector, integer, integer) IS 'Extract subvector (compatibility: 1-based start, count)';
+
+-- Note: uses avg(vector) and sum(vector) as aggregates
+-- NeuronDB uses vector_avg(vector) and vector_sum(vector)
+-- Cannot create aggregate aliases with same name as built-in functions
+-- Users should use vector_avg and vector_sum directly
 
 -- ============================================================================
 -- OPERATOR CLASSES FOR NEW TYPES (halfvec, sparsevec, bit)
@@ -3144,12 +3554,6 @@ CREATE OPERATOR CLASS bit_hamming_ops
     OPERATOR 1 <-> (bit, bit) FOR ORDER BY integer_ops,
     FUNCTION 1 bit_hamming_distance(bit, bit);
 
--- Operator class for bit type with IVF (Hamming distance)
-CREATE OPERATOR CLASS bit_hamming_ops
-    DEFAULT FOR TYPE bit USING ivf AS
-    OPERATOR 1 <-> (bit, bit) FOR ORDER BY integer_ops,
-    FUNCTION 1 bit_hamming_distance(bit, bit);
-
 -- Operator class for bit type with HNSW (Jaccard distance)
 CREATE OPERATOR CLASS bit_jaccard_ops
     FOR TYPE bit USING hnsw AS
@@ -3200,6 +3604,11 @@ CREATE OPERATOR CLASS vector_cosine_ops
     OPERATOR 1 <=> (vector, vector) FOR ORDER BY float_ops,
     FUNCTION 1 vector_cosine_distance_op(vector, vector);
 
+CREATE OPERATOR CLASS vector_ip_ops
+    FOR TYPE vector USING ivf AS
+    OPERATOR 1 <#> (vector, vector) FOR ORDER BY float_ops,
+    FUNCTION 1 vector_inner_product_distance_op(vector, vector);
+
 -- ============================================================================
 -- ROW-LEVEL SECURITY (RLS) INTEGRATION
 -- ============================================================================
@@ -3226,8 +3635,7 @@ CREATE TABLE IF NOT EXISTS neurondb.tenant_usage (
     index_oid oid NOT NULL,
     vector_count bigint DEFAULT 0,
     storage_bytes bigint DEFAULT 0,
-    last_updated timestamptz DEFAULT now(),
-    PRIMARY KEY (tenant_id, index_oid)
+    last_updated timestamptz DEFAULT now(), UNIQUE(tenant_id, index_oid)
 );
 COMMENT ON TABLE neurondb.tenant_usage IS 'Per-tenant resource usage tracking';
 
@@ -3276,7 +3684,7 @@ COMMENT ON TABLE neurondb.tenant_quotas IS 'Per-tenant resource quota limits';
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS neurondb.rls_policies (
-    policy_id serial PRIMARY KEY,
+    policy_id SERIAL NOT NULL UNIQUE,
     table_name text NOT NULL,
     policy_name text NOT NULL,
     policy_expression text NOT NULL,
@@ -3394,7 +3802,7 @@ COMMENT ON FUNCTION neuranmon_sample IS 'Manually trigger tuner sampling';
 
 -- Queue worker job table
 CREATE TABLE IF NOT EXISTS neurondb.job_queue (
-    job_id bigserial PRIMARY KEY,
+    job_id BIGSERIAL NOT NULL UNIQUE,
     tenant_id integer DEFAULT 0,
     job_type text NOT NULL,
     payload jsonb NOT NULL,
@@ -3414,7 +3822,7 @@ CREATE INDEX IF NOT EXISTS idx_job_queue_tenant ON neurondb.job_queue(tenant_id,
 
 -- Query metrics table for tuner
 CREATE TABLE IF NOT EXISTS neurondb.query_metrics (
-    metric_id bigserial PRIMARY KEY,
+    metric_id BIGSERIAL NOT NULL UNIQUE,
     query_hash text,
     query_type text,
     latency_ms real,
@@ -3472,8 +3880,7 @@ CREATE TABLE IF NOT EXISTS neurondb.histograms (
     bucket_start real NOT NULL,
     bucket_end real NOT NULL,
     count bigint DEFAULT 0,
-    last_updated timestamptz DEFAULT now(),
-    PRIMARY KEY (metric_name, bucket_start)
+    last_updated timestamptz DEFAULT now(), UNIQUE(metric_name, bucket_start)
 );
 COMMENT ON TABLE neurondb.histograms IS 'Performance metric histograms for monitoring';
 
@@ -3503,7 +3910,7 @@ CREATE INDEX IF NOT EXISTS idx_llm_cache_created ON neurondb.llm_cache(created_a
 
 -- LLM job queue table
 CREATE TABLE IF NOT EXISTS neurondb.llm_jobs (
-    job_id bigserial PRIMARY KEY,
+    job_id BIGSERIAL NOT NULL UNIQUE,
     tenant_id text,
     operation text NOT NULL,
     model_name text NOT NULL,
@@ -3631,7 +4038,7 @@ END $$;
 
 -- Projects: Top-level organization for ML work
 CREATE TABLE IF NOT EXISTS neurondb.ml_projects (
-    project_id serial PRIMARY KEY,
+    project_id SERIAL NOT NULL UNIQUE,
     project_name text UNIQUE NOT NULL,
     model_type neurondb.ml_model_type NOT NULL,
     description text,
@@ -3646,7 +4053,7 @@ COMMENT ON TABLE neurondb.ml_projects IS 'ML project organization and metadata';
 
 -- Unified API Projects Table (simplified for unified API compatibility)
 CREATE TABLE IF NOT EXISTS neurondb.nb_catalog (
-    project_id SERIAL PRIMARY KEY,
+    project_id SERIAL NOT NULL UNIQUE,
     project_name TEXT NOT NULL UNIQUE,
     algorithm TEXT NOT NULL,
     table_name TEXT NOT NULL,
@@ -3658,7 +4065,7 @@ COMMENT ON TABLE neurondb.nb_catalog IS 'Simplified projects table for unified M
 
 -- Models: Trained models with versioning
 CREATE TABLE IF NOT EXISTS neurondb.ml_models (
-    model_id serial PRIMARY KEY,
+    model_id SERIAL NOT NULL UNIQUE,
     project_id integer NOT NULL REFERENCES neurondb.ml_projects(project_id) ON DELETE CASCADE,
     version integer NOT NULL,
     algorithm neurondb.ml_algorithm_type NOT NULL,
@@ -3695,7 +4102,7 @@ COMMENT ON TABLE neurondb.ml_models IS 'Trained models with versioning and metri
 
 -- Experiments: Track training runs and comparisons
 CREATE TABLE IF NOT EXISTS neurondb.ml_experiments (
-    experiment_id serial PRIMARY KEY,
+    experiment_id SERIAL NOT NULL UNIQUE,
     project_id integer NOT NULL REFERENCES neurondb.ml_projects(project_id) ON DELETE CASCADE,
     model_id integer REFERENCES neurondb.ml_models(model_id) ON DELETE CASCADE,
     experiment_name text,
@@ -3808,7 +4215,7 @@ COMMENT ON TABLE neurondb.llm_stats IS 'LLM usage statistics per model';
 
 -- LLM error tracking table
 CREATE TABLE IF NOT EXISTS neurondb.llm_errors (
-    error_id bigserial PRIMARY KEY,
+    error_id BIGSERIAL NOT NULL UNIQUE,
     model_name text NOT NULL,
     operation text NOT NULL,
     error_type text NOT NULL,
@@ -3969,7 +4376,7 @@ COMMENT ON FUNCTION neurondb.llm_gpu_utilization IS 'Get GPU utilization metrics
 --   neurondb.llm_fail_open      - Fail open on provider errors (default: true)
 --
 -- GPU Settings:
---   neurondb.compute_mode        - Enable GPU acceleration (default: false)
+--   neurondb.compute_mode        - Compute execution mode: 0=cpu, 1=gpu, 2=auto (default: 0)
 --   neurondb.gpu_device         - GPU device ID to use (default: 0)
 --   neurondb.gpu_batch_size     - Batch size for GPU operations (default: 1000)
 --   neurondb.gpu_streams        - Number of CUDA streams (default: 4)
@@ -4140,12 +4547,48 @@ $$;
 COMMENT ON FUNCTION neurondb_llm_generate_stream IS 'Streaming LLM generation wrapper: neurondb_llm_generate_stream(model, prompt, params). Returns text in chunks. Currently simulates streaming by chunking full response.';
 
 -- ============================================================================
+-- RAG C FUNCTIONS (CORE IMPLEMENTATIONS)
+-- ============================================================================
+-- Core RAG functions implemented in C
+-- ============================================================================
+
+-- Text chunking function (C implementation)
+CREATE FUNCTION neurondb_chunk_text(
+    text text,
+    chunk_size integer DEFAULT 512,
+    overlap integer DEFAULT 128,
+    separator text DEFAULT NULL
+) RETURNS text[]
+    AS 'MODULE_PATHNAME', 'neurondb_chunk_text'
+    LANGUAGE C STABLE;
+COMMENT ON FUNCTION neurondb_chunk_text(text, integer, integer, text) IS 'Chunk text for RAG with configurable size, overlap, and separator. Returns array of text chunks.';
+
+-- Document ranking function (C implementation)
+CREATE FUNCTION neurondb_rank_documents(
+    query text,
+    documents text[],
+    algorithm text DEFAULT 'bm25'
+) RETURNS jsonb
+    AS 'MODULE_PATHNAME', 'neurondb_rank_documents'
+    LANGUAGE C STABLE;
+COMMENT ON FUNCTION neurondb_rank_documents(text, text[], text) IS 'Rank documents based on query using bm25, cosine, or edit_distance algorithm. Returns JSONB with ranked results.';
+
+-- Data transformation function (C implementation)
+CREATE FUNCTION neurondb_transform_data(
+    pipeline text,
+    input_data double precision[]
+) RETURNS double precision[]
+    AS 'MODULE_PATHNAME', 'neurondb_transform_data'
+    LANGUAGE C STABLE;
+COMMENT ON FUNCTION neurondb_transform_data(text, double precision[]) IS 'Apply transformation (normalize, standardize, min_max) to float8 array. Returns transformed array.';
+
+-- ============================================================================
 -- RAG WRAPPER FUNCTIONS FOR NEURONAGENT COMPATIBILITY
 -- ============================================================================
 -- Wrapper functions for RAG operations that match NeuronAgent expectations
 -- ============================================================================
 
--- Chunk text wrapper for NeuronAgent
+-- Chunk text wrapper for NeuronAgent (PL/pgSQL wrapper over C function)
 CREATE FUNCTION neurondb_chunk_text(
     text text,
     chunk_size integer,
@@ -4167,7 +4610,7 @@ BEGIN
     RETURN chunks_json::text;
 END;
 $$;
-COMMENT ON FUNCTION neurondb_chunk_text IS 'Text chunking wrapper for NeuronAgent: neurondb_chunk_text(text, chunk_size, overlap). Returns JSON array of chunks.';
+COMMENT ON FUNCTION neurondb_chunk_text(text, integer, integer) IS 'Text chunking wrapper for NeuronAgent: neurondb_chunk_text(text, chunk_size, overlap). Returns JSON array of chunks.';
 
 -- Rerank results wrapper for NeuronAgent
 CREATE FUNCTION neurondb_rerank_results(
@@ -4240,10 +4683,25 @@ DECLARE
     context_json jsonb;
     sql_query text;
 BEGIN
-    -- Generate embedding for query
-    query_embedding := neurondb_embed(query_text, 'all-MiniLM-L6-v2');
+    -- Validate identifiers to prevent SQL injection
+    -- Check that identifiers match valid SQL identifier pattern
+    IF table_name !~ '^[a-zA-Z_][a-zA-Z0-9_$]{0,62}$' THEN
+        RAISE EXCEPTION 'Invalid table name: % (must start with letter/underscore, followed by alphanumeric/underscore/dollar, max 63 chars)', table_name;
+    END IF;
     
-    -- Build and execute vector search query
+    IF vector_column !~ '^[a-zA-Z_][a-zA-Z0-9_$]{0,62}$' THEN
+        RAISE EXCEPTION 'Invalid vector column name: % (must start with letter/underscore, followed by alphanumeric/underscore/dollar, max 63 chars)', vector_column;
+    END IF;
+    
+    -- Validate limit
+    IF limit_count <= 0 OR limit_count > 1000 THEN
+        RAISE EXCEPTION 'Invalid limit: % (must be between 1 and 1000)', limit_count;
+    END IF;
+    
+    -- Generate embedding for query
+    query_embedding := neurondb_embed(query_text, 'sentence-transformers/all-MiniLM-L6-v2');
+    
+    -- Build and execute vector search query using format() with %I for safe identifier quoting
     sql_query := format(
         'SELECT json_agg(json_build_object(
             ''id'', id,
@@ -5365,6 +5823,17 @@ CREATE FUNCTION create_policy(
     LANGUAGE C VOLATILE;
 COMMENT ON FUNCTION create_policy IS 'Create row-level security policy for vector table';
 
+-- Distributed functions
+CREATE FUNCTION federated_vector_query(
+    remote_servers text[],
+    query_vector vector,
+    k integer,
+    combine_method text DEFAULT 'merge'
+) RETURNS TABLE(server text, id bigint, distance real)
+    AS 'MODULE_PATHNAME', 'federated_vector_query'
+    LANGUAGE C VOLATILE;
+COMMENT ON FUNCTION federated_vector_query IS 'Execute federated vector query across multiple servers';
+
 -- Hook functions
 CREATE FUNCTION register_custom_operator(
     operator_name text,
@@ -5376,17 +5845,6 @@ CREATE FUNCTION register_custom_operator(
     AS 'MODULE_PATHNAME', 'register_custom_operator'
     LANGUAGE C VOLATILE;
 COMMENT ON FUNCTION register_custom_operator IS 'Register custom operator for vector types';
-
--- Distributed functions
-CREATE FUNCTION federated_vector_query(
-    remote_servers text[],
-    query_vector vector,
-    k integer,
-    combine_method text DEFAULT 'merge'
-) RETURNS TABLE(server text, id bigint, distance real)
-    AS 'MODULE_PATHNAME', 'federated_vector_query'
-    LANGUAGE C VOLATILE;
-COMMENT ON FUNCTION federated_vector_query IS 'Execute federated vector query across multiple servers';
 
 CREATE FUNCTION enable_vector_replication(
     table_name text,
@@ -5460,10 +5918,10 @@ CREATE FUNCTION audit_log_query(
     LANGUAGE C VOLATILE;
 COMMENT ON FUNCTION audit_log_query IS 'Log query for audit trail';
 
-CREATE FUNCTION ndb_llm_cache_test() RETURNS boolean
+CREATE FUNCTION ndb_llm_cache_test(text, text, integer) RETURNS text
     AS 'MODULE_PATHNAME', 'ndb_llm_cache_test'
     LANGUAGE C VOLATILE;
-COMMENT ON FUNCTION ndb_llm_cache_test IS 'Test LLM cache functionality';
+COMMENT ON FUNCTION ndb_llm_cache_test(text, text, integer) IS 'Test LLM cache functionality: store and retrieve a value. Returns retrieved value or NULL.';
 
 /* Advanced cache management functions */
 CREATE FUNCTION ndb_llm_cache_stats() RETURNS jsonb
@@ -5608,7 +6066,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA neurondb GRANT SELECT ON TABLES TO PUBLIC;
 
 -- ML Projects table (similar to pgml.projects but NeurondB style)
 CREATE TABLE IF NOT EXISTS neurondb.ml_projects (
-    project_id SERIAL PRIMARY KEY,
+    project_id SERIAL NOT NULL UNIQUE,
     project_name TEXT UNIQUE NOT NULL,
     description TEXT,
     task_type TEXT CHECK (task_type IN ('classification', 'regression', 'clustering', 'embedding', 'rag')),
@@ -5619,7 +6077,7 @@ COMMENT ON TABLE neurondb.ml_projects IS 'ML Projects: organize models and exper
 
 -- ML Experiments table (track different approaches)
 CREATE TABLE IF NOT EXISTS neurondb.ml_experiments (
-    experiment_id SERIAL PRIMARY KEY,
+    experiment_id SERIAL NOT NULL UNIQUE,
     project_id INT REFERENCES neurondb.ml_projects(project_id) ON DELETE CASCADE,
     experiment_name TEXT NOT NULL,
     description TEXT,
@@ -5630,7 +6088,7 @@ COMMENT ON TABLE neurondb.ml_experiments IS 'ML Experiments: track different mod
 
 -- ML Models table (trained model versions)
 CREATE TABLE IF NOT EXISTS neurondb.ml_trained_models (
-    model_id SERIAL PRIMARY KEY,
+    model_id SERIAL NOT NULL UNIQUE,
     experiment_id INT REFERENCES neurondb.ml_experiments(experiment_id) ON DELETE CASCADE,
     project_id INT REFERENCES neurondb.ml_projects(project_id) ON DELETE CASCADE,
     algorithm TEXT NOT NULL,
@@ -5648,7 +6106,7 @@ COMMENT ON TABLE neurondb.ml_trained_models IS 'Trained ML models with versionin
 
 -- ML Predictions log (track predictions for monitoring)
 CREATE TABLE IF NOT EXISTS neurondb.ml_predictions (
-    prediction_id BIGSERIAL PRIMARY KEY,
+    prediction_id BIGSERIAL NOT NULL UNIQUE,
     model_id INT REFERENCES neurondb.ml_trained_models(model_id) ON DELETE CASCADE,
     project_id INT REFERENCES neurondb.ml_projects(project_id) ON DELETE CASCADE,
     input_features JSONB,
@@ -5810,7 +6268,7 @@ CREATE OR REPLACE FUNCTION neurondb.predict(
 	model_id integer,
 	features vector
 ) RETURNS double precision
-LANGUAGE plpgsql STABLE AS $$
+LANGUAGE plpgsql VOLATILE AS $$
 DECLARE
 	algo text;
 	model_id_param integer;
@@ -5819,9 +6277,16 @@ BEGIN
 	IF model_id_param IS NULL THEN
 		RAISE EXCEPTION 'model_id cannot be NULL';
 	END IF;
-	SELECT m.algorithm INTO algo FROM neurondb.ml_models m WHERE m.model_id = model_id_param;
+	BEGIN
+		SELECT m.algorithm INTO STRICT algo FROM neurondb.ml_models m WHERE m.model_id = model_id_param;
+	EXCEPTION
+		WHEN NO_DATA_FOUND THEN
+			RAISE EXCEPTION 'Model % not found', model_id_param;
+		WHEN TOO_MANY_ROWS THEN
+			RAISE EXCEPTION 'Multiple models found with model_id %', model_id_param;
+	END;
 	IF algo IS NULL THEN
-		RAISE EXCEPTION 'Model % not found', model_id;
+		RAISE EXCEPTION 'Model % not found', model_id_param;
 	END IF;
 	CASE algo
 		WHEN 'random_forest' THEN
@@ -5839,7 +6304,8 @@ BEGIN
 		WHEN 'svm' THEN
 			RETURN predict_svm_model_id(model_id, features);
 		WHEN 'xgboost' THEN
-			RETURN predict_xgboost(model_id, vector_to_array(features));
+			-- Delegate to unified C function for GPU/CPU routing
+			RETURN neurondb_predict(model_id, vector_to_array(features));
 		WHEN 'catboost' THEN
 			RETURN predict_catboost(model_id, vector_to_array(features));
 		WHEN 'lightgbm' THEN
@@ -5858,9 +6324,8 @@ BEGIN
 		WHEN 'timeseries' THEN
 			RETURN predict_timeseries_model_id(model_id, features);
 		WHEN 'transformer_llm', 'custom_llm' THEN
-			-- Transformer LLM prediction - convert vector to text for input
-			-- Note: For LLM, features should be text, not vector
-			RAISE EXCEPTION 'transformer_llm prediction requires text input, not vector. Use neurondb_predict_transformer_llm(model_id, text) directly.';
+			-- Transformer LLM prediction via ONNX Runtime
+			RETURN neurondb_predict_transformer_llm(model_id, features);
 		ELSE
 			RAISE EXCEPTION 'Prediction not implemented for algorithm: %', algo;
 	END CASE;
@@ -7150,7 +7615,7 @@ BEGIN
 	gpu_available := true;
 	health := jsonb_build_object(
 		'status', 'healthy',
-		'version', '1.0',
+		'version', '2.1.0',
 		'components', jsonb_build_object(
 			'vector_type', vector_type_exists,
 			'onnx_runtime', onnx_available,
@@ -7325,7 +7790,7 @@ BEGIN
 	RETURN pipeline_id;
 EXCEPTION WHEN undefined_table THEN
 	CREATE TABLE IF NOT EXISTS neurondb.ml_pipelines (
-		pipeline_id SERIAL PRIMARY KEY,
+		pipeline_id SERIAL NOT NULL UNIQUE,
 		pipeline_name TEXT UNIQUE,
 		steps JSONB,
 		created_at TIMESTAMPTZ
@@ -7371,7 +7836,7 @@ CREATE OR REPLACE FUNCTION neurondb.version()
 RETURNS jsonb
 LANGUAGE sql STABLE AS $$
 	SELECT jsonb_build_object(
-		'version', '1.0',
+		'version', '2.1.0',
 		'postgresql_version', current_setting('server_version'),
 		'capabilities', jsonb_build_object(
 			'vector_functions', (SELECT COUNT(*) FROM pg_proc WHERE proname LIKE '%vector%'),
@@ -7522,7 +7987,6 @@ GRANT EXECUTE ON FUNCTION bit_to_vector(bit) TO PUBLIC;
 GRANT EXECUTE ON FUNCTION binary_quantize(vector) TO PUBLIC;
 GRANT EXECUTE ON FUNCTION bit_hamming_distance(bit, bit) TO PUBLIC;
 GRANT EXECUTE ON FUNCTION hamming_distance(bit, bit) TO PUBLIC;
-GRANT EXECUTE ON FUNCTION jaccard_distance(bit, bit) TO PUBLIC;
 
 -- Grant permissions for halfvec distance functions
 GRANT EXECUTE ON FUNCTION halfvec_l2_distance(halfvec, halfvec) TO PUBLIC;
@@ -7855,7 +8319,7 @@ GRANT EXECUTE ON FUNCTION cross_modal_search(text, text, text, text, text, int4)
 
 -- Projects Table (simplified for unified API)
 CREATE TABLE IF NOT EXISTS neurondb.nb_catalog (
-    project_id SERIAL PRIMARY KEY,
+    project_id SERIAL NOT NULL UNIQUE,
     project_name TEXT NOT NULL UNIQUE,
     algorithm TEXT NOT NULL,
     table_name TEXT NOT NULL,
@@ -7866,7 +8330,7 @@ CREATE TABLE IF NOT EXISTS neurondb.nb_catalog (
 
 -- Feature Stores Table
 CREATE TABLE IF NOT EXISTS neurondb.feature_stores (
-    store_id SERIAL PRIMARY KEY,
+    store_id SERIAL NOT NULL UNIQUE,
     store_name TEXT UNIQUE NOT NULL,
     entity_table TEXT NOT NULL,
     entity_key TEXT NOT NULL,
@@ -7877,7 +8341,7 @@ CREATE TABLE IF NOT EXISTS neurondb.feature_stores (
 
 -- Feature Definitions Table
 CREATE TABLE IF NOT EXISTS neurondb.features (
-    feature_id SERIAL PRIMARY KEY,
+    feature_id SERIAL NOT NULL UNIQUE,
     store_id INTEGER REFERENCES neurondb.feature_stores(store_id) ON DELETE CASCADE,
     feature_name TEXT NOT NULL,
     feature_type TEXT NOT NULL CHECK (feature_type IN ('numeric', 'categorical', 'vector', 'text')),
@@ -7889,7 +8353,7 @@ CREATE TABLE IF NOT EXISTS neurondb.features (
 
 -- Hyperparameter Tuning Results
 CREATE TABLE IF NOT EXISTS neurondb.hyperparameter_results (
-    result_id SERIAL PRIMARY KEY,
+    result_id SERIAL NOT NULL UNIQUE,
     project_id INTEGER REFERENCES neurondb.ml_projects(project_id) ON DELETE CASCADE,
     algorithm TEXT NOT NULL,
     parameters JSONB NOT NULL,
@@ -7904,7 +8368,7 @@ CREATE INDEX IF NOT EXISTS idx_hyperparam_score ON neurondb.hyperparameter_resul
 
 -- Text ML Models
 CREATE TABLE IF NOT EXISTS neurondb.text_models (
-    model_id SERIAL PRIMARY KEY,
+    model_id SERIAL NOT NULL UNIQUE,
     model_name TEXT UNIQUE NOT NULL,
     model_type TEXT NOT NULL CHECK (model_type IN ('classification', 'sentiment', 'ner', 'summarization')),
     model_path TEXT,
@@ -7916,7 +8380,7 @@ CREATE TABLE IF NOT EXISTS neurondb.text_models (
 
 -- RAG Pipeline Configurations
 CREATE TABLE IF NOT EXISTS neurondb.rag_pipelines (
-    pipeline_id SERIAL PRIMARY KEY,
+    pipeline_id SERIAL NOT NULL UNIQUE,
     pipeline_name TEXT UNIQUE NOT NULL,
     chunk_size INTEGER DEFAULT 512,
     chunk_overlap INTEGER DEFAULT 128,
@@ -7977,4 +8441,209 @@ COMMENT ON TABLE neurondb.features IS 'Feature definitions with versioning';
 COMMENT ON TABLE neurondb.hyperparameter_results IS 'Hyperparameter tuning results';
 COMMENT ON TABLE neurondb.text_models IS 'Text ML model registry';
 COMMENT ON TABLE neurondb.rag_pipelines IS 'RAG pipeline configurations';
+
+-- ============================================================================
+-- DATA GOVERNANCE & SECURITY
+-- ============================================================================
+
+-- Extended ML Inference Audit Log Table
+CREATE TABLE IF NOT EXISTS neurondb.ml_inference_audit_log (
+    audit_id BIGSERIAL PRIMARY KEY,
+    model_id INTEGER,
+    operation_type TEXT NOT NULL,
+    user_id TEXT DEFAULT CURRENT_USER,
+    input_hash TEXT,
+    output_hash TEXT,
+    metadata JSONB,
+    timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+COMMENT ON TABLE neurondb.ml_inference_audit_log IS 'Audit log for ML inference operations';
+COMMENT ON COLUMN neurondb.ml_inference_audit_log.input_hash IS 'SHA-256 hash of input data';
+COMMENT ON COLUMN neurondb.ml_inference_audit_log.output_hash IS 'SHA-256 hash of output data';
+
+CREATE INDEX IF NOT EXISTS idx_ml_inference_audit_model_time 
+    ON neurondb.ml_inference_audit_log(model_id, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_ml_inference_audit_user_time 
+    ON neurondb.ml_inference_audit_log(user_id, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_ml_inference_audit_operation 
+    ON neurondb.ml_inference_audit_log(operation_type, timestamp DESC);
+
+-- RAG Operation Audit Log Table
+CREATE TABLE IF NOT EXISTS neurondb.rag_operation_audit_log (
+    audit_id BIGSERIAL PRIMARY KEY,
+    pipeline_name TEXT NOT NULL,
+    operation_type TEXT NOT NULL,
+    user_id TEXT DEFAULT CURRENT_USER,
+    query_hash TEXT,
+    result_count INTEGER DEFAULT 0,
+    metadata JSONB,
+    timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+COMMENT ON TABLE neurondb.rag_operation_audit_log IS 'Audit log for RAG operations (retrieve, generate, chat)';
+COMMENT ON COLUMN neurondb.rag_operation_audit_log.query_hash IS 'SHA-256 hash of query text';
+COMMENT ON COLUMN neurondb.rag_operation_audit_log.result_count IS 'Number of results returned';
+
+CREATE INDEX IF NOT EXISTS idx_rag_audit_pipeline_time 
+    ON neurondb.rag_operation_audit_log(pipeline_name, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_rag_audit_user_time 
+    ON neurondb.rag_operation_audit_log(user_id, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_rag_audit_operation 
+    ON neurondb.rag_operation_audit_log(operation_type, timestamp DESC);
+
+-- Grant permissions on audit tables
+GRANT SELECT ON neurondb.ml_inference_audit_log TO PUBLIC;
+GRANT SELECT ON neurondb.rag_operation_audit_log TO PUBLIC;
+
+-- Security Functions
+
+-- Enhanced RLS for embeddings
+CREATE FUNCTION enable_embedding_rls(table_name text) RETURNS void
+    AS 'MODULE_PATHNAME', 'neurondb_create_tenant_policy'
+    LANGUAGE C VOLATILE;
+COMMENT ON FUNCTION enable_embedding_rls(text) IS 'Enable Row-Level Security for embeddings table';
+
+CREATE FUNCTION create_embedding_rls_policy(
+    table_name text,
+    policy_name text,
+    using_expression text
+) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+    BEGIN
+        EXECUTE format('CREATE POLICY %I ON %I FOR SELECT USING (%s)',
+            policy_name, table_name, using_expression);
+    END;
+    $$;
+COMMENT ON FUNCTION create_embedding_rls_policy(text, text, text) IS 
+    'Create RLS policy for embeddings table with custom USING expression';
+
+-- Vector encryption functions
+CREATE FUNCTION encrypt_vector(embedding vector, encryption_key text) RETURNS bytea
+    AS 'MODULE_PATHNAME', 'encrypt_vector'
+    LANGUAGE C IMMUTABLE STRICT;
+COMMENT ON FUNCTION encrypt_vector(vector, text) IS 
+    'Encrypt vector using AES-256-GCM. Requires OpenSSL support.';
+
+CREATE FUNCTION decrypt_vector(encrypted_data bytea, decryption_key text) RETURNS vector
+    AS 'MODULE_PATHNAME', 'decrypt_vector'
+    LANGUAGE C IMMUTABLE STRICT;
+COMMENT ON FUNCTION decrypt_vector(bytea, text) IS 
+    'Decrypt encrypted vector data. Requires OpenSSL support.';
+
+CREATE FUNCTION rotate_encryption_key(
+    table_name text,
+    column_name text,
+    old_key text,
+    new_key text
+) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+    DECLARE
+        row_count integer;
+    BEGIN
+        -- Decrypt with old key and re-encrypt with new key
+        EXECUTE format('
+            UPDATE %I 
+            SET %I = encrypt_vector(
+                decrypt_vector(%I, %L),
+                %L
+            )
+            WHERE %I IS NOT NULL',
+            table_name, column_name, column_name, old_key, new_key, column_name);
+        GET DIAGNOSTICS row_count = ROW_COUNT;
+        RAISE NOTICE 'Rotated encryption key for % rows in %.%', 
+            row_count, table_name, column_name;
+    END;
+    $$;
+COMMENT ON FUNCTION rotate_encryption_key(text, text, text, text) IS 
+    'Rotate encryption key for a column by decrypting with old key and re-encrypting with new key';
+
+-- Audit logging functions
+CREATE FUNCTION log_ml_inference(
+    model_id integer,
+    operation_type text,
+    input_hash text DEFAULT NULL,
+    output_hash text DEFAULT NULL,
+    metadata jsonb DEFAULT NULL
+) RETURNS boolean
+    AS 'MODULE_PATHNAME', 'log_ml_inference'
+    LANGUAGE C VOLATILE;
+COMMENT ON FUNCTION log_ml_inference(integer, text, text, text, jsonb) IS 
+    'Log ML inference operation to audit table';
+
+CREATE FUNCTION log_rag_operation(
+    pipeline_name text,
+    operation_type text,
+    query_hash text DEFAULT NULL,
+    result_count integer DEFAULT 0,
+    metadata jsonb DEFAULT NULL
+) RETURNS boolean
+    AS 'MODULE_PATHNAME', 'log_rag_operation'
+    LANGUAGE C VOLATILE;
+COMMENT ON FUNCTION log_rag_operation(text, text, text, integer, jsonb) IS 
+    'Log RAG operation to audit table';
+
+CREATE FUNCTION query_audit_log(
+    log_type text,
+    start_time timestamptz DEFAULT NULL,
+    end_time timestamptz DEFAULT NULL,
+    user_id text DEFAULT NULL,
+    operation_type text DEFAULT NULL
+) RETURNS TABLE(
+    audit_id bigint,
+    "timestamp" timestamptz,
+    user_id text,
+    operation_type text,
+    metadata jsonb
+)
+    LANGUAGE plpgsql
+    AS $$
+    BEGIN
+        IF log_type = 'ml_inference' THEN
+            RETURN QUERY
+            SELECT 
+                a.audit_id,
+                a.timestamp,
+                a.user_id,
+                a.operation_type,
+                a.metadata
+            FROM neurondb.ml_inference_audit_log a
+            WHERE (start_time IS NULL OR a.timestamp >= start_time)
+                AND (end_time IS NULL OR a.timestamp <= end_time)
+                AND (user_id IS NULL OR a.user_id = query_audit_log.user_id)
+                AND (operation_type IS NULL OR a.operation_type = query_audit_log.operation_type)
+            ORDER BY a.timestamp DESC;
+        ELSIF log_type = 'rag_operation' THEN
+            RETURN QUERY
+            SELECT 
+                a.audit_id,
+                a.timestamp,
+                a.user_id,
+                a.operation_type,
+                a.metadata
+            FROM neurondb.rag_operation_audit_log a
+            WHERE (start_time IS NULL OR a.timestamp >= start_time)
+                AND (end_time IS NULL OR a.timestamp <= end_time)
+                AND (user_id IS NULL OR a.user_id = query_audit_log.user_id)
+                AND (operation_type IS NULL OR a.operation_type = query_audit_log.operation_type)
+            ORDER BY a.timestamp DESC;
+        ELSE
+            RAISE EXCEPTION 'Invalid log_type: %. Must be "ml_inference" or "rag_operation"', log_type;
+        END IF;
+    END;
+    $$;
+COMMENT ON FUNCTION query_audit_log(text, timestamptz, timestamptz, text, text) IS 
+    'Query audit logs with filtering by time range, user, and operation type';
+
+-- Grant execute permissions on security functions
+GRANT EXECUTE ON FUNCTION enable_embedding_rls(text) TO PUBLIC;
+GRANT EXECUTE ON FUNCTION create_embedding_rls_policy(text, text, text) TO PUBLIC;
+GRANT EXECUTE ON FUNCTION encrypt_vector(vector, text) TO PUBLIC;
+GRANT EXECUTE ON FUNCTION decrypt_vector(bytea, text) TO PUBLIC;
+GRANT EXECUTE ON FUNCTION rotate_encryption_key(text, text, text, text) TO PUBLIC;
+GRANT EXECUTE ON FUNCTION log_ml_inference(integer, text, text, text, jsonb) TO PUBLIC;
+GRANT EXECUTE ON FUNCTION log_rag_operation(text, text, text, integer, jsonb) TO PUBLIC;
+GRANT EXECUTE ON FUNCTION query_audit_log(text, timestamptz, timestamptz, text, text) TO PUBLIC;
 
