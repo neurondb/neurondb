@@ -1,12 +1,31 @@
 # NeuronDB Examples - Complete Collection
 
+<div align="center">
+
 **Professional, working examples demonstrating NeuronDB capabilities**
+
+[![Examples](https://img.shields.io/badge/examples-10+-blue.svg)](.)
+[![Status](https://img.shields.io/badge/status-maintained-brightgreen.svg)](.)
+[![Python](https://img.shields.io/badge/Python-3.8+-3776AB.svg)](https://www.python.org/)
+
+</div>
 
 This directory contains complete, practical examples showing how to build real-world applications with NeuronDB.
 
 ---
 
 ## 🚀 Quick Start for Beginners
+
+<details>
+<summary><strong>📋 Getting Started Checklist</strong></summary>
+
+- [ ] NeuronDB installed and running
+- [ ] Python 3.8+ installed
+- [ ] Required packages installed (`pip install psycopg2-binary sentence-transformers numpy`)
+- [ ] Database connection configured
+- [ ] Ready to run examples
+
+</details>
 
 **New to NeuronDB? Start here:**
 
