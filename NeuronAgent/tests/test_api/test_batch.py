@@ -40,7 +40,8 @@ class TestBatchOperations:
                 if agent["name"].startswith(unique_name):
                     try:
                         api_client.delete(f"/api/v1/agents/{agent['id']}")
-                    except:
+                    except Exception:
+                        # Cleanup failures are non-critical
                         pass
     
     def test_batch_delete_agents(self, api_client, unique_name):
@@ -69,7 +70,8 @@ class TestBatchOperations:
             for agent_id in agent_ids:
                 try:
                     api_client.delete(f"/api/v1/agents/{agent_id}")
-                except:
+                except Exception:
+                    # Cleanup failures are non-critical
                     pass
     
     def test_batch_delete_messages(self, api_client, test_session):
@@ -101,6 +103,7 @@ class TestBatchOperations:
                 for msg_id in message_ids:
                     try:
                         api_client.delete(f"/api/v1/sessions/{test_session['id']}/messages/{msg_id}")
-                    except:
+                    except Exception:
+                        # Cleanup failures are non-critical
                         pass
 

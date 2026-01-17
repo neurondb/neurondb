@@ -113,6 +113,7 @@ func SetTimeout(cmd *exec.Cmd, timeout time.Duration) *exec.Cmd {
 	/* The context must be provided when creating the command with exec.CommandContext. */
 	/* This function is kept for backward compatibility but does nothing. */
 	/* Callers should use exec.CommandContext(ctx, name, args...) instead. */
+	/* timeout parameter is intentionally ignored - this deprecated function does nothing */
 	_ = timeout
 	return cmd
 }

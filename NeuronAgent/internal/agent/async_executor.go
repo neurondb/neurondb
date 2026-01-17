@@ -113,8 +113,14 @@ func (e *AsyncTaskExecutor) ExecuteAsync(ctx context.Context, sessionID, agentID
 		task.Input = input
 	}
 
-	/* Queue task for background execution */
-	go e.executeTaskInBackground(context.Background(), task)
+	/* Queue task for background execution with timeout */
+	go func() {
+		/* Use a timeout context to prevent tasks from running indefinitely */
+		/* 30 minutes should be sufficient for most async tasks */
+		bgCtx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+		defer cancel()
+		e.executeTaskInBackground(bgCtx, task)
+	}()
 
 	return task, nil
 }
@@ -242,6 +248,11 @@ func (e *AsyncTaskExecutor) ListTasks(ctx context.Context, sessionID, agentID *u
 	}
 
 	return tasks, nil
+}
+
+/* ExecuteTask executes a task (public method for workers to call) */
+func (e *AsyncTaskExecutor) ExecuteTask(ctx context.Context, task *AsyncTask) {
+	e.executeTaskInBackground(ctx, task)
 }
 
 /* executeTaskInBackground executes a task in the background */

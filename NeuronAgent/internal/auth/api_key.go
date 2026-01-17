@@ -98,7 +98,7 @@ func (m *APIKeyManager) ValidateAPIKey(ctx context.Context, key string) (*db.API
 		"key_id":     apiKey.ID.String(),
 	})
 
-	/* Update last used */
+	/* Update last used timestamp - ignore errors as this is non-critical metadata */
 	_ = m.queries.UpdateAPIKeyLastUsed(ctx, apiKey.ID)
 
 	return apiKey, nil

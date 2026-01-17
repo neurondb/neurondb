@@ -193,7 +193,8 @@ def api_client(api_key: str, server_available: bool) -> NeuronAgentClient:
                 try:
                     resp = requests.get(f"{self.base_url}/health", timeout=5)
                     return resp.status_code == 200
-                except:
+                except (requests.exceptions.RequestException, Exception) as e:
+                    # Log or handle connection errors appropriately
                     return False
         
         client = SimpleClient(TEST_CONFIG['base_url'], api_key)
@@ -258,7 +259,8 @@ def test_agent(api_client) -> Dict[str, Any]:
         # Cleanup
         try:
             api_client.delete(f"/api/v1/agents/{agent['id']}")
-        except:
+        except Exception:
+            # Cleanup failures are non-critical, ignore silently
             pass
     except Exception as e:
         pytest.fail(f"Failed to create test agent: {e}")
@@ -280,7 +282,8 @@ def test_session(api_client, test_agent) -> Dict[str, Any]:
         # Cleanup
         try:
             api_client.delete(f"/api/v1/sessions/{session['id']}")
-        except:
+        except Exception:
+            # Cleanup failures are non-critical, ignore silently
             pass
     except Exception as e:
         pytest.fail(f"Failed to create test session: {e}")
@@ -340,10 +343,10 @@ def assert_valid_timestamp(value: str):
     """Assert that value is a valid timestamp."""
     try:
         time.strptime(value, '%Y-%m-%dT%H:%M:%S.%fZ')
-    except:
+    except (ValueError, TypeError):
         try:
             time.strptime(value, '%Y-%m-%dT%H:%M:%SZ')
-        except:
+        except (ValueError, TypeError):
             pytest.fail(f"Invalid timestamp: {value}")
 
 

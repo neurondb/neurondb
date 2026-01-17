@@ -71,7 +71,7 @@ func NewErrorHandler(queries *db.Queries) *ErrorHandler {
 func (eh *ErrorHandler) RetryWithBackoff(ctx context.Context, fn func() error) error {
 	var lastErr error
 
-	for attempt := 0; attempt <= eh.maxRetries; attempt++ {
+	for attempt := 0; attempt < eh.maxRetries; attempt++ {
 		err := fn()
 		if err == nil {
 			return nil
@@ -85,7 +85,7 @@ func (eh *ErrorHandler) RetryWithBackoff(ctx context.Context, fn func() error) e
 		}
 
 		/* Don't retry on last attempt */
-		if attempt == eh.maxRetries {
+		if attempt == eh.maxRetries-1 {
 			break
 		}
 
@@ -169,18 +169,24 @@ func (eh *ErrorHandler) ClassifyError(err error) ErrorType {
 }
 
 /* StoreDeadLetter stores failed operation in dead letter queue */
-func (eh *ErrorHandler) StoreDeadLetter(ctx context.Context, operation string, payload interface{}, error error) error {
+func (eh *ErrorHandler) StoreDeadLetter(ctx context.Context, operation string, payload interface{}, err error) error {
 	query := `INSERT INTO neurondb_agent.dead_letter_queue
 		(id, operation, payload, error, created_at)
 		VALUES (gen_random_uuid(), $1, $2::jsonb, $3, NOW())`
 
-	payloadJSON, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("dead letter storage failed: json_marshal_error=true, error=%w", err)
+	payloadJSON, marshalErr := json.Marshal(payload)
+	if marshalErr != nil {
+		return fmt.Errorf("dead letter storage failed: json_marshal_error=true, error=%w", marshalErr)
 	}
 
-	_, err = eh.queries.DB.ExecContext(ctx, query, operation, payloadJSON, error.Error())
-	return err
+	/* Handle nil error - convert to empty string */
+	errorStr := ""
+	if err != nil {
+		errorStr = err.Error()
+	}
+
+	_, dbErr := eh.queries.DB.ExecContext(ctx, query, operation, payloadJSON, errorStr)
+	return dbErr
 }
 
 /* contains checks if string contains substring (case-insensitive) */

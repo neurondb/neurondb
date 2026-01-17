@@ -715,4 +715,3 @@ func (h *WorkflowHandlers) ListWorkflowSchedules(w http.ResponseWriter, r *http.
 
 	respondJSON(w, http.StatusOK, schedules)
 }
-

@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/neurondb/NeuronAgent/internal/db"
+	"github.com/neurondb/NeuronAgent/internal/validation"
 )
 
 type Processor struct {
@@ -113,18 +114,9 @@ func (p *Processor) processSQLTask(ctx context.Context, job *db.Job) (map[string
 		return nil, fmt.Errorf("query is required")
 	}
 
-	/* Security: Only allow SELECT queries */
-	queryUpper := strings.TrimSpace(strings.ToUpper(query))
-	if !strings.HasPrefix(queryUpper, "SELECT") {
-		return nil, fmt.Errorf("only SELECT queries are allowed in background jobs")
-	}
-
-	/* Check for dangerous keywords */
-	dangerous := []string{"DROP", "DELETE", "UPDATE", "INSERT", "ALTER", "CREATE", "TRUNCATE", "EXEC", "EXECUTE"}
-	for _, keyword := range dangerous {
-		if strings.Contains(queryUpper, keyword) {
-			return nil, fmt.Errorf("query contains forbidden keyword: %s", keyword)
-		}
+	/* Security: Only allow SELECT queries using centralized validator */
+	if err := validation.ValidateSQLQuerySimple(query, validation.AllowSelectOnly); err != nil {
+		return nil, fmt.Errorf("SQL query validation failed: %w", err)
 	}
 
 	/* Execute query */

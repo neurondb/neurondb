@@ -429,6 +429,6 @@ func (v *VirtualFileSystem) logAccess(ctx context.Context, fileID, agentID uuid.
 		VALUES ($1, $2, $3)`
 
 	_, err := v.queries.GetDB().ExecContext(ctx, query, fileID, agentID, operation)
-	/* Log access errors are non-fatal - silently ignore */
+	/* Log access errors are non-fatal - VFS access logging failures should not block operations */
 	_ = err
 }

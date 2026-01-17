@@ -16,6 +16,6 @@ class TestWebhooks:
             webhook = api_client.post("/api/v1/webhooks", json_data=webhook_data)
             assert "id" in webhook
             api_client.delete(f"/api/v1/webhooks/{webhook['id']}")
-        except:
+        except Exception:
             pytest.skip("Webhook API not available")
 

@@ -91,6 +91,7 @@ func (w *AsyncTaskWorker) processPendingTasks(ctx context.Context) {
 		}
 
 		/* Parse JSON fields */
+		/* Ignore unmarshal errors - malformed JSON will be handled by task execution */
 		if len(inputJSON) > 0 {
 			_ = json.Unmarshal(inputJSON, &task.Input)
 		}
@@ -115,7 +116,9 @@ func (w *AsyncTaskWorker) processPendingTasks(ctx context.Context) {
 
 /* processTask processes a single async task */
 func (w *AsyncTaskWorker) processTask(ctx context.Context, task *agent.AsyncTask) {
-	/* Task execution is handled by AsyncTaskExecutor.executeTaskInBackground */
-	/* This worker primarily monitors and manages the queue */
-	_ = task
+	/* Execute task using the async executor */
+	/* This handles tasks that were queued but their execution goroutine may have failed */
+	if w.asyncExecutor != nil {
+		w.asyncExecutor.ExecuteTask(ctx, task)
+	}
 }

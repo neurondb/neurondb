@@ -290,6 +290,7 @@ func (s *connectionState) sendError(errorMsg string) {
 		return
 	}
 
+	/* Ignore write errors when sending error messages - connection may be closing */
 	s.conn.SetWriteDeadline(time.Now().Add(writeWait))
 	_ = s.conn.WriteJSON(map[string]interface{}{
 		"type":  "error",
@@ -310,9 +311,11 @@ func (s *connectionState) close() {
 	s.cancel()
 	
 	/* Send close message */
+	/* Ignore errors during connection cleanup - connection may already be closed */
 	s.conn.SetWriteDeadline(time.Now().Add(writeWait))
 	_ = s.conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 	
 	/* Close connection */
+	/* Ignore close errors - connection may already be closed */
 	_ = s.conn.Close()
 }

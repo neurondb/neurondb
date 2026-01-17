@@ -9,6 +9,6 @@ class TestRelationships:
         try:
             response = api_client.get(f"/api/v1/agents/{test_agent['id']}/relationships")
             assert isinstance(response, (list, dict))
-        except:
+        except Exception:
             pytest.skip("Relationships API not available")
 

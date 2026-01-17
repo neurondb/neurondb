@@ -251,7 +251,8 @@ func main() {
 
 	/* Initialize session management */
 	sessionCache := session.NewCache(5 * time.Minute)
-	_ = session.NewManager(queries, sessionCache) /* Session manager for future use */
+	/* Session manager created for future use - result intentionally ignored */
+	_ = session.NewManager(queries, sessionCache)
 	sessionCleanup := session.NewCleanupService(queries, 1*time.Hour, 24*time.Hour)
 	sessionCleanup.Start()
 	defer sessionCleanup.Stop()
@@ -504,35 +505,43 @@ func main() {
 	scheduler.Start()
 	defer scheduler.Stop()
 
+	/* Create contexts for background workers that need explicit cleanup */
+	var memoryPromoterCtx context.Context
+	var memoryPromoterCancel context.CancelFunc
+	var verifierWorkerCtx context.Context
+	var verifierWorkerCancel context.CancelFunc
+	var asyncTaskWorkerCtx context.Context
+	var asyncTaskWorkerCancel context.CancelFunc
+
 	/* Start memory promoter worker */
 	if runtime.HierMemory() != nil {
+		memoryPromoterCtx, memoryPromoterCancel = context.WithCancel(context.Background())
 		memoryPromoter := worker.NewMemoryPromoter(runtime.HierMemory(), queries, 5*time.Minute)
 		go func() {
-			ctx := context.Background()
-			if err := memoryPromoter.Start(ctx); err != nil {
-				metrics.ErrorWithContext(ctx, "Memory promoter worker failed", err, nil)
+			if err := memoryPromoter.Start(memoryPromoterCtx); err != nil && memoryPromoterCtx.Err() == nil {
+				metrics.ErrorWithContext(memoryPromoterCtx, "Memory promoter worker failed", err, nil)
 			}
 		}()
 	}
 
 	/* Start verifier worker */
 	if runtime.Verifier() != nil {
+		verifierWorkerCtx, verifierWorkerCancel = context.WithCancel(context.Background())
 		verifierWorker := worker.NewVerifierWorker(queries, runtime, 10*time.Second, 3)
 		go func() {
-			ctx := context.Background()
-			if err := verifierWorker.Start(ctx); err != nil {
-				metrics.ErrorWithContext(ctx, "Verifier worker failed", err, nil)
+			if err := verifierWorker.Start(verifierWorkerCtx); err != nil && verifierWorkerCtx.Err() == nil {
+				metrics.ErrorWithContext(verifierWorkerCtx, "Verifier worker failed", err, nil)
 			}
 		}()
 	}
 
 	/* Start async task worker */
 	if asyncExecutor != nil {
+		asyncTaskWorkerCtx, asyncTaskWorkerCancel = context.WithCancel(context.Background())
 		asyncTaskWorker := worker.NewAsyncTaskWorker(queries, asyncExecutor, 5*time.Second, 5)
 		go func() {
-			ctx := context.Background()
-			if err := asyncTaskWorker.Start(ctx); err != nil {
-				metrics.ErrorWithContext(ctx, "Async task worker failed", err, nil)
+			if err := asyncTaskWorker.Start(asyncTaskWorkerCtx); err != nil && asyncTaskWorkerCtx.Err() == nil {
+				metrics.ErrorWithContext(asyncTaskWorkerCtx, "Async task worker failed", err, nil)
 			}
 		}()
 	}
@@ -587,6 +596,17 @@ func main() {
 
 	/* Stop metrics collector */
 	metricsCancel()
+
+	/* Stop background workers */
+	if memoryPromoterCancel != nil {
+		memoryPromoterCancel()
+	}
+	if verifierWorkerCancel != nil {
+		verifierWorkerCancel()
+	}
+	if asyncTaskWorkerCancel != nil {
+		asyncTaskWorkerCancel()
+	}
 
 	/* Cleanup resources */
 	if toolRegistry != nil {

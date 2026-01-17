@@ -57,7 +57,8 @@ func (v *VerifierWorker) Start(ctx context.Context) error {
 			/* Process verification queue */
 			err := v.processQueue(ctx)
 			if err != nil {
-				/* Log error but continue - silently handle */
+				/* Ignore queue processing errors - worker should continue processing */
+				/* Errors are handled internally by processQueue, will retry on next cycle */
 				_ = err
 			}
 		}
@@ -98,7 +99,8 @@ func (v *VerifierWorker) processQueue(ctx context.Context) error {
 	for _, item := range items {
 		err := v.processItem(ctx, item)
 		if err != nil {
-			/* Mark as failed - silently handle error */
+			/* Ignore individual item processing errors - mark item as failed and continue */
+			/* Processing failures are non-fatal, failed items can be retried later */
 			_ = err
 			v.markFailed(ctx, item.ID)
 		}
