@@ -14,8 +14,6 @@ jobs:
     with:
       base64-subjects: "dW5rbm93bg=="
       upload-assets: true
-    env:
-      IMAGE_TAG: ${{ github.ref_name }}
 
   attach-provenance:
     runs-on: ubuntu-latest
