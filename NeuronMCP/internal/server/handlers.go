@@ -281,8 +281,9 @@ func (s *Server) executeTool(ctx context.Context, toolName string, arguments map
 		}, nil
 	}
 
-  /* Log tool execution start */
-	s.logger.Info("Executing tool", map[string]interface{}{
+  /* Log tool execution start with request ID */
+	logger := s.logger.WithContext(ctx)
+	logger.Info("Executing tool", map[string]interface{}{
 		"tool_name":       toolName,
 		"arguments_count": len(arguments),
 		"dry_run":         dryRun,

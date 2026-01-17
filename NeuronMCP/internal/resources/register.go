@@ -24,6 +24,24 @@ func RegisterAllResources(manager *Manager, db *database.Database) {
 
 	/* Register collections resource */
 	manager.Register(NewCollectionsResource(db))
+
+	/* Register schema resource */
+	manager.Register(NewSchemaResource(db))
+
+	/* Register indexes resource */
+	manager.Register(NewIndexesResource(db))
+
+	/* Register tables resource */
+	manager.Register(NewTablesResource(db))
+
+	/* Register extensions resource */
+	manager.Register(NewExtensionsResource(db))
+
+	/* Register vector indexes resource */
+	manager.Register(NewVectorIndexesResource(db))
+
+	/* Register embedding configs resource */
+	manager.Register(NewEmbeddingConfigsResource(db))
 }
 
 

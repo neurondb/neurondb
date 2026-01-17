@@ -17,11 +17,13 @@
 package logging
 
 import (
+	"context"
 	"io"
 	"os"
 	"time"
 
 	"github.com/neurondb/NeuronMCP/internal/config"
+	"github.com/neurondb/NeuronMCP/internal/observability"
 	"github.com/rs/zerolog"
 )
 
@@ -127,3 +129,31 @@ func (l *Logger) Child(metadata map[string]interface{}) *Logger {
 	}
 }
 
+/* WithContext creates a logger with request ID from context */
+func (l *Logger) WithContext(ctx context.Context) *Logger {
+	if ctx == nil {
+		return l
+	}
+	
+	/* Try to get request ID from context */
+	if reqID, ok := observability.GetRequestIDFromContext(ctx); ok {
+		return l.Child(map[string]interface{}{
+			"request_id": reqID.String(),
+		})
+	}
+	
+	return l
+}
+
+/* LogWithContext logs a message with request ID from context */
+func (l *Logger) LogWithContext(ctx context.Context, level zerolog.Level, message string, metadata map[string]interface{}) {
+	if ctx != nil {
+		if reqID, ok := observability.GetRequestIDFromContext(ctx); ok {
+			if metadata == nil {
+				metadata = make(map[string]interface{})
+			}
+			metadata["request_id"] = reqID.String()
+		}
+	}
+	l.log(level, message, metadata)
+}

@@ -1266,4 +1266,3 @@ func (t *PostgreSQLAlterTableAdvancedTool) Execute(ctx context.Context, params m
 		"tool": "postgresql_alter_table_advanced",
 	}), nil
 }
-

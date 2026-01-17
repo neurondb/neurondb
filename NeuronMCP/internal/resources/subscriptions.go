@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/neurondb/NeuronMCP/internal/logging"
 )
 
 /* Subscription represents a resource subscription */
@@ -40,13 +42,26 @@ type ResourceUpdate struct {
 type SubscriptionManager struct {
 	subscriptions map[string][]*Subscription
 	mu            sync.RWMutex
+	wg            sync.WaitGroup /* Track active goroutines for cleanup */
+	shutdown      chan struct{}  /* Signal for shutdown */
+	shutdownOnce  sync.Once      /* Ensure shutdown is called only once */
+	logger        *logging.Logger /* Logger for error reporting */
 }
 
 /* NewSubscriptionManager creates a new subscription manager */
 func NewSubscriptionManager() *SubscriptionManager {
 	return &SubscriptionManager{
 		subscriptions: make(map[string][]*Subscription),
+		shutdown:      make(chan struct{}),
+		logger:        nil, /* Logger can be set via SetLogger if needed */
 	}
+}
+
+/* SetLogger sets the logger for the subscription manager */
+func (m *SubscriptionManager) SetLogger(logger *logging.Logger) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.logger = logger
 }
 
 /* Subscribe subscribes to resource updates */
@@ -122,12 +137,30 @@ func (m *SubscriptionManager) Notify(uri string, updateType string, content inte
 		if sub == nil || sub.Callback == nil {
 			continue /* Skip invalid subscriptions */
 		}
+		
+		/* Check if shutdown was requested */
+		select {
+		case <-m.shutdown:
+			/* Shutdown requested, don't start new goroutines */
+			return
+		default:
+		}
+		
 		/* Launch callback in goroutine to avoid blocking */
 		/* Use a timeout context to prevent goroutine leak if callback hangs */
-		go func(callback func(*ResourceUpdate), upd *ResourceUpdate) {
+		m.wg.Add(1)
+		go func(callback func(*ResourceUpdate), upd *ResourceUpdate, subID string) {
+			defer m.wg.Done()
 			defer func() {
 				if r := recover(); r != nil {
-					/* Recover from panics in callbacks */
+					/* Recover from panics in callbacks and log them */
+					if m.logger != nil {
+						m.logger.Warn("Panic recovered in subscription callback", map[string]interface{}{
+							"subscription_id": subID,
+							"uri":             upd.URI,
+							"panic_value":     fmt.Sprintf("%v", r),
+						})
+					}
 				}
 			}()
 			
@@ -135,9 +168,35 @@ func (m *SubscriptionManager) Notify(uri string, updateType string, content inte
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 			
-			/* Execute callback in a goroutine that respects timeout */
+			/* Execute callback with timeout protection */
+			/* Use a single goroutine with proper context cancellation */
 			done := make(chan struct{}, 1)
+			errChan := make(chan error, 1)
+			
 			go func() {
+				defer func() {
+					if r := recover(); r != nil {
+						/* Recover from panics in callback execution and log them */
+						if m.logger != nil {
+							m.logger.Warn("Panic recovered during callback execution", map[string]interface{}{
+								"subscription_id": subID,
+								"uri":             upd.URI,
+								"panic_value":     fmt.Sprintf("%v", r),
+							})
+						}
+						errChan <- fmt.Errorf("panic in callback: %v", r)
+					}
+				}()
+				
+				/* Check if context is already cancelled before executing */
+				select {
+				case <-ctx.Done():
+					return
+				case <-m.shutdown:
+					return
+				default:
+				}
+				
 				callback(upd)
 				done <- struct{}{}
 			}()
@@ -145,10 +204,29 @@ func (m *SubscriptionManager) Notify(uri string, updateType string, content inte
 			select {
 			case <-done:
 				/* Callback completed successfully */
+			case err := <-errChan:
+				/* Panic occurred in callback */
+				if m.logger != nil {
+					m.logger.Warn("Callback execution error", map[string]interface{}{
+						"subscription_id": subID,
+						"uri":             upd.URI,
+						"error":           err.Error(),
+					})
+				}
 			case <-ctx.Done():
-				/* Callback timed out, goroutine will exit */
+				/* Callback timed out */
+				if m.logger != nil {
+					m.logger.Warn("Subscription callback timeout", map[string]interface{}{
+						"subscription_id": subID,
+						"uri":             upd.URI,
+						"timeout_seconds":  30,
+					})
+				}
+			case <-m.shutdown:
+				/* Shutdown requested, exit immediately */
+				cancel()
 			}
-		}(sub.Callback, update)
+		}(sub.Callback, update, sub.ID)
 	}
 }
 
@@ -163,5 +241,31 @@ func (m *SubscriptionManager) ListSubscriptions() []*Subscription {
 	}
 
 	return allSubs
+}
+
+/* Shutdown gracefully shuts down the subscription manager */
+/* Waits for all active goroutines to complete or timeout */
+func (m *SubscriptionManager) Shutdown(timeout time.Duration) error {
+	var shutdownErr error
+	m.shutdownOnce.Do(func() {
+		/* Signal shutdown */
+		close(m.shutdown)
+		
+		/* Wait for all goroutines to complete with timeout */
+		done := make(chan struct{})
+		go func() {
+			m.wg.Wait()
+			close(done)
+		}()
+		
+		select {
+		case <-done:
+			/* All goroutines completed */
+		case <-time.After(timeout):
+			/* Timeout waiting for goroutines */
+			shutdownErr = fmt.Errorf("subscription manager shutdown timeout after %v", timeout)
+		}
+	})
+	return shutdownErr
 }
 

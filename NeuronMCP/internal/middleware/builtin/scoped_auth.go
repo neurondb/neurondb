@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/neurondb/NeuronMCP/internal/context/contextkeys"
 	"github.com/neurondb/NeuronMCP/internal/middleware"
 )
 
@@ -98,8 +99,8 @@ func (m *ScopedAuthMiddleware) Execute(ctx context.Context, req *middleware.MCPR
 		return next(ctx, req) // Let other validation handle this
 	}
 
-	/* Get user ID from context */
-	userID, ok := ctx.Value("user_id").(string)
+	/* Get user ID from context using typed key */
+	userID, ok := ctx.Value(contextkeys.UserIDKey{}).(string)
 	if !ok || userID == "" {
 		/* No user ID - allow through (might be handled by other auth middleware) */
 		return next(ctx, req)
@@ -129,9 +130,9 @@ func (m *ScopedAuthMiddleware) Execute(ctx context.Context, req *middleware.MCPR
 		}, nil
 	}
 
-	/* Add scopes to context for audit logging */
+	/* Add scopes to context for audit logging using typed key */
 	if scopes := m.scopeChecker.GetUserScopes(ctx); len(scopes) > 0 {
-		ctx = context.WithValue(ctx, "scopes", scopes)
+		ctx = context.WithValue(ctx, contextkeys.ScopesKey{}, scopes)
 	}
 
 	return next(ctx, req)

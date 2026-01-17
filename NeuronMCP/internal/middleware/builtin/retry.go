@@ -21,6 +21,7 @@ import (
 
 	"github.com/neurondb/NeuronMCP/internal/logging"
 	"github.com/neurondb/NeuronMCP/internal/middleware"
+	"github.com/neurondb/NeuronMCP/internal/reliability"
 )
 
 /* RetryConfig holds retry configuration */
@@ -126,6 +127,7 @@ func (cb *CircuitBreaker) RecordFailure() {
 /* RetryMiddleware provides retry logic */
 type RetryMiddleware struct {
 	config          *RetryConfig
+	retryManager    *reliability.RetryManager
 	logger          *logging.Logger
 	circuitBreakers map[string]*CircuitBreaker
 	mu              sync.RWMutex
@@ -133,8 +135,18 @@ type RetryMiddleware struct {
 
 /* NewRetryMiddleware creates a new retry middleware */
 func NewRetryMiddleware(config *RetryConfig, logger *logging.Logger) middleware.Middleware {
+	var retryManager *reliability.RetryManager
+	if config.Enabled {
+		retryManager = reliability.NewRetryManager(
+			config.MaxRetries,
+			config.InitialBackoff,
+			config.MaxBackoff,
+			config.BackoffMultiplier,
+		)
+	}
 	rm := &RetryMiddleware{
 		config:          config,
+		retryManager:    retryManager,
 		logger:          logger,
 		circuitBreakers: make(map[string]*CircuitBreaker),
 	}
@@ -181,23 +193,38 @@ func (m *RetryMiddleware) Execute(ctx context.Context, req *middleware.MCPReques
 		}
 	}
 
+	/* Check if tool is idempotent before retrying */
+	toolName := ""
+	if req.Method == "tools/call" {
+		if name, ok := req.Params["name"].(string); ok {
+			toolName = name
+		}
+	}
+
+	/* Only retry if tool is idempotent */
+	if toolName != "" && m.retryManager != nil && !m.retryManager.IsIdempotent(toolName) {
+		/* Not idempotent, execute once without retry */
+		return next(ctx, req)
+	}
+
 	/* Retry with exponential backoff */
 	var lastErr error
-	backoff := m.config.InitialBackoff
+	maxRetries := m.config.MaxRetries
+	if m.retryManager != nil {
+		maxRetries = m.retryManager.GetMaxRetries()
+	}
 
-	for attempt := 0; attempt <= m.config.MaxRetries; attempt++ {
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		backoff := m.config.InitialBackoff
+		if m.retryManager != nil && attempt > 0 {
+			backoff = m.retryManager.GetBackoff(attempt - 1)
+		}
 		if attempt > 0 {
 			/* Wait before retry */
 			select {
 			case <-ctx.Done():
 				return nil, ctx.Err()
 			case <-time.After(backoff):
-			}
-
-			/* Increase backoff */
-			backoff = time.Duration(float64(backoff) * m.config.BackoffMultiplier)
-			if backoff > m.config.MaxBackoff {
-				backoff = m.config.MaxBackoff
 			}
 		}
 
@@ -217,6 +244,19 @@ func (m *RetryMiddleware) Execute(ctx context.Context, req *middleware.MCPReques
 			lastErr = fmt.Errorf("request failed: %v", resp.Content)
 		}
 
+		/* Check if error should be retried */
+		if m.retryManager != nil && toolName != "" {
+			if !m.retryManager.ShouldRetry(toolName, lastErr) {
+				/* Error is not retryable, return immediately */
+				if m.config.CircuitBreaker != nil && m.config.CircuitBreaker.Enabled {
+					key := req.Method
+					cb := m.getCircuitBreaker(key)
+					cb.RecordFailure()
+				}
+				return resp, err
+			}
+		}
+
 		/* Record failure for circuit breaker */
 		if m.config.CircuitBreaker != nil && m.config.CircuitBreaker.Enabled {
 			key := req.Method
@@ -227,9 +267,13 @@ func (m *RetryMiddleware) Execute(ctx context.Context, req *middleware.MCPReques
 
 	return &middleware.MCPResponse{
 		Content: []middleware.ContentBlock{
-			{Type: "text", Text: fmt.Sprintf("Request failed after %d retries: %v", m.config.MaxRetries, lastErr)},
+			{Type: "text", Text: fmt.Sprintf("Request failed after %d retries: %v", maxRetries, lastErr)},
 		},
 		IsError: true,
+		Metadata: map[string]interface{}{
+			"error_code": "RETRY_EXHAUSTED",
+			"retries":    maxRetries,
+		},
 	}, nil
 }
 

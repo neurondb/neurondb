@@ -53,14 +53,39 @@ func (r *IndexesResource) MimeType() string {
 func (r *IndexesResource) GetContent(ctx context.Context) (interface{}, error) {
 	query := `
 		SELECT 
-			schemaname,
-			tablename,
-			indexname,
-			indexdef
-		FROM pg_indexes
-		WHERE indexdef LIKE '%hnsw%' OR indexdef LIKE '%ivf%'
-		ORDER BY schemaname, tablename, indexname
+			i.schemaname,
+			i.tablename,
+			i.indexname,
+			i.indexdef,
+			pg_size_pretty(pg_relation_size(c.oid)) AS index_size,
+			idx_scan AS index_scans,
+			idx_tup_read AS tuples_read,
+			idx_tup_fetch AS tuples_fetched,
+			CASE 
+				WHEN i.indexdef LIKE '%hnsw%' THEN 'HNSW'
+				WHEN i.indexdef LIKE '%ivf%' THEN 'IVF'
+				WHEN i.indexdef LIKE '%btree%' THEN 'BTREE'
+				WHEN i.indexdef LIKE '%gin%' THEN 'GIN'
+				WHEN i.indexdef LIKE '%gist%' THEN 'GIST'
+				ELSE 'UNKNOWN'
+			END AS index_type
+		FROM pg_indexes i
+		LEFT JOIN pg_class c ON c.relname = i.indexname
+		LEFT JOIN pg_namespace n ON n.oid = c.relnamespace AND n.nspname = i.schemaname
+		LEFT JOIN pg_stat_user_indexes s ON s.indexrelid = c.oid
+		WHERE i.schemaname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+		ORDER BY i.schemaname, i.tablename, i.indexname
 	`
-	return r.executeQuery(ctx, query, nil)
+	indexes, err := r.executeQuery(ctx, query, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	result := map[string]interface{}{
+		"indexes": indexes,
+		"count":   len(indexes),
+	}
+
+	return result, nil
 }
 

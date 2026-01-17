@@ -21,6 +21,9 @@ import (
 	"time"
 )
 
+/* SpanKey is the context key for span */
+type SpanKey struct{}
+
 /* TraceID represents a trace ID */
 type TraceID string
 
@@ -64,14 +67,11 @@ func (t *Tracer) StartSpan(ctx context.Context, name string) (context.Context, S
 	spanID := SpanID(fmt.Sprintf("span_%d", time.Now().UnixNano()))
 	traceID := TraceID(fmt.Sprintf("trace_%d", time.Now().UnixNano()))
 
-	/* Try to get trace ID from context */
-	if existingTraceID, ok := ctx.Value("trace_id").(TraceID); ok {
-		traceID = existingTraceID
-	}
-
-	/* Try to get parent span ID from context */
+	/* Try to get trace ID from existing span in context */
 	var parentID *SpanID
-	if existingParentID, ok := ctx.Value("span_id").(SpanID); ok {
+	if existingSpan, ok := ctx.Value(SpanKey{}).(*Span); ok && existingSpan != nil {
+		traceID = existingSpan.TraceID
+		existingParentID := existingSpan.SpanID
 		parentID = &existingParentID
 	}
 
@@ -88,9 +88,8 @@ func (t *Tracer) StartSpan(ctx context.Context, name string) (context.Context, S
 
 	t.spans[spanID] = span
 
-	/* Add to context */
-	ctx = context.WithValue(ctx, "trace_id", traceID)
-	ctx = context.WithValue(ctx, "span_id", spanID)
+	/* Add span to context - trace ID and span ID are accessible through the span */
+	ctx = context.WithValue(ctx, SpanKey{}, span)
 
 	return ctx, spanID
 }
@@ -154,4 +153,52 @@ func (t *Tracer) GetTrace(traceID TraceID) []*Span {
 		}
 	}
 	return spans
+}
+
+/* StartSpanWithRequestID starts a new span with request ID from context */
+func (t *Tracer) StartSpanWithRequestID(ctx context.Context, name string) (context.Context, SpanID) {
+	ctx, spanID := t.StartSpan(ctx, name)
+	
+	/* Add request ID as span attribute if available */
+	/* GetRequestIDFromContext is in the same package (observability) */
+	if reqID, ok := GetRequestIDFromContext(ctx); ok {
+		t.AddSpanAttribute(spanID, "request_id", reqID.String())
+	}
+	
+	/* Store span in context */
+	ctx = context.WithValue(ctx, SpanKey{}, t.GetSpan(spanID))
+	
+	return ctx, spanID
+}
+
+/* GetSpanFromContext retrieves the span from context */
+func GetSpanFromContext(ctx context.Context) *Span {
+	if ctx == nil {
+		return nil
+	}
+	span, ok := ctx.Value(SpanKey{}).(*Span)
+	if !ok {
+		return nil
+	}
+	return span
+}
+
+/* AddEvent adds an event to the span */
+func (s *Span) AddEvent(name string, attributes map[string]interface{}) {
+	if s == nil {
+		return
+	}
+	s.Events = append(s.Events, SpanEvent{
+		Name:       name,
+		Timestamp:  time.Now(),
+		Attributes: attributes,
+	})
+}
+
+/* SetStatus sets the status of the span */
+func (s *Span) SetStatus(status string) {
+	if s == nil {
+		return
+	}
+	s.Status = status
 }

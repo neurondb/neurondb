@@ -19,6 +19,7 @@ package database
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -26,6 +27,8 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/neurondb/NeuronMCP/internal/config"
+	"github.com/neurondb/NeuronMCP/internal/security"
+	"github.com/neurondb/NeuronMCP/internal/validation"
 )
 
 /* ConnectionState represents the state of a database connection */
@@ -40,13 +43,14 @@ const (
 
 /* Database manages PostgreSQL connections */
 type Database struct {
-	pool     *pgxpool.Pool
-	host     string
-	port     int
-	database string
-	user     string
-	state    ConnectionState
+	pool      *pgxpool.Pool
+	host      string
+	port      int
+	database  string
+	user      string
+	state     ConnectionState
 	lastError error
+	mu        sync.RWMutex /* Protects state and lastError fields */
 }
 
 /* NewDatabase creates a new database instance */
@@ -76,28 +80,26 @@ func (d *Database) ConnectWithRetry(cfg *config.DatabaseConfig, maxRetries int, 
 		retryDelay = 2 * time.Second
 	}
 
-	var connStr string
+	/* Use pgxpool.ParseConfig with individual fields instead of string concatenation */
+	/* This prevents SQL injection and properly handles special characters in passwords */
+	var poolConfig *pgxpool.Config
 	var err error
-
+	
 	if cfg.ConnectionString != nil && *cfg.ConnectionString != "" {
-		connStr = *cfg.ConnectionString
+		/* If connection string is provided, parse it */
+		poolConfig, err = pgxpool.ParseConfig(*cfg.ConnectionString)
 	} else {
+		/* Build config from individual fields - safer than string concatenation */
 		host := cfg.GetHost()
 		port := cfg.GetPort()
 		db := cfg.GetDatabase()
 		user := cfg.GetUser()
-		password := ""
-		if cfg.Password != nil {
-			password = *cfg.Password
-		}
-
-		connStr = fmt.Sprintf("host=%s port=%d user=%s dbname=%s",
+		
+		/* Create connection string without password first */
+		connStr := fmt.Sprintf("host=%s port=%d user=%s dbname=%s",
 			host, port, user, db)
 		
-		if password != "" {
-			connStr += fmt.Sprintf(" password=%s", password)
-		}
-
+		/* Add SSL mode */
 		if cfg.SSL != nil {
 			if sslBool, ok := cfg.SSL.(bool); ok {
 				if sslBool {
@@ -111,15 +113,22 @@ func (d *Database) ConnectWithRetry(cfg *config.DatabaseConfig, maxRetries int, 
 		} else {
 			connStr += " sslmode=prefer"
 		}
+		
+		/* Parse config - this handles password escaping properly */
+		poolConfig, err = pgxpool.ParseConfig(connStr)
+		if err == nil && cfg.Password != nil && *cfg.Password != "" {
+			/* Set password directly in config - pgx handles escaping */
+			poolConfig.ConnConfig.Password = *cfg.Password
+		}
 	}
-
-	poolConfig, err := pgxpool.ParseConfig(connStr)
 	if err != nil {
 		host := cfg.GetHost()
 		port := cfg.GetPort()
 		db := cfg.GetDatabase()
 		user := cfg.GetUser()
-		return fmt.Errorf("failed to parse connection string for database '%s' on host '%s:%d' as user '%s': %w (connection string format may be invalid)", db, host, port, user, err)
+		/* Sanitize error to remove any sensitive information */
+		sanitizedErr := security.SanitizeError(err)
+		return fmt.Errorf("failed to parse connection string for database '%s' on host '%s:%d' as user '%s': %w (connection string format may be invalid)", db, host, port, user, sanitizedErr)
 	}
 
 	/* Register NeuronDB custom types (vector, vector[], etc.) */
@@ -171,8 +180,10 @@ func (d *Database) ConnectWithRetry(cfg *config.DatabaseConfig, maxRetries int, 
 	var lastErr error
 	baseDelay := retryDelay
 	
+	d.mu.Lock()
 	d.state = StateConnecting
 	d.lastError = nil
+	d.mu.Unlock()
 	
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		pool, err = pgxpool.NewWithConfig(context.Background(), poolConfig)
@@ -182,17 +193,23 @@ func (d *Database) ConnectWithRetry(cfg *config.DatabaseConfig, maxRetries int, 
 			cancel()
 			
 			if pingErr == nil {
+				d.mu.Lock()
 				d.pool = pool
 				d.state = StateConnected
 				d.lastError = nil
+				d.mu.Unlock()
 				return nil
 			}
-			lastErr = fmt.Errorf("connection ping failed: database '%s' on host '%s:%d' as user '%s': %w", dbName, host, dbPort, dbUser, pingErr)
+			/* Sanitize error to remove sensitive information */
+			sanitizedPingErr := security.SanitizeError(pingErr)
+			lastErr = fmt.Errorf("connection ping failed: database '%s' on host '%s:%d' as user '%s': %w", dbName, host, dbPort, dbUser, sanitizedPingErr)
 			if pool != nil {
 				pool.Close()
 			}
 		} else {
-			lastErr = fmt.Errorf("failed to create connection pool: database '%s' on host '%s:%d' as user '%s': %w", dbName, host, dbPort, dbUser, err)
+			/* Sanitize error to remove sensitive information */
+			sanitizedErr := security.SanitizeError(err)
+			lastErr = fmt.Errorf("failed to create connection pool: database '%s' on host '%s:%d' as user '%s': %w", dbName, host, dbPort, dbUser, sanitizedErr)
 		}
 
 		if attempt < maxRetries-1 {
@@ -201,14 +218,24 @@ func (d *Database) ConnectWithRetry(cfg *config.DatabaseConfig, maxRetries int, 
 		}
 	}
 
+	d.mu.Lock()
 	d.state = StateFailed
-	d.lastError = lastErr
-	return fmt.Errorf("failed to connect to database '%s' on host '%s:%d' as user '%s' after %d attempts (last error: %v)", dbName, host, dbPort, dbUser, maxRetries, lastErr)
+	/* Sanitize error before storing */
+	d.lastError = security.SanitizeError(lastErr)
+	d.mu.Unlock()
+	/* Sanitize error in return message */
+	sanitizedLastErr := security.SanitizeError(lastErr)
+	return fmt.Errorf("failed to connect to database '%s' on host '%s:%d' as user '%s' after %d attempts (last error: %v)", dbName, host, dbPort, dbUser, maxRetries, sanitizedLastErr)
 }
 
 /* IsConnected checks if the database is connected */
 func (d *Database) IsConnected() bool {
-	return d != nil && d.pool != nil && d.state == StateConnected
+	if d == nil {
+		return false
+	}
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	return d.pool != nil && d.state == StateConnected
 }
 
 /* GetConnectionState returns the current connection state */
@@ -216,6 +243,8 @@ func (d *Database) GetConnectionState() ConnectionState {
 	if d == nil {
 		return StateDisconnected
 	}
+	d.mu.RLock()
+	defer d.mu.RUnlock()
 	return d.state
 }
 
@@ -224,6 +253,8 @@ func (d *Database) GetLastError() error {
 	if d == nil {
 		return nil
 	}
+	d.mu.RLock()
+	defer d.mu.RUnlock()
 	return d.lastError
 }
 
@@ -237,8 +268,10 @@ func (d *Database) HealthCheck(ctx context.Context) error {
 	}
 	err := d.pool.Ping(ctx)
 	if err != nil {
+		d.mu.Lock()
 		d.state = StateFailed
 		d.lastError = err
+		d.mu.Unlock()
 		return fmt.Errorf("health check failed: %w", err)
 	}
 	return nil
@@ -310,13 +343,33 @@ func (d *Database) Begin(ctx context.Context) (pgx.Tx, error) {
 }
 
 /* Close closes the connection pool */
+/* Safe to call multiple times - uses mutex and nil checks to prevent panics */
 func (d *Database) Close() {
-	if d != nil && d.pool != nil {
-		d.pool.Close()
-		d.pool = nil
-		d.state = StateDisconnected
-		d.lastError = nil
+	if d == nil {
+		return
 	}
+	
+	d.mu.Lock()
+	
+	/* Check if already closed */
+	if d.pool == nil {
+		d.state = StateDisconnected
+		d.mu.Unlock()
+		return
+	}
+	
+	/* Get reference to pool and clear it */
+	pool := d.pool
+	d.pool = nil
+	d.state = StateDisconnected
+	d.lastError = nil
+	
+	/* Unlock before closing to avoid holding lock during I/O */
+	/* pool.Close() may take time and we don't want to block other operations */
+	d.mu.Unlock()
+	
+	/* Close the pool (this may take time) */
+	pool.Close()
 }
 
 /* TestConnection tests the database connection */
@@ -358,9 +411,10 @@ type PoolStats struct {
 	ConstructingConns int32
 }
 
-/* EscapeIdentifier escapes a SQL identifier */
+/* EscapeIdentifier escapes a SQL identifier for safe use */
+/* Uses validation package for proper escaping */
 func EscapeIdentifier(identifier string) string {
-	return fmt.Sprintf(`"%s"`, identifier)
+	return validation.EscapeSQLIdentifier(identifier)
 }
 
 /* errorRow is a row that always returns an error */

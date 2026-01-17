@@ -18,6 +18,8 @@ package auth
 import (
 	"context"
 	"fmt"
+
+	"github.com/neurondb/NeuronMCP/internal/context/contextkeys"
 )
 
 /* RequestAuth extracts authentication information from context */
@@ -73,15 +75,15 @@ func ExtractRequestAuth(ctx context.Context) (*RequestAuth, error) {
 
 /* WithTenantContext adds tenant information to context */
 func WithTenantContext(ctx context.Context, tenant *TenantContext) context.Context {
-	ctx = context.WithValue(ctx, "user_id", tenant.UserID)
+	ctx = context.WithValue(ctx, contextkeys.UserIDKey{}, tenant.UserID)
 	if tenant.OrgID != "" {
-		ctx = context.WithValue(ctx, "org_id", tenant.OrgID)
+		ctx = context.WithValue(ctx, contextkeys.OrgIDKey{}, tenant.OrgID)
 	}
 	if tenant.ProjectID != "" {
-		ctx = context.WithValue(ctx, "project_id", tenant.ProjectID)
+		ctx = context.WithValue(ctx, contextkeys.ProjectIDKey{}, tenant.ProjectID)
 	}
 	if len(tenant.Scopes) > 0 {
-		ctx = context.WithValue(ctx, "scopes", tenant.Scopes)
+		ctx = context.WithValue(ctx, contextkeys.ScopesKey{}, tenant.Scopes)
 	}
 	return ctx
 }
