@@ -1,6 +1,17 @@
 # NeuronDesktop
 
+<div align="center">
+
 **Unified web interface for MCP servers, NeuronDB, and NeuronAgent**
+
+[![Next.js](https://img.shields.io/badge/Next.js-14+-000000.svg)](https://nextjs.org/)
+[![Go](https://img.shields.io/badge/Go-1.23+-00ADD8.svg)](https://golang.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6.svg)](https://www.typescriptlang.org/)
+[![Version](https://img.shields.io/badge/version-2.0-blue.svg)](https://github.com/neurondb/neurondb)
+[![License](https://img.shields.io/badge/License-Proprietary-red.svg)](../LICENSE)
+[![Documentation](https://img.shields.io/badge/docs-neurondb.ai-brightgreen.svg)](https://www.neurondb.ai/docs/neurondesktop)
+
+</div>
 
 NeuronDesktop is a full-featured web application that provides a unified interface for managing and interacting with:
 - **MCP Servers** - Model Context Protocol servers with tool inspection and testing
