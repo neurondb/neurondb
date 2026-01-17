@@ -175,3 +175,5 @@ sudo chmod 600 /etc/neurondb/*.env
 
 
 
+
+
