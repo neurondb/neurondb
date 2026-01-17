@@ -50,28 +50,171 @@ NeuronDesktop is a full-featured web application that provides a unified interfa
 
 ## Architecture
 
+### System Architecture
+
+```mermaid
+graph TB
+    subgraph FRONTEND["Frontend (Next.js)"]
+        UI[React Components<br/>TypeScript]
+        PAGES[App Router<br/>Pages & Routes]
+        STATE[State Management<br/>Context + Zustand]
+        WS_CLIENT[WebSocket Client<br/>Real-time Updates]
+    end
+    
+    subgraph BACKEND["Backend API (Go)"]
+        API[REST API<br/>Gorilla Mux]
+        WS_SERVER[WebSocket Server<br/>Event Streaming]
+        HANDLERS[HTTP Handlers<br/>Request Processing]
+        MIDDLEWARE[Middleware<br/>Auth, CORS, Logging]
+    end
+    
+    subgraph SERVICES["External Services"]
+        MCP[NeuronMCP<br/>MCP Protocol<br/>stdio]
+        DB[NeuronDB<br/>PostgreSQL<br/>Port 5433]
+        AGENT[NeuronAgent<br/>REST API<br/>Port 8080]
+    end
+    
+    subgraph INTEGRATION["Integration Layer"]
+        MCP_PROXY[MCP Proxy<br/>stdio → HTTP]
+        DB_CLIENT[NeuronDB Client<br/>SQL Queries]
+        AGENT_CLIENT[Agent Client<br/>HTTP Client]
+    end
+    
+    UI --> API
+    UI --> WS_CLIENT
+    WS_CLIENT --> WS_SERVER
+    API --> HANDLERS
+    HANDLERS --> MIDDLEWARE
+    HANDLERS --> MCP_PROXY
+    HANDLERS --> DB_CLIENT
+    HANDLERS --> AGENT_CLIENT
+    
+    MCP_PROXY --> MCP
+    DB_CLIENT --> DB
+    AGENT_CLIENT --> AGENT
+    
+    style FRONTEND fill:#e3f2fd
+    style BACKEND fill:#fff3e0
+    style SERVICES fill:#e8f5e9
+    style INTEGRATION fill:#f3e5f5
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    Browser (Frontend)                    │
-│              Next.js + React + TypeScript                │
-└──────────────────────┬──────────────────────────────────┘
-                       │ HTTP/WebSocket
-┌──────────────────────▼──────────────────────────────────┐
-│              NeuronDesktop API (Backend)                │
-│                      Go + Gorilla Mux                   │
-├─────────────────────────────────────────────────────────┤
-│  MCP Proxy  │  NeuronDB Client  │  Agent Client         │
-└──────┬──────────────┬───────────────┬──────────────────┘
-       │              │               │
-┌──────▼──────┐  ┌───▼────┐  ┌───────▼────────┐
-│  MCP Server │  │NeuronDB│  │  NeuronAgent   │
-│  (stdio)   │  │(Postgres)│  │  (HTTP API)   │
-└─────────────┘  └─────────┘  └───────────────┘
+
+### Request Flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Frontend as Next.js Frontend
+    participant API as NeuronDesktop API
+    participant MCP as NeuronMCP
+    participant DB as NeuronDB
+    participant Agent as NeuronAgent
+    
+    User->>Frontend: Access Web UI
+    Frontend->>API: GET /api/v1/profiles
+    API-->>Frontend: Profile list
+    
+    User->>Frontend: Vector search
+    Frontend->>API: POST /api/v1/profiles/{id}/neurondb/search
+    API->>DB: Execute SQL query
+    DB-->>API: Search results
+    API-->>Frontend: JSON response
+    Frontend-->>User: Display results
+    
+    User->>Frontend: MCP tool call
+    Frontend->>API: POST /api/v1/profiles/{id}/mcp/tools/call
+    API->>MCP: Proxy MCP request (stdio)
+    MCP->>DB: Execute tool
+    DB-->>MCP: Tool results
+    MCP-->>API: MCP response
+    API-->>Frontend: Tool output
+    Frontend-->>User: Display result
+    
+    User->>Frontend: Agent chat
+    Frontend->>API: POST /api/v1/agents/{id}/sessions/{id}/messages
+    API->>Agent: Forward to NeuronAgent
+    Agent->>DB: Vector search (memory)
+    DB-->>Agent: Context
+    Agent-->>API: Agent response
+    API-->>Frontend: Stream response
+    Frontend-->>User: Real-time updates
 ```
+
+### UI Component Structure
+
+```mermaid
+graph TD
+    subgraph PAGES["Pages"]
+        DASHBOARD[Dashboard<br/>Overview & Stats]
+        AGENTS[Agents<br/>Agent Management]
+        MCP_PAGE[MCP<br/>Tool Testing]
+        DB_PAGE[NeuronDB<br/>Vector Search]
+        WORKFLOWS[Workflows<br/>DAG Visualization]
+    end
+    
+    subgraph COMPONENTS["Components"]
+        CHAT[ChatInterface<br/>Agent Conversations]
+        SEARCH[SearchInterface<br/>Vector Search]
+        TOOLS[ToolInspector<br/>MCP Tools]
+        CHARTS[Charts<br/>Analytics]
+        FORMS[Forms<br/>Configuration]
+    end
+    
+    DASHBOARD --> CHARTS
+    AGENTS --> CHAT
+    MCP_PAGE --> TOOLS
+    DB_PAGE --> SEARCH
+    WORKFLOWS --> CHARTS
+    
+    style PAGES fill:#e3f2fd
+    style COMPONENTS fill:#fff3e0
+```
+
+## 📑 Table of Contents
+
+<details>
+<summary><strong>Expand full table of contents</strong></summary>
+
+- [Overview](#overview)
+- [Documentation](#documentation)
+- [Features](#features)
+- [Architecture](#architecture)
+  - [System Architecture](#system-architecture)
+  - [Request Flow](#request-flow)
+  - [UI Component Structure](#ui-component-structure)
+- [Quick Start](#quick-start)
+  - [Automated Setup](#automated-setup-recommended)
+  - [Using Docker](#using-docker-recommended)
+  - [Native Installation](#native-installation)
+- [Project Structure](#project-structure)
+- [API Documentation](#api-documentation)
+- [Configuration](#configuration)
+- [Development](#development)
+- [Deployment](#deployment)
+- [Security](#security)
+- [Contributing](#contributing)
+- [License](#license)
+- [Support](#support)
+- [Roadmap](#roadmap)
+
+</details>
+
+---
 
 ## Quick Start
 
 ### Automated Setup (Recommended)
+
+<details>
+<summary><strong>📋 Setup Checklist</strong></summary>
+
+- [ ] Docker and Docker Compose installed
+- [ ] Ports 3000, 8081 available
+- [ ] NeuronDB running (port 5433)
+- [ ] NeuronAgent running (port 8080, optional)
+- [ ] NeuronMCP binary available (optional)
+
+</details>
 
 The easiest way to get started is using the automated setup script:
 

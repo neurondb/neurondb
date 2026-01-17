@@ -1,0 +1,136 @@
+# Production values for NeuronDB Helm chart
+# These are production-ready defaults with security and performance optimizations
+
+global:
+  imageRegistry: "ghcr.io/neurondb"
+  imagePullSecrets: []
+  storageClass: "fast-ssd"
+
+neurondb:
+  replicaCount: 3
+  
+  image:
+    repository: neurondb-postgres
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  
+  postgresql:
+    enabled: true
+    auth:
+      postgresPassword: "" # Must be set via secret
+      database: "neurondb"
+    persistence:
+      enabled: true
+      size: 500Gi
+      storageClass: "fast-ssd"
+    resources:
+      requests:
+        memory: "8Gi"
+        cpu: "4"
+      limits:
+        memory: "16Gi"
+        cpu: "8"
+  
+  # High availability configuration
+  highAvailability:
+    enabled: true
+    replicas: 3
+    replication:
+      enabled: true
+      mode: "async"
+  
+  # Backup configuration
+  backup:
+    enabled: true
+    schedule: "0 2 * * *" # Daily at 2 AM
+    retention: 7 # days
+    storageClass: "backup-storage"
+  
+  # Monitoring
+  monitoring:
+    enabled: true
+    prometheus:
+      enabled: true
+    grafana:
+      enabled: true
+  
+  # Security
+  security:
+    tls:
+      enabled: true
+    networkPolicy:
+      enabled: true
+    podSecurityPolicy:
+      enabled: true
+
+neuronagent:
+  replicaCount: 2
+  
+  image:
+    repository: neuronagent
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "1"
+    limits:
+      memory: "4Gi"
+      cpu: "2"
+  
+  # Horizontal scaling
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  
+  # Circuit breaker configuration
+  resilience:
+    circuitBreaker:
+      enabled: true
+      failureThreshold: 5
+      successThreshold: 2
+      openDuration: 60s
+
+neuronmcp:
+  replicaCount: 2
+  
+  image:
+    repository: neuronmcp
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "0.5"
+    limits:
+      memory: "2Gi"
+      cpu: "1"
+
+neurondesktop:
+  replicaCount: 2
+  
+  image:
+    repository: neurondesktop
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "0.25"
+    limits:
+      memory: "1Gi"
+      cpu: "0.5"
+  
+  # Multi-user support
+  auth:
+    enabled: true
+    sessionTimeout: 3600 # seconds
+
+
+

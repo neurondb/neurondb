@@ -1,0 +1,71 @@
+{
+  "dashboard": {
+    "title": "NeuronDB Ecosystem - Unified Dashboard",
+    "tags": ["neurondb", "unified", "ecosystem"],
+    "timezone": "browser",
+    "schemaVersion": 16,
+    "version": 1,
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "NeuronDB Extension - Vector Search QPS",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(neurondb_vector_searches_total[5m])",
+            "legendFormat": "Vector Searches/sec"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "NeuronAgent - Request Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(neurondb_agent_requests_total[5m])",
+            "legendFormat": "Requests/sec"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "NeuronMCP - Tool Calls",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(neurondb_mcp_tool_calls_total[5m])",
+            "legendFormat": "Tool Calls/sec"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+      },
+      {
+        "id": 4,
+        "title": "System Health Status",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "up{job=\"neurondb\"}",
+            "legendFormat": "NeuronDB"
+          },
+          {
+            "expr": "up{job=\"neuronagent\"}",
+            "legendFormat": "NeuronAgent"
+          },
+          {
+            "expr": "up{job=\"neuronmcp\"}",
+            "legendFormat": "NeuronMCP"
+          }
+        ],
+        "gridPos": {"h": 4, "w": 12, "x": 12, "y": 8}
+      }
+    ]
+  }
+}
+
+
+
