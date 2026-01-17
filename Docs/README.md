@@ -4,42 +4,76 @@ Welcome to the NeuronDB documentation. This is the main entry point for all docu
 
 ## Quick Navigation
 
-### Getting Started
-- **[Simple Start Guide](getting-started/simple-start.md)** - Beginner-friendly setup (10 min)
-- **[Quick Start Guide](../../QUICKSTART.md)** - Get all services running quickly (5-10 min)
-- **[Architecture Overview](getting-started/architecture.md)** - Understand the system architecture
-- **[Installation Guide](getting-started/installation.md)** - Installation instructions
+<details>
+<summary><strong>🚀 Getting Started</strong></summary>
 
-### Documentation Indexes
+| Document | Description | Time | Difficulty |
+|----------|-------------|------|------------|
+| **[Simple Start Guide](getting-started/simple-start.md)** | Beginner-friendly setup | 10 min | ⭐ Easy |
+| **[Quick Start Guide](../../QUICKSTART.md)** | Get all services running quickly | 5-10 min | ⭐ Easy |
+| **[Architecture Overview](getting-started/architecture.md)** | Understand the system architecture | 15 min | ⭐⭐ Medium |
+| **[Installation Guide](getting-started/installation.md)** | Installation instructions | 30+ min | ⭐⭐ Medium |
+
+</details>
+
+<details>
+<summary><strong>📚 Documentation Indexes</strong></summary>
+
 - **[Complete Documentation Index](documentation-index.md)** - Comprehensive index of all documentation
 - **[Documentation Overview](documentation.md)** - Main documentation index
 
-### Reference Documentation
-- **[API Reference](reference/api-reference.md)** - Complete API reference for all components
-- **[Data Types](reference/data-types.md)** - All data types with detailed specifications
-- **[Top Functions](reference/top_functions.md)** - Most commonly used functions
-- **[Glossary](reference/glossary.md)** - Terminology and definitions
+</details>
 
-### Deployment
-- **[Docker Deployment](deployment/docker.md)** - Component-specific Docker guide
-- **[Docker Unified Guide](deployment/docker-unified.md)** - Unified Docker orchestration
-- **[Docker Ecosystem](deployment/docker-ecosystem.md)** - Complete ecosystem setup
-- **[Kubernetes/Helm](deployment/kubernetes-helm.md)** - Kubernetes deployment
-- **[Production Installation](deployment/production-install.md)** - Production setup guide
+<details>
+<summary><strong>📖 Reference Documentation</strong></summary>
 
-### Operations
+| Document | Description |
+|----------|-------------|
+| **[API Reference](reference/api-reference.md)** | Complete API reference for all components |
+| **[Data Types](reference/data-types.md)** | All data types with detailed specifications |
+| **[Top Functions](reference/top_functions.md)** | Most commonly used functions |
+| **[Glossary](reference/glossary.md)** | Terminology and definitions |
+
+</details>
+
+<details>
+<summary><strong>🚢 Deployment</strong></summary>
+
+| Document | Description | Use Case |
+|----------|-------------|----------|
+| **[Docker Deployment](deployment/docker.md)** | Component-specific Docker guide | Individual components |
+| **[Docker Unified Guide](deployment/docker-unified.md)** | Unified Docker orchestration | Full stack |
+| **[Docker Ecosystem](deployment/docker-ecosystem.md)** | Complete ecosystem setup | Production |
+| **[Kubernetes/Helm](deployment/kubernetes-helm.md)** | Kubernetes deployment | Cloud/K8s |
+| **[Production Installation](deployment/production-install.md)** | Production setup guide | Enterprise |
+
+</details>
+
+<details>
+<summary><strong>⚙️ Operations</strong></summary>
+
 - **[Troubleshooting](operations/troubleshooting.md)** - Comprehensive troubleshooting guide
 - **[Observability Setup](operations/observability-setup.md)** - Monitoring and observability
 
-### Development
+</details>
+
+<details>
+<summary><strong>💻 Development</strong></summary>
+
 - **[Development Guide](development/development-guide.md)** - Development procedures
 - **[Build System](development/build-system.md)** - Build system documentation
 - **[Documentation Structure](development/structure.md)** - How documentation is organized
 
-### Internals
+</details>
+
+<details>
+<summary><strong>🔧 Internals</strong></summary>
+
 - **[Architecture Documentation](internals/README.md)** - Internal architecture details
 - **[Index Methods](internals/index-methods.md)** - Index implementation details
 - **[Identity Integration](internals/identity-integration-guide.md)** - Identity system
+
+</details>
 
 ## Documentation Structure
 
@@ -58,10 +92,12 @@ The documentation is organized into several main sections:
 
 Each component has its own documentation:
 
-- **NeuronDB**: [`NeuronDB/docs/`](../../NeuronDB/docs/) - SQL API, configuration, ML algorithms
-- **NeuronAgent**: [`NeuronAgent/docs/`](../../NeuronAgent/docs/) - Agent runtime documentation
-- **NeuronMCP**: [`NeuronMCP/TOOLS_REFERENCE.md`](../../NeuronMCP/TOOLS_REFERENCE.md) - MCP tools reference
-- **NeuronDesktop**: [`NeuronDesktop/docs/`](../../NeuronDesktop/docs/) - Desktop UI documentation
+| Component | Documentation Path | Description |
+|-----------|-------------------|-------------|
+| **NeuronDB** | [`NeuronDB/docs/`](../../NeuronDB/docs/) | SQL API, configuration, ML algorithms |
+| **NeuronAgent** | [`NeuronAgent/docs/`](../../NeuronAgent/docs/) | Agent runtime documentation |
+| **NeuronMCP** | [`NeuronMCP/TOOLS_REFERENCE.md`](../../NeuronMCP/TOOLS_REFERENCE.md) | MCP tools reference |
+| **NeuronDesktop** | [`NeuronDesktop/docs/`](../../NeuronDesktop/docs/) | Desktop UI documentation |
 
 ## Contributing
 
@@ -69,6 +105,12 @@ See the [Contributing Guide](../../CONTRIBUTING.md) for information on how to co
 
 ---
 
+<div align="center">
+
 **Last Updated:** 2026-01-13  
 **Documentation Version:** 2.0.0
+
+[⬆ Back to Top](#neurondb-documentation)
+
+</div>
 
