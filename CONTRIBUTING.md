@@ -2,6 +2,22 @@
 
 Thank you for your interest in contributing to NeuronDB!
 
+## Table of Contents
+
+- [Getting Started](#getting-started)
+- [Code Standards](#code-standards)
+  - [Code Style Enforcement](#code-style-enforcement)
+  - [Build Requirements](#build-requirements)
+  - [Testing](#testing)
+- [Pull Request Process](#pull-request-process)
+  - [PR Checklist](#pr-checklist)
+  - [Review Process](#review-process)
+  - [Test Requirements](#test-requirements)
+- [Code Review](#code-review)
+- [Community](#community)
+- [Commit Message Guidelines](#commit-message-guidelines)
+- [License](#license)
+
 ## Getting Started
 
 1. Fork the repository
@@ -392,3 +408,10 @@ on the code, and restricts source code use to personal, non-commercial
 purposes only. Personal use of binaries is permitted. See the LICENSE
 file for full terms.
 
+---
+
+<div align="center">
+
+[⬆ Back to Top](#contributing-to-neurondb)
+
+</div>

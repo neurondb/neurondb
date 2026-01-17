@@ -117,12 +117,28 @@ psql "postgresql://neurondb:neurondb@localhost:5433/neurondb" -c "SELECT neurond
 ```
 
 **Expected output:**
+```json
+{
+  "version": "1.0",
+  "postgresql_version": "18.0",
+  "capabilities": {
+    "vector_functions": 150,
+    "ml_algorithms": 52,
+    "distance_metrics": 11,
+    "gpu_support": true,
+    "onnx_support": true
+  },
+  "api": {
+    "unified_ml": true,
+    "unified_vector": true,
+    "unified_rag": true,
+    "unified_gpu": true
+  }
+}
 ```
-version
---------
-2.0
-(1 row)
-```
+
+> [!NOTE]
+> The `neurondb.version()` function returns a JSONB object with version and capability information. To get just the extension version number, use: `SELECT extversion FROM pg_extension WHERE extname = 'neurondb';` (returns `2.0`).
 
 ### Test 2: REST API Call (NeuronAgent)
 
@@ -633,3 +649,10 @@ For more details, see the [Scripts README](scripts/README.md).
 - Check out [NeuronMCP documentation](NeuronMCP/README.md)
 - Access [NeuronDesktop web interface](http://localhost:3000) and see [NeuronDesktop documentation](NeuronDesktop/README.md)
 
+---
+
+<div align="center">
+
+[⬆ Back to Top](#-quick-start-guide)
+
+</div>
