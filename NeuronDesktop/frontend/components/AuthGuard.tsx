@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { checkAuth } from '@/lib/auth'
+import { logger } from '@/lib/logger'
 import { SidebarProvider } from '@/contexts/SidebarContext'
 import Sidebar from '@/components/Sidebar'
 import SidebarToggle from '@/components/SidebarToggle'
@@ -22,7 +23,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       
       // Add timeout to prevent infinite loading
       const timeoutId = setTimeout(() => {
-        console.warn('AuthGuard: Authentication check timed out, allowing access')
+        logger.warn('Authentication check timed out, allowing access')
         setIsChecking(false)
       }, 10000) // 10 second max wait
       
@@ -45,7 +46,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         setIsChecking(false)
       } catch (error) {
         clearTimeout(timeoutId)
-        console.error('AuthGuard: Error during auth check', error)
+        logger.error('Error during auth check', error)
         // On error, allow access to login/setup pages, otherwise redirect to login
         if (!isLoginPage && !isSetupPage) {
           router.push('/login')

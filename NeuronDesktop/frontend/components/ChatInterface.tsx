@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Message, Agent } from '@/lib/api'
 import { useAgentWebSocket, WebSocketMessage } from '@/lib/useAgentWebSocket'
+import { logger } from '@/lib/logger'
 import MessageList from './MessageList'
 import MessageInput from './MessageInput'
 import StatusBadge from './StatusBadge'
@@ -26,7 +27,7 @@ export default function ChatInterface({
 
   const handleWebSocketMessage = useCallback((wsMessage: WebSocketMessage) => {
     if (wsMessage.error) {
-      console.error('WebSocket error:', wsMessage.error)
+      logger.error('WebSocket error in ChatInterface', undefined, { error: wsMessage.error })
       setIsStreaming(false)
       setStreamingContent('')
       return
@@ -93,7 +94,7 @@ export default function ChatInterface({
     enabled: !!sessionId,
     onMessage: handleWebSocketMessage,
     onError: (err) => {
-      console.error('WebSocket error:', err)
+      logger.error('WebSocket error in ChatInterface', err)
       setIsStreaming(false)
       setStreamingContent('')
     },
@@ -102,7 +103,7 @@ export default function ChatInterface({
   const handleSend = useCallback(
     async (content: string) => {
       if (!sessionId) {
-        console.error('No session ID available')
+        logger.error('No session ID available in ChatInterface')
         return
       }
 

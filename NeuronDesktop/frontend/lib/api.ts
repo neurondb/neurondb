@@ -1,5 +1,6 @@
 import axios, { AxiosError } from 'axios'
 import { getErrorMessage, showErrorToast } from './errors'
+import { logger } from './logger'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081/api/v1'
 
@@ -27,11 +28,9 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
-    console.error('API Error:', {
+    logger.error('API Error', error, {
       status: error.response?.status,
       statusText: error.response?.statusText,
-      data: error.response?.data,
-      message: error.message,
       code: error.code,
       hasResponse: !!error.response,
       hasRequest: !!error.request
@@ -425,24 +424,18 @@ const databaseTestApi = axios.create({
   withCredentials: false, // Don't send credentials for database test
 })
 
-if (typeof window !== 'undefined') {
-  console.log('Database Test API Base URL:', API_BASE_URL)
-  console.log('Full test endpoint URL:', API_BASE_URL + '/database/test')
-}
-
 databaseTestApi.interceptors.request.use(
   (config) => {
-    console.log('Database test request:', {
+    logger.debug('Database test request', {
       method: config.method,
       url: config.url,
       baseURL: config.baseURL,
       fullURL: (config.baseURL || '') + (config.url || ''),
-      data: config.data,
     })
     return config
   },
   (error) => {
-    console.error('Database test request error:', error)
+    logger.error('Database test request error', error)
     return Promise.reject(error)
   }
 )

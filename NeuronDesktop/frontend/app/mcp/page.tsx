@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { mcpAPI, profilesAPI, modelConfigAPI, type Profile, type ToolDefinition, type ToolResult, type ModelConfig, type MCPThread, type MCPMessage, type MCPThreadWithMessages } from '@/lib/api'
+import { logger } from '@/lib/logger'
 import StatusBadge from '@/components/StatusBadge'
 import JSONViewer from '@/components/JSONViewer'
 import MarkdownContent from '@/components/MarkdownContent'
@@ -90,8 +91,8 @@ function MCPPage() {
       url: typeof window !== 'undefined' ? window.location.href : undefined,
     }
     
-    // Always log to console with full details
-    console.error(`[ERROR] ${context}:`, errorDetails)
+    // Always log with full details
+    logger.error(`[ERROR] ${context}`, error, additionalInfo)
     
     // Display error to user if component is mounted
     if (isMountedRef.current) {
@@ -146,31 +147,37 @@ function MCPPage() {
     if (lastMountTime) {
       const timeSinceLastMount = mountTime - parseInt(lastMountTime, 10)
       if (timeSinceLastMount < 1000) {
-        console.warn('[MCP Page] Component mounting too frequently - possible reload loop detected', {
-          timeSinceLastMount,
-          timestamp: new Date().toISOString()
-        })
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('[MCP Page] Component mounting too frequently - possible reload loop detected', {
+            timeSinceLastMount,
+            timestamp: new Date().toISOString()
+          })
+        }
       }
     }
     sessionStorage.setItem('mcp_page_last_mount', mountTime.toString())
     
     // Restore activeThreadId from sessionStorage if available (helps survive Fast Refresh)
     const savedThreadId = sessionStorage.getItem('mcp_active_thread_id')
-    if (savedThreadId && !activeThreadId) {
-      console.log('[MCP Page] Restoring active thread ID from sessionStorage:', savedThreadId)
+    if (savedThreadId) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[MCP Page] Restoring active thread ID from sessionStorage:', savedThreadId)
+      }
       setActiveThreadId(savedThreadId)
     }
     
     return () => {
       isMountedRef.current = false
     }
-  }, [activeThreadId])
+  }, []) // Empty dependency array - this should only run on mount
 
   // Save activeThreadId to sessionStorage whenever it changes (survives Fast Refresh)
   useEffect(() => {
     if (activeThreadId) {
       sessionStorage.setItem('mcp_active_thread_id', activeThreadId)
-      console.log('[MCP Page] Saved active thread ID to sessionStorage:', activeThreadId)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[MCP Page] Saved active thread ID to sessionStorage:', activeThreadId)
+      }
     }
   }, [activeThreadId])
 
@@ -183,7 +190,7 @@ function MCPPage() {
       const response = await profilesAPI.list()
       if (!isMountedRef.current) return
       
-      console.log('Profiles loaded:', response.data)
+      logger.debug('Profiles loaded', { count: response.data.length })
       setProfiles(response.data)
       
       if (response.data.length > 0 && !selectedProfile) {
@@ -229,10 +236,10 @@ function MCPPage() {
   // Prevent page reloads from unhandled promise rejections
   useEffect(() => {
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-      console.error('Unhandled promise rejection:', event.reason)
+      logger.error('Unhandled promise rejection', event.reason)
       // Prevent default browser behavior (page reload) for non-critical errors
       if (event.reason && typeof event.reason === 'object') {
-        const error = event.reason as any
+        const error = event.reason as { response?: { status?: number }, code?: string, message?: string }
         // Only prevent reload for API errors, not critical system errors
         if (error?.response?.status || error?.code === 'ERR_BAD_RESPONSE' || error?.message?.includes('500')) {
           event.preventDefault()
@@ -243,7 +250,7 @@ function MCPPage() {
     }
     
     const handleError = (event: ErrorEvent) => {
-      console.error('Unhandled error:', event.error)
+      logger.error('Unhandled error', event.error)
       // Prevent default for non-critical errors
       if (event.error && typeof event.error === 'object') {
         const error = event.error as any
@@ -317,9 +324,24 @@ function MCPPage() {
 
   useEffect(() => {
     if (messages.length > 0 && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
+      // Force scroll to bottom when new messages arrive
+      setTimeout(() => {
+        if (messagesEndRef.current) {
+          messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
+          logger.debug('Scrolled to bottom', { messageCount: messages.length })
+        }
+      }, 100)
     }
   }, [messages.length, activeThreadId]) // Only depend on length and thread ID, not the full array
+  
+  // Debug effect to log when messages change
+  useEffect(() => {
+    logger.debug('Messages updated', {
+      count: messages.length,
+      activeThreadId,
+      lastMessageRole: messages[messages.length - 1]?.role,
+    })
+  }, [messages, activeThreadId])
 
   const loadTools = useCallback(async () => {
     if (!selectedProfile) return
@@ -327,8 +349,8 @@ function MCPPage() {
       const response = await mcpAPI.listTools(selectedProfile)
       setTools(response.data.tools || [])
       setMcpError(null)
-    } catch (error: any) {
-      console.error('Failed to load tools:', error)
+    } catch (error: unknown) {
+      logger.error('Failed to load tools', error)
       const errorMsg = parseError(error)
       setMcpError(errorMsg)
     }
@@ -346,7 +368,7 @@ function MCPPage() {
         setSelectedModel(response.data[0].id)
       }
     } catch (error) {
-      console.error('Failed to load model configs:', error)
+      logger.error('Failed to load model configs', error)
     }
   }, [selectedProfile])
 
@@ -564,23 +586,48 @@ function MCPPage() {
   }
 
   const addMessage = useCallback(async (role: Message['role'], content: string, toolName?: string, data?: any) => {
-    if (!selectedProfile || !isMountedRef.current) return
+    if (!selectedProfile || !isMountedRef.current) {
+      console.warn('[addMessage] Skipping - no profile or unmounted', { role, hasProfile: !!selectedProfile, isMounted: isMountedRef.current })
+      return
+    }
+    
+    if (!content || content.trim() === '') {
+      console.warn('[addMessage] Skipping - empty content', { role })
+      return
+    }
     
     // For assistant/tool messages, use the conversation thread if available to ensure they go to the right thread
     const targetThreadId = (role === 'assistant' || role === 'tool') && conversationThreadRef.current 
       ? conversationThreadRef.current 
       : activeThreadId
     
-    console.log('[addMessage]', { role, targetThreadId, activeThreadId, conversationThread: conversationThreadRef.current })
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[addMessage] Adding message', { 
+        role, 
+        contentLength: content.length, 
+        targetThreadId, 
+        activeThreadId, 
+        conversationThread: conversationThreadRef.current,
+        hasToolName: !!toolName
+      })
+    }
     
     // If no active thread, create one
     if (!targetThreadId) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[addMessage] No target thread, creating new one...')
+      }
       try {
         const newThread = await createNewThreadInDB()
         if (!isMountedRef.current) return
         setThreads((prev) => [newThread, ...prev])
         setActiveThreadId(newThread.id)
         conversationThreadRef.current = newThread.id
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[addMessage] Created new thread:', newThread.id)
+        }
+        // Recursively call addMessage with the new thread ID
+        return addMessage(role, content, toolName, data)
       } catch (error) {
         if (!isMountedRef.current) return
         logError('addMessage - createThread', error, { role, contentLength: content.length })
@@ -595,8 +642,12 @@ function MCPPage() {
         setThreads((prev) => [tempThread, ...prev])
         setActiveThreadId(tempThread.id)
         conversationThreadRef.current = tempThread.id
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[addMessage] Created temp thread:', tempThread.id)
+        }
+        // Recursively call addMessage with the new thread ID
+        return addMessage(role, content, toolName, data)
       }
-      return // Exit and let the function be called again with the new thread
     }
 
     // Create message with temp ID immediately (don't wait for DB)
@@ -611,22 +662,75 @@ function MCPPage() {
     }
 
     // Add to UI immediately (only if still mounted)
-    if (!isMountedRef.current) return
+    if (!isMountedRef.current) {
+      console.warn('[addMessage] Component unmounted, skipping UI update')
+      return
+    }
+    
+    console.log('[addMessage] Updating UI with message', { 
+      messageId: msg.id, 
+      role, 
+      targetThreadId,
+      contentPreview: content.substring(0, 50) 
+    })
+    
     setThreads((prev) => {
+      const threadFound = prev.find(t => t.id === targetThreadId)
+      if (!threadFound) {
+        console.error('[addMessage] ERROR: Target thread not found!', { targetThreadId, availableThreads: prev.map(t => t.id) })
+        // Create a new thread if target doesn't exist
+        const newThread: Thread = {
+          id: targetThreadId,
+          title: 'New chat',
+          createdAt: now,
+          updatedAt: now,
+          messages: [msg],
+        }
+        return [newThread, ...prev]
+      }
+      
       return prev.map((t) => {
         if (t.id !== targetThreadId) return t
         
         // Check if message already exists to prevent duplicates
-        const messageExists = t.messages.some(m => m.content === content && m.role === role && m.timestamp > now - 1000)
+        const messageExists = t.messages.some(m => 
+          m.content === content && 
+          m.role === role && 
+          Math.abs(m.timestamp - now) < 1000
+        )
         if (messageExists) {
+          console.log('[addMessage] Message already exists, skipping duplicate', { role, contentLength: content.length })
           return t
         }
         
-        return {
+        const updatedThread = {
           ...t,
           updatedAt: now,
           messages: [...t.messages, msg],
         }
+        console.log('[addMessage] Thread updated', { 
+          threadId: t.id, 
+          messageCount: updatedThread.messages.length,
+          lastMessageRole: updatedThread.messages[updatedThread.messages.length - 1]?.role,
+          isActiveThread: t.id === activeThreadId
+        })
+        
+        // CRITICAL: Ensure activeThreadId is set to this thread if it's not already
+        // This ensures the message is visible in the chat window
+        if (t.id !== activeThreadId) {
+          console.warn('[addMessage] WARNING: Adding message to thread that is not active!', {
+            targetThreadId: t.id,
+            activeThreadId: activeThreadId,
+            messageRole: role
+          })
+          // For assistant messages, we MUST switch to the correct thread
+          if (role === 'assistant' || role === 'tool') {
+            console.log('[addMessage] Switching active thread to target thread for assistant message')
+            setActiveThreadId(t.id)
+          }
+        }
+        
+        return updatedThread
       })
     })
 
@@ -664,7 +768,9 @@ function MCPPage() {
       }
     } else {
       // Thread is temporary, don't try to save to DB
+      if (process.env.NODE_ENV === 'development') {
       console.log('Message added to temp thread, skipping DB save')
+    }
     }
   }, [selectedProfile, activeThreadId, createNewThreadInDB, logError])
 
@@ -691,8 +797,7 @@ function MCPPage() {
     const tokenParam = token ? `?token=${encodeURIComponent(token)}` : ''
     const wsUrl = `${wsBaseUrl}/profiles/${selectedProfile}/mcp/ws${tokenParam}`
     
-    console.log('Connecting to WebSocket:', wsUrl.replace(/token=[^&]+/, 'token=***'))
-    console.log('Token present:', !!token)
+    logger.debug('Connecting to WebSocket', { hasToken: !!token, url: wsUrl.replace(/token=[^&]+/, 'token=***') })
     
     const ws = new WebSocket(wsUrl)
     
@@ -709,7 +814,12 @@ function MCPPage() {
     ws.onmessage = async (event) => {
       try {
         const data = JSON.parse(event.data)
-        console.log('WebSocket message received:', data)
+        logger.debug('WebSocket message received', { 
+          type: data.type, 
+          hasContent: !!data.content,
+          contentLength: data.content?.length || 0,
+          hasError: !!data.error 
+        })
         
         if (data.type === 'connected') {
           // Skip adding 'connected' message if threads aren't loaded yet
@@ -749,22 +859,83 @@ function MCPPage() {
           }
           shouldAutoConnectRef.current = false
         } else if (data.type === 'assistant') {
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[MCP Frontend] Received assistant message:', { 
+              hasContent: !!data.content, 
+              hasMessage: !!data.message, 
+              hasText: !!data.text,
+              contentLength: data.content?.length || 0,
+              fullData: data
+            })
+          }
           const content = data.content || data.message || data.text || ''
-          if (content) {
+          if (content && content.trim()) {
             try {
+              logger.debug('Adding assistant message to chat', { 
+                length: content.length, 
+                activeThreadId,
+                conversationThread: conversationThreadRef.current
+              })
+              
+              // Ensure we have an active thread before adding message
+              if (!activeThreadId && !conversationThreadRef.current) {
+                logger.warn('No active thread, will be created by addMessage')
+              }
+              
               await addMessage('assistant', content)
+              
+              // Verify message was added by checking thread state
+              setTimeout(() => {
+                const currentThread = threads.find(t => t.id === (conversationThreadRef.current || activeThreadId))
+                if (currentThread) {
+                  const lastMessage = currentThread.messages[currentThread.messages.length - 1]
+                  if (lastMessage && lastMessage.role === 'assistant' && lastMessage.content === content) {
+                    logger.debug('Verified: Assistant message successfully added to chat window', {
+                      messageId: lastMessage.id,
+                      threadId: currentThread.id,
+                      messageCount: currentThread.messages.length
+                    })
+                  } else {
+                    logger.error('Assistant message NOT found in thread', undefined, {
+                      expectedContent: content.substring(0, 50),
+                      lastMessageRole: lastMessage?.role,
+                      threadMessageCount: currentThread.messages.length
+                    })
+                  }
+                } else {
+                  logger.error('Thread not found after adding message', undefined, {
+                    activeThreadId,
+                    conversationThread: conversationThreadRef.current,
+                    availableThreads: threads.map(t => t.id)
+                  })
+                }
+              }, 100)
+              
+              logger.debug('Successfully called addMessage for assistant response')
               if (isMountedRef.current) setLoading(false) // Clear loading state after receiving assistant response
             } catch (error) {
+              logger.error('Failed to add assistant message', error, { contentLength: content.length })
               logError('WebSocket - addAssistantMessage', error, { contentLength: content.length })
-              if (isMountedRef.current) setLoading(false)
+              if (isMountedRef.current) {
+                setLoading(false)
+                // Try to show error in UI
+                try {
+                  await addMessage('system', `Error displaying response: ${error instanceof Error ? error.message : String(error)}`)
+                } catch (e) {
+                  logger.error('Failed to add error message', e)
+                }
+              }
             }
           } else {
+            logger.error('Received assistant message with no content', undefined, { data })
             logError('WebSocket - emptyAssistantMessage', new Error('Received assistant message with no content'), { data })
-            if (isMountedRef.current) setLoading(false)
-            try {
-              await addMessage('system', 'Received empty response from server. Check browser console for details.')
-            } catch (error) {
-              logError('WebSocket - addEmptyResponseMessage', error)
+            if (isMountedRef.current) {
+              setLoading(false)
+              try {
+                await addMessage('system', 'Received empty response from server. Check browser console for details.')
+              } catch (error) {
+                logError('WebSocket - addEmptyResponseMessage', error)
+              }
             }
           }
         } else if (data.type === 'ping') {
@@ -1003,8 +1174,14 @@ function MCPPage() {
           content: userMessage,
           model_id: selectedModel
         }
-        console.log('Sending WebSocket message:', message)
+        console.log('[MCP Frontend] Sending chat message via WebSocket:', { 
+          type: message.type, 
+          contentLength: userMessage.length, 
+          modelId: selectedModel,
+          wsState: wsRef.current.readyState 
+        })
         wsRef.current.send(JSON.stringify(message))
+        console.log('[MCP Frontend] Chat message sent successfully, waiting for response...')
         
         // Set a timeout to clear loading state if no response is received
         const timeoutId = setTimeout(() => {
@@ -1284,9 +1461,23 @@ function MCPPage() {
               </div>
             )}
 
-            {messages.map((msg) => (
-              <MessageBubble key={msg.id} message={msg} />
-            ))}
+            {messages.length === 0 && !loading && (
+              <div className="text-center py-4 text-gray-500 dark:text-slate-400 text-sm">
+                No messages yet. Start a conversation!
+              </div>
+            )}
+            {messages.map((msg, index) => {
+              // Debug log for first and last messages
+              if (index === 0 || index === messages.length - 1) {
+                console.log(`[MCP Frontend] Rendering message ${index + 1}/${messages.length}:`, {
+                  id: msg.id,
+                  role: msg.role,
+                  contentLength: msg.content?.length || 0,
+                  isLast: index === messages.length - 1
+                })
+              }
+              return <MessageBubble key={msg.id} message={msg} />
+            })}
 
             {loading && messages.length > 0 && (
               <div className="flex items-center gap-2 text-gray-500 dark:text-slate-400 py-4">
@@ -1439,7 +1630,7 @@ function ToolCard({ tool, onCall, disabled }: { tool: ToolDefinition, onCall: (t
                   type="text"
                   value={args[key] || ''}
                   onChange={(e) => {
-                    let value: any = e.target.value
+                    let value: string | number | boolean | object | null = e.target.value
                     if (value.startsWith('{') || value.startsWith('[')) {
                       try {
                         value = JSON.parse(value)

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { logger } from './logger'
 
 export interface WebSocketMessage {
   type?: string
@@ -86,13 +87,13 @@ export function useAgentWebSocket({
           const data = JSON.parse(event.data)
           onMessage?.(data)
         } catch (err) {
-          console.error('Failed to parse WebSocket message:', err)
+          logger.error('Failed to parse WebSocket message', err)
           onError?.(new Error('Failed to parse message'))
         }
       }
 
       ws.onerror = (event) => {
-        console.error('WebSocket error:', event)
+        logger.error('WebSocket error', undefined, { event })
         const errorMessage = 'WebSocket connection error'
         setError(errorMessage)
         setIsConnecting(false)

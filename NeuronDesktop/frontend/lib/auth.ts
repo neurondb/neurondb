@@ -1,5 +1,7 @@
 // Authentication utilities for NeuronDesktop (Cookie-based sessions with JWT fallback)
 
+import { logger } from './logger'
+
 const AUTH_TOKEN_KEY = 'neurondesk_auth_token'
 
 // Check if user is authenticated by calling /auth/me endpoint
@@ -8,7 +10,7 @@ export async function checkAuth(): Promise<boolean> {
   
   try {
     const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081/api/v1'}/auth/me`
-    console.log('checkAuth: Checking authentication at', apiUrl)
+    logger.debug('Checking authentication', { apiUrl })
     
     const token = getAuthToken()
     
@@ -29,26 +31,26 @@ export async function checkAuth(): Promise<boolean> {
       
       clearTimeout(timeoutId)
       
-      console.log('checkAuth: Response status', response.status, response.statusText)
+      logger.debug('Auth check response', { status: response.status, statusText: response.statusText })
       
       if (!response.ok) {
         const errorText = await response.text()
-        console.error('checkAuth: Authentication failed', response.status, errorText)
+        logger.error('Authentication failed', undefined, { status: response.status, error: errorText })
         return false
       }
       
       const data = await response.json()
-      console.log('checkAuth: Authentication successful', data)
+      logger.debug('Authentication successful', { userId: data.id, username: data.username })
       return true
-    } catch (fetchError: any) {
+    } catch (fetchError: unknown) {
       clearTimeout(timeoutId)
-      if (fetchError.name === 'AbortError') {
-        console.error('checkAuth: Request timeout - API server may not be responding')
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        logger.error('Request timeout - API server may not be responding', fetchError)
       }
       throw fetchError
     }
   } catch (error) {
-    console.error('checkAuth: Error checking authentication', error)
+    logger.error('Error checking authentication', error)
     return false
   }
 }

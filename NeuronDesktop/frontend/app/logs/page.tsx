@@ -52,7 +52,13 @@ export default function LogsPage() {
     
     setLoading(true)
     try {
-      const params: any = { limit: 100 }
+      const params: {
+        limit?: number
+        status_code?: number
+        endpoint?: string
+        start_date?: string
+        end_date?: string
+      } = { limit: 100 }
       
       if (filter.status !== 'all') {
         if (filter.status === '200') {

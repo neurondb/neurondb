@@ -367,3 +367,11 @@ See [LICENSE](../LICENSE) file for license information.
 - [ ] Export/import functionality
 - [ ] API documentation explorer
 - [ ] Webhook support
+
+---
+
+<div align="center">
+
+[⬆ Back to Top](#neurondesktop)
+
+</div>

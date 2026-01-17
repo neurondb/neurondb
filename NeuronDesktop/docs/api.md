@@ -1,5 +1,22 @@
 # NeuronDesktop API Documentation
 
+## Table of Contents
+
+- [Base URL](#base-url)
+- [Authentication](#authentication)
+- [Rate Limiting](#rate-limiting)
+- [Error Responses](#error-responses)
+- [Endpoints](#endpoints)
+  - [Health Check](#health-check)
+  - [Profiles](#profiles)
+  - [MCP Servers](#mcp-servers)
+  - [Collections](#collections)
+  - [Queries](#queries)
+  - [Agents](#agents)
+  - [Sessions](#sessions)
+  - [Tools](#tools)
+  - [Resources](#resources)
+
 ## Base URL
 
 ```
@@ -367,3 +384,10 @@ Reset all metrics.
 - `429 Too Many Requests`: Rate limit exceeded
 - `500 Internal Server Error`: Server error
 
+---
+
+<div align="center">
+
+[⬆ Back to Top](#neurondesktop-api-documentation)
+
+</div>

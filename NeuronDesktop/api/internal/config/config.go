@@ -21,6 +21,7 @@ type Config struct {
 	Auth     AuthConfig
 	Session  SessionConfig
 	Security SecurityConfig
+	Redis    RedisConfig
 }
 
 /* DatabaseConfig holds database configuration */
@@ -91,6 +92,15 @@ type SecurityConfig struct {
 	EnablePIISanitization bool   // Enable PII sanitization in logs (default: true)
 }
 
+/* RedisConfig holds Redis configuration for CSRF token storage */
+type RedisConfig struct {
+	Enabled  bool   // Enable Redis for CSRF token storage (default: false)
+	Host     string // Redis host (default: localhost)
+	Port     string // Redis port (default: 6379)
+	Password string // Redis password (default: empty)
+	DB       int    // Redis database number (default: 0)
+}
+
 /* Load loads configuration from environment variables and optionally from a config file */
 func Load() *Config {
 	return LoadFromFile("")
@@ -159,6 +169,13 @@ func LoadFromFile(configPath string) *Config {
 			LogRetentionDays:      getEnvInt("LOG_RETENTION_DAYS", 30),
 			MaxRequestSize:        int64(getEnvInt("MAX_REQUEST_SIZE_MB", 10)) * 1024 * 1024,
 			EnablePIISanitization: getEnv("ENABLE_PII_SANITIZATION", "true") == "true",
+		},
+		Redis: RedisConfig{
+			Enabled:  getEnv("REDIS_ENABLED", "false") == "true",
+			Host:     getEnv("REDIS_HOST", "localhost"),
+			Port:     getEnv("REDIS_PORT", "6379"),
+			Password: getEnv("REDIS_PASSWORD", ""),
+			DB:       getEnvInt("REDIS_DB", 0),
 		},
 	}
 

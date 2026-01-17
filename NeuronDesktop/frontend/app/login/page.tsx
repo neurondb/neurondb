@@ -7,6 +7,7 @@ import { DatabaseIcon } from '@/components/Icons'
 import { getErrorMessage } from '@/lib/errors'
 import { authAPI } from '@/lib/auth_api'
 import { databaseTestAPI } from '@/lib/api'
+import { logger } from '@/lib/logger'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -39,7 +40,7 @@ export default function LoginPage() {
           setPgUser(settings.user || 'neurondb')
           setPgPassword(settings.password || '')
         } catch (e) {
-          console.error('Failed to parse stored PostgreSQL settings:', e)
+          logger.error('Failed to parse stored PostgreSQL settings', e)
         }
       }
     }
@@ -77,28 +78,25 @@ export default function LoginPage() {
       }
 
       // Use axios-based auth API for better error handling
-      console.log('Attempting login with:', { username, isSignup })
+      logger.debug('Attempting login', { username, isSignup })
       const response = isSignup 
         ? await authAPI.register({ username, password, neurondb_dsn: neurondbDSN })
         : await authAPI.login({ username, password })
 
-      console.log('Login response status:', response.status)
-      console.log('Login response data:', JSON.stringify(response.data, null, 2))
+      logger.debug('Login response received', { status: response.status, hasToken: !!response.data?.token })
 
       // For JWT mode, store token (for backward compatibility)
       // For cookie-based sessions, token is not needed but we store it for compatibility
       const token = response.data?.token
       if (!token) {
-        console.error('No token in response. Full response:', response)
-        console.error('Response data keys:', Object.keys(response.data || {}))
+        logger.error('No token in response', undefined, { responseData: response.data })
         setError('Login failed: No token received from server. Check console for details.')
         setLoading(false)
         return
       }
       
       setAuthToken(token)
-      console.log('Token stored successfully. Token length:', token.length)
-      console.log('Token preview:', token.substring(0, 20) + '...')
+      logger.debug('Token stored successfully', { tokenLength: token.length })
 
       // Immediately verify the token works before redirecting (makes failures visible instead of "looping back" to /login)
       try {
@@ -114,13 +112,13 @@ export default function LoginPage() {
 
         if (!meResp.ok) {
           const text = await meResp.text()
-          console.error('Auth check failed after login:', meResp.status, text)
+          logger.error('Auth check failed after login', undefined, { status: meResp.status, response: text })
           setError(`Login succeeded but auth verification failed (${meResp.status}). ${text}`)
           setLoading(false)
           return
         }
       } catch (e) {
-        console.error('Auth check error after login:', e)
+        logger.error('Auth check error after login', e)
         setError('Login succeeded but auth verification failed (network error).')
         setLoading(false)
         return
@@ -144,13 +142,13 @@ export default function LoginPage() {
       // Verify token is stored before redirecting
       const storedToken = localStorage.getItem('neurondesk_auth_token')
       if (!storedToken) {
-        console.error('Token was not stored in localStorage')
+        logger.error('Token was not stored in localStorage')
         setError('Failed to store authentication token')
         setLoading(false)
         return
       }
 
-      console.log('Login successful! Redirecting...')
+      logger.info('Login successful, redirecting')
       
       // Small delay to ensure everything is saved
       await new Promise(resolve => setTimeout(resolve, 200))
@@ -165,18 +163,17 @@ export default function LoginPage() {
       
       // This should never execute, but just in case
       return
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Extract proper error message using our error handler
-      console.error('Login error:', err)
-      console.error('Error response:', err.response?.data)
+      const errorObj = err as { response?: { status?: number, data?: { error?: string, message?: string } } }
+      logger.error('Login error', err, { hasResponse: !!errorObj?.response })
       const errorMessage = getErrorMessage(err)
-      console.error('Error message:', errorMessage)
       
       // Provide more helpful error messages for common issues
       let displayMessage = errorMessage
-      if (err.response?.status === 500) {
+      if (errorObj?.response?.status === 500) {
         // Check if there's a more specific error message in the response
-        const responseData = err.response?.data
+        const responseData = errorObj.response?.data
         if (responseData?.error && responseData.error !== 'Internal Server Error') {
           displayMessage = responseData.error
         } else if (responseData?.message) {
@@ -205,7 +202,7 @@ export default function LoginPage() {
     setSchemaMessage('')
 
     try {
-      console.log('Testing database connection with:', { host: pgHost, port: pgPort, database: pgDatabase, user: pgUser })
+      logger.debug('Testing database connection', { host: pgHost, port: pgPort, database: pgDatabase, user: pgUser })
       const response = await databaseTestAPI.test({
         host: pgHost,
         port: pgPort,
@@ -213,7 +210,7 @@ export default function LoginPage() {
         user: pgUser,
         password: pgPassword,
       })
-      console.log('Database connection test response:', response.data)
+      logger.debug('Database connection test response', { success: response.data.success, schemaExists: response.data.schema_exists })
 
       if (response.data.success) {
         if (response.data.schema_exists) {
@@ -233,7 +230,7 @@ export default function LoginPage() {
         setError(response.data.message || 'Connection test failed')
       }
     } catch (err) {
-      console.error('Database connection test error:', err)
+      logger.error('Database connection test error', err)
       setConnectionStatus('error')
       const errorMessage = getErrorMessage(err)
       setError(errorMessage)

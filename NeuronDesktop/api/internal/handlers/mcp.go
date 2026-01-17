@@ -10,6 +10,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/neurondb/NeuronDesktop/api/internal/db"
+	"github.com/neurondb/NeuronDesktop/api/internal/logging"
 	"github.com/neurondb/NeuronDesktop/api/internal/mcp"
 	"github.com/neurondb/NeuronDesktop/api/internal/utils"
 )
@@ -18,6 +19,7 @@ import (
 type MCPHandlers struct {
 	mcpManager *MCPManager
 	corsConfig *CORSConfig
+	logger     *logging.Logger
 }
 
 /* CORSConfig holds CORS configuration for WebSocket */
@@ -32,7 +34,13 @@ func NewMCPHandlers(mcpManager *MCPManager) *MCPHandlers {
 		corsConfig: &CORSConfig{
 			AllowedOrigins: []string{"*"}, /* Default to allow all */
 		},
+		logger: nil, /* Will be set via SetLogger if needed */
 	}
+}
+
+/* SetLogger sets the logger for MCP handlers */
+func (h *MCPHandlers) SetLogger(logger *logging.Logger) {
+	h.logger = logger
 }
 
 /* SetCORSConfig sets the CORS configuration for WebSocket */
