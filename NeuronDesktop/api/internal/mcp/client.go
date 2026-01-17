@@ -152,7 +152,7 @@ func (c *Client) initialize() error {
 		},
 		ClientInfo: map[string]interface{}{
 			"name":    "neurondesk",
-			"version": "2.0.0",
+			"version": "2.1.0",
 		},
 	}
 

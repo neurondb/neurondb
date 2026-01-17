@@ -4,7 +4,7 @@ NeuronMCP Client Package
 A professional Python client for the Model Context Protocol (MCP) server.
 """
 
-__version__ = "2.0.0"
+__version__ = "2.1.0"
 __author__ = "NeuronDB Team"
 
 from .client import MCPClient

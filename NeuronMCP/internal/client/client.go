@@ -112,7 +112,7 @@ func (c *MCPClient) initialize() error {
 			"capabilities": {},
 			"clientInfo": {
 				"name": "neurondb-mcp-client",
-				"version": "2.0.0"
+				"version": "2.1.0"
 			}
 		}`),
 	}

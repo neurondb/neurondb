@@ -21,7 +21,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_NAME=$(basename "$0")
 
 # Version
-VERSION="2.0.0"
+VERSION="2.1.0"
 
 # Default values
 VERBOSE=false

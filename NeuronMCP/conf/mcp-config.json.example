@@ -15,7 +15,7 @@
   },
   "server": {
     "name": "neurondb-mcp-server",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "timeout": 30000,
     "maxRequestSize": 10485760,
     "enableMetrics": true,

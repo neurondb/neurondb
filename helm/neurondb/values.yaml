@@ -114,7 +114,7 @@ neuronagent:
   enabled: true
   image:
     repository: ghcr.io/neurondb/neuronagent
-    tag: "2.0.0"
+    tag: "2.1.0"
     pullPolicy: IfNotPresent
 
   replicas: 2
@@ -235,7 +235,7 @@ neuronmcp:
   enabled: true
   image:
     repository: ghcr.io/neurondb/neuronmcp
-    tag: "2.0.0"
+    tag: "2.1.0"
     pullPolicy: IfNotPresent
 
   replicas: 1
@@ -266,7 +266,7 @@ neurondesktop:
   api:
     image:
       repository: ghcr.io/neurondb/neurondesktop-api
-      tag: "2.0.0"
+      tag: "2.1.0"
       pullPolicy: IfNotPresent
 
     replicas: 2
@@ -314,7 +314,7 @@ neurondesktop:
   frontend:
     image:
       repository: ghcr.io/neurondb/neurondesktop-frontend
-      tag: "2.0.0"
+      tag: "2.1.0"
       pullPolicy: IfNotPresent
 
     replicas: 2
@@ -466,7 +466,7 @@ observability:
         headers: {}
     resource:
       serviceName: "neurondb"
-      serviceVersion: "2.0.0"
+      serviceVersion: "2.1.0"
 
 # Monitoring
 monitoring:

@@ -40,7 +40,7 @@ from .utils.config import ConfigLoader
 from .utils.logging import setup_logging
 from .utils.metrics import MetricsCollector
 
-__version__ = "2.0.0"
+__version__ = "2.1.0"
 __all__ = [
     "NeuronAgentClient",
     "AgentManager",

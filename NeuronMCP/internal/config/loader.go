@@ -69,7 +69,7 @@ func GetDefaultConfig() *ServerConfig {
 		},
 		Server: ServerSettings{
 			Name:            stringPtr("neurondb-mcp-server"),
-			Version:         stringPtr("2.0.0"),
+			Version:         stringPtr("2.1.0"),
 			Timeout:         &timeout,
 			MaxRequestSize:  &maxRequestSize,
 			EnableMetrics:   &enableMetrics,

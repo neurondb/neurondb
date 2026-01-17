@@ -27,7 +27,7 @@ source "${SCRIPT_DIR}/lib/neuronagent-cli.sh" || {
 }
 
 # Version
-VERSION="2.0.0"
+VERSION="2.1.0"
 
 # Default values
 VERBOSE=false

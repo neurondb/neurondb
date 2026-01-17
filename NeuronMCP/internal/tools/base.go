@@ -55,7 +55,7 @@ func NewBaseTool(name, description string, inputSchema map[string]interface{}) *
 		name:        name,
 		description: description,
 		inputSchema: inputSchema,
-		version:     "2.0.0", // Default version
+		version:     "2.1.0", // Default version
 	}
 }
 
@@ -96,7 +96,7 @@ func (b *BaseTool) OutputSchema() map[string]interface{} {
 /* Version returns the tool version */
 func (b *BaseTool) Version() string {
 	if b.version == "" {
-		return "2.0.0"
+		return "2.1.0"
 	}
 	return b.version
 }
