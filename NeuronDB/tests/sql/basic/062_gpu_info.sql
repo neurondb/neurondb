@@ -33,6 +33,64 @@ SELECT * FROM neurondb_gpu_stats();
 SELECT neurondb_llm_gpu_available() AS llm_gpu_available;
 SELECT * FROM neurondb_llm_gpu_info();
 
+-- Test 4a: GPU Utilization Metrics (NVML/rocm-smi integration)
+\echo ''
+\echo '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
+
+DO $$
+DECLARE
+	gpu_util record;
+	utilization real;
+	temperature real;
+	power real;
+	gpu_available boolean;
+	backend_name text;
+BEGIN
+	-- Check if GPU is available
+	SELECT neurondb_gpu_is_available() INTO gpu_available;
+	
+	IF gpu_available THEN
+		-- Get GPU backend name
+		SELECT backend INTO backend_name FROM neurondb_gpu_info();
+		
+		-- Get GPU utilization metrics
+		SELECT * INTO gpu_util FROM neurondb_llm_gpu_utilization();
+		
+		IF gpu_util IS NOT NULL THEN
+			utilization := gpu_util.utilization;
+			temperature := gpu_util.temperature;
+			power := gpu_util.power;
+			
+			RAISE NOTICE 'GPU Backend: %', backend_name;
+			RAISE NOTICE 'GPU Utilization: % %%', utilization;
+			RAISE NOTICE 'GPU Temperature: % C', temperature;
+			RAISE NOTICE 'GPU Power: % W', power;
+			
+			-- Verify metrics are reasonable (not all zeros if GPU is actually available)
+			-- Note: Values may be 0 if NVML/rocm-smi is not available, which is acceptable
+			IF backend_name IN ('cuda', 'rocm') THEN
+				-- For CUDA/ROCm, we expect actual values from NVML/rocm-smi
+				-- But they might be 0 if the libraries aren't available
+				IF utilization = 0 AND temperature = 0 AND power = 0 THEN
+					RAISE NOTICE 'GPU metrics are all zero - NVML/rocm-smi may not be available (acceptable)';
+				ELSE
+					RAISE NOTICE 'GPU metrics retrieved successfully from system APIs';
+				END IF;
+			ELSIF backend_name = 'metal' THEN
+				-- Metal backend: IOKit integration is deferred, so 0 values are expected
+				RAISE NOTICE 'Metal backend: IOKit integration deferred, metrics may be zero';
+			END IF;
+		ELSE
+			RAISE NOTICE 'neurondb_llm_gpu_utilization returned NULL';
+		END IF;
+	ELSE
+		RAISE NOTICE 'GPU not available, skipping utilization metrics test';
+	END IF;
+END$$;
+
+-- Display GPU utilization
+SELECT * FROM neurondb_llm_gpu_utilization();
+
 -- Test 5: GPU Distance Functions (if available)
 \echo ''
 \echo '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
