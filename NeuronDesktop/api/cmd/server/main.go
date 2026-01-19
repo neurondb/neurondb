@@ -336,6 +336,15 @@ func main() {
 	apiRouter.HandleFunc("/profiles/{profile_id}/mcp/threads/{thread_id}", mcpHandlers.DeleteThread).Methods("DELETE")
 	apiRouter.HandleFunc("/profiles/{profile_id}/mcp/threads/{thread_id}/messages", mcpHandlers.AddMessage).Methods("POST")
 
+	/* MCP Resources */
+	mcpResourcesHandlers := handlers.NewMCPResourcesHandlers(queries, mcpManager)
+	apiRouter.HandleFunc("/profiles/{profile_id}/mcp/resources", mcpResourcesHandlers.ListResources).Methods("GET")
+	apiRouter.HandleFunc("/profiles/{profile_id}/mcp/resources/{uri:.*}", mcpResourcesHandlers.GetResource).Methods("GET")
+
+	/* MCP Datasets */
+	mcpDatasetsHandlers := handlers.NewMCPDatasetsHandlers(queries, mcpManager)
+	apiRouter.HandleFunc("/profiles/{profile_id}/mcp/datasets/load", mcpDatasetsHandlers.LoadDataset).Methods("POST")
+
 	apiRouter.HandleFunc("/profiles/{profile_id}/neurondb/collections", neurondbHandlers.ListCollections).Methods("GET")
 	apiRouter.HandleFunc("/profiles/{profile_id}/neurondb/search", neurondbHandlers.Search).Methods("POST")
 	apiRouter.HandleFunc("/profiles/{profile_id}/neurondb/sql", neurondbHandlers.ExecuteSQL).Methods("POST")
@@ -362,6 +371,50 @@ func main() {
 	apiRouter.HandleFunc("/profiles/{profile_id}/agent/sessions/{session_id}/messages", agentHandlers.SendMessage).Methods("POST")
 	apiRouter.HandleFunc("/profiles/{profile_id}/agent/sessions/{session_id}/messages", agentHandlers.GetMessages).Methods("GET")
 	apiRouter.HandleFunc("/profiles/{profile_id}/agent/ws", agentHandlers.AgentWebSocket).Methods("GET")
+
+	/* Agent retrieval and memory handlers */
+	agentRetrievalHandlers := handlers.NewAgentRetrievalHandlers(queries, agentHandlers)
+	apiRouter.HandleFunc("/profiles/{profile_id}/agent/agents/{agent_id}/retrieval-stats", agentRetrievalHandlers.GetRetrievalStats).Methods("GET")
+
+	agentMemoryHandlers := handlers.NewAgentMemoryHandlers(queries, agentHandlers)
+	apiRouter.HandleFunc("/profiles/{profile_id}/agent/memory/{memory_id}/feedback", agentMemoryHandlers.SubmitMemoryFeedback).Methods("POST")
+	apiRouter.HandleFunc("/profiles/{profile_id}/agent/agents/{agent_id}/memory/consolidate", agentMemoryHandlers.ConsolidateMemory).Methods("POST")
+	apiRouter.HandleFunc("/profiles/{profile_id}/agent/agents/{agent_id}/memory/quality", agentMemoryHandlers.GetMemoryQuality).Methods("GET")
+
+	/* Generic proxy for NeuronAgent endpoints */
+	agentProxyHandlers := handlers.NewAgentProxyHandlers(queries, agentHandlers)
+	/* Workflows */
+	apiRouter.HandleFunc("/profiles/{profile_id}/agent/workflows", agentProxyHandlers.ProxyRequest).Methods("GET", "POST")
+	apiRouter.HandleFunc("/profiles/{profile_id}/agent/workflows/{id}", agentProxyHandlers.ProxyRequest).Methods("GET", "PUT", "DELETE")
+	apiRouter.HandleFunc("/profiles/{profile_id}/agent/workflows/{workflow_id}/steps", agentProxyHandlers.ProxyRequest).Methods("GET", "POST")
+	apiRouter.HandleFunc("/profiles/{profile_id}/agent/workflows/{workflow_id}/execute", agentProxyHandlers.ProxyRequest).Methods("POST")
+	apiRouter.HandleFunc("/profiles/{profile_id}/agent/workflows/{workflow_id}/executions", agentProxyHandlers.ProxyRequest).Methods("GET")
+	apiRouter.HandleFunc("/profiles/{profile_id}/agent/workflow-executions/{execution_id}", agentProxyHandlers.ProxyRequest).Methods("GET")
+	/* Budgets */
+	apiRouter.HandleFunc("/profiles/{profile_id}/agent/agents/{agent_id}/budgets", agentProxyHandlers.ProxyRequest).Methods("GET", "POST")
+	apiRouter.HandleFunc("/profiles/{profile_id}/agent/budgets/{id}", agentProxyHandlers.ProxyRequest).Methods("GET", "PUT", "DELETE")
+	/* Evaluation */
+	apiRouter.HandleFunc("/profiles/{profile_id}/agent/eval/tasks", agentProxyHandlers.ProxyRequest).Methods("GET", "POST")
+	apiRouter.HandleFunc("/profiles/{profile_id}/agent/eval/runs", agentProxyHandlers.ProxyRequest).Methods("GET", "POST")
+	apiRouter.HandleFunc("/profiles/{profile_id}/agent/eval/runs/{run_id}/execute", agentProxyHandlers.ProxyRequest).Methods("POST")
+	apiRouter.HandleFunc("/profiles/{profile_id}/agent/eval/runs/{run_id}/results", agentProxyHandlers.ProxyRequest).Methods("GET")
+	/* Snapshots */
+	apiRouter.HandleFunc("/profiles/{profile_id}/agent/sessions/{session_id}/snapshots", agentProxyHandlers.ProxyRequest).Methods("GET", "POST")
+	apiRouter.HandleFunc("/profiles/{profile_id}/agent/agents/{agent_id}/snapshots", agentProxyHandlers.ProxyRequest).Methods("GET")
+	apiRouter.HandleFunc("/profiles/{profile_id}/agent/snapshots/{id}/replay", agentProxyHandlers.ProxyRequest).Methods("POST")
+	apiRouter.HandleFunc("/profiles/{profile_id}/agent/snapshots/{id}", agentProxyHandlers.ProxyRequest).Methods("DELETE")
+	/* Virtual Filesystem */
+	apiRouter.HandleFunc("/profiles/{profile_id}/agent/agents/{agent_id}/filesystem", agentProxyHandlers.ProxyRequest).Methods("GET", "POST")
+	apiRouter.HandleFunc("/profiles/{profile_id}/agent/filesystem/{path:.*}", agentProxyHandlers.ProxyRequest).Methods("GET", "PUT", "DELETE")
+	/* Event Streams */
+	apiRouter.HandleFunc("/profiles/{profile_id}/agent/sessions/{session_id}/events", agentProxyHandlers.ProxyRequest).Methods("GET", "POST")
+	apiRouter.HandleFunc("/profiles/{profile_id}/agent/sessions/{session_id}/events/summarize", agentProxyHandlers.ProxyRequest).Methods("POST")
+	apiRouter.HandleFunc("/profiles/{profile_id}/agent/sessions/{session_id}/events/context", agentProxyHandlers.ProxyRequest).Methods("GET")
+	apiRouter.HandleFunc("/profiles/{profile_id}/agent/sessions/{session_id}/events/count", agentProxyHandlers.ProxyRequest).Methods("GET")
+	/* Observability */
+	apiRouter.HandleFunc("/profiles/{profile_id}/agent/observability/executions/{id}/decision-tree", agentProxyHandlers.ProxyRequest).Methods("GET")
+	apiRouter.HandleFunc("/profiles/{profile_id}/agent/observability/executions/{id}/tool-chain", agentProxyHandlers.ProxyRequest).Methods("GET")
+	apiRouter.HandleFunc("/profiles/{profile_id}/agent/observability/executions/{id}/performance", agentProxyHandlers.ProxyRequest).Methods("GET")
 
 	apiRouter.HandleFunc("/templates", templateHandlers.ListTemplates).Methods("GET")
 	apiRouter.HandleFunc("/templates/{id}", templateHandlers.GetTemplate).Methods("GET")

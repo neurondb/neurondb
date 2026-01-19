@@ -13,7 +13,7 @@ NEURONDESKTOP_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 SCRIPT_NAME=$(basename "$0")
 
 # Version
-VERSION="2.0.0"
+VERSION="3.0.0-devel"
 
 # Default values
 VERBOSE=false

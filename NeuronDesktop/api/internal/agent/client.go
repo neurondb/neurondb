@@ -281,6 +281,141 @@ func (c *Client) ListModels(ctx context.Context) ([]Model, error) {
 	return response.Models, nil
 }
 
+/* RetrievalStats represents retrieval statistics */
+type RetrievalStats struct {
+	AgentID          string            `json:"agent_id"`
+	Days             int               `json:"days"`
+	TotalDecisions   int               `json:"total_decisions"`
+	AvgConfidence    float64           `json:"avg_confidence"`
+	SourceUsage      map[string]int    `json:"source_usage"`
+	AvgQualityScore  float64           `json:"avg_quality_score"`
+	DurationMs       int               `json:"duration_ms"`
+}
+
+/* GetRetrievalStats gets retrieval statistics for an agent */
+func (c *Client) GetRetrievalStats(ctx context.Context, agentID string, days int) (*RetrievalStats, error) {
+	path := fmt.Sprintf("/api/v1/agents/%s/retrieval-stats", agentID)
+	if days > 0 {
+		path = fmt.Sprintf("%s?days=%d", path, days)
+	}
+	req, err := c.newRequest(ctx, "GET", path, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var stats RetrievalStats
+	if err := c.doRequest(req, &stats); err != nil {
+		return nil, err
+	}
+
+	return &stats, nil
+}
+
+/* MemoryFeedbackRequest represents a memory feedback submission */
+type MemoryFeedbackRequest struct {
+	AgentID       string                 `json:"agent_id"`
+	SessionID     string                 `json:"session_id,omitempty"`
+	MemoryTier    string                 `json:"memory_tier"`
+	FeedbackType  string                 `json:"feedback_type"`
+	FeedbackText  string                 `json:"feedback_text,omitempty"`
+	Query         string                 `json:"query,omitempty"`
+	RelevanceScore float64               `json:"relevance_score,omitempty"`
+	Metadata      map[string]interface{} `json:"metadata,omitempty"`
+}
+
+/* MemoryFeedbackResponse represents a memory feedback response */
+type MemoryFeedbackResponse struct {
+	FeedbackID string `json:"feedback_id"`
+	MemoryID   string `json:"memory_id"`
+	AgentID    string `json:"agent_id"`
+	FeedbackType string `json:"feedback_type"`
+	Status     string `json:"status"`
+	Message    string `json:"message"`
+	DurationMs int    `json:"duration_ms"`
+	CreatedAt  string `json:"created_at"`
+}
+
+/* SubmitMemoryFeedback submits feedback on a memory retrieval */
+func (c *Client) SubmitMemoryFeedback(ctx context.Context, memoryID string, req MemoryFeedbackRequest) (*MemoryFeedbackResponse, error) {
+	httpReq, err := c.newRequest(ctx, "POST", fmt.Sprintf("/api/v1/memory/%s/feedback", memoryID), req)
+	if err != nil {
+		return nil, err
+	}
+
+	var response MemoryFeedbackResponse
+	if err := c.doRequest(httpReq, &response); err != nil {
+		return nil, err
+	}
+
+	return &response, nil
+}
+
+/* ConsolidateMemoryRequest represents a memory consolidation request */
+type ConsolidateMemoryRequest struct {
+	Tier                string  `json:"tier"`
+	SimilarityThreshold float64 `json:"similarity_threshold"`
+}
+
+/* ConsolidateMemoryResponse represents a memory consolidation response */
+type ConsolidateMemoryResponse struct {
+	AgentID            string `json:"agent_id"`
+	Tier               string `json:"tier"`
+	SimilarityThreshold float64 `json:"similarity_threshold"`
+	ConsolidatedCount  int    `json:"consolidated_count"`
+	Status             string `json:"status"`
+	DurationMs         int    `json:"duration_ms"`
+	CompletedAt        string `json:"completed_at"`
+}
+
+/* ConsolidateMemory consolidates similar memories */
+func (c *Client) ConsolidateMemory(ctx context.Context, agentID string, req ConsolidateMemoryRequest) (*ConsolidateMemoryResponse, error) {
+	httpReq, err := c.newRequest(ctx, "POST", fmt.Sprintf("/api/v1/agents/%s/memory/consolidate", agentID), req)
+	if err != nil {
+		return nil, err
+	}
+
+	var response ConsolidateMemoryResponse
+	if err := c.doRequest(httpReq, &response); err != nil {
+		return nil, err
+	}
+
+	return &response, nil
+}
+
+/* GetMemoryQuality gets memory quality metrics */
+func (c *Client) GetMemoryQuality(ctx context.Context, agentID, memoryID, tier string) (map[string]interface{}, error) {
+	path := fmt.Sprintf("/api/v1/agents/%s/memory/quality", agentID)
+	if memoryID != "" && tier != "" {
+		path = fmt.Sprintf("%s?memory_id=%s&tier=%s", path, memoryID, tier)
+	}
+	req, err := c.newRequest(ctx, "GET", path, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var quality map[string]interface{}
+	if err := c.doRequest(req, &quality); err != nil {
+		return nil, err
+	}
+
+	return quality, nil
+}
+
+/* Generic proxy method for forwarding requests to NeuronAgent */
+func (c *Client) ProxyRequest(ctx context.Context, method, path string, body interface{}) (map[string]interface{}, error) {
+	req, err := c.newRequest(ctx, method, path, body)
+	if err != nil {
+		return nil, err
+	}
+
+	var result map[string]interface{}
+	if err := c.doRequest(req, &result); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
 /* Helper methods */
 
 func (c *Client) newRequest(ctx context.Context, method, path string, body interface{}) (*http.Request, error) {

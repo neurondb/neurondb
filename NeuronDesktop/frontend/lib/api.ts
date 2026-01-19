@@ -407,7 +407,13 @@ export interface SetupState {
   setup_complete: boolean
 }
 
+// Generic API helper that wraps the axios instance
 export const factoryAPI = {
+  get: <T = any>(url: string, config?: any) => api.get<T>(url, config),
+  post: <T = any>(url: string, data?: any, config?: any) => api.post<T>(url, data, config),
+  put: <T = any>(url: string, data?: any, config?: any) => api.put<T>(url, data, config),
+  delete: <T = any>(url: string, config?: any) => api.delete<T>(url, config),
+  patch: <T = any>(url: string, data?: any, config?: any) => api.patch<T>(url, data, config),
   getStatus: () => api.get<FactoryStatus>('/factory/status'),
   getSetupState: () => api.get<SetupState>('/factory/setup-state'),
   setSetupState: (completed: boolean) => 
