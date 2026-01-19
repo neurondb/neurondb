@@ -13,6 +13,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - DEB and RPM package builds
 - Comprehensive documentation
 
+## [2.1.0] - 2026-01-19
+
+### Added
+- Prometheus alerting configuration for monitoring
+- TypeScript SDK for NeuronAgent
+- Unified build script for copying module files to bin directory
+- Enhanced embedding generation and RAG demo queries
+
+### Changed
+- Updated version identifiers across all components to 2.1.0
+- Enhanced MCP server module with improved capabilities
+- Improved frontend components and API integration in NeuronDesktop
+- Expanded agent capabilities and reliability features in NeuronAgent
+- Enhanced tool system and transport capabilities in NeuronMCP
+- Updated workflow configurations and chart metadata
+- Updated SDK documentation and code examples
+- Updated installation and utility scripts
+- Updated examples and Docker configuration
+
+### Fixed
+- Fixed test documentation file references
+- Fixed documentation inconsistencies and configuration errors
+- Fixed references to use uppercase README.md
+
+### Improved
+- Standardized file formatting across all components
+- Enhanced documentation with improved formatting and style
+- Updated component guides and quickstart instructions
+- Improved documentation structure and organization
+- Removed duplicate uppercase documentation files
+- Removed generated test and benchmark output artifacts
+- Removed obsolete files
+
 ## [1.0.0] - TBD
 
 ### Added
