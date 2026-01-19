@@ -143,7 +143,6 @@ EOF
 - [What Makes NeuronDB Different](#-what-makes-neurondb-different)
   - [Feature Comparison](#-feature-comparison)
   - [Key Advantages](#-key-advantages)
-- [Architecture](#architecture)
 - [Installation](#installation)
   - [Pick one component](#pick-one-component)
   - [Quick start (Docker)](#quick-start-docker)
@@ -297,11 +296,6 @@ LIMIT 5;
 
 </details>
 
-## Architecture
-
-> [!NOTE]
-> The root `docker-compose.yml` starts the ecosystem services together. You can also run each component independently (see component READMEs).
-
 ## Installation
 
 ### Pick one component
@@ -316,7 +310,7 @@ Choose what you need:
 | **Full stack** | `docker compose up -d` | All components including NeuronDesktop UI |
 
 > [!NOTE]
-> All components run independently. The root `docker-compose.yml` starts everything together for convenience, but you can run individual services as needed.
+> All components run independently. The root `docker-compose.yml` starts everything together for convenience, but you can run individual services as needed. You can also run each component independently (see component READMEs).
 
 ### Quick start (Docker)
 
