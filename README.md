@@ -144,8 +144,6 @@ EOF
   - [Feature Comparison](#-feature-comparison)
   - [Key Advantages](#-key-advantages)
 - [Architecture](#architecture)
-  - [Ecosystem Overview](#ecosystem-overview)
-  - [Component Interaction Flow](#component-interaction-flow)
 - [Installation](#installation)
   - [Pick one component](#pick-one-component)
   - [Quick start (Docker)](#quick-start-docker)
@@ -300,18 +298,6 @@ LIMIT 5;
 </details>
 
 ## Architecture
-
-### Ecosystem Overview
-
-<div align="center">
-  <img src="Docs/assets/ecosystem-overview.svg" alt="Ecosystem Overview" width="700" />
-</div>
-
-### Component Interaction Flow
-
-<div align="center">
-  <img src="Docs/assets/component-interaction-flow.svg" alt="Component Interaction Flow" width="700" />
-</div>
 
 > [!NOTE]
 > The root `docker-compose.yml` starts the ecosystem services together. You can also run each component independently (see component READMEs).
