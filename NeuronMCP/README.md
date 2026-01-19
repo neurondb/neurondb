@@ -9,7 +9,7 @@ Enables MCP-compatible clients to access NeuronDB vector search, ML algorithms, 
 [![Go](https://img.shields.io/badge/Go-1.23+-00ADD8.svg)](https://golang.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16+-blue.svg)](https://www.postgresql.org/)
 [![MCP](https://img.shields.io/badge/MCP-Protocol-blue.svg)](https://modelcontextprotocol.io/)
-[![Version](https://img.shields.io/badge/version-2.0-blue.svg)](https://github.com/neurondb/neurondb)
+[![Version](https://img.shields.io/badge/version-3.0.0--devel-blue.svg)](https://github.com/neurondb/neurondb)
 [![License](https://img.shields.io/badge/License-Proprietary-red.svg)](../LICENSE)
 [![Documentation](https://img.shields.io/badge/docs-neurondb.ai-brightgreen.svg)](https://www.neurondb.ai/docs/neuronmcp)
 

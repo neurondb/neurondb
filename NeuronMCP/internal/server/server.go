@@ -18,6 +18,7 @@ import (
 	"github.com/neurondb/NeuronMCP/internal/cache"
 	"github.com/neurondb/NeuronMCP/internal/config"
 	"github.com/neurondb/NeuronMCP/internal/database"
+	"github.com/neurondb/NeuronMCP/internal/elicitation"
 	"github.com/neurondb/NeuronMCP/internal/health"
 	"github.com/neurondb/NeuronMCP/internal/logging"
 	"github.com/neurondb/NeuronMCP/internal/metrics"
@@ -44,6 +45,7 @@ type Server struct {
 	resources           *resources.Manager
 	prompts             *prompts.Manager
 	sampling            *sampling.Manager
+	elicitation         *elicitation.Manager
 	health              *health.Checker
 	progress            *progress.Tracker
 	batch               *batch.Processor
@@ -118,11 +120,27 @@ func NewServerWithConfig(configPath string) (*Server, error) {
 	tools.RegisterAllTools(toolRegistry, db, logger)
 
 	capabilitiesManager := NewCapabilitiesManager(serverSettings.GetName(), serverSettings.GetVersion(), toolRegistry)
+	
+	/* Configure resource subscriptions if enabled */
+	if subConfig := serverSettings.GetResourceSubscriptions(); subConfig != nil && subConfig.GetEnabled() {
+		capabilitiesManager.SetEnableSubscriptions(true)
+		capabilitiesManager.SetFeatureFlag("resource_subscriptions", true)
+	}
 
 	resourcesManager := resources.NewManager(db)
 	resources.RegisterAllResources(resourcesManager, db)
 	promptsManager := prompts.NewManager(db, logger)
 	samplingManager := sampling.NewManager(db, logger)
+	elicitationManager := elicitation.NewManager(logger)
+	
+	/* Start periodic cleanup for elicitation sessions */
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			elicitationManager.CleanupExpiredSessions()
+		}
+	}()
 	samplingManager.SetToolRegistry(toolRegistry) /* Enable tool calling in sampling */
 	healthChecker := health.NewChecker(db, logger)
 	healthChecker.SetToolRegistry(toolRegistry)
@@ -166,6 +184,7 @@ func NewServerWithConfig(configPath string) (*Server, error) {
 		resources:           resourcesManager,
 		prompts:             promptsManager,
 		sampling:            samplingManager,
+		elicitation:         elicitationManager,
 		health:              healthChecker,
 		progress:            progressTracker,
 		batch:               batchProcessor,
@@ -199,6 +218,7 @@ func (s *Server) setupHandlers() {
 	s.setupResourceHandlers()
 	s.setupPromptHandlers()
 	s.setupSamplingHandlers()
+	s.setupElicitationHandlers()
 	s.setupHealthHandlers()
 	s.setupProgressHandlers()
 	s.setupBatchHandlers()
@@ -365,7 +385,7 @@ func (s *Server) Stop() error {
 		}
 	}
 
-	/* Step 5: Clean up other resources */
+	/* Step 6: Clean up other resources */
 	if s.progress != nil {
 		/* Progress tracker cleanup if needed */
 		s.progress = nil
@@ -376,7 +396,7 @@ func (s *Server) Stop() error {
 		s.batch = nil
 	}
 
-	/* Step 6: Clean up metrics and exporters */
+	/* Step 7: Clean up metrics and exporters */
 	if s.metricsCollector != nil {
 		/* Metrics collector cleanup if needed */
 		s.metricsCollector = nil

@@ -57,6 +57,26 @@ type ReadResourceRequest struct {
 	URI string `json:"uri"`
 }
 
+type SubscribeResourceRequest struct {
+	URI    string `json:"uri"`
+	Filter *string `json:"filter,omitempty"` /* Optional filter pattern */
+}
+
+type UnsubscribeResourceRequest struct {
+	SubscriptionID string `json:"subscriptionId"`
+}
+
+type SubscribeResourceResponse struct {
+	SubscriptionID string `json:"subscriptionId"`
+}
+
+type ResourceUpdateNotification struct {
+	SubscriptionID string                 `json:"subscriptionId"`
+	URI            string                 `json:"uri"`
+	Type           string                 `json:"type"` /* created, updated, deleted */
+	Content        interface{}            `json:"content,omitempty"`
+}
+
 /* MCP Response types */
 type ToolDefinition struct {
 	Name         string                 `json:"name"`
@@ -120,11 +140,12 @@ type ServerInfo struct {
 }
 
 type ServerCapabilities struct {
-	Tools       ToolsCapability              `json:"tools,omitempty"`
-	Resources   ResourcesCapability          `json:"resources,omitempty"`
-	Prompts     map[string]interface{}       `json:"prompts,omitempty"`
-	Sampling    map[string]interface{}       `json:"sampling,omitempty"`
-	Experimental map[string]interface{}      `json:"experimental,omitempty"`
+	Tools        ToolsCapability              `json:"tools,omitempty"`
+	Resources    ResourcesCapability          `json:"resources,omitempty"`
+	Prompts      map[string]interface{}       `json:"prompts,omitempty"`
+	Sampling     map[string]interface{}       `json:"sampling,omitempty"`
+	Elicitation  *ElicitationCapability       `json:"elicitation,omitempty"`
+	Experimental map[string]interface{}       `json:"experimental,omitempty"`
 }
 
 type ToolsCapability struct {
@@ -140,6 +161,23 @@ type InitializeRequest struct {
 	ProtocolVersion string                 `json:"protocolVersion"`
 	Capabilities    map[string]interface{} `json:"capabilities,omitempty"`
 	ClientInfo      map[string]interface{} `json:"clientInfo,omitempty"`
+}
+
+type ElicitationCapability struct {
+	Enabled bool `json:"enabled"`
+}
+
+type RequestPromptRequest struct {
+	Message  string                 `json:"message"`
+	Type     string                 `json:"type,omitempty"`
+	Options  []string               `json:"options,omitempty"`
+	Default  interface{}            `json:"default,omitempty"`
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
+}
+
+type RespondPromptRequest struct {
+	RequestID string      `json:"requestId"`
+	Value     interface{} `json:"value"`
 }
 
 type InitializeResponse struct {

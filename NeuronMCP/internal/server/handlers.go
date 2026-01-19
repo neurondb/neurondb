@@ -213,7 +213,15 @@ func (s *Server) handleCallTool(ctx context.Context, params json.RawMessage) (in
 	if s.metricsCollector != nil {
 		duration := time.Since(startTime)
 		s.metricsCollector.AddDuration(duration)
-		s.metricsCollector.IncrementTool(req.Name)
+		
+		/* Record detailed tool execution metrics */
+		execErr := err
+		if resp != nil && resp.IsError {
+			execErr = fmt.Errorf("tool execution failed")
+		}
+		s.metricsCollector.RecordToolExecution(req.Name, duration, execErr)
+		
+		/* Also track method-level errors for backward compatibility */
 		if err != nil || (resp != nil && resp.IsError) {
 			errorType := "UNKNOWN_ERROR"
 			if resp != nil && resp.Metadata != nil {
@@ -290,6 +298,9 @@ func (s *Server) executeTool(ctx context.Context, toolName string, arguments map
 		"idempotency_key": idempotencyKey,
 		"require_confirm": requireConfirm,
 	})
+
+	/* Start tracing span if observability is enabled */
+	/* TODO: Integrate with observability package when available */
 
 	/* Handle dry run mode */
 	if dryRun {

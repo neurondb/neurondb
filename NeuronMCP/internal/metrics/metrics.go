@@ -29,7 +29,20 @@ type Metrics struct {
 	MethodCounts      map[string]int64        `json:"methodCounts"`
 	ToolCounts        map[string]int64        `json:"toolCounts"`
 	ErrorCounts       map[string]int64        `json:"errorCounts"`
+	ToolMetrics       map[string]*ToolMetrics `json:"toolMetrics,omitempty"`
+	CustomMetrics     map[string]interface{}  `json:"customMetrics,omitempty"`
 	PoolStats         *PoolMetrics           `json:"poolStats,omitempty"`
+}
+
+/* ToolMetrics holds per-tool metrics */
+type ToolMetrics struct {
+	Count           int64         `json:"count"`
+	ErrorCount      int64         `json:"errorCount"`
+	TotalDuration   time.Duration `json:"totalDuration"`
+	AverageDuration time.Duration `json:"averageDuration"`
+	MinDuration     time.Duration `json:"minDuration"`
+	MaxDuration     time.Duration `json:"maxDuration"`
+	LastUsed        time.Time     `json:"lastUsed"`
 }
 
 /* PoolMetrics holds connection pool metrics */
@@ -50,6 +63,8 @@ type Collector struct {
 	methodCounts  map[string]int64
 	toolCounts    map[string]int64
 	errorCounts   map[string]int64
+	toolMetrics   map[string]*ToolMetrics
+	customMetrics map[string]interface{}
 	db            *database.Database
 }
 
@@ -61,10 +76,12 @@ func NewCollector() *Collector {
 /* NewCollectorWithDB creates a new metrics collector with database */
 func NewCollectorWithDB(db *database.Database) *Collector {
 	return &Collector{
-		methodCounts: make(map[string]int64),
-		toolCounts:   make(map[string]int64),
-		errorCounts:  make(map[string]int64),
-		db:           db,
+		methodCounts:  make(map[string]int64),
+		toolCounts:    make(map[string]int64),
+		errorCounts:   make(map[string]int64),
+		toolMetrics:   make(map[string]*ToolMetrics),
+		customMetrics: make(map[string]interface{}),
+		db:            db,
 	}
 }
 
@@ -98,6 +115,86 @@ func (c *Collector) IncrementTool(toolName string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.toolCounts[toolName]++
+	
+	/* Initialize tool metrics if not exists */
+	if c.toolMetrics[toolName] == nil {
+		c.toolMetrics[toolName] = &ToolMetrics{
+			MinDuration: time.Hour, /* Initialize with large value */
+		}
+	}
+	c.toolMetrics[toolName].Count++
+	c.toolMetrics[toolName].LastUsed = time.Now()
+}
+
+/* RecordToolExecution records tool execution with duration */
+func (c *Collector) RecordToolExecution(toolName string, duration time.Duration, err error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	
+	/* Initialize tool metrics if not exists */
+	if c.toolMetrics[toolName] == nil {
+		c.toolMetrics[toolName] = &ToolMetrics{
+			MinDuration: time.Hour, /* Initialize with large value */
+		}
+	}
+	
+	tm := c.toolMetrics[toolName]
+	tm.Count++
+	tm.TotalDuration += duration
+	if tm.Count > 0 {
+		tm.AverageDuration = tm.TotalDuration / time.Duration(tm.Count)
+	}
+	
+	/* Update min/max duration */
+	if duration < tm.MinDuration {
+		tm.MinDuration = duration
+	}
+	if duration > tm.MaxDuration {
+		tm.MaxDuration = duration
+	}
+	
+	tm.LastUsed = time.Now()
+	
+	if err != nil {
+		tm.ErrorCount++
+		c.errorCount++
+	}
+	
+	/* Also update tool counts for backward compatibility */
+	c.toolCounts[toolName]++
+}
+
+/* IncrementToolError increments tool error count */
+func (c *Collector) IncrementToolError(toolName string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	
+	if c.toolMetrics[toolName] == nil {
+		c.toolMetrics[toolName] = &ToolMetrics{
+			MinDuration: time.Hour,
+		}
+	}
+	c.toolMetrics[toolName].ErrorCount++
+	c.errorCount++
+}
+
+/* SetCustomMetric sets a custom business metric */
+func (c *Collector) SetCustomMetric(name string, value interface{}) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.customMetrics[name] = value
+}
+
+/* IncrementCustomMetric increments a custom counter metric */
+func (c *Collector) IncrementCustomMetric(name string, delta int64) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	
+	if val, ok := c.customMetrics[name].(int64); ok {
+		c.customMetrics[name] = val + delta
+	} else {
+		c.customMetrics[name] = delta
+	}
 }
 
 /* GetMetrics returns current metrics */
@@ -110,6 +207,21 @@ func (c *Collector) GetMetrics() Metrics {
 		avgDuration = c.totalDuration / time.Duration(c.requestCount)
 	}
 
+	/* Copy tool metrics */
+	toolMetricsCopy := make(map[string]*ToolMetrics)
+	for k, v := range c.toolMetrics {
+		if v != nil {
+			tmCopy := *v
+			toolMetricsCopy[k] = &tmCopy
+		}
+	}
+	
+	/* Copy custom metrics */
+	customMetricsCopy := make(map[string]interface{})
+	for k, v := range c.customMetrics {
+		customMetricsCopy[k] = v
+	}
+
 	metrics := Metrics{
 		RequestCount:    c.requestCount,
 		ErrorCount:      c.errorCount,
@@ -118,6 +230,8 @@ func (c *Collector) GetMetrics() Metrics {
 		MethodCounts:    copyMap(c.methodCounts),
 		ToolCounts:      copyMap(c.toolCounts),
 		ErrorCounts:     copyMap(c.errorCounts),
+		ToolMetrics:     toolMetricsCopy,
+		CustomMetrics:   customMetricsCopy,
 	}
 
 	/* Add pool stats if database is available */
@@ -152,6 +266,8 @@ func (c *Collector) Reset() {
 	c.methodCounts = make(map[string]int64)
 	c.toolCounts = make(map[string]int64)
 	c.errorCounts = make(map[string]int64)
+	c.toolMetrics = make(map[string]*ToolMetrics)
+	c.customMetrics = make(map[string]interface{})
 }
 
 /* copyMap creates a copy of a map */

@@ -72,6 +72,70 @@ neurondb_mcp_tool_requests_total{tool="%s"} %d
 `, tool, count)
 	}
 
+	/* Add detailed per-tool metrics */
+	for tool, tm := range metrics.ToolMetrics {
+		if tm == nil {
+			continue
+		}
+		output += fmt.Sprintf(`# HELP neurondb_mcp_tool_executions_total Total executions per tool
+# TYPE neurondb_mcp_tool_executions_total counter
+neurondb_mcp_tool_executions_total{tool="%s"} %d
+
+# HELP neurondb_mcp_tool_errors_total Total errors per tool
+# TYPE neurondb_mcp_tool_errors_total counter
+neurondb_mcp_tool_errors_total{tool="%s"} %d
+
+# HELP neurondb_mcp_tool_duration_seconds_total Total duration per tool in seconds
+# TYPE neurondb_mcp_tool_duration_seconds_total counter
+neurondb_mcp_tool_duration_seconds_total{tool="%s"} %.6f
+
+# HELP neurondb_mcp_tool_duration_seconds_avg Average duration per tool in seconds
+# TYPE neurondb_mcp_tool_duration_seconds_avg gauge
+neurondb_mcp_tool_duration_seconds_avg{tool="%s"} %.6f
+
+# HELP neurondb_mcp_tool_duration_seconds_min Minimum duration per tool in seconds
+# TYPE neurondb_mcp_tool_duration_seconds_min gauge
+neurondb_mcp_tool_duration_seconds_min{tool="%s"} %.6f
+
+# HELP neurondb_mcp_tool_duration_seconds_max Maximum duration per tool in seconds
+# TYPE neurondb_mcp_tool_duration_seconds_max gauge
+neurondb_mcp_tool_duration_seconds_max{tool="%s"} %.6f
+
+# HELP neurondb_mcp_tool_error_rate Error rate per tool (0-1)
+# TYPE neurondb_mcp_tool_error_rate gauge
+neurondb_mcp_tool_error_rate{tool="%s"} %.4f
+`,
+			tool, tm.Count,
+			tool, tm.ErrorCount,
+			tool, tm.TotalDuration.Seconds(),
+			tool, tm.AverageDuration.Seconds(),
+			tool, tm.MinDuration.Seconds(),
+			tool, tm.MaxDuration.Seconds(),
+			tool, func() float64 {
+				if tm.Count > 0 {
+					return float64(tm.ErrorCount) / float64(tm.Count)
+				}
+				return 0.0
+			}(),
+		)
+	}
+
+	/* Add custom metrics */
+	for name, value := range metrics.CustomMetrics {
+		switch v := value.(type) {
+		case int64:
+			output += fmt.Sprintf(`# HELP neurondb_mcp_custom_%s Custom metric
+# TYPE neurondb_mcp_custom_%s gauge
+neurondb_mcp_custom_%s %d
+`, name, name, name, v)
+		case float64:
+			output += fmt.Sprintf(`# HELP neurondb_mcp_custom_%s Custom metric
+# TYPE neurondb_mcp_custom_%s gauge
+neurondb_mcp_custom_%s %.6f
+`, name, name, name, v)
+		}
+	}
+
 	/* Add pool metrics if available */
 	if poolStats := metrics.PoolStats; poolStats != nil {
 		output += fmt.Sprintf(`# HELP neurondb_mcp_pool_connections_total Total pool connections

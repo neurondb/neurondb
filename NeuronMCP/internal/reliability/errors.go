@@ -52,11 +52,12 @@ const (
 
 /* StructuredError represents a structured error with code and details */
 type StructuredError struct {
-	Code    ErrorCode
-	Message string
-	Details map[string]interface{}
-	RequestID string
+	Code         ErrorCode
+	Message      string
+	Details      map[string]interface{}
+	RequestID    string
 	OriginalError error
+	Suggestions  []string /* Helpful suggestions for resolving the error */
 }
 
 /* Error returns the error message */
@@ -100,6 +101,81 @@ func (e *StructuredError) WithOriginalError(err error) *StructuredError {
 	return e
 }
 
+/* WithSuggestions adds helpful suggestions */
+func (e *StructuredError) WithSuggestions(suggestions ...string) *StructuredError {
+	e.Suggestions = suggestions
+	if e.Details == nil {
+		e.Details = make(map[string]interface{})
+	}
+	e.Details["suggestions"] = suggestions
+	return e
+}
+
+/* GetSuggestions returns error-specific suggestions */
+func GetSuggestions(err error) []string {
+	if structuredErr, ok := err.(*StructuredError); ok {
+		if len(structuredErr.Suggestions) > 0 {
+			return structuredErr.Suggestions
+		}
+		/* Generate suggestions based on error code */
+		return generateSuggestions(structuredErr.Code, structuredErr.Details)
+	}
+	return nil
+}
+
+/* generateSuggestions generates suggestions based on error code */
+func generateSuggestions(code ErrorCode, details map[string]interface{}) []string {
+	suggestions := []string{}
+	
+	switch code {
+	case ErrorCodeConnection:
+		suggestions = append(suggestions,
+			"Check if the database server is running",
+			"Verify connection parameters (host, port, database, user)",
+			"Check network connectivity and firewall settings",
+			"Ensure the database user has proper permissions",
+		)
+	case ErrorCodeTimeout:
+		suggestions = append(suggestions,
+			"Increase the timeout value if the operation is expected to take longer",
+			"Check database performance and query optimization",
+			"Consider breaking large operations into smaller batches",
+		)
+	case ErrorCodeValidation:
+		suggestions = append(suggestions,
+			"Review the request parameters and ensure all required fields are provided",
+			"Check parameter types and value ranges",
+			"Refer to the tool documentation for parameter requirements",
+		)
+	case ErrorCodePermission:
+		suggestions = append(suggestions,
+			"Verify that the database user has the required permissions",
+			"Check if the operation is allowed in the current safety mode",
+			"Contact your database administrator for access",
+		)
+	case ErrorCodeQuery:
+		suggestions = append(suggestions,
+			"Review the SQL query syntax",
+			"Check if referenced tables, columns, or functions exist",
+			"Verify data types match expected values",
+		)
+	case ErrorCodeNotFound:
+		suggestions = append(suggestions,
+			"Verify that the resource exists",
+			"Check the resource name or identifier",
+			"List available resources to see what's available",
+		)
+	case ErrorCodeReadOnlyViolation:
+		suggestions = append(suggestions,
+			"This operation requires write access",
+			"Check if the server is in read-only mode",
+			"Enable write access in the configuration if needed",
+		)
+	}
+	
+	return suggestions
+}
+
 /* ErrorClassifier classifies errors into taxonomy */
 type ErrorClassifier struct {
 }
@@ -121,7 +197,12 @@ func (ec *ErrorClassifier) ClassifyError(err error, requestID string) *Structure
 	if strings.Contains(errorStr, "timeout") || strings.Contains(errorStr, "deadline exceeded") {
 		return NewStructuredError(ErrorCodeTimeout, "Operation timed out", nil).
 			WithRequestID(requestID).
-			WithOriginalError(err)
+			WithOriginalError(err).
+			WithSuggestions(
+				"Increase the timeout value if the operation is expected to take longer",
+				"Check database performance and query optimization",
+				"Consider breaking large operations into smaller batches",
+			)
 	}
 
 	/* Check for connection errors */
@@ -129,7 +210,12 @@ func (ec *ErrorClassifier) ClassifyError(err error, requestID string) *Structure
 		strings.Contains(errorStr, "unreachable") || strings.Contains(errorStr, "refused") {
 		return NewStructuredError(ErrorCodeConnection, "Database connection error", nil).
 			WithRequestID(requestID).
-			WithOriginalError(err)
+			WithOriginalError(err).
+			WithSuggestions(
+				"Check if the database server is running",
+				"Verify connection parameters (host, port, database, user)",
+				"Check network connectivity and firewall settings",
+			)
 	}
 
 	/* Check for permission errors */

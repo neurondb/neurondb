@@ -53,6 +53,8 @@ type HTTPTransport struct {
 	prometheusHandler http.Handler
 	maxRequestSize  int64 /* Maximum request size in bytes */
 	logger          interface{} /* Logger interface - will be set if available */
+	authMiddleware  *HTTPAuthMiddleware
+	rateLimiter     *RateLimiter
 }
 
 /* NewHTTPTransport creates a new HTTP transport */
@@ -78,6 +80,8 @@ func NewHTTPTransport(addr string, mcpServer *mcp.Server, middlewareManager *mid
 		requestHandler:  requestHandler,
 		prometheusHandler: prometheusHandler,
 		maxRequestSize:   maxRequestSize,
+		authMiddleware:  NewHTTPAuthMiddleware(),
+		rateLimiter:     NewRateLimiter(),
 	}
 
 	mux := http.NewServeMux()
@@ -127,6 +131,34 @@ func (t *HTTPTransport) Start() error {
 /* Shutdown gracefully shuts down the HTTP server */
 func (t *HTTPTransport) Shutdown(ctx context.Context) error {
 	return t.server.Shutdown(ctx)
+}
+
+/* EnableAuth enables HTTP authentication */
+func (t *HTTPTransport) EnableAuth(requireAuth bool) {
+	if t.authMiddleware != nil {
+		t.authMiddleware.Enable(requireAuth)
+	}
+}
+
+/* AddBearerToken adds a bearer token for authentication */
+func (t *HTTPTransport) AddBearerToken(token *BearerToken) error {
+	if t.authMiddleware == nil {
+		return fmt.Errorf("auth middleware not initialized")
+	}
+	return t.authMiddleware.AddBearerToken(token)
+}
+
+/* AddAPIKey adds an API key for authentication */
+func (t *HTTPTransport) AddAPIKey(key *APIKey) error {
+	if t.authMiddleware == nil {
+		return fmt.Errorf("auth middleware not initialized")
+	}
+	return t.authMiddleware.apiKeyStore.AddAPIKey(key)
+}
+
+/* GetAuthMiddleware returns the auth middleware (for configuration) */
+func (t *HTTPTransport) GetAuthMiddleware() *HTTPAuthMiddleware {
+	return t.authMiddleware
 }
 
 /* handleMCP handles MCP requests over HTTP */
@@ -199,8 +231,37 @@ func (t *HTTPTransport) handleMCP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	/* Authenticate request */
+	authResult, err := t.authMiddleware.AuthenticateRequest(r)
+	if err != nil {
+		t.writeJSONRPCError(w, req.ID, mcp.ErrCodeInvalidRequest, fmt.Sprintf("Authentication failed: %v", err))
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	/* Apply rate limiting if authenticated with API key */
+	if authResult.Authenticated && authResult.AuthMethod == "api_key" && authResult.APIKeyID != "" {
+		/* Get rate limit from API key (default: 60 req/min) */
+		allowed, err := t.rateLimiter.CheckRateLimit(authResult.APIKeyID, 60, time.Minute)
+		if !allowed {
+			t.writeJSONRPCError(w, req.ID, mcp.ErrCodeInvalidRequest, err.Error())
+			w.WriteHeader(http.StatusTooManyRequests)
+			return
+		}
+	}
+
 	/* Create context from request with timeout handling */
 	ctx := r.Context()
+	
+	/* Add auth information to context */
+	if authResult.Authenticated {
+		ctx = context.WithValue(ctx, "user_id", authResult.UserID)
+		ctx = context.WithValue(ctx, "scopes", authResult.Scopes)
+		ctx = context.WithValue(ctx, "auth_method", authResult.AuthMethod)
+		if authResult.APIKeyID != "" {
+			ctx = context.WithValue(ctx, "api_key_id", authResult.APIKeyID)
+		}
+	}
 	
 	/* Check if context is already cancelled */
 	select {

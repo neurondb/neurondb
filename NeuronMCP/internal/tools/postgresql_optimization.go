@@ -349,7 +349,7 @@ func (t *PostgreSQLPerformanceInsightsTool) analyzeDatabase(ctx context.Context,
 
 /* analyzeTable analyzes table performance */
 func (t *PostgreSQLPerformanceInsightsTool) analyzeTable(ctx context.Context, tableName, timeRange string) map[string]interface{} {
-	query := fmt.Sprintf(`
+	query := `
 		SELECT 
 			n_tup_ins as inserts,
 			n_tup_upd as updates,
@@ -362,7 +362,7 @@ func (t *PostgreSQLPerformanceInsightsTool) analyzeTable(ctx context.Context, ta
 			last_autoanalyze
 		FROM pg_stat_user_tables
 		WHERE relname = $1
-	`, tableName)
+	`
 
 	rows, err := t.db.Query(ctx, query, []interface{}{tableName})
 	if err != nil {

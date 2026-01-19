@@ -31,6 +31,12 @@ func (s *Server) setupResourceHandlers() {
 
   /* Read resource handler */
 	s.mcpServer.SetHandler("resources/read", s.handleReadResource)
+
+	/* Subscribe/unsubscribe handlers (only if subscriptions enabled) */
+	if s.capabilitiesManager != nil && s.capabilitiesManager.GetFeatureFlag("resource_subscriptions") {
+		s.mcpServer.SetHandler("resources/subscribe", s.handleSubscribeResource)
+		s.mcpServer.SetHandler("resources/unsubscribe", s.handleUnsubscribeResource)
+	}
 }
 
 /* handleListResources handles the resources/list request */
@@ -121,7 +127,7 @@ func (s *Server) handleReadResource(ctx context.Context, params json.RawMessage)
 		}()
 	}
 
-	if params == nil || len(params) == 0 {
+	if len(params) == 0 {
 		if s.metricsCollector != nil {
 			s.metricsCollector.IncrementError(method, "PARSE_ERROR")
 		}
@@ -212,5 +218,174 @@ func (s *Server) handleReadResource(ctx context.Context, params json.RawMessage)
 	}
 
 	return mcp.ReadResourceResponse{Contents: mcpContents}, nil
+}
+
+/* handleSubscribeResource handles the resources/subscribe request */
+func (s *Server) handleSubscribeResource(ctx context.Context, params json.RawMessage) (interface{}, error) {
+	if s == nil {
+		return nil, fmt.Errorf("server instance is nil")
+	}
+	if s.resources == nil {
+		return nil, fmt.Errorf("resources manager is not initialized")
+	}
+	if s.logger == nil {
+		return nil, fmt.Errorf("logger is not initialized")
+	}
+
+	startTime := time.Now()
+	method := "resources/subscribe"
+
+	/* Track request */
+	if s.metricsCollector != nil {
+		s.metricsCollector.IncrementRequest(method)
+		defer func() {
+			s.metricsCollector.AddDuration(time.Since(startTime))
+		}()
+	}
+
+	if len(params) == 0 {
+		if s.metricsCollector != nil {
+			s.metricsCollector.IncrementError(method, "PARSE_ERROR")
+		}
+		return nil, fmt.Errorf("resources/subscribe request parameters are required")
+	}
+
+	var req mcp.SubscribeResourceRequest
+	if err := json.Unmarshal(params, &req); err != nil {
+		if s.metricsCollector != nil {
+			s.metricsCollector.IncrementError(method, "PARSE_ERROR")
+		}
+		return nil, fmt.Errorf("resources/subscribe: failed to parse request parameters: %w", err)
+	}
+
+	/* Validate URI */
+	if req.URI == "" {
+		if s.metricsCollector != nil {
+			s.metricsCollector.IncrementError(method, "VALIDATION_ERROR")
+		}
+		return nil, fmt.Errorf("resources/subscribe: URI parameter is required")
+	}
+
+	/* Get subscription manager */
+	subMgr := s.resources.GetSubscriptionManager()
+	if subMgr == nil {
+		if s.metricsCollector != nil {
+			s.metricsCollector.IncrementError(method, "INTERNAL_ERROR")
+		}
+		return nil, fmt.Errorf("resources/subscribe: subscription manager is not available")
+	}
+
+	/* Set logger if available */
+	if s.logger != nil {
+		subMgr.SetLogger(s.logger)
+	}
+
+	/* Create callback function that logs updates */
+	/* TODO: Send notifications via MCP when notification mechanism is available */
+	callback := func(update *resources.ResourceUpdate) {
+		if s.logger != nil {
+			s.logger.Info("Resource update notification", map[string]interface{}{
+				"uri":      update.URI,
+				"type":     update.Type,
+				"timestamp": update.Timestamp,
+			})
+		}
+		/* Store update for later retrieval if needed */
+		/* In a full implementation, this would send an MCP notification */
+	}
+
+	/* Subscribe to resource with optional filter */
+	filter := ""
+	if req.Filter != nil {
+		filter = *req.Filter
+	}
+	subID, err := subMgr.SubscribeWithFilter(req.URI, filter, callback)
+	if err != nil {
+		if s.metricsCollector != nil {
+			s.metricsCollector.IncrementError(method, "SUBSCRIPTION_ERROR")
+		}
+		return nil, fmt.Errorf("resources/subscribe: failed to subscribe: %w", err)
+	}
+
+	if s.logger != nil {
+		s.logger.Debug("Resource subscription created", map[string]interface{}{
+			"uri":            req.URI,
+			"subscription_id": subID,
+		})
+	}
+
+	return mcp.SubscribeResourceResponse{SubscriptionID: subID}, nil
+}
+
+/* handleUnsubscribeResource handles the resources/unsubscribe request */
+func (s *Server) handleUnsubscribeResource(ctx context.Context, params json.RawMessage) (interface{}, error) {
+	if s == nil {
+		return nil, fmt.Errorf("server instance is nil")
+	}
+	if s.resources == nil {
+		return nil, fmt.Errorf("resources manager is not initialized")
+	}
+	if s.logger == nil {
+		return nil, fmt.Errorf("logger is not initialized")
+	}
+
+	startTime := time.Now()
+	method := "resources/unsubscribe"
+
+	/* Track request */
+	if s.metricsCollector != nil {
+		s.metricsCollector.IncrementRequest(method)
+		defer func() {
+			s.metricsCollector.AddDuration(time.Since(startTime))
+		}()
+	}
+
+	if len(params) == 0 {
+		if s.metricsCollector != nil {
+			s.metricsCollector.IncrementError(method, "PARSE_ERROR")
+		}
+		return nil, fmt.Errorf("resources/unsubscribe request parameters are required")
+	}
+
+	var req mcp.UnsubscribeResourceRequest
+	if err := json.Unmarshal(params, &req); err != nil {
+		if s.metricsCollector != nil {
+			s.metricsCollector.IncrementError(method, "PARSE_ERROR")
+		}
+		return nil, fmt.Errorf("resources/unsubscribe: failed to parse request parameters: %w", err)
+	}
+
+	/* Validate subscription ID */
+	if req.SubscriptionID == "" {
+		if s.metricsCollector != nil {
+			s.metricsCollector.IncrementError(method, "VALIDATION_ERROR")
+		}
+		return nil, fmt.Errorf("resources/unsubscribe: subscriptionId parameter is required")
+	}
+
+	/* Get subscription manager */
+	subMgr := s.resources.GetSubscriptionManager()
+	if subMgr == nil {
+		if s.metricsCollector != nil {
+			s.metricsCollector.IncrementError(method, "INTERNAL_ERROR")
+		}
+		return nil, fmt.Errorf("resources/unsubscribe: subscription manager is not available")
+	}
+
+	/* Unsubscribe */
+	if err := subMgr.Unsubscribe(req.SubscriptionID); err != nil {
+		if s.metricsCollector != nil {
+			s.metricsCollector.IncrementError(method, "SUBSCRIPTION_ERROR")
+		}
+		return nil, fmt.Errorf("resources/unsubscribe: failed to unsubscribe: %w", err)
+	}
+
+	if s.logger != nil {
+		s.logger.Debug("Resource subscription removed", map[string]interface{}{
+			"subscription_id": req.SubscriptionID,
+		})
+	}
+
+	return map[string]interface{}{"success": true}, nil
 }
 

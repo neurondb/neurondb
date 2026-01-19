@@ -31,6 +31,7 @@ type CapabilitiesManager struct {
 	toolRegistry   *tools.ToolRegistry
 	featureFlags   map[string]bool
 	modelVersions  map[string]string
+	enableSubscriptions bool
 }
 
 /* NewCapabilitiesManager creates a new capabilities manager */
@@ -57,7 +58,18 @@ func NewCapabilitiesManager(serverName, serverVersion string, toolRegistry *tool
 			"default_embedding": "2.0.0",
 			"default_llm":       "2.0.0",
 		},
+		enableSubscriptions: false, /* Default disabled for Claude Desktop compatibility */
 	}
+}
+
+/* SetEnableSubscriptions sets whether resource subscriptions are enabled */
+func (cm *CapabilitiesManager) SetEnableSubscriptions(enabled bool) {
+	if cm == nil {
+		return
+	}
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	cm.enableSubscriptions = enabled
 }
 
 /* GetServerInfo returns server information (thread-safe) */
@@ -109,13 +121,22 @@ func (cm *CapabilitiesManager) GetServerCapabilities() mcp.ServerCapabilities {
 		}
 	}
 
+	/* Get subscription enablement status */
+	enableSubs := false
+	if cm.enableSubscriptions {
+		enableSubs = true
+	}
+
 	return mcp.ServerCapabilities{
 		Tools: mcp.ToolsCapability{
 			ListChanged: false, /* Set to false for Claude Desktop compatibility - tools list is static */
 		},
 		Resources: mcp.ResourcesCapability{
-			Subscribe:   false,
-			ListChanged: false, /* Set to false for Claude Desktop compatibility */
+			Subscribe:   enableSubs, /* Enable based on configuration */
+			ListChanged: enableSubs, /* Enable list changed notifications if subscriptions enabled */
+		},
+		Elicitation: &mcp.ElicitationCapability{
+			Enabled: true, /* Elicitation is enabled by default */
 		},
 		Experimental: map[string]interface{}{
 			"feature_flags":  featureFlags,

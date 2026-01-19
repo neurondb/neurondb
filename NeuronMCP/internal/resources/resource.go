@@ -111,15 +111,17 @@ func scanRowToMap(rows pgx.Rows) (map[string]interface{}, error) {
 
 /* Manager manages all resources */
 type Manager struct {
-	resources map[string]Resource
-	db        *database.Database
+	resources          map[string]Resource
+	db                 *database.Database
+	subscriptionManager *SubscriptionManager
 }
 
 /* NewManager creates a new resource manager */
 func NewManager(db *database.Database) *Manager {
 	m := &Manager{
-		resources: make(map[string]Resource),
-		db:        db,
+		resources:          make(map[string]Resource),
+		db:                 db,
+		subscriptionManager: NewSubscriptionManager(),
 	}
 
   /* Register built-in resources */
@@ -139,6 +141,11 @@ func NewManager(db *database.Database) *Manager {
 /* Register registers a resource */
 func (m *Manager) Register(resource Resource) {
 	m.resources[resource.URI()] = resource
+}
+
+/* GetSubscriptionManager returns the subscription manager */
+func (m *Manager) GetSubscriptionManager() *SubscriptionManager {
+	return m.subscriptionManager
 }
 
 /* ListResources returns all registered resources */

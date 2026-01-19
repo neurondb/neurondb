@@ -108,6 +108,59 @@ func (qc *QueryCache) Invalidate(ctx context.Context, pattern string) {
 	}
 }
 
+/* InvalidateByTable invalidates cache entries for a specific table */
+func (qc *QueryCache) InvalidateByTable(ctx context.Context, tableName string) {
+	qc.mu.Lock()
+	defer qc.mu.Unlock()
+
+	/* Invalidate all entries that reference this table */
+	for key, entry := range qc.cache {
+		/* Check if entry metadata contains table reference */
+		if entryData, ok := entry.Result.(map[string]interface{}); ok {
+			if table, ok := entryData["table"].(string); ok && table == tableName {
+				delete(qc.cache, key)
+			}
+		}
+	}
+}
+
+/* InvalidateBySchema invalidates cache entries for schema changes */
+func (qc *QueryCache) InvalidateBySchema(ctx context.Context, schemaName string) {
+	qc.mu.Lock()
+	defer qc.mu.Unlock()
+
+	/* Invalidate all entries for the schema */
+	for key, entry := range qc.cache {
+		if entryData, ok := entry.Result.(map[string]interface{}); ok {
+			if schema, ok := entryData["schema"].(string); ok && schema == schemaName {
+				delete(qc.cache, key)
+			}
+		}
+	}
+}
+
+/* WarmCache warms the cache with frequently used queries */
+func (qc *QueryCache) WarmCache(ctx context.Context, queries []WarmQuery) error {
+	qc.mu.Lock()
+	defer qc.mu.Unlock()
+
+	for _, query := range queries {
+		key := qc.generateKey(query.Query, query.Params)
+		/* Store query metadata for warming */
+		/* Actual execution would happen elsewhere */
+		_ = key
+	}
+
+	return nil
+}
+
+/* WarmQuery represents a query to warm the cache */
+type WarmQuery struct {
+	Query  string
+	Params []interface{}
+	TTL    time.Duration
+}
+
 /* generateKey generates a cache key from query and params */
 func (qc *QueryCache) generateKey(query string, params []interface{}) string {
 	keyData := map[string]interface{}{

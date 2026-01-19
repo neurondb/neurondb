@@ -65,12 +65,39 @@ type ServerSettings struct {
 	EnableMetrics   *bool              `json:"enableMetrics,omitempty"`
 	EnableHealthCheck *bool            `json:"enableHealthCheck,omitempty"`
 	HTTPTransport   *HTTPTransportConfig `json:"httpTransport,omitempty"`
+	ResourceSubscriptions *ResourceSubscriptionsConfig `json:"resourceSubscriptions,omitempty"`
+}
+
+/* ResourceSubscriptionsConfig holds resource subscription configuration */
+type ResourceSubscriptionsConfig struct {
+	Enabled      *bool     `json:"enabled,omitempty"`
+	AllowFiltering *bool   `json:"allowFiltering,omitempty"`
+	MaxSubscriptions *int  `json:"maxSubscriptions,omitempty"`
 }
 
 /* HTTPTransportConfig holds HTTP transport configuration */
 type HTTPTransportConfig struct {
-	Enabled *bool   `json:"enabled,omitempty"`
-	Address *string `json:"address,omitempty"`
+	Enabled     *bool                `json:"enabled,omitempty"`
+	Address     *string              `json:"address,omitempty"`
+	Auth        *HTTPAuthConfig      `json:"auth,omitempty"`
+}
+
+/* HTTPAuthConfig holds HTTP authentication configuration */
+type HTTPAuthConfig struct {
+	Enabled      *bool     `json:"enabled,omitempty"`
+	RequireAuth  *bool     `json:"requireAuth,omitempty"`
+	BearerTokens []string  `json:"bearerTokens,omitempty"`
+	APIKeys      []APIKeyConfig `json:"apiKeys,omitempty"`
+}
+
+/* APIKeyConfig holds API key configuration */
+type APIKeyConfig struct {
+	ID        string    `json:"id"`
+	Key       string    `json:"key"`
+	UserID    string    `json:"userId"`
+	Scopes    []string  `json:"scopes,omitempty"`
+	RateLimit *int      `json:"rateLimit,omitempty"`
+	ExpiresAt *string   `json:"expiresAt,omitempty"`
 }
 
 /* LoggingConfig holds logging configuration */
@@ -311,6 +338,31 @@ func (h *HTTPTransportConfig) GetAddress() string {
 		return *h.Address
 	}
 	return ":8080"
+}
+
+func (s *ServerSettings) GetResourceSubscriptions() *ResourceSubscriptionsConfig {
+	return s.ResourceSubscriptions
+}
+
+func (r *ResourceSubscriptionsConfig) GetEnabled() bool {
+	if r == nil || r.Enabled == nil {
+		return false /* Disabled by default for Claude Desktop compatibility */
+	}
+	return *r.Enabled
+}
+
+func (r *ResourceSubscriptionsConfig) GetAllowFiltering() bool {
+	if r == nil || r.AllowFiltering == nil {
+		return true /* Allow filtering by default */
+	}
+	return *r.AllowFiltering
+}
+
+func (r *ResourceSubscriptionsConfig) GetMaxSubscriptions() int {
+	if r == nil || r.MaxSubscriptions == nil {
+		return 100 /* Default max subscriptions per client */
+	}
+	return *r.MaxSubscriptions
 }
 
 /* GetSafetyConfig returns safety configuration with defaults */

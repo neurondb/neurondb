@@ -19,7 +19,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 SCRIPT_NAME=$(basename "$0")
-VERSION="1.0.0"
+VERSION="3.0.0-devel"
 VERBOSE=false
 
 # Source common CLI library

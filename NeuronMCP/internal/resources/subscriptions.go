@@ -16,6 +16,8 @@ package resources
 import (
 	"context"
 	"fmt"
+	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -26,6 +28,7 @@ import (
 type Subscription struct {
 	ID        string
 	URI       string
+	Filter    string /* Optional filter pattern (e.g., "schema:*", "model:*") */
 	Callback  func(*ResourceUpdate)
 	CreatedAt time.Time
 }
@@ -66,6 +69,12 @@ func (m *SubscriptionManager) SetLogger(logger *logging.Logger) {
 
 /* Subscribe subscribes to resource updates */
 func (m *SubscriptionManager) Subscribe(uri string, callback func(*ResourceUpdate)) (string, error) {
+	return m.SubscribeWithFilter(uri, "", callback)
+}
+
+/* SubscribeWithFilter subscribes to resource updates with an optional filter pattern */
+/* Filter patterns support wildcards: "schema:*" matches all schema resources, "model:my-model" matches specific model */
+func (m *SubscriptionManager) SubscribeWithFilter(uri string, filter string, callback func(*ResourceUpdate)) (string, error) {
 	if uri == "" {
 		return "", fmt.Errorf("URI cannot be empty")
 	}
@@ -80,12 +89,30 @@ func (m *SubscriptionManager) Subscribe(uri string, callback func(*ResourceUpdat
 	sub := &Subscription{
 		ID:        subID,
 		URI:       uri,
+		Filter:    filter,
 		Callback:  callback,
 		CreatedAt: time.Now(),
 	}
 
 	m.subscriptions[uri] = append(m.subscriptions[uri], sub)
 	return subID, nil
+}
+
+/* matchesFilter checks if a URI matches a filter pattern */
+func matchesFilter(uri, filter string) bool {
+	if filter == "" {
+		return true /* No filter means match all */
+	}
+	
+	/* Simple wildcard matching */
+	if strings.Contains(filter, "*") {
+		pattern := strings.ReplaceAll(filter, "*", ".*")
+		matched, _ := regexp.MatchString("^"+pattern+"$", uri)
+		return matched
+	}
+	
+	/* Exact match */
+	return uri == filter
 }
 
 /* Unsubscribe unsubscribes from resource updates */
@@ -108,7 +135,7 @@ func (m *SubscriptionManager) Unsubscribe(subID string) error {
 	return fmt.Errorf("subscription not found: %s", subID)
 }
 
-/* Notify notifies subscribers of a resource update */
+/* Notify notifies subscribers of a resource update and invalidates cache if needed */
 func (m *SubscriptionManager) Notify(uri string, updateType string, content interface{}) {
 	if uri == "" {
 		return /* URI is required */
@@ -136,6 +163,11 @@ func (m *SubscriptionManager) Notify(uri string, updateType string, content inte
 	for _, sub := range subs {
 		if sub == nil || sub.Callback == nil {
 			continue /* Skip invalid subscriptions */
+		}
+		
+		/* Apply filter if specified */
+		if sub.Filter != "" && !matchesFilter(uri, sub.Filter) {
+			continue /* Skip if filter doesn't match */
 		}
 		
 		/* Check if shutdown was requested */

@@ -151,11 +151,13 @@ func (d *Database) ConnectWithRetry(cfg *config.DatabaseConfig, maxRetries int, 
 		poolConfig.MaxConns = int32(cfg.Pool.GetMax())
 		poolConfig.MaxConnIdleTime = cfg.Pool.GetIdleTimeout()
 		poolConfig.MaxConnLifetime = time.Hour
-		poolConfig.HealthCheckPeriod = 1 * time.Minute
+		poolConfig.HealthCheckPeriod = 30 * time.Second /* Enhanced health checks */
+		/* Enable connection health checks */
+		poolConfig.ConnConfig.ConnectTimeout = cfg.Pool.GetConnectionTimeout()
 	} else {
-		poolConfig.MinConns = 0
+		poolConfig.MinConns = 2 /* Default minimum for better performance */
 		poolConfig.MaxConns = 10
-		poolConfig.HealthCheckPeriod = 1 * time.Minute
+		poolConfig.HealthCheckPeriod = 30 * time.Second
 	}
 
 	var host, dbName, dbUser string

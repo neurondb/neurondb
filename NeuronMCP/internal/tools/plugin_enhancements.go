@@ -690,7 +690,7 @@ func (p *%sPlugin) Initialize(ctx context.Context, config map[string]interface{}
 func (p *%sPlugin) Shutdown(ctx context.Context) error {
 	// Shutdown plugin
 	return nil
-}`, strings.Title(pluginName), strings.Title(pluginName), pluginName, strings.Title(pluginName), strings.Title(pluginName), strings.Title(pluginName))
+}`, strings.Title(pluginName), strings.Title(pluginName), pluginName, strings.Title(pluginName), strings.Title(pluginName), strings.Title(pluginName), strings.Title(pluginName))
 
 	return Success(map[string]interface{}{
 		"plugin_name": pluginName,

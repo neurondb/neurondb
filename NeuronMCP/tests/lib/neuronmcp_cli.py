@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Optional
 
 # Version
-VERSION = "1.0.0"
+VERSION = "3.0.0-devel"
 
 # Exit codes
 EXIT_SUCCESS = 0
