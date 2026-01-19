@@ -109,17 +109,18 @@ EOF
 RUN cd NeuronDB && \
     GPU_BACKENDS=none make clean && \
     GPU_BACKENDS=none make && \
-    # Ensure SQL file exists before installation (Makefile expects neurondb--1.0.sql)
-    if [ ! -f neurondb--1.0.sql ]; then \
-        if [ -f neurondb--1.0.sql.linux ]; then \
-            cp neurondb--1.0.sql.linux neurondb--1.0.sql; \
-        elif [ -f neurondb--2.0.sql ]; then \
-            cp neurondb--2.0.sql neurondb--1.0.sql; \
-        elif [ -f neurondb--2.0.sql.linux ]; then \
-            cp neurondb--2.0.sql.linux neurondb--1.0.sql; \
+    # Ensure SQL file exists before installation (Makefile expects sql/neurondb--1.0.sql)
+    mkdir -p sql && \
+    if [ ! -f sql/neurondb--1.0.sql ]; then \
+        if [ -f sql/neurondb--1.0.sql.linux ]; then \
+            cp sql/neurondb--1.0.sql.linux sql/neurondb--1.0.sql; \
+        elif [ -f sql/neurondb--2.0.sql ]; then \
+            cp sql/neurondb--2.0.sql sql/neurondb--1.0.sql; \
+        elif [ -f sql/neurondb--2.0.sql.linux ]; then \
+            cp sql/neurondb--2.0.sql.linux sql/neurondb--1.0.sql; \
         else \
             echo "Warning: No SQL file found, attempting to generate..."; \
-            make neurondb--1.0.sql || echo "Could not generate SQL file"; \
+            make sql/neurondb--1.0.sql || echo "Could not generate SQL file"; \
         fi; \
     fi && \
     GPU_BACKENDS=none make install && \

@@ -486,14 +486,14 @@ build: build-neurondb build-neuronagent build-neuronmcp build-neurondesktop ## B
 	@if [ -f NeuronDB/neurondb.control ]; then \
 		cp NeuronDB/neurondb.control bin/neurondb/ && echo "  $(GREEN)✓$(NC) neurondb.control"; \
 	fi
-	@if [ -f NeuronDB/neurondb--1.0.sql ]; then \
-		cp NeuronDB/neurondb--1.0.sql bin/neurondb/ && echo "  $(GREEN)✓$(NC) neurondb--1.0.sql"; \
+	@if [ -f NeuronDB/sql/neurondb--1.0.sql ]; then \
+		cp NeuronDB/sql/neurondb--1.0.sql bin/neurondb/ && echo "  $(GREEN)✓$(NC) neurondb--1.0.sql"; \
 	fi
-	@if [ -f NeuronDB/neurondb--2.0.sql ]; then \
-		cp NeuronDB/neurondb--2.0.sql bin/neurondb/ && echo "  $(GREEN)✓$(NC) neurondb--2.0.sql"; \
+	@if [ -f NeuronDB/sql/neurondb--2.0.sql ]; then \
+		cp NeuronDB/sql/neurondb--2.0.sql bin/neurondb/ && echo "  $(GREEN)✓$(NC) neurondb--2.0.sql"; \
 	fi
-	@if [ -f NeuronDB/neurondb--1.0--2.0.sql ]; then \
-		cp NeuronDB/neurondb--1.0--2.0.sql bin/neurondb/ && echo "  $(GREEN)✓$(NC) neurondb--1.0--2.0.sql"; \
+	@if [ -f NeuronDB/sql/neurondb--1.0--2.0.sql ]; then \
+		cp NeuronDB/sql/neurondb--1.0--2.0.sql bin/neurondb/ && echo "  $(GREEN)✓$(NC) neurondb--1.0--2.0.sql"; \
 	fi
 	@if [ -f NeuronDB/neurondb.so ]; then \
 		cp NeuronDB/neurondb.so bin/neurondb/ && echo "  $(GREEN)✓$(NC) neurondb.so"; \

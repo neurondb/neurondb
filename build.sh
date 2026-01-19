@@ -13,7 +13,7 @@ IFS=$'\n\t'
 # CONFIGURATION
 #=========================================================================
 
-readonly SCRIPT_VERSION="1.0.0"
+readonly SCRIPT_VERSION="3.0.0-devel"
 readonly SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 readonly REPO_ROOT="$SCRIPT_DIR"
@@ -199,9 +199,9 @@ copy_neurondb() {
     fi
     
     # Copy SQL files (optional)
-    copy_file "$REPO_ROOT/NeuronDB/neurondb--1.0.sql" "$bin_dir/neurondb--1.0.sql" "neurondb--1.0.sql" && ((copied++)) || true
-    copy_file "$REPO_ROOT/NeuronDB/neurondb--2.0.sql" "$bin_dir/neurondb--2.0.sql" "neurondb--2.0.sql" && ((copied++)) || true
-    copy_file "$REPO_ROOT/NeuronDB/neurondb--1.0--2.0.sql" "$bin_dir/neurondb--1.0--2.0.sql" "neurondb--1.0--2.0.sql" && ((copied++)) || true
+    copy_file "$REPO_ROOT/NeuronDB/sql/neurondb--1.0.sql" "$bin_dir/neurondb--1.0.sql" "neurondb--1.0.sql" && ((copied++)) || true
+    copy_file "$REPO_ROOT/NeuronDB/sql/neurondb--2.0.sql" "$bin_dir/neurondb--2.0.sql" "neurondb--2.0.sql" && ((copied++)) || true
+    copy_file "$REPO_ROOT/NeuronDB/sql/neurondb--1.0--2.0.sql" "$bin_dir/neurondb--1.0--2.0.sql" "neurondb--1.0--2.0.sql" && ((copied++)) || true
     
     if [[ $missing -eq 0 ]]; then
         log_success "NeuronDB: $copied files copied"
