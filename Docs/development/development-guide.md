@@ -81,7 +81,7 @@ my_new_function(PG_FUNCTION_ARGS)
 
 ### Step 2: Add SQL Declaration
 
-**File:** `NeuronDB/neurondb--1.0.sql`
+**File:** `NeuronDB/sql/neurondb--1.0.sql`
 
 ```sql
 CREATE FUNCTION my_new_function(vector) RETURNS vector
@@ -120,7 +120,7 @@ train_my_algorithm(PG_FUNCTION_ARGS)
 
 ### Step 2: Add SQL Functions
 
-**File:** `NeuronDB/neurondb--1.0.sql`
+**File:** `NeuronDB/sql/neurondb--1.0.sql`
 
 ```sql
 CREATE FUNCTION train_my_algorithm(text, text, text) RETURNS integer

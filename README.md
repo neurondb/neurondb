@@ -1,7 +1,6 @@
 # NeuronDB — PostgreSQL AI ecosystem
 
 <div align="center">
-  <img src="neurondb.png" alt="NeuronDB" width="360" />
 
   <p>
     <a href="https://www.postgresql.org/">
@@ -27,7 +26,7 @@
     </a>
   </p>
   <p>
-    <img alt="Version" src="https://img.shields.io/badge/version-2.0-blue.svg" />
+    <img alt="Version" src="https://img.shields.io/badge/version-3.0.0--devel-blue.svg" />
     <img alt="Status" src="https://img.shields.io/badge/status-stable-brightgreen.svg" />
     <a href="LICENSE">
       <img alt="License: Proprietary" src="https://img.shields.io/badge/license-proprietary-red.svg" />
@@ -305,6 +304,7 @@ LIMIT 5;
 ### Ecosystem Overview
 
 ```mermaid
+%%{init: {'theme':'base', 'themeVariables': {'fontSize':'11px', 'primaryColor':'#fff', 'primaryTextColor':'#000', 'primaryBorderColor':'#000', 'lineColor':'#000', 'secondaryColor':'#fff', 'tertiaryColor':'#fff'}, 'flowchart': {'nodeSpacing': 40, 'rankSpacing': 50, 'curve': 'basis'}}}%%
 flowchart TB
     subgraph Clients["Client Applications"]
         CLI[CLI Tools]
@@ -336,16 +336,17 @@ flowchart TB
     
     DB --> EXT
     
-    style DB fill:#e1f5ff,stroke:#01579b,stroke-width:3px
-    style EXT fill:#b3e5fc,stroke:#0277bd
-    style AGENT fill:#fff4e1,stroke:#e65100
-    style MCP fill:#e8f5e9,stroke:#2e7d32
-    style DESKTOP fill:#f3e5f5,stroke:#6a1b9a
+    style DB fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    style EXT fill:#b3e5fc,stroke:#0277bd,stroke-width:2px
+    style AGENT fill:#fff4e1,stroke:#e65100,stroke-width:2px
+    style MCP fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    style DESKTOP fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
 ```
 
 ### Component Interaction Flow
 
 ```mermaid
+%%{init: {'theme':'base', 'themeVariables': {'fontSize':'11px', 'primaryColor':'#fff', 'primaryTextColor':'#000', 'primaryBorderColor':'#000', 'lineColor':'#000', 'secondaryColor':'#fff', 'tertiaryColor':'#fff'}, 'sequence': {'actorMargin': 50, 'boxMargin': 10, 'boxTextMargin': 5, 'noteMargin': 10, 'messageMargin': 35, 'mirrorActors': true, 'bottomMarginAdj': 1, 'useMaxWidth': true, 'rightAngles': false, 'showSequenceNumbers': false}}}%%
 sequenceDiagram
     participant User
     participant Desktop as NeuronDesktop
