@@ -125,7 +125,7 @@ CREATE TABLE IF NOT EXISTS neurondb_agent.tools (
     name TEXT PRIMARY KEY,
     description TEXT NOT NULL,
     arg_schema JSONB NOT NULL,  -- JSON Schema for arguments
-    handler_type TEXT NOT NULL CHECK (handler_type IN ('sql', 'http', 'code', 'shell', 'queue', 'ml', 'vector', 'rag', 'analytics', 'hybrid_search', 'reranking')),
+    handler_type TEXT NOT NULL CHECK (handler_type IN ('sql', 'http', 'code', 'shell', 'queue', 'ml', 'vector', 'rag', 'analytics', 'hybrid_search', 'reranking', 'retrieval', 'memory', 'browser', 'visualization', 'filesystem', 'collaboration', 'multimodal', 'web_search')),
     handler_config JSONB DEFAULT '{}',
     enabled BOOLEAN DEFAULT true,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -725,7 +725,9 @@ CREATE TABLE IF NOT EXISTS neurondb_agent.memory_stm (
     importance_score FLOAT NOT NULL DEFAULT 0.5,
     access_count INT NOT NULL DEFAULT 0,
     last_accessed_at TIMESTAMPTZ,
+    metadata JSONB DEFAULT '{}',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '1 hour')
 );
 
@@ -740,7 +742,9 @@ CREATE TABLE IF NOT EXISTS neurondb_agent.memory_mtm (
     source_stm_ids UUID[],
     pattern_count INT NOT NULL DEFAULT 1,
     last_reinforced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    metadata JSONB DEFAULT '{}',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '7 days')
 );
 
@@ -755,6 +759,7 @@ CREATE TABLE IF NOT EXISTS neurondb_agent.memory_lpm (
     importance_score FLOAT NOT NULL DEFAULT 0.8,
     source_mtm_ids UUID[],
     confidence FLOAT NOT NULL DEFAULT 0.7,
+    metadata JSONB DEFAULT '{}',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -763,8 +768,8 @@ CREATE TABLE IF NOT EXISTS neurondb_agent.memory_lpm (
 CREATE TABLE IF NOT EXISTS neurondb_agent.memory_transitions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     agent_id UUID NOT NULL REFERENCES neurondb_agent.agents(id) ON DELETE CASCADE,
-    from_tier TEXT NOT NULL CHECK (from_tier IN ('stm', 'mtm')),
-    to_tier TEXT NOT NULL CHECK (to_tier IN ('mtm', 'lpm')),
+    from_tier TEXT NOT NULL CHECK (from_tier IN ('stm', 'mtm', 'lpm')),
+    to_tier TEXT NOT NULL CHECK (to_tier IN ('stm', 'mtm', 'lpm')),
     source_id UUID NOT NULL,
     target_id UUID NOT NULL,
     reason TEXT,
@@ -805,6 +810,91 @@ COMMENT ON TABLE neurondb_agent.memory_transitions IS 'Tracks memory promotions 
 COMMENT ON COLUMN neurondb_agent.memory_stm.expires_at IS 'Automatic expiration timestamp. STM expires after 1 hour unless accessed or promoted.';
 COMMENT ON COLUMN neurondb_agent.memory_mtm.pattern_count IS 'Number of times this pattern has been observed. Higher count increases promotion likelihood.';
 COMMENT ON COLUMN neurondb_agent.memory_lpm.confidence IS 'Confidence score for this memory (0-1). Higher confidence indicates more reliable information.';
+
+-- Add cross-session support to memory tables
+ALTER TABLE neurondb_agent.memory_stm ADD COLUMN IF NOT EXISTS session_ids UUID[];
+ALTER TABLE neurondb_agent.memory_mtm ADD COLUMN IF NOT EXISTS session_ids UUID[];
+ALTER TABLE neurondb_agent.memory_lpm ADD COLUMN IF NOT EXISTS session_ids UUID[];
+
+-- Add knowledge source tracking to memory chunks
+ALTER TABLE neurondb_agent.memory_chunks ADD COLUMN IF NOT EXISTS knowledge_source TEXT CHECK (knowledge_source IS NULL OR knowledge_source IN ('vector_db', 'web', 'api', 'hybrid'));
+
+-- Memory corruption log
+CREATE TABLE IF NOT EXISTS neurondb_agent.memory_corruption_log (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    memory_id UUID NOT NULL,
+    tier TEXT NOT NULL CHECK (tier IN ('stm', 'mtm', 'lpm')),
+    action TEXT NOT NULL CHECK (action IN ('detected', 'repaired', 'flagged')),
+    issue_type TEXT NOT NULL,
+    description TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_memory_corruption_log_memory_id ON neurondb_agent.memory_corruption_log(memory_id);
+CREATE INDEX IF NOT EXISTS idx_memory_corruption_log_tier ON neurondb_agent.memory_corruption_log(tier);
+CREATE INDEX IF NOT EXISTS idx_memory_corruption_log_created_at ON neurondb_agent.memory_corruption_log(created_at DESC);
+
+-- Memory forgetting log
+CREATE TABLE IF NOT EXISTS neurondb_agent.memory_forgetting_log (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id UUID NOT NULL REFERENCES neurondb_agent.agents(id) ON DELETE CASCADE,
+    memory_id UUID NOT NULL,
+    tier TEXT NOT NULL CHECK (tier IN ('stm', 'mtm', 'lpm')),
+    reason TEXT NOT NULL,
+    forgotten_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_memory_forgetting_log_agent_id ON neurondb_agent.memory_forgetting_log(agent_id);
+CREATE INDEX IF NOT EXISTS idx_memory_forgetting_log_memory_id ON neurondb_agent.memory_forgetting_log(memory_id);
+CREATE INDEX IF NOT EXISTS idx_memory_forgetting_log_forgotten_at ON neurondb_agent.memory_forgetting_log(forgotten_at DESC);
+
+-- Memory conflicts table
+CREATE TABLE IF NOT EXISTS neurondb_agent.memory_conflicts (
+    conflict_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id UUID NOT NULL REFERENCES neurondb_agent.agents(id) ON DELETE CASCADE,
+    memory_ids UUID[] NOT NULL,
+    tier TEXT NOT NULL CHECK (tier IN ('stm', 'mtm', 'lpm')),
+    conflict_type TEXT NOT NULL,
+    description TEXT,
+    resolved BOOLEAN NOT NULL DEFAULT false,
+    resolution TEXT,
+    kept_memory_id UUID,
+    resolved_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_memory_conflicts_agent_id ON neurondb_agent.memory_conflicts(agent_id);
+CREATE INDEX IF NOT EXISTS idx_memory_conflicts_resolved ON neurondb_agent.memory_conflicts(resolved);
+CREATE INDEX IF NOT EXISTS idx_memory_conflicts_created_at ON neurondb_agent.memory_conflicts(created_at DESC);
+
+-- Memory access log for tracking retrieval frequency
+CREATE TABLE IF NOT EXISTS neurondb_agent.memory_access_log (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    memory_id UUID NOT NULL,
+    session_id UUID REFERENCES neurondb_agent.sessions(id) ON DELETE CASCADE,
+    action TEXT NOT NULL DEFAULT 'retrieved',
+    accessed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(memory_id, session_id, action, accessed_at)
+);
+CREATE INDEX IF NOT EXISTS idx_memory_access_log_memory_id ON neurondb_agent.memory_access_log(memory_id);
+CREATE INDEX IF NOT EXISTS idx_memory_access_log_session_id ON neurondb_agent.memory_access_log(session_id);
+CREATE INDEX IF NOT EXISTS idx_memory_access_log_accessed_at ON neurondb_agent.memory_access_log(accessed_at DESC);
+
+-- Memory archive for storing forgotten memories
+CREATE TABLE IF NOT EXISTS neurondb_agent.memory_archive (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    memory_id UUID NOT NULL,
+    tier TEXT NOT NULL CHECK (tier IN ('stm', 'mtm', 'lpm')),
+    content TEXT NOT NULL,
+    embedding neurondb_vector(768),
+    metadata JSONB DEFAULT '{}',
+    importance_score FLOAT,
+    forgotten_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    forget_reason TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_memory_archive_memory_id ON neurondb_agent.memory_archive(memory_id);
+CREATE INDEX IF NOT EXISTS idx_memory_archive_forgotten_at ON neurondb_agent.memory_archive(forgotten_at DESC);
+
+-- Add cross_session_enabled flag to agents (stored in config JSONB, but we can add a column for easier querying)
+-- Note: This will be stored in config JSONB, but we add a comment for documentation
+COMMENT ON COLUMN neurondb_agent.agents.config IS 'Agent configuration including agentic_retrieval_enabled (bool) and cross_session_enabled (bool)';
 
 
 -- ============================================================================
@@ -1564,6 +1654,217 @@ CREATE INDEX IF NOT EXISTS idx_execution_snapshots_agent_id ON neurondb_agent.ex
 CREATE INDEX IF NOT EXISTS idx_execution_snapshots_deterministic ON neurondb_agent.execution_snapshots(deterministic_mode, created_at DESC);
 
 
+-- ============================================================================
+-- SECTION 24: DEFAULT TOOLS REGISTRATION
+-- ============================================================================
+
+-- Register retrieval tool with all actions
+INSERT INTO neurondb_agent.tools (name, description, arg_schema, handler_type, enabled)
+VALUES (
+    'retrieval',
+    'Agent-controlled knowledge retrieval tool. Use this to decide when and where to retrieve information from different knowledge sources (vector DB, web search, APIs). Supports intelligent routing and relevance checking.',
+    '{
+        "type": "object",
+        "properties": {
+            "action": {
+                "type": "string",
+                "enum": ["should_retrieve", "retrieve_from_vector_db", "retrieve_from_web", "retrieve_from_api", "check_relevance", "route_query"],
+                "description": "The retrieval action to perform"
+            },
+            "agent_id": {
+                "type": "string",
+                "format": "uuid",
+                "description": "The agent ID for context"
+            },
+            "query": {
+                "type": "string",
+                "description": "The query or question to retrieve information for (required for most actions)"
+            },
+            "context": {
+                "type": "string",
+                "description": "Existing context to check against (for should_retrieve and check_relevance)"
+            },
+            "top_k": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100,
+                "default": 5,
+                "description": "Number of results to retrieve from vector DB"
+            },
+            "max_results": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 20,
+                "default": 5,
+                "description": "Maximum number of web search results"
+            },
+            "api_url": {
+                "type": "string",
+                "format": "uri",
+                "description": "API endpoint URL (for retrieve_from_api)"
+            },
+            "method": {
+                "type": "string",
+                "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"],
+                "default": "GET",
+                "description": "HTTP method for API calls"
+            },
+            "headers": {
+                "type": "object",
+                "description": "HTTP headers for API calls"
+            },
+            "body": {
+                "type": "string",
+                "description": "Request body for API calls"
+            },
+            "existing_context": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Array of existing context strings to check relevance against"
+            }
+        },
+        "required": ["action", "agent_id"],
+        "oneOf": [
+            {
+                "properties": {
+                    "action": {"const": "should_retrieve"}
+                },
+                "required": ["query"]
+            },
+            {
+                "properties": {
+                    "action": {"const": "retrieve_from_vector_db"}
+                },
+                "required": ["query"]
+            },
+            {
+                "properties": {
+                    "action": {"const": "retrieve_from_web"}
+                },
+                "required": ["query"]
+            },
+            {
+                "properties": {
+                    "action": {"const": "retrieve_from_api"}
+                },
+                "required": ["api_url"]
+            },
+            {
+                "properties": {
+                    "action": {"const": "check_relevance"}
+                },
+                "required": ["query"]
+            },
+            {
+                "properties": {
+                    "action": {"const": "route_query"}
+                },
+                "required": ["query"]
+            }
+        ]
+    }'::jsonb,
+    'retrieval',
+    true
+)
+ON CONFLICT (name) DO UPDATE SET
+    description = EXCLUDED.description,
+    arg_schema = EXCLUDED.arg_schema,
+    handler_type = EXCLUDED.handler_type,
+    updated_at = NOW();
+
+COMMENT ON TABLE neurondb_agent.tools IS 'Tool registry including retrieval tool for agentic RAG';
+
+-- ============================================================================
+-- SECTION 25: RETRIEVAL LEARNING TABLES
+-- ============================================================================
+
+-- Retrieval decisions table: Track retrieval decisions for learning
+CREATE TABLE IF NOT EXISTS neurondb_agent.retrieval_decisions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id UUID NOT NULL REFERENCES neurondb_agent.agents(id) ON DELETE CASCADE,
+    session_id UUID REFERENCES neurondb_agent.sessions(id) ON DELETE SET NULL,
+    query TEXT NOT NULL,
+    query_type TEXT,  -- semantic, current_events, structured, factual, hybrid
+    should_retrieve BOOLEAN NOT NULL,
+    confidence FLOAT NOT NULL,
+    reason TEXT,
+    sources TEXT[],  -- Array of sources used: vector_db, web, api
+    source_scores JSONB,  -- Map of source -> score
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_retrieval_decisions_agent_id ON neurondb_agent.retrieval_decisions(agent_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_retrieval_decisions_query_type ON neurondb_agent.retrieval_decisions(query_type);
+CREATE INDEX IF NOT EXISTS idx_retrieval_decisions_session_id ON neurondb_agent.retrieval_decisions(session_id);
+
+-- Retrieval outcomes table: Track outcomes of retrieval decisions
+CREATE TABLE IF NOT EXISTS neurondb_agent.retrieval_outcomes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    decision_id UUID NOT NULL REFERENCES neurondb_agent.retrieval_decisions(id) ON DELETE CASCADE,
+    agent_id UUID NOT NULL REFERENCES neurondb_agent.agents(id) ON DELETE CASCADE,
+    session_id UUID REFERENCES neurondb_agent.sessions(id) ON DELETE SET NULL,
+    source TEXT NOT NULL,  -- vector_db, web, api
+    results_count INT NOT NULL DEFAULT 0,
+    relevance_score FLOAT,  -- Relevance of retrieved results
+    used_in_response BOOLEAN DEFAULT false,  -- Whether results were used in final response
+    user_feedback TEXT,  -- positive, negative, neutral, or NULL
+    quality_score FLOAT,  -- Overall quality score (0-1)
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_retrieval_outcomes_decision_id ON neurondb_agent.retrieval_outcomes(decision_id);
+CREATE INDEX IF NOT EXISTS idx_retrieval_outcomes_agent_id ON neurondb_agent.retrieval_outcomes(agent_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_retrieval_outcomes_source ON neurondb_agent.retrieval_outcomes(source);
+CREATE INDEX IF NOT EXISTS idx_retrieval_outcomes_user_feedback ON neurondb_agent.retrieval_outcomes(user_feedback) WHERE user_feedback IS NOT NULL;
+
+COMMENT ON TABLE neurondb_agent.retrieval_decisions IS 'Track retrieval decisions for learning and improvement';
+COMMENT ON TABLE neurondb_agent.retrieval_outcomes IS 'Track outcomes of retrieval decisions to learn from experience';
+
+-- ============================================================================
+-- SECTION 26: MEMORY FEEDBACK TABLES
+-- ============================================================================
+
+-- Memory feedback table: User feedback on memory retrievals
+CREATE TABLE IF NOT EXISTS neurondb_agent.memory_feedback (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id UUID NOT NULL REFERENCES neurondb_agent.agents(id) ON DELETE CASCADE,
+    session_id UUID REFERENCES neurondb_agent.sessions(id) ON DELETE SET NULL,
+    memory_id UUID NOT NULL,  -- Can be from memory_chunks, memory_stm, memory_mtm, or memory_lpm
+    memory_tier TEXT CHECK (memory_tier IN ('chunk', 'stm', 'mtm', 'lpm')),
+    feedback_type TEXT NOT NULL CHECK (feedback_type IN ('positive', 'negative', 'neutral', 'correction')),
+    feedback_text TEXT,
+    query TEXT,  -- Query that led to this memory retrieval
+    relevance_score FLOAT,  -- User-provided relevance score (0-1)
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_memory_feedback_agent_id ON neurondb_agent.memory_feedback(agent_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_memory_feedback_memory_id ON neurondb_agent.memory_feedback(memory_id, memory_tier);
+CREATE INDEX IF NOT EXISTS idx_memory_feedback_type ON neurondb_agent.memory_feedback(feedback_type);
+
+-- Memory quality metrics table: Track quality metrics for memories
+CREATE TABLE IF NOT EXISTS neurondb_agent.memory_quality_metrics (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id UUID NOT NULL REFERENCES neurondb_agent.agents(id) ON DELETE CASCADE,
+    memory_id UUID NOT NULL,
+    memory_tier TEXT CHECK (memory_tier IN ('chunk', 'stm', 'mtm', 'lpm')),
+    retrieval_count INT NOT NULL DEFAULT 0,
+    positive_feedback_count INT NOT NULL DEFAULT 0,
+    negative_feedback_count INT NOT NULL DEFAULT 0,
+    average_relevance_score FLOAT,
+    last_retrieved_at TIMESTAMPTZ,
+    quality_score FLOAT,  -- Computed quality score (0-1)
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_memory_quality_agent_id ON neurondb_agent.memory_quality_metrics(agent_id);
+CREATE INDEX IF NOT EXISTS idx_memory_quality_memory_id ON neurondb_agent.memory_quality_metrics(memory_id, memory_tier);
+CREATE INDEX IF NOT EXISTS idx_memory_quality_score ON neurondb_agent.memory_quality_metrics(quality_score DESC);
+
+COMMENT ON TABLE neurondb_agent.memory_feedback IS 'User feedback on memory retrievals for learning';
+COMMENT ON TABLE neurondb_agent.memory_quality_metrics IS 'Quality metrics for memories based on usage and feedback';
 
 -- ============================================================================
 -- COMPLETION MESSAGE

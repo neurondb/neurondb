@@ -336,6 +336,109 @@ PUT /api/v1/agents/{agent_id}/specialization
 DELETE /api/v1/agents/{agent_id}/specialization
 ```
 
+## Memory Management
+
+### Submit Memory Feedback
+```
+POST /api/v1/memory/{memory_id}/feedback
+```
+
+Submit user feedback on a memory retrieval to improve memory quality over time.
+
+Request body:
+```json
+{
+  "agent_id": "uuid",
+  "session_id": "uuid (optional)",
+  "memory_tier": "chunk|stm|mtm|lpm",
+  "feedback_type": "positive|negative|neutral|correction",
+  "feedback_text": "Optional feedback text",
+  "query": "Query that led to this memory retrieval (optional)",
+  "relevance_score": 0.85,
+  "metadata": {}
+}
+```
+
+Response:
+```json
+{
+  "feedback_id": "uuid",
+  "memory_id": "uuid",
+  "agent_id": "uuid",
+  "feedback_type": "positive",
+  "status": "recorded",
+  "message": "Feedback recorded and memory quality updated",
+  "duration_ms": 45,
+  "created_at": "2024-01-01T00:00:00Z"
+}
+```
+
+### Get Retrieval Statistics
+```
+GET /api/v1/agents/{id}/retrieval-stats?days=30
+```
+
+Get statistics about retrieval decisions for an agent. Useful for understanding retrieval patterns and improving routing.
+
+Query parameters:
+- `days` (optional): Number of days to analyze (default: 30, max: 365)
+
+Response:
+```json
+{
+  "agent_id": "uuid",
+  "days": 30,
+  "total_decisions": 150,
+  "avg_confidence": 0.75,
+  "source_usage": {
+    "vector_db": 80,
+    "web": 50,
+    "api": 20
+  },
+  "avg_quality_score": 0.82,
+  "duration_ms": 120
+}
+```
+
+### Consolidate Memory
+```
+POST /api/v1/agents/{id}/memory/consolidate
+```
+
+Consolidate similar memories to reduce duplication and improve storage efficiency.
+
+Request body:
+```json
+{
+  "tier": "stm|mtm|lpm",
+  "similarity_threshold": 0.9
+}
+```
+
+Response:
+```json
+{
+  "agent_id": "uuid",
+  "tier": "mtm",
+  "similarity_threshold": 0.9,
+  "consolidated_count": 15,
+  "status": "completed",
+  "duration_ms": 2500,
+  "completed_at": "2024-01-01T00:00:00Z"
+}
+```
+
+### Get Memory Quality
+```
+GET /api/v1/agents/{id}/memory/quality?memory_id={uuid}&tier={tier}
+```
+
+Get quality metrics for a specific memory or update all memory quality scores.
+
+Query parameters:
+- `memory_id` (optional): Specific memory ID
+- `tier` (optional): Memory tier (stm, mtm, lpm) - required if memory_id provided
+
 For complete API documentation including all endpoints, request/response schemas, and examples, see the [OpenAPI specification](../openapi/openapi.yaml).
 
 ---

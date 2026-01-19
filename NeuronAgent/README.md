@@ -6,7 +6,7 @@
 
 [![Go](https://img.shields.io/badge/Go-1.23+-00ADD8.svg)](https://golang.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16+-blue.svg)](https://www.postgresql.org/)
-[![Version](https://img.shields.io/badge/version-2.0-blue.svg)](https://github.com/neurondb/neurondb)
+[![Version](https://img.shields.io/badge/version-3.0.0--devel-blue.svg)](https://github.com/neurondb/neurondb)
 [![License](https://img.shields.io/badge/License-Proprietary-red.svg)](../LICENSE)
 [![Documentation](https://img.shields.io/badge/docs-neurondb.ai-brightgreen.svg)](https://www.neurondb.ai/docs/neuronagent)
 
@@ -97,6 +97,11 @@ The official documentation provides:
 | **Human-in-the-Loop (HITL)** | Approval gates, feedback loops, and human oversight in workflows with email/webhook notifications | ✅ Stable |
 | **Hierarchical Memory** | Multi-level memory organization with HNSW-based vector search for better context retrieval | ✅ Stable |
 | **Long-term Memory** | HNSW-based vector search for context retrieval with memory promotion | ✅ Stable |
+| **Agentic RAG** | Intelligent retrieval where agent decides when and where to retrieve information | ✅ Stable |
+| **Agent Memory** | Read/write memory with learning from interactions and personalization | ✅ Stable |
+| **Memory Feedback** | User feedback system to improve memory quality over time | ✅ Stable |
+| **Adaptive Memory** | Usage-based importance adjustment, consolidation, and compression | ✅ Stable |
+| **Cross-Session Memory** | Share memories across sessions with automatic relevance detection | ✅ Stable |
 | **Planning & Reflection** | LLM-based planning with task decomposition, agent self-reflection, and quality assessment | ✅ Stable |
 | **Evaluation Framework** | Built-in evaluation system for agent performance with automated quality scoring | ✅ Stable |
 | **Budget & Cost Management** | Real-time cost tracking, per-agent and per-session budget controls, and budget alerts | ✅ Stable |

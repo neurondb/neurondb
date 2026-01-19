@@ -15,7 +15,9 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -584,4 +586,154 @@ func (h *Handlers) GetAnalyticsOverview(w http.ResponseWriter, r *http.Request) 
 	}
 
 	respondJSON(w, http.StatusOK, overview)
+}
+
+/* GetRetrievalStats returns statistics about retrieval decisions */
+func (h *Handlers) GetRetrievalStats(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	vars := mux.Vars(r)
+	requestID := GetRequestID(r.Context())
+
+	if err := validation.ValidateUUIDRequired(vars["id"], "agent_id"); err != nil {
+		respondError(w, NewErrorWithContext(http.StatusBadRequest, "invalid agent ID", err, requestID, r.URL.Path, r.Method, "retrieval", "", nil))
+		return
+	}
+
+	agentID, err := uuid.Parse(vars["id"])
+	if err != nil {
+		respondError(w, NewErrorWithContext(http.StatusBadRequest, "invalid agent id format", err, requestID, r.URL.Path, r.Method, "retrieval", "", nil))
+		return
+	}
+
+	/* Verify agent exists */
+	_, err = h.queries.GetAgentByID(r.Context(), agentID)
+	if err != nil {
+		respondError(w, NewErrorWithContext(http.StatusNotFound, "agent not found", err, requestID, r.URL.Path, r.Method, "retrieval", agentID.String(), nil))
+		return
+	}
+
+	/* Get days parameter */
+	days := 30
+	if d := r.URL.Query().Get("days"); d != "" {
+		fmt.Sscanf(d, "%d", &days)
+		if days < 1 {
+			days = 1
+		}
+		if days > 365 {
+			days = 365
+		}
+	}
+
+	/* Get retrieval learning manager */
+	retrievalLearning := h.runtime.GetRetrievalLearning()
+	if retrievalLearning == nil {
+		respondError(w, NewErrorWithContext(http.StatusInternalServerError, "retrieval learning manager not available", nil, requestID, r.URL.Path, r.Method, "retrieval", agentID.String(), nil))
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	stats, err := retrievalLearning.GetRetrievalStats(ctx, agentID, days)
+	if err != nil {
+		respondError(w, NewErrorWithContext(http.StatusInternalServerError, "failed to get retrieval stats", err, requestID, r.URL.Path, r.Method, "retrieval", agentID.String(), nil))
+		return
+	}
+
+	duration := time.Since(start)
+	stats["duration_ms"] = duration.Milliseconds()
+	stats["agent_id"] = agentID.String()
+	stats["days"] = days
+
+	respondJSON(w, http.StatusOK, stats)
+}
+
+/* ConsolidateMemory consolidates similar memories for an agent */
+func (h *Handlers) ConsolidateMemory(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	vars := mux.Vars(r)
+	requestID := GetRequestID(r.Context())
+
+	if err := validation.ValidateUUIDRequired(vars["id"], "agent_id"); err != nil {
+		respondError(w, NewErrorWithContext(http.StatusBadRequest, "invalid agent ID", err, requestID, r.URL.Path, r.Method, "memory", "", nil))
+		return
+	}
+
+	agentID, err := uuid.Parse(vars["id"])
+	if err != nil {
+		respondError(w, NewErrorWithContext(http.StatusBadRequest, "invalid agent id format", err, requestID, r.URL.Path, r.Method, "memory", "", nil))
+		return
+	}
+
+	/* Verify agent exists */
+	_, err = h.queries.GetAgentByID(r.Context(), agentID)
+	if err != nil {
+		respondError(w, NewErrorWithContext(http.StatusNotFound, "agent not found", err, requestID, r.URL.Path, r.Method, "memory", agentID.String(), nil))
+		return
+	}
+
+	/* Parse request body */
+	var req struct {
+		Tier                string  `json:"tier"`                 /* stm, mtm, lpm */
+		SimilarityThreshold float64 `json:"similarity_threshold"` /* 0.7-1.0, default 0.9 */
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		respondError(w, NewErrorWithContext(http.StatusBadRequest, "failed to read request body", err, requestID, r.URL.Path, r.Method, "memory", agentID.String(), nil))
+		return
+	}
+	r.Body = io.NopCloser(bytes.NewBuffer(body))
+
+	if len(body) > 0 {
+		if err := json.Unmarshal(body, &req); err != nil {
+			respondError(w, NewErrorWithContext(http.StatusBadRequest, "invalid request body", err, requestID, r.URL.Path, r.Method, "memory", agentID.String(), nil))
+			return
+		}
+	}
+
+	/* Validate tier */
+	if req.Tier == "" {
+		req.Tier = "mtm" /* Default to MTM */
+	}
+	if req.Tier != "stm" && req.Tier != "mtm" && req.Tier != "lpm" {
+		respondError(w, NewErrorWithContext(http.StatusBadRequest, "invalid tier: must be 'stm', 'mtm', or 'lpm'", nil, requestID, r.URL.Path, r.Method, "memory", agentID.String(), nil))
+		return
+	}
+
+	/* Validate similarity threshold */
+	if req.SimilarityThreshold == 0 {
+		req.SimilarityThreshold = 0.9 /* Default */
+	}
+	if req.SimilarityThreshold < 0.7 || req.SimilarityThreshold > 1.0 {
+		respondError(w, NewErrorWithContext(http.StatusBadRequest, "similarity_threshold must be between 0.7 and 1.0", nil, requestID, r.URL.Path, r.Method, "memory", agentID.String(), nil))
+		return
+	}
+
+	/* Get memory adaptation manager */
+	memoryAdaptation := h.runtime.GetMemoryAdaptation()
+	if memoryAdaptation == nil {
+		respondError(w, NewErrorWithContext(http.StatusInternalServerError, "memory adaptation manager not available", nil, requestID, r.URL.Path, r.Method, "memory", agentID.String(), nil))
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Minute)
+	defer cancel()
+
+	consolidated, err := memoryAdaptation.ConsolidateSimilarMemories(ctx, agentID, req.Tier, req.SimilarityThreshold)
+	if err != nil {
+		respondError(w, NewErrorWithContext(http.StatusInternalServerError, "memory consolidation failed", err, requestID, r.URL.Path, r.Method, "memory", agentID.String(), nil))
+		return
+	}
+
+	duration := time.Since(start)
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"agent_id":            agentID.String(),
+		"tier":                req.Tier,
+		"similarity_threshold": req.SimilarityThreshold,
+		"consolidated_count":  consolidated,
+		"status":              "completed",
+		"duration_ms":         duration.Milliseconds(),
+		"completed_at":        time.Now().UTC(),
+	})
 }

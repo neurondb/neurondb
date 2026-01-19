@@ -1,6 +1,6 @@
 {
   "name": "@neurondb/agent",
-  "version": "1.0.0",
+  "version": "3.0.0-devel",
   "description": "TypeScript/JavaScript SDK for NeuronAgent",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

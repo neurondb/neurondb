@@ -128,6 +128,14 @@ func NewRegistryWithAllFeatures(queries *db.Queries, database *db.DB, vfs interf
 	/* Register multimodal tool */
 	registry.RegisterHandler("multimodal", NewMultimodalTool())
 
+	/* Register web search tool */
+	registry.RegisterHandler("web_search", NewWebSearchTool())
+	
+	/* Note: RetrievalTool requires runtime components (memory, router, etc.) */
+	/* It should be registered separately with proper initialization */
+	/* For now, it can be registered with nil interfaces and will return errors when used */
+	/* This allows the tool to exist but requires proper setup before use */
+
 	return registry
 }
 
@@ -320,6 +328,23 @@ func (r *Registry) Cleanup() {
 	if r.browserTool != nil {
 		r.browserTool.Cleanup()
 	}
+}
+
+/* GetHTTPTool returns the HTTP tool */
+func (r *Registry) GetHTTPTool() *HTTPTool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if handler, ok := r.handlers["http"].(*HTTPTool); ok {
+		return handler
+	}
+	return nil
+}
+
+/* GetHandler returns a handler by type (for internal use) */
+func (r *Registry) GetHandler(handlerType string) ToolHandler {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.handlers[handlerType]
 }
 
 /* GetBrowserTool returns the browser tool (for cleanup worker) */

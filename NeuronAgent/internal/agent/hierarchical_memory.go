@@ -228,14 +228,14 @@ func (h *HierarchicalMemoryManager) PromoteToLPM(ctx context.Context, agentID uu
 }
 
 /* RetrieveHierarchical queries across memory tiers */
-func (h *HierarchicalMemoryManager) RetrieveHierarchical(ctx context.Context, agentID uuid.UUID, query string, tiers []string, topK int) (map[string][]MemoryChunk, error) {
+func (h *HierarchicalMemoryManager) RetrieveHierarchical(ctx context.Context, agentID uuid.UUID, query string, tiers []string, topK int) ([]map[string]interface{}, error) {
 	/* Compute query embedding */
 	queryEmbedding, err := h.embed.Embed(ctx, query, "all-MiniLM-L6-v2")
 	if err != nil {
 		return nil, fmt.Errorf("query embedding failed: error=%w", err)
 	}
 
-	results := make(map[string][]MemoryChunk)
+	var results []map[string]interface{}
 
 	/* Query each tier */
 	for _, tier := range tiers {
@@ -252,17 +252,19 @@ func (h *HierarchicalMemoryManager) RetrieveHierarchical(ctx context.Context, ag
 		}
 
 		sqlQuery := fmt.Sprintf(`SELECT id::text, content, importance_score,
-			1 - (embedding <=> $1::neurondb_vector) AS similarity
+			1 - (embedding <=> $1::neurondb_vector) AS similarity,
+			COALESCE(metadata, '{}'::jsonb) AS metadata
 			FROM neurondb_agent.%s
 			WHERE agent_id = $2
 			ORDER BY embedding <=> $1::neurondb_vector
 			LIMIT $3`, tableName)
 
 		type ResultRow struct {
-			ID              string  `db:"id"`
-			Content         string  `db:"content"`
-			ImportanceScore float64 `db:"importance_score"`
-			Similarity      float64 `db:"similarity"`
+			ID              string                 `db:"id"`
+			Content         string                 `db:"content"`
+			ImportanceScore float64                `db:"importance_score"`
+			Similarity      float64                `db:"similarity"`
+			Metadata        map[string]interface{} `db:"metadata"`
 		}
 
 		var rows []ResultRow
@@ -272,19 +274,406 @@ func (h *HierarchicalMemoryManager) RetrieveHierarchical(ctx context.Context, ag
 			continue
 		}
 
-		chunks := make([]MemoryChunk, len(rows))
-		for i, row := range rows {
-			chunks[i] = MemoryChunk{
-				Content:         row.Content,
-				ImportanceScore: row.ImportanceScore,
-				Similarity:      row.Similarity,
+		/* Convert rows to map format */
+		for _, row := range rows {
+			result := map[string]interface{}{
+				"id":              row.ID,
+				"tier":            tier,
+				"content":         row.Content,
+				"importance_score": row.ImportanceScore,
+				"similarity":      row.Similarity,
+				"metadata":        row.Metadata,
 			}
+			results = append(results, result)
 		}
-
-		results[tier] = chunks
 	}
 
 	return results, nil
+}
+
+/* UpdateMemory updates existing memory in any tier */
+func (h *HierarchicalMemoryManager) UpdateMemory(ctx context.Context, agentID uuid.UUID, memoryID uuid.UUID, tier string, content *string, importance *float64, topic *string, category *string) error {
+	/* Validate tier */
+	if tier != "stm" && tier != "mtm" && tier != "lpm" {
+		return fmt.Errorf("invalid tier: %s (must be stm, mtm, or lpm)", tier)
+	}
+
+	/* Check if memory exists and retrieve current content/embedding */
+	type MemoryRow struct {
+		Content  string    `db:"content"`
+		Embedding []float32 `db:"embedding"`
+	}
+
+	var currentRow MemoryRow
+	var checkQuery string
+
+	switch tier {
+	case "stm":
+		checkQuery = `SELECT content, embedding FROM neurondb_agent.memory_stm WHERE id = $1 AND agent_id = $2`
+	case "mtm":
+		checkQuery = `SELECT content, embedding FROM neurondb_agent.memory_mtm WHERE id = $1 AND agent_id = $2`
+	case "lpm":
+		checkQuery = `SELECT content, embedding FROM neurondb_agent.memory_lpm WHERE id = $1 AND agent_id = $2`
+	}
+
+	err := h.db.DB.GetContext(ctx, &currentRow, checkQuery, memoryID, agentID)
+	if err != nil {
+		return fmt.Errorf("%s memory not found: error=%w", strings.ToUpper(tier), err)
+	}
+
+	/* Determine if content changed and needs re-embedding */
+	needsReembedding := content != nil && *content != currentRow.Content
+	finalContent := currentRow.Content
+	if content != nil {
+		finalContent = *content
+	}
+
+	/* Recompute embedding if content changed */
+	var finalEmbedding interface{} = nil
+	if needsReembedding {
+		newEmbedding, err := h.embed.Embed(ctx, finalContent, "all-MiniLM-L6-v2")
+		if err != nil {
+			return fmt.Errorf("embedding recalculation failed: error=%w", err)
+		}
+		finalEmbedding = newEmbedding
+	}
+
+	/* Build update query based on tier */
+	switch tier {
+	case "stm":
+		if finalEmbedding != nil {
+			updateQuery := `UPDATE neurondb_agent.memory_stm 
+				SET content = COALESCE($3, content),
+					embedding = $4::neurondb_vector,
+					importance_score = COALESCE($5, importance_score),
+					updated_at = NOW()
+				WHERE id = $1 AND agent_id = $2`
+			_, err := h.db.DB.ExecContext(ctx, updateQuery, memoryID, agentID, content, finalEmbedding, importance)
+			if err != nil {
+				return fmt.Errorf("STM update failed: error=%w", err)
+			}
+		} else {
+			updateQuery := `UPDATE neurondb_agent.memory_stm 
+				SET content = COALESCE($3, content),
+					importance_score = COALESCE($4, importance_score),
+					updated_at = NOW()
+				WHERE id = $1 AND agent_id = $2`
+			_, err := h.db.DB.ExecContext(ctx, updateQuery, memoryID, agentID, content, importance)
+			if err != nil {
+				return fmt.Errorf("STM update failed: error=%w", err)
+			}
+		}
+
+	case "mtm":
+		if finalEmbedding != nil {
+			updateQuery := `UPDATE neurondb_agent.memory_mtm 
+				SET content = COALESCE($3, content),
+					embedding = $4::neurondb_vector,
+					importance_score = COALESCE($5, importance_score),
+					topic = COALESCE($6, topic),
+					updated_at = NOW()
+				WHERE id = $1 AND agent_id = $2`
+			_, err := h.db.DB.ExecContext(ctx, updateQuery, memoryID, agentID, content, finalEmbedding, importance, topic)
+			if err != nil {
+				return fmt.Errorf("MTM update failed: error=%w", err)
+			}
+		} else {
+			updateQuery := `UPDATE neurondb_agent.memory_mtm 
+				SET content = COALESCE($3, content),
+					importance_score = COALESCE($4, importance_score),
+					topic = COALESCE($5, topic),
+					updated_at = NOW()
+				WHERE id = $1 AND agent_id = $2`
+			_, err := h.db.DB.ExecContext(ctx, updateQuery, memoryID, agentID, content, importance, topic)
+			if err != nil {
+				return fmt.Errorf("MTM update failed: error=%w", err)
+			}
+		}
+
+	case "lpm":
+		if finalEmbedding != nil {
+			updateQuery := `UPDATE neurondb_agent.memory_lpm 
+				SET content = COALESCE($3, content),
+					embedding = $4::neurondb_vector,
+					importance_score = COALESCE($5, importance_score),
+					category = COALESCE($6, category),
+					updated_at = NOW()
+				WHERE id = $1 AND agent_id = $2`
+			_, err := h.db.DB.ExecContext(ctx, updateQuery, memoryID, agentID, content, finalEmbedding, importance, category)
+			if err != nil {
+				return fmt.Errorf("LPM update failed: error=%w", err)
+			}
+		} else {
+			updateQuery := `UPDATE neurondb_agent.memory_lpm 
+				SET content = COALESCE($3, content),
+					importance_score = COALESCE($4, importance_score),
+					category = COALESCE($5, category),
+					updated_at = NOW()
+				WHERE id = $1 AND agent_id = $2`
+			_, err := h.db.DB.ExecContext(ctx, updateQuery, memoryID, agentID, content, importance, category)
+			if err != nil {
+				return fmt.Errorf("LPM update failed: error=%w", err)
+			}
+		}
+	}
+
+	return nil
+}
+
+/* DeleteMemory deletes memory from any tier */
+func (h *HierarchicalMemoryManager) DeleteMemory(ctx context.Context, agentID uuid.UUID, memoryID uuid.UUID, tier string) error {
+	/* Validate tier */
+	if tier != "stm" && tier != "mtm" && tier != "lpm" {
+		return fmt.Errorf("invalid tier: %s (must be stm, mtm, or lpm)", tier)
+	}
+
+	/* Record deletion in transitions table for audit */
+	transitionQuery := `INSERT INTO neurondb_agent.memory_transitions
+		(agent_id, from_tier, to_tier, source_id, target_id, reason)
+		VALUES ($1, $2, 'deleted', $3, $3, 'agent_deletion')`
+	_, _ = h.db.DB.ExecContext(ctx, transitionQuery, agentID, tier, memoryID)
+	/* Continue even if transition logging fails */
+
+	/* Delete from appropriate table */
+	switch tier {
+	case "stm":
+		deleteQuery := `DELETE FROM neurondb_agent.memory_stm WHERE id = $1 AND agent_id = $2`
+		result, err := h.db.DB.ExecContext(ctx, deleteQuery, memoryID, agentID)
+		if err != nil {
+			return fmt.Errorf("STM deletion failed: error=%w", err)
+		}
+		rowsAffected, _ := result.RowsAffected()
+		if rowsAffected == 0 {
+			return fmt.Errorf("STM memory not found")
+		}
+
+	case "mtm":
+		deleteQuery := `DELETE FROM neurondb_agent.memory_mtm WHERE id = $1 AND agent_id = $2`
+		result, err := h.db.DB.ExecContext(ctx, deleteQuery, memoryID, agentID)
+		if err != nil {
+			return fmt.Errorf("MTM deletion failed: error=%w", err)
+		}
+		rowsAffected, _ := result.RowsAffected()
+		if rowsAffected == 0 {
+			return fmt.Errorf("MTM memory not found")
+		}
+
+	case "lpm":
+		deleteQuery := `DELETE FROM neurondb_agent.memory_lpm WHERE id = $1 AND agent_id = $2`
+		result, err := h.db.DB.ExecContext(ctx, deleteQuery, memoryID, agentID)
+		if err != nil {
+			return fmt.Errorf("LPM deletion failed: error=%w", err)
+		}
+		rowsAffected, _ := result.RowsAffected()
+		if rowsAffected == 0 {
+			return fmt.Errorf("LPM memory not found")
+		}
+	}
+
+	return nil
+}
+
+/* StoreMTM stores content directly in mid-term memory */
+func (h *HierarchicalMemoryManager) StoreMTM(ctx context.Context, agentID uuid.UUID, topic string, content string, importance float64) (uuid.UUID, error) {
+	/* Compute embedding */
+	embedding, err := h.embed.Embed(ctx, content, "all-MiniLM-L6-v2")
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("MTM embedding failed: error=%w", err)
+	}
+
+	/* Store in MTM table */
+	query := `INSERT INTO neurondb_agent.memory_mtm
+		(agent_id, topic, content, embedding, importance_score)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id`
+
+	var id uuid.UUID
+	err = h.db.DB.GetContext(ctx, &id, query, agentID, topic, content, embedding, importance)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("MTM storage failed: error=%w", err)
+	}
+
+	return id, nil
+}
+
+/* StoreLPM stores content directly in long-term personal memory */
+func (h *HierarchicalMemoryManager) StoreLPM(ctx context.Context, agentID uuid.UUID, category string, content string, importance float64, userID *uuid.UUID) (uuid.UUID, error) {
+	/* Compute embedding */
+	embedding, err := h.embed.Embed(ctx, content, "all-MiniLM-L6-v2")
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("LPM embedding failed: error=%w", err)
+	}
+
+	/* Store in LPM table */
+	query := `INSERT INTO neurondb_agent.memory_lpm
+		(agent_id, user_id, category, content, embedding, importance_score, confidence)
+		VALUES ($1, $2, $3, $4, $5, $6, 0.8)
+		RETURNING id`
+
+	var id uuid.UUID
+	err = h.db.DB.GetContext(ctx, &id, query, agentID, userID, category, content, embedding, importance)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("LPM storage failed: error=%w", err)
+	}
+
+	return id, nil
+}
+
+/* PromoteMemory promotes memory from one tier to another (agent-controlled) */
+func (h *HierarchicalMemoryManager) PromoteMemory(ctx context.Context, agentID uuid.UUID, memoryID uuid.UUID, fromTier string, toTier string, topic *string, category *string, userID *uuid.UUID, reason string) (uuid.UUID, error) {
+	/* Validate tier transition */
+	if fromTier == "stm" && toTier != "mtm" {
+		return uuid.Nil, fmt.Errorf("invalid promotion: STM can only be promoted to MTM")
+	}
+	if fromTier == "mtm" && toTier != "lpm" {
+		return uuid.Nil, fmt.Errorf("invalid promotion: MTM can only be promoted to LPM")
+	}
+	if fromTier == "lpm" {
+		return uuid.Nil, fmt.Errorf("invalid promotion: LPM cannot be promoted further")
+	}
+
+	/* STM to MTM promotion */
+	if fromTier == "stm" && toTier == "mtm" {
+		if topic == nil || *topic == "" {
+			return uuid.Nil, fmt.Errorf("topic required for STM to MTM promotion")
+		}
+		return h.PromoteToMTM(ctx, agentID, []uuid.UUID{memoryID}, *topic)
+	}
+
+	/* MTM to LPM promotion */
+	if fromTier == "mtm" && toTier == "lpm" {
+		if category == nil || *category == "" {
+			return uuid.Nil, fmt.Errorf("category required for MTM to LPM promotion")
+		}
+		/* Update transition reason if provided */
+		lpmID, err := h.PromoteToLPM(ctx, agentID, []uuid.UUID{memoryID}, *category, userID)
+		if err != nil {
+			return uuid.Nil, err
+		}
+		/* Update transition reason if custom reason provided */
+		if reason != "" {
+			updateQuery := `UPDATE neurondb_agent.memory_transitions
+				SET reason = $1
+				WHERE agent_id = $2 AND from_tier = 'mtm' AND to_tier = 'lpm' AND source_id = $3 AND target_id = $4`
+			_, _ = h.db.DB.ExecContext(ctx, updateQuery, reason, agentID, memoryID, lpmID)
+		}
+		return lpmID, nil
+	}
+
+	return uuid.Nil, fmt.Errorf("unsupported promotion: %s to %s", fromTier, toTier)
+}
+
+/* DemoteMemory demotes memory from one tier to another (agent-controlled) */
+func (h *HierarchicalMemoryManager) DemoteMemory(ctx context.Context, agentID uuid.UUID, memoryID uuid.UUID, fromTier string, toTier string, reason string) (uuid.UUID, error) {
+	/* Validate tier transition */
+	if fromTier == "lpm" && toTier != "mtm" {
+		return uuid.Nil, fmt.Errorf("invalid demotion: LPM can only be demoted to MTM")
+	}
+	if fromTier == "mtm" && toTier != "stm" {
+		return uuid.Nil, fmt.Errorf("invalid demotion: MTM can only be demoted to STM")
+	}
+	if fromTier == "stm" {
+		return uuid.Nil, fmt.Errorf("invalid demotion: STM cannot be demoted further")
+	}
+
+	/* LPM to MTM demotion */
+	if fromTier == "lpm" && toTier == "mtm" {
+		/* Retrieve LPM entry */
+		query := `SELECT content, importance_score, category FROM neurondb_agent.memory_lpm
+			WHERE id = $1 AND agent_id = $2`
+
+		type LPMRow struct {
+			Content         string  `db:"content"`
+			ImportanceScore float64 `db:"importance_score"`
+			Category        string  `db:"category"`
+		}
+
+		var row LPMRow
+		err := h.db.DB.GetContext(ctx, &row, query, memoryID, agentID)
+		if err != nil {
+			return uuid.Nil, fmt.Errorf("LPM retrieval for demotion failed: error=%w", err)
+		}
+
+		/* Compute embedding */
+		embedding, err := h.embed.Embed(ctx, row.Content, "all-MiniLM-L6-v2")
+		if err != nil {
+			return uuid.Nil, fmt.Errorf("MTM embedding failed: error=%w", err)
+		}
+
+		/* Store in MTM table */
+		insertQuery := `INSERT INTO neurondb_agent.memory_mtm
+			(agent_id, topic, content, embedding, importance_score)
+			VALUES ($1, $2, $3, $4, $5)
+			RETURNING id`
+
+		var mtmID uuid.UUID
+		err = h.db.DB.GetContext(ctx, &mtmID, insertQuery, agentID, row.Category, row.Content, embedding, row.ImportanceScore)
+		if err != nil {
+			return uuid.Nil, fmt.Errorf("MTM storage failed: error=%w", err)
+		}
+
+		/* Record transition */
+		transitionQuery := `INSERT INTO neurondb_agent.memory_transitions
+			(agent_id, from_tier, to_tier, source_id, target_id, reason)
+			VALUES ($1, 'lpm', 'mtm', $2, $3, $4)`
+		transitionReason := reason
+		if transitionReason == "" {
+			transitionReason = "agent_demotion"
+		}
+		_, _ = h.db.DB.ExecContext(ctx, transitionQuery, agentID, memoryID, mtmID, transitionReason)
+
+		return mtmID, nil
+	}
+
+	/* MTM to STM demotion */
+	if fromTier == "mtm" && toTier == "stm" {
+		/* Retrieve MTM entry */
+		query := `SELECT content, importance_score FROM neurondb_agent.memory_mtm
+			WHERE id = $1 AND agent_id = $2`
+
+		type MTMRow struct {
+			Content         string  `db:"content"`
+			ImportanceScore float64 `db:"importance_score"`
+		}
+
+		var row MTMRow
+		err := h.db.DB.GetContext(ctx, &row, query, memoryID, agentID)
+		if err != nil {
+			return uuid.Nil, fmt.Errorf("MTM retrieval for demotion failed: error=%w", err)
+		}
+
+		/* Compute embedding */
+		embedding, err := h.embed.Embed(ctx, row.Content, "all-MiniLM-L6-v2")
+		if err != nil {
+			return uuid.Nil, fmt.Errorf("STM embedding failed: error=%w", err)
+		}
+
+		/* Store in STM table (session_id is NULL for demoted entries) */
+		insertQuery := `INSERT INTO neurondb_agent.memory_stm
+			(agent_id, session_id, content, embedding, importance_score)
+			VALUES ($1, NULL, $2, $3, $4)
+			RETURNING id`
+
+		var stmID uuid.UUID
+		err = h.db.DB.GetContext(ctx, &stmID, insertQuery, agentID, nil, row.Content, embedding, row.ImportanceScore)
+		if err != nil {
+			return uuid.Nil, fmt.Errorf("STM storage failed: error=%w", err)
+		}
+
+		/* Record transition */
+		transitionQuery := `INSERT INTO neurondb_agent.memory_transitions
+			(agent_id, from_tier, to_tier, source_id, target_id, reason)
+			VALUES ($1, 'mtm', 'stm', $2, $3, $4)`
+		transitionReason := reason
+		if transitionReason == "" {
+			transitionReason = "agent_demotion"
+		}
+		_, _ = h.db.DB.ExecContext(ctx, transitionQuery, agentID, memoryID, stmID, transitionReason)
+
+		return stmID, nil
+	}
+
+	return uuid.Nil, fmt.Errorf("unsupported demotion: %s to %s", fromTier, toTier)
 }
 
 /* CleanupExpired removes expired STM and MTM entries */

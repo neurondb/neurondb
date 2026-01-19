@@ -53,6 +53,19 @@ type Runtime struct {
 	toolPermChecker     *auth.ToolPermissionChecker
 	deterministicMode   bool
 	coordinator         interface{} /* Distributed coordinator interface */
+	/* Memory management components */
+	corruptionDetector  *MemoryCorruptionDetector
+	forgettingManager   *MemoryForgettingManager
+	conflictResolver    *MemoryConflictResolver
+	qualityScorer       *MemoryQualityScorer
+	crossSessionManager *CrossSessionMemoryManager
+	knowledgeRouter     *KnowledgeRouter
+	relevanceChecker    *RelevanceChecker
+	retrievalLearning   *RetrievalLearningManager
+	memoryAutoWriter    *MemoryAutoWriter
+	memoryLearning      *MemoryLearningManager
+	personalization     *PersonalizationManager
+	memoryAdaptation    *MemoryAdaptationManager
 }
 
 type ExecutionState struct {
@@ -100,19 +113,48 @@ type ToolRegistry interface {
 
 func NewRuntime(db *db.DB, queries *db.Queries, tools ToolRegistry, embedClient *neurondb.EmbeddingClient) *Runtime {
 	llm := NewLLMClient(db)
+	memory := NewMemoryManager(db, queries, embedClient)
+	hierMemory := NewHierarchicalMemoryManager(db, queries, embedClient)
+	
+	/* Initialize memory management components */
+	corruptionDetector := NewMemoryCorruptionDetector(db, queries, embedClient)
+	forgettingManager := NewMemoryForgettingManager(db, queries, embedClient)
+	conflictResolver := NewMemoryConflictResolver(db, queries, llm, embedClient)
+	qualityScorer := NewMemoryQualityScorer(db, queries)
+	crossSessionManager := NewCrossSessionMemoryManager(db, queries, embedClient)
+	knowledgeRouter := NewKnowledgeRouter(llm, embedClient)
+	relevanceChecker := NewRelevanceChecker(llm, embedClient)
+	retrievalLearning := NewRetrievalLearningManager(db, queries, knowledgeRouter)
+	memoryAutoWriter := NewMemoryAutoWriter(llm, hierMemory, queries)
+	memoryLearning := NewMemoryLearningManager(db, queries)
+	personalization := NewPersonalizationManager(hierMemory, queries)
+	memoryAdaptation := NewMemoryAdaptationManager(db, queries)
+	
 	return &Runtime{
-		db:              db,
-		queries:         queries,
-		memory:          NewMemoryManager(db, queries, embedClient),
-		hierMemory:      NewHierarchicalMemoryManager(db, queries, embedClient),
-		eventStream:     NewEventStreamManager(queries, llm),
-		planner:         NewPlannerWithLLM(llm),
-		reflector:       NewReflector(llm),
-		prompt:          NewPromptBuilder(),
-		llm:             llm,
-		tools:           tools,
-		embed:           embedClient,
-		toolPermChecker: auth.NewToolPermissionChecker(queries),
+		db:                  db,
+		queries:             queries,
+		memory:              memory,
+		hierMemory:          hierMemory,
+		eventStream:         NewEventStreamManager(queries, llm),
+		planner:             NewPlannerWithLLM(llm),
+		reflector:           NewReflector(llm),
+		prompt:              NewPromptBuilder(),
+		llm:                 llm,
+		tools:               tools,
+		embed:               embedClient,
+		toolPermChecker:     auth.NewToolPermissionChecker(queries),
+		corruptionDetector:  corruptionDetector,
+		forgettingManager:   forgettingManager,
+		conflictResolver:    conflictResolver,
+		qualityScorer:      qualityScorer,
+		crossSessionManager: crossSessionManager,
+		knowledgeRouter:     knowledgeRouter,
+		relevanceChecker:    relevanceChecker,
+		retrievalLearning:   retrievalLearning,
+		memoryAutoWriter:    memoryAutoWriter,
+		memoryLearning:      memoryLearning,
+		personalization:     personalization,
+		memoryAdaptation:    memoryAdaptation,
 	}
 }
 
@@ -197,11 +239,27 @@ func (r *Runtime) Execute(ctx context.Context, sessionID uuid.UUID, userMessage 
 	}
 
 	/* Step 2: Load context using hierarchical memory and event stream */
-	contextLoader := NewContextLoader(r.queries, r.memory, r.llm)
-	agentContext, err := contextLoader.Load(ctx, sessionID, agent.ID, userMessage, 20, 5)
+	/* Check if agentic retrieval is enabled */
+	skipAutoRetrieval := false
+	var contextLoader *ContextLoader
+	if agent.Config != nil {
+		if agenticRetrieval, ok := agent.Config["agentic_retrieval_enabled"].(bool); ok && agenticRetrieval {
+			skipAutoRetrieval = true
+			/* Use enhanced context loader with retrieval components */
+			retrievalAdapter := NewRetrievalAdapter(r.memory, r.hierMemory, r.relevanceChecker)
+			contextLoader = NewContextLoaderWithRetrieval(r.queries, r.memory, r.llm, r.relevanceChecker, r.knowledgeRouter, retrievalAdapter, r.retrievalLearning)
+		}
+	}
+	
+	/* Fallback to standard context loader if not using agentic retrieval */
+	if contextLoader == nil {
+		contextLoader = NewContextLoader(r.queries, r.memory, r.llm)
+	}
+	
+	agentContext, err := contextLoader.LoadWithOptions(ctx, sessionID, agent.ID, userMessage, 20, 5, skipAutoRetrieval)
 	if err != nil {
-		return nil, fmt.Errorf("agent execution failed at step 2 (load context): session_id='%s', agent_id='%s', agent_name='%s', user_message_length=%d, max_messages=20, max_memory_chunks=5, error=%w",
-			sessionID.String(), agent.ID.String(), agent.Name, len(userMessage), err)
+		return nil, fmt.Errorf("agent execution failed at step 2 (load context): session_id='%s', agent_id='%s', agent_name='%s', user_message_length=%d, max_messages=20, max_memory_chunks=5, skip_auto_retrieval=%v, error=%w",
+			sessionID.String(), agent.ID.String(), agent.Name, len(userMessage), skipAutoRetrieval, err)
 	}
 
 	/* Enhance context with hierarchical memory if available */
@@ -209,16 +267,34 @@ func (r *Runtime) Execute(ctx context.Context, sessionID uuid.UUID, userMessage 
 		hierMemoryChunks, err := r.hierMemory.RetrieveHierarchical(ctx, agent.ID, userMessage, []string{"stm", "mtm", "lpm"}, 5)
 		if err == nil && hierMemoryChunks != nil {
 			/* Add hierarchical memory chunks to context */
-			for tier, chunks := range hierMemoryChunks {
-				for _, chunk := range chunks {
-					agentContext.MemoryChunks = append(agentContext.MemoryChunks, MemoryChunk{
-						ID:              chunk.ID,
-						Content:         chunk.Content,
-						ImportanceScore: chunk.ImportanceScore,
-						Similarity:      chunk.Similarity,
-						Metadata:        map[string]interface{}{"tier": tier},
-					})
+			for _, chunkMap := range hierMemoryChunks {
+				tier, _ := chunkMap["tier"].(string)
+				content, _ := chunkMap["content"].(string)
+				importanceScore, _ := chunkMap["importance_score"].(float64)
+				similarity, _ := chunkMap["similarity"].(float64)
+				metadata, _ := chunkMap["metadata"].(map[string]interface{})
+				if metadata == nil {
+					metadata = make(map[string]interface{})
 				}
+				metadata["tier"] = tier
+				
+				/* Parse memory ID if available */
+				var id int64
+				if idStr, ok := chunkMap["id"].(string); ok {
+					/* Try to parse as UUID first, then as int64 */
+					if parsedUUID, err := uuid.Parse(idStr); err == nil {
+						/* For hierarchical memory, we use a hash of UUID as ID */
+						id = int64(parsedUUID[0]) << 32 | int64(parsedUUID[1])
+					}
+				}
+				
+				agentContext.MemoryChunks = append(agentContext.MemoryChunks, MemoryChunk{
+					ID:              id,
+					Content:         content,
+					ImportanceScore: importanceScore,
+					Similarity:      similarity,
+					Metadata:        metadata,
+				})
 			}
 		} else if err != nil {
 			/* Log error but continue - hierarchical memory is optional */
@@ -246,16 +322,24 @@ func (r *Runtime) Execute(ctx context.Context, sessionID uuid.UUID, userMessage 
 
 	state.Context = agentContext
 
-	/* Step 3: Build prompt */
-	prompt, err := r.prompt.Build(agent, agentContext, userMessage)
+	/* Step 3: Get personalization context */
+	var personalizationCtx *PersonalizationContext
+	if r.personalization != nil {
+		/* Try to get user ID from session */
+		userID, _ := GetUserIDFromSession(r.queries, ctx, sessionID)
+		personalizationCtx, _ = r.personalization.GetPersonalizationContext(ctx, agent.ID, userID)
+	}
+
+	/* Step 4: Build prompt with personalization */
+	prompt, err := r.prompt.BuildWithPersonalization(agent, agentContext, userMessage, personalizationCtx)
 	if err != nil {
 		messageCount := len(agentContext.Messages)
 		memoryChunkCount := len(agentContext.MemoryChunks)
-		return nil, fmt.Errorf("agent execution failed at step 3 (build prompt): session_id='%s', agent_id='%s', agent_name='%s', user_message_length=%d, context_message_count=%d, context_memory_chunk_count=%d, error=%w",
+		return nil, fmt.Errorf("agent execution failed at step 4 (build prompt): session_id='%s', agent_id='%s', agent_name='%s', user_message_length=%d, context_message_count=%d, context_memory_chunk_count=%d, error=%w",
 			sessionID.String(), agent.ID.String(), agent.Name, len(userMessage), messageCount, memoryChunkCount, err)
 	}
 
-	/* Step 4: Call LLM via NeuronDB */
+	/* Step 5: Call LLM via NeuronDB */
 	llmResponse, err := r.llm.Generate(ctx, agent.ModelName, prompt, agent.Config)
 	if err != nil {
 		promptTokens := EstimateTokens(prompt)
@@ -308,7 +392,7 @@ func (r *Runtime) Execute(ctx context.Context, sessionID uuid.UUID, userMessage 
 		state.ToolResults = toolResults
 
 		/* Step 7: Call LLM again with tool results */
-		finalPrompt, err := r.prompt.BuildWithToolResults(agent, agentContext, userMessage, llmResponse, toolResults)
+		finalPrompt, err := r.prompt.BuildWithToolResultsAndPersonalization(agent, agentContext, userMessage, llmResponse, toolResults, personalizationCtx)
 		if err != nil {
 			return nil, fmt.Errorf("agent execution failed at step 7 (build final prompt): session_id='%s', agent_id='%s', agent_name='%s', tool_result_count=%d, error=%w",
 				sessionID.String(), agent.ID.String(), agent.Name, len(toolResults), err)
@@ -374,13 +458,18 @@ func (r *Runtime) Execute(ctx context.Context, sessionID uuid.UUID, userMessage 
 		}
 	}
 
-	/* Step 8: Store messages with token counts */
+	/* Step 8: Apply personalization to final answer if available */
+	if r.personalization != nil && personalizationCtx != nil {
+		state.FinalAnswer = r.personalization.CustomizeResponse(personalizationCtx, state.FinalAnswer)
+	}
+
+	/* Step 9: Store messages with token counts */
 	if err := r.storeMessages(ctx, sessionID, userMessage, state.FinalAnswer, state.ToolCalls, state.ToolResults, state.TokensUsed); err != nil {
-		return nil, fmt.Errorf("agent execution failed at step 8 (store messages): session_id='%s', agent_id='%s', agent_name='%s', user_message_length=%d, final_answer_length=%d, tool_call_count=%d, tool_result_count=%d, total_tokens=%d, error=%w",
+		return nil, fmt.Errorf("agent execution failed at step 9 (store messages): session_id='%s', agent_id='%s', agent_name='%s', user_message_length=%d, final_answer_length=%d, tool_call_count=%d, tool_result_count=%d, total_tokens=%d, error=%w",
 			sessionID.String(), agent.ID.String(), agent.Name, len(userMessage), len(state.FinalAnswer), len(state.ToolCalls), len(state.ToolResults), state.TokensUsed, err)
 	}
 
-	/* Step 9: Store memory chunks (async, non-blocking) */
+	/* Step 10: Store memory chunks (async, non-blocking) */
 	go func() {
 		bgCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
@@ -398,6 +487,39 @@ func (r *Runtime) Execute(ctx context.Context, sessionID uuid.UUID, userMessage 
 		/* Store chunks - errors are handled internally by StoreChunks */
 		r.memory.StoreChunks(bgCtx, agent.ID, sessionID, state.FinalAnswer, state.ToolResults)
 
+		/* Automatic memory writing - extract and store important information */
+		if r.memoryAutoWriter != nil {
+			enabled := ShouldStoreMemory(agent)
+			if err := r.memoryAutoWriter.ExtractAndStore(bgCtx, agent.ID, sessionID, userMessage, state.FinalAnswer, enabled); err != nil {
+				/* Log error but continue - auto memory writing is non-critical */
+				metrics.WarnWithContext(bgCtx, "Automatic memory writing failed", map[string]interface{}{
+					"session_id": sessionID.String(),
+					"agent_id":   agent.ID.String(),
+					"error":      err.Error(),
+				})
+			}
+		}
+
+		/* Auto-share relevant memories across sessions if enabled */
+		if r.crossSessionManager != nil {
+			crossSessionEnabled := false
+			if agent.Config != nil {
+				if enabled, ok := agent.Config["cross_session_memory_enabled"].(bool); ok {
+					crossSessionEnabled = enabled
+				}
+			}
+			if crossSessionEnabled {
+				if err := r.crossSessionManager.AutoShareRelevantMemories(bgCtx, agent.ID, sessionID, crossSessionEnabled); err != nil {
+					/* Log error but continue - auto-sharing is non-critical */
+					metrics.WarnWithContext(bgCtx, "Automatic cross-session memory sharing failed", map[string]interface{}{
+						"session_id": sessionID.String(),
+						"agent_id":   agent.ID.String(),
+						"error":      err.Error(),
+					})
+				}
+			}
+		}
+
 		/* Check if context was cancelled or timed out */
 		if bgCtx.Err() != nil {
 			metrics.WarnWithContext(bgCtx, "Memory storage context cancelled or timed out", map[string]interface{}{
@@ -408,7 +530,7 @@ func (r *Runtime) Execute(ctx context.Context, sessionID uuid.UUID, userMessage 
 		}
 	}()
 
-	/* Step 10: Send completion alert if configured */
+	/* Step 11: Send completion alert if configured */
 	if r.alertManager != nil && state.FinalAnswer != "" {
 		/* Completion alerts are handled by async task notifier */
 		/* For synchronous execution, we could send immediate alerts here */
@@ -711,6 +833,66 @@ func (r *Runtime) Workspace() interface{} {
 	return r.workspace
 }
 
+/* GetCorruptionDetector returns the memory corruption detector */
+func (r *Runtime) GetCorruptionDetector() *MemoryCorruptionDetector {
+	return r.corruptionDetector
+}
+
+/* GetForgettingManager returns the memory forgetting manager */
+func (r *Runtime) GetForgettingManager() *MemoryForgettingManager {
+	return r.forgettingManager
+}
+
+/* GetConflictResolver returns the memory conflict resolver */
+func (r *Runtime) GetConflictResolver() *MemoryConflictResolver {
+	return r.conflictResolver
+}
+
+/* GetQualityScorer returns the memory quality scorer */
+func (r *Runtime) GetQualityScorer() *MemoryQualityScorer {
+	return r.qualityScorer
+}
+
+/* GetCrossSessionManager returns the cross-session memory manager */
+func (r *Runtime) GetCrossSessionManager() *CrossSessionMemoryManager {
+	return r.crossSessionManager
+}
+
+/* GetKnowledgeRouter returns the knowledge router */
+func (r *Runtime) GetKnowledgeRouter() *KnowledgeRouter {
+	return r.knowledgeRouter
+}
+
+/* GetRelevanceChecker returns the relevance checker */
+func (r *Runtime) GetRelevanceChecker() *RelevanceChecker {
+	return r.relevanceChecker
+}
+
+/* GetRetrievalLearning returns the retrieval learning manager */
+func (r *Runtime) GetRetrievalLearning() *RetrievalLearningManager {
+	return r.retrievalLearning
+}
+
+/* GetMemoryLearning returns the memory learning manager */
+func (r *Runtime) GetMemoryLearning() *MemoryLearningManager {
+	return r.memoryLearning
+}
+
+/* GetMemoryAdaptation returns the memory adaptation manager */
+func (r *Runtime) GetMemoryAdaptation() *MemoryAdaptationManager {
+	return r.memoryAdaptation
+}
+
+/* GetLLMClient returns the LLM client */
+func (r *Runtime) GetLLMClient() *LLMClient {
+	return r.llm
+}
+
+/* GetEmbeddingClient returns the embedding client */
+func (r *Runtime) GetEmbeddingClient() *neurondb.EmbeddingClient {
+	return r.embed
+}
+
 /* SetAsyncExecutor sets the async task executor */
 func (r *Runtime) SetAsyncExecutor(executor *AsyncTaskExecutor) {
 	r.asyncExecutor = executor
@@ -842,10 +1024,19 @@ func (r *Runtime) ExecuteStream(ctx context.Context, sessionID uuid.UUID, userMe
 
 	/* Step 2: Load context */
 	contextLoader := NewContextLoader(r.queries, r.memory, r.llm)
-	agentContext, err := contextLoader.Load(ctx, sessionID, agent.ID, userMessage, 20, 5)
+	
+	/* Check if agentic retrieval is enabled (for streaming) */
+	skipAutoRetrieval := false
+	if agent.Config != nil {
+		if agenticRetrieval, ok := agent.Config["agentic_retrieval_enabled"].(bool); ok && agenticRetrieval {
+			skipAutoRetrieval = true
+		}
+	}
+	
+	agentContext, err := contextLoader.LoadWithOptions(ctx, sessionID, agent.ID, userMessage, 20, 5, skipAutoRetrieval)
 	if err != nil {
-		return nil, fmt.Errorf("agent execution failed at step 2 (load context): session_id='%s', agent_id='%s', agent_name='%s', user_message_length=%d, max_messages=20, max_memory_chunks=5, error=%w",
-			sessionID.String(), agent.ID.String(), agent.Name, len(userMessage), err)
+		return nil, fmt.Errorf("agent execution failed at step 2 (load context): session_id='%s', agent_id='%s', agent_name='%s', user_message_length=%d, max_messages=20, max_memory_chunks=5, skip_auto_retrieval=%v, error=%w",
+			sessionID.String(), agent.ID.String(), agent.Name, len(userMessage), skipAutoRetrieval, err)
 	}
 
 	/* Enhance context with hierarchical memory if available */
@@ -853,16 +1044,34 @@ func (r *Runtime) ExecuteStream(ctx context.Context, sessionID uuid.UUID, userMe
 		hierMemoryChunks, err := r.hierMemory.RetrieveHierarchical(ctx, agent.ID, userMessage, []string{"stm", "mtm", "lpm"}, 5)
 		if err == nil && hierMemoryChunks != nil {
 			/* Add hierarchical memory chunks to context */
-			for tier, chunks := range hierMemoryChunks {
-				for _, chunk := range chunks {
-					agentContext.MemoryChunks = append(agentContext.MemoryChunks, MemoryChunk{
-						ID:              chunk.ID,
-						Content:         chunk.Content,
-						ImportanceScore: chunk.ImportanceScore,
-						Similarity:      chunk.Similarity,
-						Metadata:        map[string]interface{}{"tier": tier},
-					})
+			for _, chunkMap := range hierMemoryChunks {
+				tier, _ := chunkMap["tier"].(string)
+				content, _ := chunkMap["content"].(string)
+				importanceScore, _ := chunkMap["importance_score"].(float64)
+				similarity, _ := chunkMap["similarity"].(float64)
+				metadata, _ := chunkMap["metadata"].(map[string]interface{})
+				if metadata == nil {
+					metadata = make(map[string]interface{})
 				}
+				metadata["tier"] = tier
+				
+				/* Parse memory ID if available */
+				var id int64
+				if idStr, ok := chunkMap["id"].(string); ok {
+					/* Try to parse as UUID first, then as int64 */
+					if parsedUUID, err := uuid.Parse(idStr); err == nil {
+						/* For hierarchical memory, we use a hash of UUID as ID */
+						id = int64(parsedUUID[0]) << 32 | int64(parsedUUID[1])
+					}
+				}
+				
+				agentContext.MemoryChunks = append(agentContext.MemoryChunks, MemoryChunk{
+					ID:              id,
+					Content:         content,
+					ImportanceScore: importanceScore,
+					Similarity:      similarity,
+					Metadata:        metadata,
+				})
 			}
 		} else if err != nil {
 			/* Log error but continue - hierarchical memory is optional */

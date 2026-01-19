@@ -192,6 +192,31 @@ func main() {
 	/* Initialize runtime with all features */
 	runtime := agent.NewRuntimeWithFeatures(database, queries, toolRegistry, embedClient, vfs, workspaceManager)
 
+	/* Initialize retrieval components and register retrieval tool */
+	/* Note: These are already initialized in runtime, but we need them for tool registration */
+	knowledgeRouter := runtime.GetKnowledgeRouter()
+	relevanceChecker := runtime.GetRelevanceChecker()
+	retrievalAdapter := agent.NewRetrievalAdapter(runtime.GetMemoryManager(), hierMemory, relevanceChecker)
+	httpTool := toolRegistry.GetHTTPTool()
+	webSearchTool := tools.NewWebSearchTool()
+	retrievalTool := tools.NewRetrievalTool(retrievalAdapter, knowledgeRouter, webSearchTool, httpTool)
+	toolRegistry.RegisterHandler("retrieval", retrievalTool)
+	
+	/* Also update MemoryTool with management capabilities if available */
+	if memoryTool := toolRegistry.GetHandler("memory"); memoryTool != nil {
+		if mt, ok := memoryTool.(*tools.MemoryTool); ok {
+			/* Create memory management adapter */
+			memoryMgmtAdapter := agent.NewMemoryManagementAdapter(
+				runtime.GetCorruptionDetector(),
+				runtime.GetForgettingManager(),
+				runtime.GetConflictResolver(),
+				runtime.GetQualityScorer(),
+			)
+			/* Set management interface for advanced memory operations */
+			mt.SetMemoryManagement(memoryMgmtAdapter)
+		}
+	}
+
 	/* Initialize async task executor and notifier */
 	taskNotifier := agent.NewTaskNotifier(queries, emailService, webhookService)
 	asyncExecutor := agent.NewAsyncTaskExecutor(queries, runtime, taskNotifier)
@@ -330,6 +355,13 @@ func main() {
 	apiRouter.HandleFunc("/reflections/{id}", handlers.GetReflection).Methods("GET")
 	apiRouter.HandleFunc("/agents/{id}/memory", handlers.ListMemoryChunks).Methods("GET")
 	apiRouter.HandleFunc("/agents/{id}/memory/search", handlers.SearchMemory).Methods("POST")
+	apiRouter.HandleFunc("/agents/{id}/memory/check-corruption", handlers.CheckMemoryCorruption).Methods("POST")
+	apiRouter.HandleFunc("/agents/{id}/memory/forget", handlers.ForgetMemories).Methods("POST")
+	apiRouter.HandleFunc("/agents/{id}/memory/resolve-conflicts", handlers.ResolveMemoryConflicts).Methods("POST")
+	apiRouter.HandleFunc("/agents/{id}/memory/quality", handlers.GetMemoryQuality).Methods("GET")
+	apiRouter.HandleFunc("/agents/{id}/memory/consolidate", handlers.ConsolidateMemory).Methods("POST")
+	apiRouter.HandleFunc("/agents/{id}/retrieval-stats", handlers.GetRetrievalStats).Methods("GET")
+	apiRouter.HandleFunc("/memory/{memory_id}/feedback", handlers.SubmitMemoryFeedback).Methods("POST")
 	apiRouter.HandleFunc("/memory/{chunk_id}", handlers.GetMemoryChunk).Methods("GET")
 	apiRouter.HandleFunc("/memory/{chunk_id}", handlers.DeleteMemoryChunk).Methods("DELETE")
 	apiRouter.HandleFunc("/agents/{id}/budget", handlers.GetBudget).Methods("GET")
@@ -524,6 +556,14 @@ func main() {
 		}()
 	}
 
+	/* Start memory maintenance jobs */
+	var memoryMaintenanceCtx context.Context
+	var memoryMaintenanceCancel context.CancelFunc
+	memoryMaintenanceCtx, memoryMaintenanceCancel = context.WithCancel(context.Background())
+	memoryMaintenanceLLMClient := agent.NewLLMClient(database)
+	memoryMaintenanceJob := jobs.NewMemoryMaintenanceJob(database, queries, memoryMaintenanceLLMClient, embedClient)
+	go memoryMaintenanceJob.Start(memoryMaintenanceCtx)
+
 	/* Start verifier worker */
 	if runtime.Verifier() != nil {
 		verifierWorkerCtx, verifierWorkerCancel = context.WithCancel(context.Background())
@@ -600,6 +640,9 @@ func main() {
 	/* Stop background workers */
 	if memoryPromoterCancel != nil {
 		memoryPromoterCancel()
+	}
+	if memoryMaintenanceCancel != nil {
+		memoryMaintenanceCancel()
 	}
 	if verifierWorkerCancel != nil {
 		verifierWorkerCancel()

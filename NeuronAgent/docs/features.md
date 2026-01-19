@@ -43,11 +43,19 @@ NeuronAgent is a comprehensive AI agent runtime system with advanced capabilitie
 - **Plan Execution**: Execute and track plan progress
 
 ### Memory Management
-- **Hierarchical Memory**: Multi-level memory organization
+- **Hierarchical Memory**: Multi-level memory organization (STM/MTM/LPM)
 - **Vector Search**: HNSW-based semantic search
 - **Memory Promotion**: Promote important memories to long-term storage
 - **Memory Summarization**: Summarize memory chunks
 - **Memory Search**: Search memory by semantic similarity
+- **Automatic Memory Writing**: LLM-based extraction and storage of important information during conversations
+- **Memory Feedback Learning**: User feedback system to improve memory quality
+- **Memory Quality Metrics**: Track retrieval counts, feedback, and quality scores
+- **Memory Corruption Detection**: Detect and repair corrupted memories
+- **Memory Forgetting**: Intelligent forgetting strategies (time-based, importance-based, relevance-based, hybrid)
+- **Memory Conflict Resolution**: Detect and resolve conflicting memories
+- **Cross-Session Memory**: Share memories across sessions with privacy controls
+- **Adaptive Memory Strategies**: Usage-based importance adjustment, consolidation, and compression
 
 ### Budget & Cost Management
 - **Per-Agent Budgets**: Set budgets for individual agents
@@ -95,6 +103,22 @@ NeuronAgent is a comprehensive AI agent runtime system with advanced capabilitie
 - **Event Summarization**: Summarize event streams
 - **Context Windows**: Get context windows from events
 - **Event Counting**: Count events by type
+
+### Agentic RAG (2023-2024)
+- **Intelligent Retrieval**: Agent decides when and where to retrieve information
+- **Knowledge Routing**: Route queries to appropriate sources (vector DB, web, APIs)
+- **Relevance Checking**: Evaluate if retrieval is needed before expensive operations
+- **Retrieval Learning**: Learn from past retrieval decisions to improve routing
+- **Multi-Source Retrieval**: Retrieve from multiple knowledge sources simultaneously
+- **Retrieval Statistics**: Track retrieval decisions, outcomes, and quality metrics
+
+### Agent Memory (2024+)
+- **Read and Write**: Agents can create, update, and delete information during conversations
+- **Learning from Interactions**: Learn from past interactions and personalize experiences
+- **Personalization**: Customize responses based on stored preferences and past conversations
+- **Memory Feedback**: User feedback system to improve memory quality over time
+- **Automatic Memory Extraction**: LLM-based extraction of important facts and preferences
+- **Cross-Session Persistence**: Memories persist and can be shared across sessions
 
 ### Verification
 - **Output Verification**: Verify agent outputs
