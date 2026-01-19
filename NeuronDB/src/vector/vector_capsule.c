@@ -18,6 +18,7 @@
 #include "fmgr.h"
 #include "utils/builtins.h"
 #include "utils/timestamp.h"
+#include "lib/stringinfo.h"
 #include "neurondb.h"
 #include "neurondb_validation.h"
 #include "neurondb_safe_memory.h"
@@ -25,28 +26,195 @@
 #include "vector/vector_capsule.h"
 #include <string.h>
 #include <xxhash.h>
+#include <ctype.h>
+#include <stdlib.h>
+
+/* Forward declaration for FP16 conversion */
+static inline uint16 float_to_fp16_local(float f);
 
 /* GUC for enabling VectorCapsule features */
 bool		neurondb_vector_capsule_enabled = false;
+
+/*
+ * float_to_fp16_local - Convert float32 to FP16
+ * Based on implementation from vector_cast.c
+ */
+static inline uint16
+float_to_fp16_local(float f)
+{
+	uint32		u;
+	uint16		sign;
+	uint32		mantissa;
+	int16		exp;
+
+	memcpy(&u, &f, sizeof(uint32));
+	sign = (u >> 16) & 0x8000;
+	mantissa = u & 0x7fffff;
+	exp = ((u >> 23) & 0xff) - 127 + 15;
+
+	if (exp <= 0)
+		return sign;
+	else if (exp >= 31)
+		return sign | 0x7c00;
+	else
+		return sign | (exp << 10) | (mantissa >> 13);
+}
 
 PG_FUNCTION_INFO_V1(vector_capsule_in);
 Datum
 vector_capsule_in(PG_FUNCTION_ARGS)
 {
-	ereport(ERROR,
-			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-			 errmsg("VectorCapsule input not yet implemented")));
-	PG_RETURN_NULL();
+	char	   *str = NULL;
+	char	   *endptr = NULL;
+	char	   *ptr = NULL;
+	float4	   *temp_data = NULL;
+	int			capacity = 16;
+	int			dim = 0;
+	int			size;
+	VectorCapsule *result = NULL;
+	float4	   *primary_data = NULL;
+	uint16		flags = 0;
+
+	if (!neurondb_vector_capsule_enabled)
+		ereport(ERROR,
+				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+				 errmsg("VectorCapsule feature is disabled"),
+				 errhint("Set neurondb.vector_capsule_enabled = true to enable")));
+
+	str = PG_GETARG_CSTRING(0);
+	if (str == NULL)
+		ereport(ERROR,
+				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
+				 errmsg("VectorCapsule input string cannot be NULL")));
+
+	/* Parse vector data from string like "[1,2,3]" */
+	ptr = str;
+	while (isspace((unsigned char) *ptr))
+		ptr++;
+
+	if (*ptr == '[' || *ptr == '{')
+		ptr++;
+
+	nalloc(temp_data, float4, capacity);
+
+	while (*ptr && *ptr != ']' && *ptr != '}')
+	{
+		while (isspace((unsigned char) *ptr) || *ptr == ',')
+			ptr++;
+
+		if (*ptr == ']' || *ptr == '}' || *ptr == '\0')
+			break;
+
+		if (dim >= capacity)
+		{
+			capacity *= 2;
+			temp_data = (float4 *) repalloc(temp_data, sizeof(float4) * capacity);
+		}
+
+		temp_data[dim] = strtof(ptr, &endptr);
+		if (ptr == endptr)
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
+					 errmsg("invalid input syntax for type vector_capsule: \"%s\"", str)));
+
+		if (isinf(temp_data[dim]) || isnan(temp_data[dim]))
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
+					 errmsg("vector_capsule values cannot be NaN or Infinity")));
+
+		ptr = endptr;
+		dim++;
+	}
+
+	if (dim == 0)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
+				 errmsg("vector_capsule must have at least 1 dimension")));
+
+	if (dim > VECTOR_MAX_DIM)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("vector_capsule dimension %d exceeds maximum %d", dim, VECTOR_MAX_DIM)));
+
+	/* Calculate size - for now, just primary representation */
+	size = sizeof(VectorCapsule) + sizeof(float4) * dim;
+	flags = VC_FLAG_CACHED_NORM; /* Cache norm by default */
+
+	/* Allocate VectorCapsule */
+	{
+		char	   *tmp = NULL;
+
+		nalloc(tmp, char, size);
+		result = (VectorCapsule *) tmp;
+		MemSet(result, 0, size);
+	}
+	SET_VARSIZE(result, size);
+
+	/* Initialize header */
+	result->version = 1;
+	result->flags = flags;
+	result->dim = dim;
+	result->created_at = GetCurrentTimestamp();
+
+	/* Copy primary data */
+	primary_data = VC_PRIMARY_DATA(result);
+	memcpy(primary_data, temp_data, sizeof(float4) * dim);
+	pfree(temp_data);
+
+	/* Compute and cache norm */
+	{
+		double		sum = 0.0;
+		int			i;
+
+		for (i = 0; i < dim; i++)
+			sum += (double) primary_data[i] * (double) primary_data[i];
+		result->cached_norm = (float4) sqrt(sum);
+	}
+
+	/* Compute checksum */
+	vector_capsule_compute_checksum(result);
+
+	PG_RETURN_POINTER(result);
 }
 
 PG_FUNCTION_INFO_V1(vector_capsule_out);
 Datum
 vector_capsule_out(PG_FUNCTION_ARGS)
 {
-	ereport(ERROR,
-			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-			 errmsg("VectorCapsule output not yet implemented")));
-	PG_RETURN_NULL();
+	VectorCapsule *vc = NULL;
+	StringInfoData buf;
+	float4	   *primary_data = NULL;
+	int			i;
+
+	if (!neurondb_vector_capsule_enabled)
+		ereport(ERROR,
+				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+				 errmsg("VectorCapsule feature is disabled")));
+
+	vc = (VectorCapsule *) PG_GETARG_POINTER(0);
+	if (vc == NULL)
+		ereport(ERROR,
+				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
+				 errmsg("VectorCapsule cannot be NULL")));
+
+	/* Validate checksum */
+	if (!vector_capsule_verify_checksum(vc))
+		elog(WARNING, "vector_capsule_out: checksum verification failed");
+
+	/* Output primary representation as [1,2,3] format */
+	initStringInfo(&buf);
+	appendStringInfoChar(&buf, '[');
+
+	primary_data = VC_PRIMARY_DATA(vc);
+	for (i = 0; i < vc->dim; i++)
+	{
+		if (i > 0)
+			appendStringInfoChar(&buf, ',');
+		appendStringInfo(&buf, "%g", primary_data[i]);
+	}
+
+	appendStringInfoChar(&buf, ']');
+	PG_RETURN_CSTRING(buf.data);
 }
 
 /*
@@ -151,11 +319,10 @@ vector_capsule_from_vector(PG_FUNCTION_ARGS)
 	if (include_fp16)
 	{
 		fp16_data = VC_FP16_DATA(result);
-		/* Use existing FP16 conversion from vector_cast.c */
+		/* Use FP16 conversion */
 		for (i = 0; i < vec->dim; i++)
 		{
-			/* Simplified: would use proper FP16 conversion here */
-			fp16_data[i] = 0;	/* Placeholder */
+			fp16_data[i] = float_to_fp16_local(vec->data[i]);
 		}
 	}
 

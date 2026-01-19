@@ -77,12 +77,20 @@ int			gpu_kmeans_update(const float *h_vectors,
 							  int dim);
 
 int			gpu_pq_encode_batch(const float *h_vectors,
-								const float *h_codebooks,
-								uint8_t *h_codes,
-								int nvec,
-								int dim,
-								int m,
-								int ks);
+								 const float *h_codebooks,
+								 uint8_t *h_codes,
+								 int nvec,
+								 int dim,
+								 int m,
+								 int ks);
+int			gpu_pq_asymmetric_distance_batch(const float *h_query,
+											  const uint8_t *h_codes,
+											  const float *h_codebooks,
+											  float *h_distances,
+											  int nvec,
+											  int dim,
+											  int m,
+											  int ks);
 
 int			gpu_pq_asymmetric_distance_batch(const float *h_query,
 											 const uint8_t *h_codes,

@@ -36,6 +36,7 @@
 #include "neurondb_safe_memory.h"
 #include "neurondb_macros.h"
 #include "neurondb_spi.h"
+#include "neurondb_json.h"
 
 /*
  * feedback_loop_integrate
@@ -1230,4 +1231,553 @@ compute_embedding_quality(PG_FUNCTION_ARGS)
 	nfree(cluster_col_str);
 
 	PG_RETURN_FLOAT8(silhouette);
+}
+
+/*
+ * =============================================================================
+ * VECTOR STATISTICS FUNCTIONS
+ * =============================================================================
+ */
+
+/*
+ * vector_statistics - Compute comprehensive statistics for a vector column
+ * Returns JSONB with mean, variance, stddev, min, max, correlation matrix
+ */
+PG_FUNCTION_INFO_V1(vector_statistics);
+
+Datum
+vector_statistics(PG_FUNCTION_ARGS)
+{
+	text	   *table_name = NULL;
+	text	   *column_name = NULL;
+	char	   *tbl_str = NULL;
+	char	   *col_str = NULL;
+	float	  **data = NULL;
+	int			nvec = 0;
+	int			dim = 0;
+	int			i, j, d;
+	float	   *mean = NULL;
+	float	   *variance = NULL;
+	float	   *stddev = NULL;
+	float	   *min_vals = NULL;
+	float	   *max_vals = NULL;
+	StringInfoData json;
+	MemoryContext oldctx;
+
+	if (PG_NARGS() < 2)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("vector_statistics requires 2 arguments: table_name, column_name")));
+
+	table_name = PG_GETARG_TEXT_PP(0);
+	column_name = PG_GETARG_TEXT_PP(1);
+
+	tbl_str = text_to_cstring(table_name);
+	col_str = text_to_cstring(column_name);
+
+	data = neurondb_fetch_vectors_from_table(tbl_str, col_str, &nvec, &dim);
+	if (data == NULL || nvec == 0)
+	{
+		nfree(tbl_str);
+		nfree(col_str);
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("No vectors found in table")));
+	}
+
+	oldctx = MemoryContextSwitchTo(CurrentMemoryContext);
+
+	/* Allocate arrays for statistics */
+	nalloc(mean, float, dim);
+	nalloc(variance, float, dim);
+	nalloc(stddev, float, dim);
+	nalloc(min_vals, float, dim);
+	nalloc(max_vals, float, dim);
+
+	/* Initialize */
+	memset(mean, 0, sizeof(float) * dim);
+	memset(variance, 0, sizeof(float) * dim);
+	for (d = 0; d < dim; d++)
+	{
+		min_vals[d] = data[0][d];
+		max_vals[d] = data[0][d];
+	}
+
+	/* Compute mean, min, max */
+	for (i = 0; i < nvec; i++)
+	{
+		for (d = 0; d < dim; d++)
+		{
+			mean[d] += data[i][d];
+			if (data[i][d] < min_vals[d])
+				min_vals[d] = data[i][d];
+			if (data[i][d] > max_vals[d])
+				max_vals[d] = data[i][d];
+		}
+	}
+
+	for (d = 0; d < dim; d++)
+		mean[d] /= nvec;
+
+	/* Compute variance and stddev */
+	for (i = 0; i < nvec; i++)
+	{
+		for (d = 0; d < dim; d++)
+		{
+			float		diff = data[i][d] - mean[d];
+
+			variance[d] += diff * diff;
+		}
+	}
+
+	for (d = 0; d < dim; d++)
+	{
+		variance[d] /= nvec;
+		stddev[d] = sqrt(variance[d]);
+	}
+
+	/* Build JSONB result */
+	initStringInfo(&json);
+	appendStringInfoString(&json, "{");
+	appendStringInfo(&json, "\"count\": %d,", nvec);
+	appendStringInfo(&json, "\"dimension\": %d,", dim);
+	appendStringInfoString(&json, "\"mean\": [");
+	for (d = 0; d < dim; d++)
+	{
+		if (d > 0)
+			appendStringInfoChar(&json, ',');
+		appendStringInfo(&json, "%.6f", mean[d]);
+	}
+	appendStringInfoString(&json, "],\"variance\": [");
+	for (d = 0; d < dim; d++)
+	{
+		if (d > 0)
+			appendStringInfoChar(&json, ',');
+		appendStringInfo(&json, "%.6f", variance[d]);
+	}
+	appendStringInfoString(&json, "],\"stddev\": [");
+	for (d = 0; d < dim; d++)
+	{
+		if (d > 0)
+			appendStringInfoChar(&json, ',');
+		appendStringInfo(&json, "%.6f", stddev[d]);
+	}
+	appendStringInfoString(&json, "],\"min\": [");
+	for (d = 0; d < dim; d++)
+	{
+		if (d > 0)
+			appendStringInfoChar(&json, ',');
+		appendStringInfo(&json, "%.6f", min_vals[d]);
+	}
+	appendStringInfoString(&json, "],\"max\": [");
+	for (d = 0; d < dim; d++)
+	{
+		if (d > 0)
+			appendStringInfoChar(&json, ',');
+		appendStringInfo(&json, "%.6f", max_vals[d]);
+	}
+	appendStringInfoString(&json, "]");
+
+	/* Compute correlation matrix (sample first 10 dimensions for performance) */
+	if (dim > 1 && nvec > 1)
+	{
+		int			max_corr_dim = (dim > 10) ? 10 : dim;
+
+		appendStringInfoString(&json, ",\"correlation\": [");
+		for (i = 0; i < max_corr_dim; i++)
+		{
+			if (i > 0)
+				appendStringInfoChar(&json, ',');
+			appendStringInfoChar(&json, '[');
+			for (j = 0; j < max_corr_dim; j++)
+			{
+				if (j > 0)
+					appendStringInfoChar(&json, ',');
+				if (i == j)
+				{
+					appendStringInfoString(&json, "1.0");
+				}
+				else
+				{
+					double		cov = 0.0;
+					int			k;
+
+					for (k = 0; k < nvec; k++)
+						cov += (data[k][i] - mean[i]) * (data[k][j] - mean[j]);
+					cov /= nvec;
+					if (stddev[i] > 0 && stddev[j] > 0)
+					{
+						double		corr = cov / (stddev[i] * stddev[j]);
+
+						appendStringInfo(&json, "%.6f", corr);
+					}
+					else
+					{
+						appendStringInfoString(&json, "0.0");
+					}
+				}
+			}
+			appendStringInfoChar(&json, ']');
+		}
+		appendStringInfoChar(&json, ']');
+	}
+	appendStringInfoChar(&json, '}');
+
+	/* Cleanup */
+	for (i = 0; i < nvec; i++)
+		nfree(data[i]);
+	nfree(data);
+	nfree(mean);
+	nfree(variance);
+	nfree(stddev);
+	nfree(min_vals);
+	nfree(max_vals);
+	nfree(tbl_str);
+	nfree(col_str);
+
+	MemoryContextSwitchTo(oldctx);
+
+	/* Convert JSON string to JSONB using safe wrapper */
+	{
+		Jsonb *jsonb_result = NULL;
+
+		PG_TRY();
+		{
+			jsonb_result = ndb_jsonb_in_cstring(json.data);
+			if (jsonb_result == NULL)
+			{
+				ereport(ERROR,
+						(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
+						 errmsg("vector_statistics: failed to parse JSON")));
+			}
+		}
+		PG_CATCH();
+		{
+			pfree(json.data);
+			PG_RE_THROW();
+		}
+		PG_END_TRY();
+
+		pfree(json.data);
+		PG_RETURN_JSONB_P(jsonb_result);
+	}
+}
+
+/*
+ * index_quality_metrics - Compute quality metrics for an index
+ * Returns JSONB with recall, precision, F1, index health
+ */
+PG_FUNCTION_INFO_V1(index_quality_metrics);
+
+Datum
+index_quality_metrics(PG_FUNCTION_ARGS)
+{
+	text	   *index_name = NULL;
+	char	   *idx_str = NULL;
+	StringInfoData json;
+	int			ret;
+	NdbSpiSession *spi_session = NULL;
+	MemoryContext oldctx;
+	int64		index_size = 0;
+	int64		vector_count = 0;
+	float8		avg_recall = 0.0;
+	float8		avg_precision = 0.0;
+	float8		f1_score = 0.0;
+	char		health_status[32] = "unknown";
+
+	if (PG_NARGS() < 1)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("index_quality_metrics requires 1 argument: index_name")));
+
+	index_name = PG_GETARG_TEXT_PP(0);
+	idx_str = text_to_cstring(index_name);
+
+	oldctx = CurrentMemoryContext;
+	NDB_SPI_SESSION_BEGIN(spi_session, oldctx);
+
+	/* Query index statistics from pg_class and pg_stat_user_indexes */
+	{
+		StringInfoData sql;
+
+		initStringInfo(&sql);
+		appendStringInfo(&sql,
+						 "SELECT pg_relation_size(i.oid) as size, "
+						 "COALESCE(s.idx_scan, 0) as scans, "
+						 "COALESCE(s.idx_tup_read, 0) as tuples_read "
+						 "FROM pg_class c "
+						 "JOIN pg_index idx ON idx.indexrelid = c.oid "
+						 "JOIN pg_class i ON i.oid = idx.indexrelid "
+						 "LEFT JOIN pg_stat_user_indexes s ON s.indexrelid = i.oid "
+						 "WHERE c.relname = $1");
+		Oid			argtypes[1] = {TEXTOID};
+		Datum		values[1] = {PointerGetDatum(index_name)};
+		const char nulls[1] = {' '};
+
+		ret = ndb_spi_execute_with_args(spi_session, sql.data, 1, argtypes, values, nulls, true, 0);
+		if (ret == SPI_OK_SELECT && SPI_processed > 0)
+		{
+			int64		scans = 0;
+			int64		tuples_read = 0;
+			bool		isnull;
+			Datum		datum;
+
+			/* Get index size (int8/bigint) */
+			datum = SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 1, &isnull);
+			if (!isnull)
+				index_size = DatumGetInt64(datum);
+
+			/* Get scans (int8/bigint) */
+			datum = SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 2, &isnull);
+			if (!isnull)
+				scans = DatumGetInt64(datum);
+
+			/* Get tuples_read (int8/bigint) */
+			datum = SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 3, &isnull);
+			if (!isnull)
+				tuples_read = DatumGetInt64(datum);
+
+			if (scans > 0)
+				vector_count = tuples_read / scans;
+		}
+		pfree(sql.data);
+	}
+
+	/* Query recall/precision from neurondb.query_metrics if available */
+	{
+		StringInfoData sql;
+
+		initStringInfo(&sql);
+		appendStringInfo(&sql,
+						 "SELECT AVG(recall) as avg_recall, AVG(precision) as avg_precision "
+						 "FROM neurondb.query_metrics "
+						 "WHERE index_name = $1 AND created_at > NOW() - INTERVAL '24 hours'");
+		Oid			argtypes[1] = {TEXTOID};
+		Datum		values[1] = {PointerGetDatum(index_name)};
+		const char nulls[1] = {' '};
+
+		ret = ndb_spi_execute_with_args(spi_session, sql.data, 1, argtypes, values, nulls, true, 0);
+		if (ret == SPI_OK_SELECT && SPI_processed > 0)
+		{
+			float8		recall_val = 0.0;
+			float8		precision_val = 0.0;
+			bool		isnull;
+			Datum		datum;
+
+			/* Get avg_recall (float8) */
+			datum = SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 1, &isnull);
+			if (!isnull)
+				recall_val = DatumGetFloat8(datum);
+			avg_recall = recall_val;
+
+			/* Get avg_precision (float8) */
+			datum = SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 2, &isnull);
+			if (!isnull)
+				precision_val = DatumGetFloat8(datum);
+			avg_precision = precision_val;
+
+			if (avg_recall > 0 && avg_precision > 0)
+				f1_score = 2.0 * (avg_recall * avg_precision) / (avg_recall + avg_precision);
+		}
+		pfree(sql.data);
+	}
+
+	NDB_SPI_SESSION_END(spi_session);
+
+	/* Determine health status */
+	if (avg_recall >= 0.9 && avg_precision >= 0.9)
+		strlcpy(health_status, "excellent", sizeof(health_status));
+	else if (avg_recall >= 0.8 && avg_precision >= 0.8)
+		strlcpy(health_status, "good", sizeof(health_status));
+	else if (avg_recall >= 0.7 && avg_precision >= 0.7)
+		strlcpy(health_status, "fair", sizeof(health_status));
+	else if (avg_recall > 0 || avg_precision > 0)
+		strlcpy(health_status, "poor", sizeof(health_status));
+	else
+		strlcpy(health_status, "unknown", sizeof(health_status));
+
+	/* Build JSONB result */
+	initStringInfo(&json);
+	appendStringInfo(&json,
+					 "{\"index_name\": \"%s\", "
+					 "\"index_size_bytes\": %lld, "
+					 "\"vector_count\": %lld, "
+					 "\"avg_recall\": %.4f, "
+					 "\"avg_precision\": %.4f, "
+					 "\"f1_score\": %.4f, "
+					 "\"health_status\": \"%s\"}",
+					 idx_str,
+					 (long long) index_size,
+					 (long long) vector_count,
+					 avg_recall,
+					 avg_precision,
+					 f1_score,
+					 health_status);
+
+	nfree(idx_str);
+	MemoryContextSwitchTo(oldctx);
+
+	/* Convert JSON string to JSONB using safe wrapper */
+	{
+		Jsonb *jsonb_result = NULL;
+
+		PG_TRY();
+		{
+			jsonb_result = ndb_jsonb_in_cstring(json.data);
+			if (jsonb_result == NULL)
+			{
+				ereport(ERROR,
+						(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
+						 errmsg("vector_statistics: failed to parse JSON")));
+			}
+		}
+		PG_CATCH();
+		{
+			pfree(json.data);
+			PG_RE_THROW();
+		}
+		PG_END_TRY();
+
+		pfree(json.data);
+		PG_RETURN_JSONB_P(jsonb_result);
+	}
+}
+
+/*
+ * query_performance_analytics - Analyze query performance metrics
+ * Returns JSONB with latency statistics, throughput, GPU utilization
+ */
+PG_FUNCTION_INFO_V1(query_performance_analytics);
+
+Datum
+query_performance_analytics(PG_FUNCTION_ARGS)
+{
+	text	   *index_name = NULL;
+	char	   *idx_str = NULL;
+	StringInfoData json;
+	int			ret;
+	NdbSpiSession *spi_session = NULL;
+	MemoryContext oldctx;
+	float8		avg_latency_ms = 0.0;
+	float8		p50_latency_ms = 0.0;
+	float8		p95_latency_ms = 0.0;
+	float8		p99_latency_ms = 0.0;
+	int64		total_queries = 0;
+	int64		gpu_queries = 0;
+	float8		gpu_utilization = 0.0;
+
+	/* query_performance_analytics takes no arguments - it analyzes all queries */
+
+	index_name = PG_GETARG_TEXT_PP(0);
+	idx_str = text_to_cstring(index_name);
+
+	oldctx = CurrentMemoryContext;
+	NDB_SPI_SESSION_BEGIN(spi_session, oldctx);
+
+	/* Query performance metrics from neurondb.query_metrics */
+	{
+		StringInfoData sql;
+
+		initStringInfo(&sql);
+		appendStringInfo(&sql,
+						 "SELECT "
+						 "COUNT(*) as total_queries, "
+						 "AVG(latency_ms) as avg_latency, "
+						 "PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY latency_ms) as p50, "
+						 "PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY latency_ms) as p95, "
+						 "PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY latency_ms) as p99, "
+						 "SUM(CASE WHEN used_gpu THEN 1 ELSE 0 END) as gpu_queries "
+						 "FROM neurondb.query_metrics "
+						 "WHERE index_name = $1 AND created_at > NOW() - INTERVAL '24 hours'");
+		Oid			argtypes[1] = {TEXTOID};
+		Datum		values[1] = {PointerGetDatum(index_name)};
+		const char nulls[1] = {' '};
+
+		ret = ndb_spi_execute_with_args(spi_session, sql.data, 1, argtypes, values, nulls, true, 0);
+		if (ret == SPI_OK_SELECT && SPI_processed > 0)
+		{
+			bool		isnull;
+			Datum		datum;
+
+			/* Get total_queries (int8/bigint) */
+			datum = SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 1, &isnull);
+			if (!isnull)
+				total_queries = DatumGetInt64(datum);
+
+			/* Get avg_latency_ms (float8) */
+			datum = SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 2, &isnull);
+			if (!isnull)
+				avg_latency_ms = DatumGetFloat8(datum);
+
+			/* Get p50_latency_ms (float8) */
+			datum = SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 3, &isnull);
+			if (!isnull)
+				p50_latency_ms = DatumGetFloat8(datum);
+
+			/* Get p95_latency_ms (float8) */
+			datum = SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 4, &isnull);
+			if (!isnull)
+				p95_latency_ms = DatumGetFloat8(datum);
+
+			/* Get p99_latency_ms (float8) */
+			datum = SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 5, &isnull);
+			if (!isnull)
+				p99_latency_ms = DatumGetFloat8(datum);
+
+			/* Get gpu_queries (int8/bigint) */
+			datum = SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 6, &isnull);
+			if (!isnull)
+				gpu_queries = DatumGetInt64(datum);
+
+			if (total_queries > 0)
+				gpu_utilization = ((float8) gpu_queries / (float8) total_queries) * 100.0;
+		}
+		pfree(sql.data);
+	}
+
+	NDB_SPI_SESSION_END(spi_session);
+
+	/* Build JSONB result */
+	initStringInfo(&json);
+	appendStringInfo(&json,
+					 "{\"total_queries\": %lld, "
+					 "\"avg_latency_ms\": %.2f, "
+					 "\"p50_latency_ms\": %.2f, "
+					 "\"p95_latency_ms\": %.2f, "
+					 "\"p99_latency_ms\": %.2f, "
+					 "\"gpu_queries\": %lld, "
+					 "\"gpu_utilization_percent\": %.2f}",
+					 (long long) total_queries,
+					 avg_latency_ms,
+					 p50_latency_ms,
+					 p95_latency_ms,
+					 p99_latency_ms,
+					 (long long) gpu_queries,
+					 gpu_utilization);
+	MemoryContextSwitchTo(oldctx);
+
+	/* Convert JSON string to JSONB using safe wrapper */
+	{
+		Jsonb *jsonb_result = NULL;
+
+		PG_TRY();
+		{
+			jsonb_result = ndb_jsonb_in_cstring(json.data);
+			if (jsonb_result == NULL)
+			{
+				ereport(ERROR,
+						(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
+						 errmsg("vector_statistics: failed to parse JSON")));
+			}
+		}
+		PG_CATCH();
+		{
+			pfree(json.data);
+			PG_RE_THROW();
+		}
+		PG_END_TRY();
+
+		pfree(json.data);
+		PG_RETURN_JSONB_P(jsonb_result);
+	}
 }

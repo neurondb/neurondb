@@ -375,17 +375,7 @@ vector_mean(PG_FUNCTION_ARGS)
 	v = PG_GETARG_VECTOR_P(0);
 	NDB_CHECK_VECTOR_VALID(v);
 
-	if (v == NULL)
-		ereport(ERROR,
-				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
-				 errmsg("cannot compute mean of NULL vector")));
-
-	if (v->dim <= 0)
-		ereport(ERROR,
-				(errcode(ERRCODE_DIVISION_BY_ZERO),
-				 errmsg("cannot compute mean of vector with dimension %d",
-						v->dim)));
-
+	/* NDB_CHECK_VECTOR_VALID already validates vector structure and dimension > 0 */
 	for (i = 0; i < v->dim; i++)
 		sum += v->data[i];
 
@@ -410,17 +400,7 @@ vector_variance(PG_FUNCTION_ARGS)
 	v = PG_GETARG_VECTOR_P(0);
 	NDB_CHECK_VECTOR_VALID(v);
 
-	if (v == NULL)
-		ereport(ERROR,
-				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
-				 errmsg("cannot compute variance of NULL vector")));
-
-	if (v->dim <= 0)
-		ereport(ERROR,
-				(errcode(ERRCODE_DIVISION_BY_ZERO),
-				 errmsg("cannot compute variance of vector with dimension %d",
-						v->dim)));
-
+	/* NDB_CHECK_VECTOR_VALID already validates vector structure and dimension > 0 */
 	for (i = 0; i < v->dim; i++)
 		mean += v->data[i];
 	mean /= v->dim;
@@ -453,17 +433,7 @@ vector_stddev(PG_FUNCTION_ARGS)
 	v = PG_GETARG_VECTOR_P(0);
 	NDB_CHECK_VECTOR_VALID(v);
 
-	if (v == NULL)
-		ereport(ERROR,
-				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
-				 errmsg("cannot compute standard deviation of NULL vector")));
-
-	if (v->dim <= 0)
-		ereport(ERROR,
-				(errcode(ERRCODE_DIVISION_BY_ZERO),
-				 errmsg("cannot compute standard deviation of vector with dimension %d",
-						v->dim)));
-
+	/* NDB_CHECK_VECTOR_VALID already validates vector structure and dimension > 0 */
 	for (i = 0; i < v->dim; i++)
 		mean += v->data[i];
 	mean /= v->dim;
@@ -646,16 +616,7 @@ vector_min(PG_FUNCTION_ARGS)
 	v = PG_GETARG_VECTOR_P(0);
 	NDB_CHECK_VECTOR_VALID(v);
 
-	if (v == NULL)
-		ereport(ERROR,
-				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
-				 errmsg("cannot find minimum of NULL vector")));
-
-	if (v->dim <= 0)
-		ereport(ERROR,
-				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-				 errmsg("cannot find minimum of empty vector")));
-
+	/* NDB_CHECK_VECTOR_VALID already validates vector structure and dimension > 0 */
 	min_val = v->data[0];
 	for (i = 1; i < v->dim; i++)
 		if (v->data[i] < min_val)
@@ -681,16 +642,7 @@ vector_max(PG_FUNCTION_ARGS)
 	v = PG_GETARG_VECTOR_P(0);
 	NDB_CHECK_VECTOR_VALID(v);
 
-	if (v == NULL)
-		ereport(ERROR,
-				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
-				 errmsg("cannot find maximum of NULL vector")));
-
-	if (v->dim <= 0)
-		ereport(ERROR,
-				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-				 errmsg("cannot find maximum of empty vector")));
-
+	/* NDB_CHECK_VECTOR_VALID already validates vector structure and dimension > 0 */
 	max_val = v->data[0];
 	for (i = 1; i < v->dim; i++)
 		if (v->data[i] > max_val)
@@ -982,17 +934,7 @@ vector_standardize(PG_FUNCTION_ARGS)
 	v = PG_GETARG_VECTOR_P(0);
 	NDB_CHECK_VECTOR_VALID(v);
 
-	if (v == NULL)
-		ereport(ERROR,
-				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
-				 errmsg("cannot standardize NULL vector")));
-
-	if (v->dim <= 0)
-		ereport(ERROR,
-				(errcode(ERRCODE_DIVISION_BY_ZERO),
-				 errmsg("cannot standardize vector with dimension %d",
-						v->dim)));
-
+	/* NDB_CHECK_VECTOR_VALID already validates vector structure and dimension > 0 */
 	for (i = 0; i < v->dim; i++)
 		mean += v->data[i];
 	mean /= v->dim;
@@ -1040,16 +982,7 @@ vector_minmax_normalize(PG_FUNCTION_ARGS)
 	v = PG_GETARG_VECTOR_P(0);
 	NDB_CHECK_VECTOR_VALID(v);
 
-	if (v == NULL)
-		ereport(ERROR,
-				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
-				 errmsg("cannot normalize NULL vector")));
-
-	if (v->dim <= 0)
-		ereport(ERROR,
-				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-				 errmsg("cannot normalize empty vector")));
-
+	/* NDB_CHECK_VECTOR_VALID already validates vector structure and dimension > 0 */
 	min_val = max_val = v->data[0];
 	for (i = 1; i < v->dim; i++)
 	{

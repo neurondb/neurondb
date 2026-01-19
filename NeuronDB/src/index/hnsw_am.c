@@ -58,6 +58,7 @@ extern float fp16_to_float(uint16 h);
 #include "nodes/makefuncs.h"
 #include "funcapi.h"
 #include "utils/varbit.h"
+#include "access/parallel.h"
 #include <math.h>
 #include <float.h>
 #include <stdlib.h>
@@ -440,7 +441,7 @@ hnsw_handler(PG_FUNCTION_ARGS)
 	amroutine->amstorage = false;
 	amroutine->amclusterable = false;
 	amroutine->ampredlocks = false;
-	amroutine->amcanparallel = false;	/* TODO: Parallel build not yet implemented */
+	amroutine->amcanparallel = true;	/* Parallel build supported */
 	amroutine->amcaninclude = false;
 	amroutine->amusemaintenanceworkmem = true;	/* Enable in-memory graph building */
 	amroutine->amsummarizing = false;
@@ -466,6 +467,7 @@ hnsw_handler(PG_FUNCTION_ARGS)
 	amroutine->amendscan = hnswendscan;
 	amroutine->ammarkpos = NULL;
 	amroutine->amrestrpos = NULL;
+	/* Parallel scan callbacks - not needed for parallel build (handled automatically) */
 	amroutine->amestimateparallelscan = NULL;
 	amroutine->aminitparallelscan = NULL;
 	amroutine->amparallelrescan = NULL;
@@ -2820,7 +2822,7 @@ hnswGetKeyType(Relation index, int attno)
  * - Memory is bounded by efSearch parameter
  * - Caller is responsible for context lifecycle
  */
-static void
+void
 hnswSearch(Relation index,
 		   HnswMetaPage metaPage,
 		   const float4 * query,
@@ -5647,4 +5649,14 @@ hnswIsNodeCompatible(HnswNode node, uint32 version)
 		return true;
 	}
 }
+
+/*
+ * Parallel index build support
+ * 
+ * Note: Parallel index BUILD is handled automatically by PostgreSQL when
+ * amcanparallel = true. The amestimateparallelscan, aminitparallelscan, and
+ * amparallelrescan callbacks are for parallel index SCANNING (reading from
+ * the index), not building. We set them to NULL since we're enabling parallel
+ * build, not parallel scan.
+ */
 

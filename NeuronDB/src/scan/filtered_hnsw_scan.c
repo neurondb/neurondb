@@ -28,6 +28,35 @@
 #include "neurondb_gpu.h"
 #include "gpu_hnsw.h"
 
+/* Forward declaration for hnswSearch from hnsw_am.c */
+typedef struct HnswMetaPageData
+{
+	uint32		magicNumber;
+	uint32		version;
+	BlockNumber entryPoint;
+	int			entryLevel;
+	int			maxLevel;
+	int16		m;
+	int16		efConstruction;
+	int16		efSearch;
+	float4		ml;
+	int64		insertedVectors;
+}			HnswMetaPageData;
+
+typedef HnswMetaPageData * HnswMetaPage;
+
+/* Forward declaration for hnswSearch */
+extern void hnswSearch(Relation index,
+					   HnswMetaPage metaPage,
+					   const float4 * query,
+					   int dim,
+					   int strategy,
+					   int efSearch,
+					   int k,
+					   BlockNumber **results,
+					   float4 **distances,
+					   int *resultCount);
+
 /*
  * Filtered HNSW scan state
  */
@@ -189,6 +218,7 @@ filtered_hnsw_scan_gpu(FilteredHnswScanState * state,
 
 /*
  * CPU fallback for filtered HNSW search
+ * Integrates with hnswSearch from hnsw_am.c and applies filter during traversal
  */
 static int
 filtered_hnsw_scan_cpu(FilteredHnswScanState * state,
@@ -197,10 +227,107 @@ filtered_hnsw_scan_cpu(FilteredHnswScanState * state,
 					   int entry_level,
 					   int m)
 {
-	/* Use standard HNSW search and filter results */
-	/* In production, integrate with hnswSearchLayer0 from hnsw_scan.c */
-	elog(WARNING, "filtered_hnsw_scan: CPU fallback not fully implemented");
-	return -1;
+	Buffer		metaBuffer;
+	Page		metaPage;
+	HnswMetaPage meta;
+	BlockNumber *candidates = NULL;
+	float4	   *candidate_dists = NULL;
+	int			candidate_count = 0;
+	int			filtered_count = 0;
+	int			i;
+	MemoryContext oldctx;
+
+	/* Read metadata page */
+	metaBuffer = ReadBuffer(index, 0);
+	if (!BufferIsValid(metaBuffer))
+	{
+		elog(WARNING, "filtered_hnsw_scan: failed to read metadata page");
+		return -1;
+	}
+
+	LockBuffer(metaBuffer, BUFFER_LOCK_SHARE);
+	metaPage = BufferGetPage(metaBuffer);
+	meta = (HnswMetaPage) PageGetContents(metaPage);
+
+	/* Validate entry point from metadata */
+	if (meta->entryPoint == InvalidBlockNumber)
+	{
+		UnlockReleaseBuffer(metaBuffer);
+		state->result_count = 0;
+		return 0; /* Empty index */
+	}
+
+	/* Use scan context for allocations */
+	oldctx = MemoryContextSwitchTo(CurrentMemoryContext);
+
+	/* Perform HNSW search with increased ef_search to get more candidates */
+	/* Use strategy 1 (L2 distance) - could be made configurable */
+	hnswSearch(index,
+			   meta,
+			   (const float4 *) state->query,
+			   state->dim,
+			   1, /* L2 distance strategy */
+			   state->current_ef_search,
+			   state->k * 2, /* Get more candidates for filtering */
+			   &candidates,
+			   &candidate_dists,
+			   &candidate_count);
+
+	UnlockReleaseBuffer(metaBuffer);
+	MemoryContextSwitchTo(oldctx);
+
+	/* Apply filter to candidates */
+	if (candidates != NULL && candidate_count > 0)
+	{
+		/* Allocate space for filtered results */
+		if (state->result_count == 0)
+		{
+			/* Reallocate if needed */
+			if (state->result_blocks == NULL || state->result_distances == NULL)
+			{
+				if (state->result_blocks)
+					pfree(state->result_blocks);
+				if (state->result_distances)
+					pfree(state->result_distances);
+				nalloc(state->result_blocks, uint32_t, state->k * 2);
+				nalloc(state->result_distances, float, state->k * 2);
+			}
+		}
+
+		/* Filter candidates */
+		for (i = 0; i < candidate_count && filtered_count < state->k * 2; i++)
+		{
+			/* Apply filter function */
+			if (state->filter_func(state->filter_data, candidates[i]))
+			{
+				/* Keep this result */
+				state->result_blocks[filtered_count] = candidates[i];
+				state->result_distances[filtered_count] = candidate_dists[i];
+				filtered_count++;
+			}
+		}
+
+		/* Free candidate arrays */
+		if (candidates)
+			pfree(candidates);
+		if (candidate_dists)
+			pfree(candidate_dists);
+	}
+
+	state->result_count = filtered_count;
+
+	/* Adjust ef_search if needed */
+	filtered_hnsw_scan_adjust_ef_search(state, filtered_count);
+
+	/* If we still don't have enough results, retry with higher ef_search */
+	if (filtered_count < state->k && state->current_ef_search < state->max_ef_search)
+	{
+		/* Reset result count for retry */
+		state->result_count = 0;
+		return filtered_hnsw_scan_cpu(state, index, entry_point, entry_level, m);
+	}
+
+	return 0;
 }
 
 /*

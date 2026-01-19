@@ -394,17 +394,8 @@ vector_norm(PG_FUNCTION_ARGS)
 	vector = PG_GETARG_VECTOR_P(0);
 	NDB_CHECK_VECTOR_VALID(vector);
 
-	if (vector == NULL)
-		ereport(ERROR,
-				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
-				 errmsg("cannot compute norm of NULL vector")));
-
-	if (vector->dim <= 0)
-		ereport(ERROR,
-				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-				 errmsg("cannot compute norm of vector with dimension %d",
-						vector->dim)));
-
+	/* NDB_CHECK_VECTOR_VALID already checks for NULL and dimension > 0 */
+	/* Check for NaN/Inf in vector elements */
 	for (i = 0; i < vector->dim; i++)
 	{
 		double		val = (double) vector->data[i];
@@ -436,17 +427,10 @@ normalize_vector(Vector *v)
 	double		norm = 0.0;
 	int			i;
 
-	if (v == NULL)
-		ereport(ERROR,
-				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
-				 errmsg("cannot normalize NULL vector")));
+	/* Validate vector structure */
+	NDB_CHECK_VECTOR_VALID(v);
 
-	if (v->dim <= 0)
-		ereport(ERROR,
-				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-				 errmsg("cannot normalize vector with dimension %d",
-						v->dim)));
-
+	/* Check for NaN/Inf in vector elements */
 	for (i = 0; i < v->dim; i++)
 	{
 		double		val = (double) v->data[i];
@@ -474,10 +458,8 @@ normalize_vector_new(Vector *v)
 {
 	Vector *result = NULL;
 
-	if (v == NULL)
-		ereport(ERROR,
-				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
-				 errmsg("cannot normalize NULL vector")));
+	/* Validate vector structure */
+	NDB_CHECK_VECTOR_VALID(v);
 
 	result = copy_vector(v);
 	normalize_vector(result);
@@ -499,6 +481,7 @@ vector_normalize(PG_FUNCTION_ARGS)
 
 	v = PG_GETARG_VECTOR_P(0);
 	NDB_CHECK_VECTOR_VALID(v);
+	/* NDB_CHECK_VECTOR_VALID already validates vector structure */
 	result = normalize_vector_new(v);
 
 	PG_RETURN_VECTOR_P(result);

@@ -782,35 +782,36 @@ build_neurondb() {
     verify_build_output
     
     # Ensure SQL file is generated after build (needed for installation)
-    # The Makefile expects neurondb--1.0.sql but we may have neurondb--2.0.sql
-    if [[ ! -f neurondb--1.0.sql ]]; then
+    # The Makefile expects sql/neurondb--1.0.sql but we may have sql/neurondb--2.0.sql
+    mkdir -p sql
+    if [[ ! -f sql/neurondb--1.0.sql ]]; then
         log_info "Ensuring SQL file exists for installation..."
         # Try multiple sources in order of preference
-        if [[ -f neurondb--1.0.sql.linux ]]; then
-            cp neurondb--1.0.sql.linux neurondb--1.0.sql
-            log_info "Copied neurondb--1.0.sql.linux to neurondb--1.0.sql"
-        elif [[ -f neurondb--1.0.sql.macos ]]; then
-            cp neurondb--1.0.sql.macos neurondb--1.0.sql
-            log_info "Copied neurondb--1.0.sql.macos to neurondb--1.0.sql"
-        elif [[ -f neurondb--2.0.sql ]]; then
+        if [[ -f sql/neurondb--1.0.sql.linux ]]; then
+            cp sql/neurondb--1.0.sql.linux sql/neurondb--1.0.sql
+            log_info "Copied sql/neurondb--1.0.sql.linux to sql/neurondb--1.0.sql"
+        elif [[ -f sql/neurondb--1.0.sql.macos ]]; then
+            cp sql/neurondb--1.0.sql.macos sql/neurondb--1.0.sql
+            log_info "Copied sql/neurondb--1.0.sql.macos to sql/neurondb--1.0.sql"
+        elif [[ -f sql/neurondb--2.0.sql ]]; then
             # Use 2.0 file as fallback (Makefile expects 1.0 but control file says 2.0)
-            cp neurondb--2.0.sql neurondb--1.0.sql
-            log_info "Copied neurondb--2.0.sql to neurondb--1.0.sql (version fallback)"
-        elif [[ -f neurondb--2.0.sql.linux ]]; then
-            cp neurondb--2.0.sql.linux neurondb--1.0.sql
-            log_info "Copied neurondb--2.0.sql.linux to neurondb--1.0.sql"
-        elif [[ -f neurondb--2.0.sql.macos ]]; then
-            cp neurondb--2.0.sql.macos neurondb--1.0.sql
-            log_info "Copied neurondb--2.0.sql.macos to neurondb--1.0.sql"
+            cp sql/neurondb--2.0.sql sql/neurondb--1.0.sql
+            log_info "Copied sql/neurondb--2.0.sql to sql/neurondb--1.0.sql (version fallback)"
+        elif [[ -f sql/neurondb--2.0.sql.linux ]]; then
+            cp sql/neurondb--2.0.sql.linux sql/neurondb--1.0.sql
+            log_info "Copied sql/neurondb--2.0.sql.linux to sql/neurondb--1.0.sql"
+        elif [[ -f sql/neurondb--2.0.sql.macos ]]; then
+            cp sql/neurondb--2.0.sql.macos sql/neurondb--1.0.sql
+            log_info "Copied sql/neurondb--2.0.sql.macos to sql/neurondb--1.0.sql"
         elif [[ -f neurondb--1.0.sql.in ]]; then
             # Try to generate from template
             log_info "Generating SQL file from template..."
             if [[ "$UNAME_S" == "Darwin" ]]; then
-                make neurondb--1.0.sql.macos || log_warn "Could not generate macOS SQL file"
-                [[ -f neurondb--1.0.sql.macos ]] && cp neurondb--1.0.sql.macos neurondb--1.0.sql
+                make sql/neurondb--1.0.sql.macos || log_warn "Could not generate macOS SQL file"
+                [[ -f sql/neurondb--1.0.sql.macos ]] && cp sql/neurondb--1.0.sql.macos sql/neurondb--1.0.sql
             else
-                make neurondb--1.0.sql.linux || log_warn "Could not generate Linux SQL file"
-                [[ -f neurondb--1.0.sql.linux ]] && cp neurondb--1.0.sql.linux neurondb--1.0.sql
+                make sql/neurondb--1.0.sql.linux || log_warn "Could not generate Linux SQL file"
+                [[ -f sql/neurondb--1.0.sql.linux ]] && cp sql/neurondb--1.0.sql.linux sql/neurondb--1.0.sql
             fi
         else
             log_warn "No SQL file found and template not available, installation may fail"
@@ -857,18 +858,19 @@ install_neurondb() {
     section "Installing NeurondB"
     
     # Ensure SQL file exists before installation (should already be generated in build phase)
-    if [[ ! -f neurondb--1.0.sql ]]; then
+    mkdir -p sql
+    if [[ ! -f sql/neurondb--1.0.sql ]]; then
         log_info "SQL file missing, attempting to create from available sources..."
-        if [[ -f neurondb--1.0.sql.linux ]]; then
-            cp neurondb--1.0.sql.linux neurondb--1.0.sql
-        elif [[ -f neurondb--1.0.sql.macos ]]; then
-            cp neurondb--1.0.sql.macos neurondb--1.0.sql
-        elif [[ -f neurondb--2.0.sql ]]; then
-            cp neurondb--2.0.sql neurondb--1.0.sql
-        elif [[ -f neurondb--2.0.sql.linux ]]; then
-            cp neurondb--2.0.sql.linux neurondb--1.0.sql
-        elif [[ -f neurondb--2.0.sql.macos ]]; then
-            cp neurondb--2.0.sql.macos neurondb--1.0.sql
+        if [[ -f sql/neurondb--1.0.sql.linux ]]; then
+            cp sql/neurondb--1.0.sql.linux sql/neurondb--1.0.sql
+        elif [[ -f sql/neurondb--1.0.sql.macos ]]; then
+            cp sql/neurondb--1.0.sql.macos sql/neurondb--1.0.sql
+        elif [[ -f sql/neurondb--2.0.sql ]]; then
+            cp sql/neurondb--2.0.sql sql/neurondb--1.0.sql
+        elif [[ -f sql/neurondb--2.0.sql.linux ]]; then
+            cp sql/neurondb--2.0.sql.linux sql/neurondb--1.0.sql
+        elif [[ -f sql/neurondb--2.0.sql.macos ]]; then
+            cp sql/neurondb--2.0.sql.macos sql/neurondb--1.0.sql
         else
             log_error "No SQL file found for installation"
             log_fatal "Installation cannot proceed without SQL file"

@@ -228,6 +228,58 @@ extern int ndb_rocm_hf_rerank(const char *model_name,
 	float **scores_out,
 	char **errstr);
 
+/* Forward declarations for HIP kernel functions */
+extern int gpu_hnsw_search_hip(const float *h_query,
+								const float *h_nodes,
+								const uint32_t *h_neighbors,
+								const int32_t *h_neighbor_counts,
+								const int32_t *h_node_levels,
+								uint32_t entry_point,
+								int entry_level,
+								int dim,
+								int m,
+								int ef_search,
+								int k,
+								uint32_t *h_result_blocks,
+								float *h_result_distances);
+extern int gpu_hnsw_search_batch_hip(const float *h_queries,
+									  const float *h_nodes,
+									  const uint32_t *h_neighbors,
+									  const int32_t *h_neighbor_counts,
+									  const int32_t *h_node_levels,
+									  uint32_t entry_point,
+									  int entry_level,
+									  int num_queries,
+									  int dim,
+									  int m,
+									  int ef_search,
+									  int k,
+									  uint32_t *h_result_blocks,
+									  float *h_result_distances);
+extern int gpu_ivf_search_hip(const float *h_query,
+							   const float *h_centroids,
+							   const float *h_vectors,
+							   const int32_t *h_list_offsets,
+							   const int32_t *h_list_sizes,
+							   int nlists,
+							   int nprobe,
+							   int dim,
+							   int k,
+							   uint32_t *h_result_indices,
+							   float *h_result_distances);
+extern int gpu_ivf_search_batch_hip(const float *h_queries,
+									 const float *h_centroids,
+									 const float *h_vectors,
+									 const int32_t *h_list_offsets,
+									 const int32_t *h_list_sizes,
+									 int num_queries,
+									 int nlists,
+									 int nprobe,
+									 int dim,
+									 int k,
+									 uint32_t *h_result_indices,
+									 float *h_result_distances);
+
 /* ROCm runtime context */
 static struct
 {
@@ -1117,6 +1169,314 @@ ndb_rocm_launch_pq_encode(const float *vectors,
 		: -1;
 }
 
+static int
+ndb_rocm_launch_pq_asymmetric_distance_batch(const float *query,
+											  const uint8_t *codes,
+											  const float *codebooks,
+											  float *distances,
+											  int nvec,
+											  int dim,
+											  int m,
+											  int ks,
+											  ndb_stream_t stream)
+{
+	(void)stream;
+
+	if (!rocm_ctx.initialized || query == NULL || codes == NULL
+		|| codebooks == NULL || distances == NULL)
+		return -1;
+
+	return gpu_pq_asymmetric_distance_batch_hip(query, codes, codebooks, distances,
+												nvec, dim, m, ks) == 0
+		? 0
+		: -1;
+}
+
+static int
+ndb_rocm_launch_hnsw_build(const float *vectors,
+						   int num_vectors,
+						   int dim,
+						   int m,
+						   int ef_construction,
+						   uint32_t **result_nodes,
+						   uint32_t **result_neighbors,
+						   int32_t **result_neighbor_counts,
+						   int32_t **result_node_levels,
+						   uint32_t *entry_point,
+						   int *entry_level,
+						   ndb_stream_t stream)
+{
+	/* GPU HNSW build is complex - for now, return -1 to use hybrid CPU/GPU approach */
+	/* Full GPU implementation would require dedicated HIP kernels for:
+	 * - Neighbor selection with greedy search
+	 * - Graph insertion with bidirectional linking
+	 * - GPU memory management for graph structure
+	 */
+	(void)vectors;
+	(void)num_vectors;
+	(void)dim;
+	(void)m;
+	(void)ef_construction;
+	(void)result_nodes;
+	(void)result_neighbors;
+	(void)result_neighbor_counts;
+	(void)result_node_levels;
+	(void)entry_point;
+	(void)entry_level;
+	(void)stream;
+	return -1;
+}
+
+static int
+ndb_rocm_hnsw_search(const float *query,
+					  const float *nodes,
+					  const uint32_t *neighbors,
+					  const int32_t *neighbor_counts,
+					  const int32_t *node_levels,
+					  uint32_t entry_point,
+					  int entry_level,
+					  int dim,
+					  int m,
+					  int ef_search,
+					  int k,
+					  uint32_t *result_blocks,
+					  float *result_distances,
+					  ndb_stream_t stream)
+{
+	(void)stream;
+
+	if (!rocm_ctx.initialized)
+		return -1;
+
+	return gpu_hnsw_search_hip(query,
+							   nodes,
+							   neighbors,
+							   neighbor_counts,
+							   node_levels,
+							   entry_point,
+							   entry_level,
+							   dim,
+							   m,
+							   ef_search,
+							   k,
+							   result_blocks,
+							   result_distances);
+}
+
+static int
+ndb_rocm_hnsw_search_filtered(const float *query,
+							   const float *nodes,
+							   const uint32_t *neighbors,
+							   const int32_t *neighbor_counts,
+							   const int32_t *node_levels,
+							   uint32_t entry_point,
+							   int entry_level,
+							   int dim,
+							   int m,
+							   int ef_search,
+							   int k,
+							   const uint32_t *filter_blocks,
+							   int filter_block_count,
+							   uint32_t *result_blocks,
+							   float *result_distances,
+							   int *result_count,
+							   ndb_stream_t stream)
+{
+	/* GPU-integrated filtered HNSW search - fallback implementation */
+	(void)stream;
+
+	if (!rocm_ctx.initialized)
+		return -1;
+
+	/* Use regular search and filter on CPU for now */
+	/* TODO: Implement full GPU-integrated filtering HIP kernel */
+	{
+		uint32_t   *candidates = NULL;
+		float	   *candidate_dists = NULL;
+		int			candidate_count = 0;
+		int			filtered = 0;
+		int			i, j;
+		int			rc;
+
+		nalloc(candidates, uint32_t, ef_search);
+		nalloc(candidate_dists, float, ef_search);
+
+		rc = gpu_hnsw_search_hip(query,
+								 nodes,
+								 neighbors,
+								 neighbor_counts,
+								 node_levels,
+								 entry_point,
+								 entry_level,
+								 dim,
+								 m,
+								 ef_search,
+								 ef_search,
+								 candidates,
+								 candidate_dists);
+
+		if (rc != 0)
+		{
+			pfree(candidates);
+			pfree(candidate_dists);
+			return -1;
+		}
+
+		for (i = 0; i < ef_search; i++)
+		{
+			if (candidates[i] == 0xFFFFFFFF)
+				break;
+			candidate_count++;
+		}
+
+		for (i = 0; i < candidate_count && filtered < k; i++)
+		{
+			bool		passes = false;
+
+			if (filter_blocks != NULL && filter_block_count > 0)
+			{
+				for (j = 0; j < filter_block_count; j++)
+				{
+					if (filter_blocks[j] == candidates[i])
+					{
+						passes = true;
+						break;
+					}
+				}
+			}
+			else
+			{
+				passes = true;
+			}
+
+			if (passes)
+			{
+				result_blocks[filtered] = candidates[i];
+				result_distances[filtered] = candidate_dists[i];
+				filtered++;
+			}
+		}
+
+		for (i = filtered; i < k; i++)
+		{
+			result_blocks[i] = 0xFFFFFFFF;
+			result_distances[i] = FLT_MAX;
+		}
+
+		if (result_count != NULL)
+			*result_count = filtered;
+
+		pfree(candidates);
+		pfree(candidate_dists);
+
+		return 0;
+	}
+}
+
+static int
+ndb_rocm_hnsw_search_batch(const float *queries,
+							const float *nodes,
+							const uint32_t *neighbors,
+							const int32_t *neighbor_counts,
+							const int32_t *node_levels,
+							uint32_t entry_point,
+							int entry_level,
+							int num_queries,
+							int dim,
+							int m,
+							int ef_search,
+							int k,
+							uint32_t *result_blocks,
+							float *result_distances,
+							ndb_stream_t stream)
+{
+	(void)stream;
+
+	if (!rocm_ctx.initialized)
+		return -1;
+
+	return gpu_hnsw_search_batch_hip(queries,
+									  nodes,
+									  neighbors,
+									  neighbor_counts,
+									  node_levels,
+									  entry_point,
+									  entry_level,
+									  num_queries,
+									  dim,
+									  m,
+									  ef_search,
+									  k,
+									  result_blocks,
+									  result_distances);
+}
+
+static int
+ndb_rocm_ivf_search(const float *query,
+					 const float *centroids,
+					 const float *vectors,
+					 const int32_t *list_offsets,
+					 const int32_t *list_sizes,
+					 int nlists,
+					 int nprobe,
+					 int dim,
+					 int k,
+					 uint32_t *result_indices,
+					 float *result_distances,
+					 ndb_stream_t stream)
+{
+	(void)stream;
+
+	if (!rocm_ctx.initialized)
+		return -1;
+
+	return gpu_ivf_search_hip(query,
+							  centroids,
+							  vectors,
+							  list_offsets,
+							  list_sizes,
+							  nlists,
+							  nprobe,
+							  dim,
+							  k,
+							  result_indices,
+							  result_distances);
+}
+
+static int
+ndb_rocm_ivf_search_batch(const float *queries,
+						   const float *centroids,
+						   const float *vectors,
+						   const int32_t *list_offsets,
+						   const int32_t *list_sizes,
+						   int num_queries,
+						   int nlists,
+						   int nprobe,
+						   int dim,
+						   int k,
+						   uint32_t *result_indices,
+						   float *result_distances,
+						   ndb_stream_t stream)
+{
+	(void)stream;
+
+	if (!rocm_ctx.initialized)
+		return -1;
+
+	return gpu_ivf_search_batch_hip(queries,
+									 centroids,
+									 vectors,
+									 list_offsets,
+									 list_sizes,
+									 num_queries,
+									 nlists,
+									 nprobe,
+									 dim,
+									 k,
+									 result_indices,
+									 result_distances);
+}
+
 static const ndb_gpu_backend ndb_rocm_backend = {
 	.name = "ROCm",
 	.provider = "AMD",
@@ -1148,6 +1508,8 @@ static const ndb_gpu_backend ndb_rocm_backend = {
 	.launch_quant_fp8_e5m2 = ndb_rocm_launch_quant_fp8_e5m2,
 	.launch_quant_binary = ndb_rocm_launch_quant_binary,
 	.launch_pq_encode = ndb_rocm_launch_pq_encode,
+	.launch_pq_asymmetric_distance_batch = ndb_rocm_launch_pq_asymmetric_distance_batch,
+	.launch_hnsw_build = ndb_rocm_launch_hnsw_build,
 
 	.rf_train = ndb_rocm_rf_train,
 	.rf_predict = ndb_rocm_rf_predict,
@@ -1196,40 +1558,11 @@ static const ndb_gpu_backend ndb_rocm_backend = {
 	.hf_rerank = ndb_rocm_hf_rerank,
 	.hf_vision_complete = NULL,
 
-	/*
-	 * TODO: Implement ROCm HNSW search.
-	 * This function should perform HNSW (Hierarchical Navigable Small World)
-	 * graph search on AMD GPUs using HIP. The implementation should traverse
-	 * the multi-layer graph structure starting from the entry point, using
-	 * greedy search at each level to find approximate nearest neighbors.
-	 * See gpu_hnsw.c for reference implementation patterns.
-	 */
-	.hnsw_search = NULL,
-	/*
-	 * TODO: Implement ROCm batch HNSW search.
-	 * This function should perform batch HNSW searches for multiple query
-	 * vectors in parallel on AMD GPUs. The implementation should leverage
-	 * HIP's parallel execution model to process multiple queries concurrently,
-	 * improving throughput for batch workloads.
-	 */
-	.hnsw_search_batch = NULL,
-	/*
-	 * TODO: Implement ROCm IVF search.
-	 * This function should perform IVF (Inverted File) index search on AMD
-	 * GPUs using HIP. The implementation should: (1) Find the nearest
-	 * centroids using the query vector, (2) Search within the selected lists
-	 * for nearest neighbors, (3) Return top-k results. See gpu_ivf.c for
-	 * reference implementation.
-	 */
-	.ivf_search = NULL,
-	/*
-	 * TODO: Implement ROCm batch IVF search.
-	 * This function should perform batch IVF searches for multiple query
-	 * vectors in parallel on AMD GPUs. The implementation should process
-	 * multiple queries concurrently, sharing centroid distance computations
-	 * where possible for efficiency.
-	 */
-	.ivf_search_batch = NULL,
+	.hnsw_search = ndb_rocm_hnsw_search,
+	.hnsw_search_filtered = ndb_rocm_hnsw_search_filtered,
+	.hnsw_search_batch = ndb_rocm_hnsw_search_batch,
+	.ivf_search = ndb_rocm_ivf_search,
+	.ivf_search_batch = ndb_rocm_ivf_search_batch,
 
 	.stream_create = ndb_rocm_stream_create,
 	.stream_destroy = ndb_rocm_stream_destroy,

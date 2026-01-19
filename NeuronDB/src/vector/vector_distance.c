@@ -40,23 +40,17 @@ float4 spherical_distance(Vector *a, Vector *b);
 static inline void
 check_dimensions(const Vector *a, const Vector *b)
 {
-	if (a == NULL || b == NULL)
-		ereport(ERROR,
-				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
-				 errmsg("cannot compute distance with NULL vectors")));
+	/* Use NDB_CHECK_VECTOR_VALID for comprehensive validation */
+	NDB_CHECK_VECTOR_VALID(a);
+	NDB_CHECK_VECTOR_VALID(b);
 
+	/* Check dimension matching */
 	if (a->dim != b->dim)
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),
 				 errmsg("vector dimensions must match: %d vs %d",
-						a->dim,
-						b->dim)));
-
-	if (a->dim <= 0)
-		ereport(ERROR,
-				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-				 errmsg("cannot compute distance for vector with dimension %d",
-						a->dim)));
+					a->dim,
+					b->dim)));
 
 	/* Check for NaN/Inf in vectors */
 	{

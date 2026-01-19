@@ -31,7 +31,244 @@
 #include "neurondb_json.h"
 #include "neurondb_spi.h"
 
+#ifdef HAVE_DLFCN_H
+#include <dlfcn.h>
+#endif
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 extern ImageMetadata *ndb_validate_image(const unsigned char *data, size_t size, MemoryContext mctx);
+
+/*
+ * GPU Metrics Helper Functions
+ * These functions query system-level APIs for GPU utilization, temperature, and power
+ */
+
+#ifdef HAVE_DLFCN_H
+/* NVML function pointers and handle */
+static void *nvml_handle = NULL;
+static bool nvml_initialized = false;
+
+typedef struct nvmlDevice_st *nvmlDevice_t;
+typedef enum nvmlReturn_enum
+{
+	NVML_SUCCESS = 0
+} nvmlReturn_t;
+
+typedef struct nvmlUtilization_st
+{
+	unsigned int gpu;
+	unsigned int memory;
+} nvmlUtilization_t;
+
+static nvmlReturn_t (*nvmlInit_v2_ptr) (void) = NULL;
+static nvmlReturn_t (*nvmlDeviceGetHandleByIndex_ptr) (unsigned int, nvmlDevice_t *) = NULL;
+static nvmlReturn_t (*nvmlDeviceGetUtilizationRates_ptr) (nvmlDevice_t, nvmlUtilization_t *) = NULL;
+static nvmlReturn_t (*nvmlDeviceGetTemperature_ptr) (nvmlDevice_t, int, unsigned int *) = NULL;
+static nvmlReturn_t (*nvmlDeviceGetPowerUsage_ptr) (nvmlDevice_t, unsigned int *) = NULL;
+
+/*
+ * Initialize NVML library dynamically
+ */
+static bool
+neurondb_init_nvml(void)
+{
+	if (nvml_initialized)
+		return (nvml_handle != NULL);
+
+	nvml_handle = dlopen("libnvidia-ml.so.1", RTLD_LAZY);
+	if (nvml_handle == NULL)
+		return false;
+
+	nvmlInit_v2_ptr = (nvmlReturn_t (*)(void)) dlsym(nvml_handle, "nvmlInit_v2");
+	nvmlDeviceGetHandleByIndex_ptr = (nvmlReturn_t (*)(unsigned int, nvmlDevice_t *)) dlsym(nvml_handle, "nvmlDeviceGetHandleByIndex");
+	nvmlDeviceGetUtilizationRates_ptr = (nvmlReturn_t (*)(nvmlDevice_t, nvmlUtilization_t *)) dlsym(nvml_handle, "nvmlDeviceGetUtilizationRates");
+	nvmlDeviceGetTemperature_ptr = (nvmlReturn_t (*)(nvmlDevice_t, int, unsigned int *)) dlsym(nvml_handle, "nvmlDeviceGetTemperature");
+	nvmlDeviceGetPowerUsage_ptr = (nvmlReturn_t (*)(nvmlDevice_t, unsigned int *)) dlsym(nvml_handle, "nvmlDeviceGetPowerUsage");
+
+	if (!nvmlInit_v2_ptr || !nvmlDeviceGetHandleByIndex_ptr ||
+		!nvmlDeviceGetUtilizationRates_ptr || !nvmlDeviceGetTemperature_ptr ||
+		!nvmlDeviceGetPowerUsage_ptr)
+	{
+		dlclose(nvml_handle);
+		nvml_handle = NULL;
+		return false;
+	}
+
+	if ((*nvmlInit_v2_ptr)() != NVML_SUCCESS)
+	{
+		dlclose(nvml_handle);
+		nvml_handle = NULL;
+		return false;
+	}
+
+	nvml_initialized = true;
+	return true;
+}
+
+/*
+ * Get NVIDIA GPU utilization using NVML
+ */
+static float4
+neurondb_gpu_get_nvml_utilization(int device_id)
+{
+	nvmlDevice_t device;
+	nvmlUtilization_t util;
+
+	if (!neurondb_init_nvml())
+		return 0.0;
+
+	if ((*nvmlDeviceGetHandleByIndex_ptr)((unsigned int) device_id, &device) != NVML_SUCCESS)
+		return 0.0;
+
+	if ((*nvmlDeviceGetUtilizationRates_ptr)(device, &util) != NVML_SUCCESS)
+		return 0.0;
+
+	return (float4) util.gpu;
+}
+
+/*
+ * Get NVIDIA GPU temperature using NVML
+ */
+static int32
+neurondb_gpu_get_nvml_temperature(int device_id)
+{
+	nvmlDevice_t device;
+	unsigned int temp;
+
+	if (!neurondb_init_nvml())
+		return 0;
+
+	if ((*nvmlDeviceGetHandleByIndex_ptr)((unsigned int) device_id, &device) != NVML_SUCCESS)
+		return 0;
+
+	/* NVML_TEMPERATURE_GPU = 0 */
+	if ((*nvmlDeviceGetTemperature_ptr)(device, 0, &temp) != NVML_SUCCESS)
+		return 0;
+
+	return (int32) temp;
+}
+
+/*
+ * Get NVIDIA GPU power usage using NVML (returns watts * 1000 for milliwatts)
+ */
+static float4
+neurondb_gpu_get_nvml_power(int device_id)
+{
+	nvmlDevice_t device;
+	unsigned int power_mw;
+
+	if (!neurondb_init_nvml())
+		return 0.0;
+
+	if ((*nvmlDeviceGetHandleByIndex_ptr)((unsigned int) device_id, &device) != NVML_SUCCESS)
+		return 0.0;
+
+	if ((*nvmlDeviceGetPowerUsage_ptr)(device, &power_mw) != NVML_SUCCESS)
+		return 0.0;
+
+	/* Convert milliwatts to watts */
+	return (float4) power_mw / 1000.0;
+}
+#else
+/* No dlopen support - return 0 */
+static float4
+neurondb_gpu_get_nvml_utilization(int device_id)
+{
+	(void) device_id;
+	return 0.0;
+}
+
+static int32
+neurondb_gpu_get_nvml_temperature(int device_id)
+{
+	(void) device_id;
+	return 0;
+}
+
+static float4
+neurondb_gpu_get_nvml_power(int device_id)
+{
+	(void) device_id;
+	return 0.0;
+}
+#endif							/* HAVE_DLFCN_H */
+
+/*
+ * Get AMD GPU utilization using rocm-smi
+ */
+static float4
+neurondb_gpu_get_rocm_utilization(int device_id)
+{
+	FILE	   *fp = NULL;
+	char		cmd[256];
+	char		buffer[128];
+	float4		util = 0.0;
+
+	snprintf(cmd, sizeof(cmd), "rocm-smi -d %d --showuse -s 2>/dev/null | grep -E 'GPU use' | awk '{print $4}' | sed 's/%%//'", device_id);
+	fp = popen(cmd, "r");
+	if (fp != NULL)
+	{
+		if (fgets(buffer, sizeof(buffer), fp) != NULL)
+		{
+			util = (float4) atof(buffer);
+		}
+		pclose(fp);
+	}
+
+	return util;
+}
+
+/*
+ * Get AMD GPU temperature using rocm-smi
+ */
+static int32
+neurondb_gpu_get_rocm_temperature(int device_id)
+{
+	FILE	   *fp = NULL;
+	char		cmd[256];
+	char		buffer[128];
+	int32		temp = 0;
+
+	snprintf(cmd, sizeof(cmd), "rocm-smi -d %d -t 2>/dev/null | grep -E 'Temperature' | awk '{print $2}' | sed 's/C//'", device_id);
+	fp = popen(cmd, "r");
+	if (fp != NULL)
+	{
+		if (fgets(buffer, sizeof(buffer), fp) != NULL)
+		{
+			temp = (int32) atoi(buffer);
+		}
+		pclose(fp);
+	}
+
+	return temp;
+}
+
+/*
+ * Get AMD GPU power usage using rocm-smi
+ */
+static float4
+neurondb_gpu_get_rocm_power(int device_id)
+{
+	FILE	   *fp = NULL;
+	char		cmd[256];
+	char		buffer[128];
+	float4		power = 0.0;
+
+	snprintf(cmd, sizeof(cmd), "rocm-smi -d %d -P 2>/dev/null | grep -E 'Average Graphics Package Power' | awk '{print $5}'", device_id);
+	fp = popen(cmd, "r");
+	if (fp != NULL)
+	{
+		if (fgets(buffer, sizeof(buffer), fp) != NULL)
+		{
+			power = (float4) atof(buffer);
+		}
+		pclose(fp);
+	}
+
+	return power;
+}
 
 typedef struct NdbLLMRateLimiter
 {
@@ -1782,15 +2019,31 @@ neurondb_llm_gpu_utilization(PG_FUNCTION_ARGS)
 				}
 
 				/*
-				 * Note: GPU utilization percentage, temperature, and power
-				 * require system-level APIs (NVML for CUDA, rocm-smi for
-				 * ROCm, IOKit for Metal). These require integration with
-				 * backend-specific monitoring APIs. For now, return 0.0 to
-				 * indicate metrics are not available.
+				 * Query GPU utilization, temperature, and power using
+				 * system-level APIs (NVML for CUDA, rocm-smi for ROCm).
+				 * Metal/IOKit integration is deferred.
 				 */
-				utilization_pct = 0.0;
-				temperature_c = 0;
-				power_w = 0.0;
+				if (backend->kind == NDB_GPU_BACKEND_CUDA)
+				{
+					/* Try NVML for NVIDIA GPUs */
+					utilization_pct = neurondb_gpu_get_nvml_utilization(device_id);
+					temperature_c = neurondb_gpu_get_nvml_temperature(device_id);
+					power_w = neurondb_gpu_get_nvml_power(device_id);
+				}
+				else if (backend->kind == NDB_GPU_BACKEND_ROCM)
+				{
+					/* Try rocm-smi for AMD GPUs */
+					utilization_pct = neurondb_gpu_get_rocm_utilization(device_id);
+					temperature_c = neurondb_gpu_get_rocm_temperature(device_id);
+					power_w = neurondb_gpu_get_rocm_power(device_id);
+				}
+				else
+				{
+					/* Metal/other backends - metrics not yet available */
+					utilization_pct = 0.0;
+					temperature_c = 0;
+					power_w = 0.0;
+				}
 			}
 		}
 

@@ -15,7 +15,7 @@
 
 MODULE_big = neurondb
 EXTENSION = neurondb
-DATA = neurondb--1.0.sql neurondb--2.0.sql neurondb--2.1.0.sql neurondb--1.0--2.0.sql neurondb--2.0--2.1.0.sql
+DATA = sql/neurondb--1.0.sql sql/neurondb--2.0.sql sql/neurondb--2.1.0.sql sql/neurondb--3.0.0-devel.sql sql/neurondb--1.0--2.0.sql sql/neurondb--2.0--2.1.0.sql sql/neurondb--2.1.0--3.0.0-devel.sql
 DOCS = README.md
 
 PG_CPPFLAGS += -I$(srcdir)/include
@@ -495,7 +495,8 @@ ifneq ($(wildcard neurondb--1.0.sql.in),)
 $(eval include Makefile.header)
 
 # Generate Linux SQL file
-neurondb--1.0.sql.linux: neurondb--1.0.sql.in Makefile Makefile.sql-functions Makefile.header
+sql/neurondb--1.0.sql.linux: neurondb--1.0.sql.in Makefile Makefile.sql-functions Makefile.header
+	@mkdir -p sql
 	@echo "=========================================================================="
 	@echo "Generating Linux SQL file..."
 	@echo "  PostgreSQL: $(PGSQL_VERSION) (version_num: $(PGSQL_VERSION_NUM))"
@@ -508,26 +509,27 @@ neurondb--1.0.sql.linux: neurondb--1.0.sql.in Makefile Makefile.sql-functions Ma
 	     -e 's|@UNAME_S@|Linux|g' \
 	     -e 's|@BUILD_DATE@|$(BUILD_DATE)|g' \
 	     -e 's|@BUILD_TYPE@|linux_pg$(PGSQL_MAJOR)|g' \
-	     neurondb--1.0.sql.in > neurondb--1.0.sql.linux.tmp
-	@$(MAKE) -s -f Makefile.sql-functions ml-regression-functions > neurondb--1.0.sql.reg.funcs
-	@$(MAKE) -s -f Makefile.sql-functions ml-classification-functions > neurondb--1.0.sql.clf.funcs
-	@$(MAKE) -s -f Makefile.sql-functions ml-knn-functions > neurondb--1.0.sql.knn.funcs
-	@$(MAKE) -s -f Makefile.sql-functions ml-ensemble-functions > neurondb--1.0.sql.ens.funcs
-	@sed '/@ML_REGRESSION_FUNCTIONS@/r neurondb--1.0.sql.reg.funcs' neurondb--1.0.sql.linux.tmp | \
+	     neurondb--1.0.sql.in > sql/neurondb--1.0.sql.linux.tmp
+	@$(MAKE) -s -f Makefile.sql-functions ml-regression-functions > sql/neurondb--1.0.sql.reg.funcs
+	@$(MAKE) -s -f Makefile.sql-functions ml-classification-functions > sql/neurondb--1.0.sql.clf.funcs
+	@$(MAKE) -s -f Makefile.sql-functions ml-knn-functions > sql/neurondb--1.0.sql.knn.funcs
+	@$(MAKE) -s -f Makefile.sql-functions ml-ensemble-functions > sql/neurondb--1.0.sql.ens.funcs
+	@sed '/@ML_REGRESSION_FUNCTIONS@/r sql/neurondb--1.0.sql.reg.funcs' sql/neurondb--1.0.sql.linux.tmp | \
 	     sed '/@ML_REGRESSION_FUNCTIONS@/d' | \
-	     sed '/@ML_CLASSIFICATION_FUNCTIONS@/r neurondb--1.0.sql.clf.funcs' | \
+	     sed '/@ML_CLASSIFICATION_FUNCTIONS@/r sql/neurondb--1.0.sql.clf.funcs' | \
 	     sed '/@ML_CLASSIFICATION_FUNCTIONS@/d' | \
-	     sed '/@ML_KNN_FUNCTIONS@/r neurondb--1.0.sql.knn.funcs' | \
+	     sed '/@ML_KNN_FUNCTIONS@/r sql/neurondb--1.0.sql.knn.funcs' | \
 	     sed '/@ML_KNN_FUNCTIONS@/d' | \
-	     sed '/@ML_ENSEMBLE_FUNCTIONS@/r neurondb--1.0.sql.ens.funcs' | \
-	     sed '/@ML_ENSEMBLE_FUNCTIONS@/d' > neurondb--1.0.sql.linux.tmp2
-	@cp neurondb--1.0.sql.linux.tmp2 neurondb--1.0.sql.linux
-	@rm -f neurondb--1.0.sql.linux.tmp neurondb--1.0.sql.linux.tmp2 neurondb--1.0.sql.reg.funcs neurondb--1.0.sql.clf.funcs neurondb--1.0.sql.knn.funcs neurondb--1.0.sql.ens.funcs
-	@echo "✓ Generated neurondb--1.0.sql.linux"
+	     sed '/@ML_ENSEMBLE_FUNCTIONS@/r sql/neurondb--1.0.sql.ens.funcs' | \
+	     sed '/@ML_ENSEMBLE_FUNCTIONS@/d' > sql/neurondb--1.0.sql.linux.tmp2
+	@cp sql/neurondb--1.0.sql.linux.tmp2 sql/neurondb--1.0.sql.linux
+	@rm -f sql/neurondb--1.0.sql.linux.tmp sql/neurondb--1.0.sql.linux.tmp2 sql/neurondb--1.0.sql.reg.funcs sql/neurondb--1.0.sql.clf.funcs sql/neurondb--1.0.sql.knn.funcs sql/neurondb--1.0.sql.ens.funcs
+	@echo "✓ Generated sql/neurondb--1.0.sql.linux"
 	@echo "=========================================================================="
 
 # Generate macOS SQL file
-neurondb--1.0.sql.macos: neurondb--1.0.sql.in Makefile Makefile.sql-functions Makefile.header
+sql/neurondb--1.0.sql.macos: neurondb--1.0.sql.in Makefile Makefile.sql-functions Makefile.header
+	@mkdir -p sql
 	@echo "=========================================================================="
 	@echo "Generating macOS SQL file..."
 	@echo "  PostgreSQL: $(PGSQL_VERSION) (version_num: $(PGSQL_VERSION_NUM))"
@@ -540,66 +542,68 @@ neurondb--1.0.sql.macos: neurondb--1.0.sql.in Makefile Makefile.sql-functions Ma
 	     -e 's|@UNAME_S@|Darwin|g' \
 	     -e 's|@BUILD_DATE@|$(BUILD_DATE)|g' \
 	     -e 's|@BUILD_TYPE@|macos_pg$(PGSQL_MAJOR)|g' \
-	     neurondb--1.0.sql.in > neurondb--1.0.sql.macos.tmp
-	@$(MAKE) -s -f Makefile.sql-functions ml-regression-functions > neurondb--1.0.sql.reg.funcs
-	@$(MAKE) -s -f Makefile.sql-functions ml-classification-functions > neurondb--1.0.sql.clf.funcs
-	@$(MAKE) -s -f Makefile.sql-functions ml-knn-functions > neurondb--1.0.sql.knn.funcs
-	@$(MAKE) -s -f Makefile.sql-functions ml-ensemble-functions > neurondb--1.0.sql.ens.funcs
-	@sed '/@ML_REGRESSION_FUNCTIONS@/r neurondb--1.0.sql.reg.funcs' neurondb--1.0.sql.macos.tmp | \
+	     neurondb--1.0.sql.in > sql/neurondb--1.0.sql.macos.tmp
+	@$(MAKE) -s -f Makefile.sql-functions ml-regression-functions > sql/neurondb--1.0.sql.reg.funcs
+	@$(MAKE) -s -f Makefile.sql-functions ml-classification-functions > sql/neurondb--1.0.sql.clf.funcs
+	@$(MAKE) -s -f Makefile.sql-functions ml-knn-functions > sql/neurondb--1.0.sql.knn.funcs
+	@$(MAKE) -s -f Makefile.sql-functions ml-ensemble-functions > sql/neurondb--1.0.sql.ens.funcs
+	@sed '/@ML_REGRESSION_FUNCTIONS@/r sql/neurondb--1.0.sql.reg.funcs' sql/neurondb--1.0.sql.macos.tmp | \
 	     sed '/@ML_REGRESSION_FUNCTIONS@/d' | \
-	     sed '/@ML_CLASSIFICATION_FUNCTIONS@/r neurondb--1.0.sql.clf.funcs' | \
+	     sed '/@ML_CLASSIFICATION_FUNCTIONS@/r sql/neurondb--1.0.sql.clf.funcs' | \
 	     sed '/@ML_CLASSIFICATION_FUNCTIONS@/d' | \
-	     sed '/@ML_KNN_FUNCTIONS@/r neurondb--1.0.sql.knn.funcs' | \
+	     sed '/@ML_KNN_FUNCTIONS@/r sql/neurondb--1.0.sql.knn.funcs' | \
 	     sed '/@ML_KNN_FUNCTIONS@/d' | \
-	     sed '/@ML_ENSEMBLE_FUNCTIONS@/r neurondb--1.0.sql.ens.funcs' | \
-	     sed '/@ML_ENSEMBLE_FUNCTIONS@/d' > neurondb--1.0.sql.macos.tmp2
-	@cp neurondb--1.0.sql.macos.tmp2 neurondb--1.0.sql.macos
-	@rm -f neurondb--1.0.sql.macos.tmp neurondb--1.0.sql.macos.tmp2 neurondb--1.0.sql.reg.funcs neurondb--1.0.sql.clf.funcs neurondb--1.0.sql.knn.funcs neurondb--1.0.sql.ens.funcs
-	@echo "✓ Generated neurondb--1.0.sql.macos"
+	     sed '/@ML_ENSEMBLE_FUNCTIONS@/r sql/neurondb--1.0.sql.ens.funcs' | \
+	     sed '/@ML_ENSEMBLE_FUNCTIONS@/d' > sql/neurondb--1.0.sql.macos.tmp2
+	@cp sql/neurondb--1.0.sql.macos.tmp2 sql/neurondb--1.0.sql.macos
+	@rm -f sql/neurondb--1.0.sql.macos.tmp sql/neurondb--1.0.sql.macos.tmp2 sql/neurondb--1.0.sql.reg.funcs sql/neurondb--1.0.sql.clf.funcs sql/neurondb--1.0.sql.knn.funcs sql/neurondb--1.0.sql.ens.funcs
+	@echo "✓ Generated sql/neurondb--1.0.sql.macos"
 	@echo "=========================================================================="
 
 # Select appropriate SQL file based on platform
-neurondb--1.0.sql: Makefile.header
+sql/neurondb--1.0.sql: Makefile.header
+	@mkdir -p sql
 	$(eval include Makefile.header)
 	@UNAME_S_VAL=$$(uname -s); \
 	if [ "$$UNAME_S_VAL" = "Darwin" ]; then \
-		if [ -f neurondb--1.0.sql.macos ]; then \
-			echo "Using neurondb--1.0.sql.macos for macOS build"; \
-			cp neurondb--1.0.sql.macos neurondb--1.0.sql; \
+		if [ -f sql/neurondb--1.0.sql.macos ]; then \
+			echo "Using sql/neurondb--1.0.sql.macos for macOS build"; \
+			cp sql/neurondb--1.0.sql.macos sql/neurondb--1.0.sql; \
 		else \
-			echo "⚠ neurondb--1.0.sql.macos not found, generating..."; \
-			$(MAKE) neurondb--1.0.sql.macos; \
-			cp neurondb--1.0.sql.macos neurondb--1.0.sql; \
+			echo "⚠ sql/neurondb--1.0.sql.macos not found, generating..."; \
+			$(MAKE) sql/neurondb--1.0.sql.macos; \
+			cp sql/neurondb--1.0.sql.macos sql/neurondb--1.0.sql; \
 		fi; \
 	else \
-		if [ -f neurondb--1.0.sql.linux ]; then \
-			echo "Using neurondb--1.0.sql.linux for Linux build"; \
-			cp neurondb--1.0.sql.linux neurondb--1.0.sql; \
+		if [ -f sql/neurondb--1.0.sql.linux ]; then \
+			echo "Using sql/neurondb--1.0.sql.linux for Linux build"; \
+			cp sql/neurondb--1.0.sql.linux sql/neurondb--1.0.sql; \
 		else \
-			echo "⚠ neurondb--1.0.sql.linux not found, generating..."; \
-			$(MAKE) neurondb--1.0.sql.linux; \
-			cp neurondb--1.0.sql.linux neurondb--1.0.sql; \
+			echo "⚠ sql/neurondb--1.0.sql.linux not found, generating..."; \
+			$(MAKE) sql/neurondb--1.0.sql.linux; \
+			cp sql/neurondb--1.0.sql.linux sql/neurondb--1.0.sql; \
 		fi; \
 	fi
 
 else
 # Fallback: copy from platform-specific .linux or .macos files
-neurondb--1.0.sql:
+sql/neurondb--1.0.sql:
+	@mkdir -p sql
 	@UNAME_S_VAL=$$(uname -s); \
 	if [ "$$UNAME_S_VAL" = "Darwin" ]; then \
-		if [ -f neurondb--1.0.sql.macos ]; then \
-			echo "Using neurondb--1.0.sql.macos for macOS build"; \
-			cp neurondb--1.0.sql.macos neurondb--1.0.sql; \
+		if [ -f sql/neurondb--1.0.sql.macos ]; then \
+			echo "Using sql/neurondb--1.0.sql.macos for macOS build"; \
+			cp sql/neurondb--1.0.sql.macos sql/neurondb--1.0.sql; \
 		else \
-			echo "⚠ neurondb--1.0.sql.macos not found!"; \
+			echo "⚠ sql/neurondb--1.0.sql.macos not found!"; \
 			exit 1; \
 		fi; \
 	else \
-		if [ -f neurondb--1.0.sql.linux ]; then \
-			echo "Using neurondb--1.0.sql.linux for Linux build"; \
-			cp neurondb--1.0.sql.linux neurondb--1.0.sql; \
+		if [ -f sql/neurondb--1.0.sql.linux ]; then \
+			echo "Using sql/neurondb--1.0.sql.linux for Linux build"; \
+			cp sql/neurondb--1.0.sql.linux sql/neurondb--1.0.sql; \
 		else \
-			echo "⚠ neurondb--1.0.sql.linux not found!"; \
+			echo "⚠ sql/neurondb--1.0.sql.linux not found!"; \
 			exit 1; \
 		fi; \
 	fi

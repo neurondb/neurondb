@@ -10,22 +10,23 @@ include Makefile.header
 all: ml-regression-functions ml-classification-functions ml-knn-functions ml-ensemble-functions
 
 # Generate neurondb--1.0.sql from template
-neurondb--1.0.sql: neurondb--1.0.sql.in Makefile.sql-functions Makefile.header
+sql/neurondb--1.0.sql: neurondb--1.0.sql.in Makefile.sql-functions Makefile.header
+	@mkdir -p sql
 	@echo "=========================================================================="
-	@echo "  Generating neurondb--1.0.sql"
+	@echo "  Generating sql/neurondb--1.0.sql"
 	@echo "  PostgreSQL: $(PGSQL_VERSION)"
 	@echo "  Platform: $(PLATFORM)"
 	@echo "  Build Type: $(BUILD_TYPE)"
 	@echo "  Build Date: $(BUILD_DATE)"
 	@echo "=========================================================================="
 	@# Generate regression functions (includes Ridge/Lasso)
-	@$(MAKE) -s ml-regression-functions > neurondb--1.0.sql.reg.funcs
+	@$(MAKE) -s ml-regression-functions > sql/neurondb--1.0.sql.reg.funcs
 	@# Generate classification functions
-	@$(MAKE) -s ml-classification-functions > neurondb--1.0.sql.clf.funcs
+	@$(MAKE) -s ml-classification-functions > sql/neurondb--1.0.sql.clf.funcs
 	@# Generate KNN functions
-	@$(MAKE) -s ml-knn-functions > neurondb--1.0.sql.knn.funcs
+	@$(MAKE) -s ml-knn-functions > sql/neurondb--1.0.sql.knn.funcs
 	@# Generate ensemble functions (includes Random Forest)
-	@$(MAKE) -s ml-ensemble-functions > neurondb--1.0.sql.ens.funcs
+	@$(MAKE) -s ml-ensemble-functions > sql/neurondb--1.0.sql.ens.funcs
 	@# Substitute all placeholders
 	@sed \
 		-e 's/@PGSQL_VERSION@/$(PGSQL_VERSION)/g' \
@@ -34,16 +35,17 @@ neurondb--1.0.sql: neurondb--1.0.sql.in Makefile.sql-functions Makefile.header
 		-e 's/@UNAME_S@/$(UNAME_S)/g' \
 		-e 's/@BUILD_DATE@/$(BUILD_DATE)/g' \
 		-e 's/@BUILD_TYPE@/$(BUILD_TYPE)/g' \
-		-e '/@ML_REGRESSION_FUNCTIONS@/r neurondb--1.0.sql.reg.funcs' \
+		-e '/@ML_REGRESSION_FUNCTIONS@/r sql/neurondb--1.0.sql.reg.funcs' \
 		-e '/@ML_REGRESSION_FUNCTIONS@/d' \
-		-e '/@ML_CLASSIFICATION_FUNCTIONS@/r neurondb--1.0.sql.clf.funcs' \
+		-e '/@ML_CLASSIFICATION_FUNCTIONS@/r sql/neurondb--1.0.sql.clf.funcs' \
 		-e '/@ML_CLASSIFICATION_FUNCTIONS@/d' \
-		-e '/@ML_KNN_FUNCTIONS@/r neurondb--1.0.sql.knn.funcs' \
+		-e '/@ML_KNN_FUNCTIONS@/r sql/neurondb--1.0.sql.knn.funcs' \
 		-e '/@ML_KNN_FUNCTIONS@/d' \
-		-e '/@ML_ENSEMBLE_FUNCTIONS@/r neurondb--1.0.sql.ens.funcs' \
+		-e '/@ML_ENSEMBLE_FUNCTIONS@/r sql/neurondb--1.0.sql.ens.funcs' \
 		-e '/@ML_ENSEMBLE_FUNCTIONS@/d' \
-		neurondb--1.0.sql.in > neurondb--1.0.sql
-	@echo "✓ Generated neurondb--1.0.sql for $(BUILD_TYPE)"
+		neurondb--1.0.sql.in > sql/neurondb--1.0.sql
+	@rm -f sql/neurondb--1.0.sql.reg.funcs sql/neurondb--1.0.sql.clf.funcs sql/neurondb--1.0.sql.knn.funcs sql/neurondb--1.0.sql.ens.funcs
+	@echo "✓ Generated sql/neurondb--1.0.sql for $(BUILD_TYPE)"
 	@echo "=========================================================================="
 
 # ML Regression Functions (CHECK PLATFORM FIRST!)

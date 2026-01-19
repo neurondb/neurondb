@@ -49,18 +49,157 @@ neurondb_gpu_pq_asymmetric_search(const float *query,
 		return -1;
 
 	backend = ndb_gpu_get_active_backend();
-	if (!backend)
+	if (!backend || !backend->launch_pq_asymmetric_distance_batch)
 		return -1;
 
-	/* Use existing PQ asymmetric distance kernel if available */
-	/* NOTE: launch_pq_asymmetric_distance_batch is not yet implemented in the backend structure.
-	 * When implemented, it should be added to ndb_gpu_backend in
-	 * include/neurondb_gpu_backend.h
-	 */
-	
-	/* TODO: Implement GPU PQ asymmetric distance batch support */
-	/* For now, fallback to CPU implementation */
-	return -1;
+	/* Allocate temporary arrays for distances and indices */
+	float	   *all_distances = NULL;
+	uint32_t   *all_indices = NULL;
+	int			i, j;
+	ndb_stream_t stream = NULL;
+	int			rc;
+
+	/* Allocate memory for all distances */
+	nalloc(all_distances, float, num_vectors);
+	nalloc(all_indices, uint32_t, num_vectors);
+	NDB_CHECK_ALLOC(all_distances, "all_distances");
+	NDB_CHECK_ALLOC(all_indices, "all_indices");
+
+	/* Initialize indices */
+	for (i = 0; i < num_vectors; i++)
+		all_indices[i] = (uint32_t) i;
+
+	/* Create stream for async execution if supported */
+	if (backend->stream_create)
+		backend->stream_create(&stream);
+
+	/* Launch GPU kernel to compute all distances */
+	rc = backend->launch_pq_asymmetric_distance_batch(query,
+													  pq_codes,
+													  codebooks,
+													  all_distances,
+													  num_vectors,
+													  dim,
+													  m,
+													  ks,
+													  stream);
+
+	/* Synchronize stream if created */
+	if (stream && backend->stream_synchronize)
+		backend->stream_synchronize(stream);
+	if (stream && backend->stream_destroy)
+		backend->stream_destroy(stream);
+
+	if (rc != 0)
+	{
+		pfree(all_distances);
+		pfree(all_indices);
+		return -1;
+	}
+
+	/* Select top-k using partial sort (heap-based for efficiency) */
+	/* Use max-heap to find top-k smallest distances */
+	{
+		/* Build max-heap of size k */
+		for (i = 0; i < k && i < num_vectors; i++)
+		{
+			/* Insert into heap */
+			int			child = i;
+
+			while (child > 0)
+			{
+				int			parent = (child - 1) / 2;
+
+				if (all_distances[all_indices[parent]] >= all_distances[all_indices[child]])
+					break;
+
+				/* Swap */
+				uint32_t	temp_idx = all_indices[parent];
+				all_indices[parent] = all_indices[child];
+				all_indices[child] = temp_idx;
+				child = parent;
+			}
+		}
+
+		/* Process remaining elements */
+		for (i = k; i < num_vectors; i++)
+		{
+			if (all_distances[i] < all_distances[all_indices[0]])
+			{
+				/* Replace root */
+				all_indices[0] = (uint32_t) i;
+
+				/* Heapify down */
+				int			parent = 0;
+
+				while (true)
+				{
+					int			left = 2 * parent + 1;
+					int			right = 2 * parent + 2;
+					int			largest = parent;
+
+					if (left < k && all_distances[all_indices[left]] > all_distances[all_indices[largest]])
+						largest = left;
+					if (right < k && all_distances[all_indices[right]] > all_distances[all_indices[largest]])
+						largest = right;
+
+					if (largest == parent)
+						break;
+
+					/* Swap */
+					uint32_t	temp_idx = all_indices[parent];
+					all_indices[parent] = all_indices[largest];
+					all_indices[largest] = temp_idx;
+					parent = largest;
+				}
+			}
+		}
+
+		/* Extract top-k in sorted order (smallest first) */
+		for (i = k - 1; i >= 0; i--)
+		{
+			/* Swap root with last */
+			uint32_t	temp_idx = all_indices[0];
+			all_indices[0] = all_indices[i];
+			all_indices[i] = temp_idx;
+
+			/* Heapify down on smaller heap */
+			int			parent = 0;
+
+			while (true)
+			{
+				int			left = 2 * parent + 1;
+				int			right = 2 * parent + 2;
+				int			largest = parent;
+
+				if (left < i && all_distances[all_indices[left]] > all_distances[all_indices[largest]])
+					largest = left;
+				if (right < i && all_distances[all_indices[right]] > all_distances[all_indices[largest]])
+					largest = right;
+
+				if (largest == parent)
+					break;
+
+				/* Swap */
+				uint32_t	temp_idx2 = all_indices[parent];
+				all_indices[parent] = all_indices[largest];
+				all_indices[largest] = temp_idx2;
+				parent = largest;
+			}
+		}
+	}
+
+	/* Copy results */
+	for (i = 0; i < k && i < num_vectors; i++)
+	{
+		result_indices[i] = all_indices[i];
+		result_distances[i] = all_distances[all_indices[i]];
+	}
+
+	pfree(all_distances);
+	pfree(all_indices);
+
+	return 0;
 }
 
 /*

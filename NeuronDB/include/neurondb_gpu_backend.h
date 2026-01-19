@@ -129,6 +129,15 @@ typedef struct ndb_gpu_backend
 									 int m,
 									 int ks,
 									 ndb_stream_t stream);
+	int			(*launch_pq_asymmetric_distance_batch) (const float *query,
+														 const uint8_t *codes,
+														 const float *codebooks,
+														 float *distances,
+														 int nvec,
+														 int dim,
+														 int m,
+														 int ks,
+														 ndb_stream_t stream);
 
 	/* Random forest */
 	int			(*rf_train) (const float *features,
@@ -418,6 +427,23 @@ typedef struct ndb_gpu_backend
 								uint32_t *result_blocks,
 								float *result_distances,
 								ndb_stream_t stream);
+	int			(*hnsw_search_filtered) (const float *query,
+										  const float *nodes,
+										  const uint32_t *neighbors,
+										  const int32_t *neighbor_counts,
+										  const int32_t *node_levels,
+										  uint32_t entry_point,
+										  int entry_level,
+										  int dim,
+										  int m,
+										  int ef_search,
+										  int k,
+										  const uint32_t *filter_blocks,
+										  int filter_block_count,
+										  uint32_t *result_blocks,
+										  float *result_distances,
+										  int *result_count,
+										  ndb_stream_t stream);
 
 	/* IVF index search */
 	int			(*ivf_search) (const float *query,
@@ -464,6 +490,20 @@ typedef struct ndb_gpu_backend
 									 uint32_t *result_indices,
 									 float *result_distances,
 									 ndb_stream_t stream);
+
+	/* GPU-accelerated index build */
+	int			(*launch_hnsw_build) (const float *vectors,
+									  int num_vectors,
+									  int dim,
+									  int m,
+									  int ef_construction,
+									  uint32_t **result_nodes,
+									  uint32_t **result_neighbors,
+									  int32_t **result_neighbor_counts,
+									  int32_t **result_node_levels,
+									  uint32_t *entry_point,
+									  int *entry_level,
+									  ndb_stream_t stream);
 
 	/* Stream utilities */
 	int			(*stream_create) (ndb_stream_t * stream);

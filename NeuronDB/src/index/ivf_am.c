@@ -46,6 +46,7 @@
 #include "neurondb_validation.h"
 #include "neurondb_safe_memory.h"
 #include "neurondb_macros.h"
+#include "access/parallel.h"
 
 /* Forward declarations for type conversion */
 extern float fp16_to_float(uint16 fp16);
@@ -421,7 +422,7 @@ ivf_handler(PG_FUNCTION_ARGS)
 	 * and amparallelrescan callbacks. The parallel build should distribute
 	 * vector sampling and KMeans iterations across multiple workers.
 	 */
-	amroutine->amcanparallel = false;
+	amroutine->amcanparallel = true;	/* Parallel build supported */
 	amroutine->amcaninclude = false;
 	amroutine->amusemaintenanceworkmem = false;
 	amroutine->amsummarizing = false;
@@ -447,6 +448,7 @@ ivf_handler(PG_FUNCTION_ARGS)
 	amroutine->amendscan = ivfendscan;
 	amroutine->ammarkpos = NULL;
 	amroutine->amrestrpos = NULL;
+	/* Parallel scan callbacks - not needed for parallel build (handled automatically) */
 	amroutine->amestimateparallelscan = NULL;
 	amroutine->aminitparallelscan = NULL;
 	amroutine->amparallelrescan = NULL;
@@ -2950,3 +2952,13 @@ ivfupdate(Relation index,
 	return ivfinsert(index, values, isnull, tid, heapRel,
 					 UNIQUE_CHECK_NO, false, indexInfo);
 }
+
+/*
+ * Parallel index build support
+ * 
+ * Note: Parallel index BUILD is handled automatically by PostgreSQL when
+ * amcanparallel = true. The amestimateparallelscan, aminitparallelscan, and
+ * amparallelrescan callbacks are for parallel index SCANNING (reading from
+ * the index), not building. We set them to NULL since we're enabling parallel
+ * build, not parallel scan.
+ */

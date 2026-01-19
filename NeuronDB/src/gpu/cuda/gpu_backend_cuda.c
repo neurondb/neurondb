@@ -153,20 +153,58 @@ static int	ndb_cuda_launch_pq_encode(const float *vectors,
 									  int m,
 									  int ks,
 									  ndb_stream_t stream);
+static int	ndb_cuda_launch_pq_asymmetric_distance_batch(const float *query,
+														  const uint8_t *codes,
+														  const float *codebooks,
+														  float *distances,
+														  int nvec,
+														  int dim,
+														  int m,
+														  int ks,
+														  ndb_stream_t stream);
+static int	ndb_cuda_launch_hnsw_build(const float *vectors,
+									   int num_vectors,
+									   int dim,
+									   int m,
+									   int ef_construction,
+									   uint32_t **result_nodes,
+									   uint32_t **result_neighbors,
+									   int32_t **result_neighbor_counts,
+									   int32_t **result_node_levels,
+									   uint32_t *entry_point,
+									   int *entry_level,
+									   ndb_stream_t stream);
 static int	ndb_cuda_hnsw_search(const float *query,
-								 const float *nodes,
-								 const uint32_t *neighbors,
-								 const int32_t *neighbor_counts,
-								 const int32_t *node_levels,
-								 uint32_t entry_point,
-								 int entry_level,
-								 int dim,
-								 int m,
-								 int ef_search,
-								 int k,
-								 uint32_t *result_blocks,
-								 float *result_distances,
-								 ndb_stream_t stream);
+					 const float *nodes,
+					 const uint32_t *neighbors,
+					 const int32_t *neighbor_counts,
+					 const int32_t *node_levels,
+					 uint32_t entry_point,
+					 int entry_level,
+					 int dim,
+					 int m,
+					 int ef_search,
+					 int k,
+					 uint32_t *result_blocks,
+					 float *result_distances,
+					 ndb_stream_t stream);
+static int	ndb_cuda_hnsw_search_filtered(const float *query,
+										   const float *nodes,
+										   const uint32_t *neighbors,
+										   const int32_t *neighbor_counts,
+										   const int32_t *node_levels,
+										   uint32_t entry_point,
+										   int entry_level,
+										   int dim,
+										   int m,
+										   int ef_search,
+										   int k,
+										   const uint32_t *filter_blocks,
+										   int filter_block_count,
+										   uint32_t *result_blocks,
+										   float *result_distances,
+										   int *result_count,
+										   ndb_stream_t stream);
 static int	ndb_cuda_hnsw_search_batch(const float *queries,
 										const float *nodes,
 										const uint32_t *neighbors,
@@ -781,6 +819,46 @@ ndb_cuda_launch_pq_encode(const float *vectors,
 		: -1;
 }
 
+static int
+ndb_cuda_launch_pq_asymmetric_distance_batch(const float *query,
+											  const uint8_t *codes,
+											  const float *codebooks,
+											  float *distances,
+											  int nvec,
+											  int dim,
+											  int m,
+											  int ks,
+											  ndb_stream_t stream)
+{
+	(void) stream;
+
+	if (!cuda_ctx.initialized || query == NULL || codes == NULL
+		|| codebooks == NULL || distances == NULL)
+		return -1;
+
+	return gpu_pq_asymmetric_distance_batch(query, codes, codebooks, distances,
+											nvec, dim, m, ks) == 0
+		? 0
+		: -1;
+}
+
+/* Forward declaration for PQ kernel functions */
+extern int gpu_pq_encode_batch(const float *h_vectors,
+								const float *h_codebooks,
+								uint8_t *h_codes,
+								int nvec,
+								int dim,
+								int m,
+								int ks);
+extern int gpu_pq_asymmetric_distance_batch(const float *h_query,
+											 const uint8_t *h_codes,
+											 const float *h_codebooks,
+											 float *h_distances,
+											 int nvec,
+											 int dim,
+											 int m,
+											 int ks);
+
 /* Forward declaration for HNSW kernel function */
 extern int gpu_hnsw_search_cuda(const float *h_query,
 								 const float *h_nodes,
@@ -881,6 +959,126 @@ ndb_cuda_hnsw_search(const float *query,
 								k,
 								result_blocks,
 								result_distances);
+}
+
+static int
+ndb_cuda_hnsw_search_filtered(const float *query,
+							   const float *nodes,
+							   const uint32_t *neighbors,
+							   const int32_t *neighbor_counts,
+							   const int32_t *node_levels,
+							   uint32_t entry_point,
+							   int entry_level,
+							   int dim,
+							   int m,
+							   int ef_search,
+							   int k,
+							   const uint32_t *filter_blocks,
+							   int filter_block_count,
+							   uint32_t *result_blocks,
+							   float *result_distances,
+							   int *result_count,
+							   ndb_stream_t stream)
+{
+	/* GPU-integrated filtered HNSW search */
+	/* For now, use fallback: regular search + CPU-side filtering */
+	/* Full GPU implementation would require modifying the CUDA kernel to:
+	 * - Accept filter_blocks array in device memory
+	 * - Check filter during neighbor exploration
+	 * - Early termination when enough filtered results found
+	 * - Reduce data transfer by filtering on GPU
+	 */
+	(void)stream;
+
+	if (!cuda_ctx.initialized)
+		return -1;
+
+	/* Use regular search and filter on CPU for now */
+	/* TODO: Implement full GPU-integrated filtering kernel */
+	{
+		uint32_t   *candidates = NULL;
+		float	   *candidate_dists = NULL;
+		int			candidate_count = 0;
+		int			filtered = 0;
+		int			i, j;
+		int			rc;
+
+		nalloc(candidates, uint32_t, ef_search);
+		nalloc(candidate_dists, float, ef_search);
+
+		rc = gpu_hnsw_search_cuda(query,
+								  nodes,
+								  neighbors,
+								  neighbor_counts,
+								  node_levels,
+								  entry_point,
+								  entry_level,
+								  dim,
+								  m,
+								  ef_search,
+								  ef_search,
+								  candidates,
+								  candidate_dists);
+
+		if (rc != 0)
+		{
+			pfree(candidates);
+			pfree(candidate_dists);
+			return -1;
+		}
+
+		/* Count valid candidates */
+		for (i = 0; i < ef_search; i++)
+		{
+			if (candidates[i] == 0xFFFFFFFF)
+				break;
+			candidate_count++;
+		}
+
+		/* Filter using filter_blocks set */
+		for (i = 0; i < candidate_count && filtered < k; i++)
+		{
+			bool		passes = false;
+
+			if (filter_blocks != NULL && filter_block_count > 0)
+			{
+				for (j = 0; j < filter_block_count; j++)
+				{
+					if (filter_blocks[j] == candidates[i])
+					{
+						passes = true;
+						break;
+					}
+				}
+			}
+			else
+			{
+				passes = true;
+			}
+
+			if (passes)
+			{
+				result_blocks[filtered] = candidates[i];
+				result_distances[filtered] = candidate_dists[i];
+				filtered++;
+			}
+		}
+
+		/* Fill remaining with invalid */
+		for (i = filtered; i < k; i++)
+		{
+			result_blocks[i] = 0xFFFFFFFF;
+			result_distances[i] = FLT_MAX;
+		}
+
+		if (result_count != NULL)
+			*result_count = filtered;
+
+		pfree(candidates);
+		pfree(candidate_dists);
+
+		return 0;
+	}
 }
 
 static int
@@ -1043,6 +1241,8 @@ static const ndb_gpu_backend ndb_cuda_backend = {
 	.launch_quant_fp8_e5m2 = ndb_cuda_launch_quant_fp8_e5m2,
 	.launch_quant_binary = ndb_cuda_launch_quant_binary,
 	.launch_pq_encode = ndb_cuda_launch_pq_encode,
+	.launch_pq_asymmetric_distance_batch = ndb_cuda_launch_pq_asymmetric_distance_batch,
+	.launch_hnsw_build = ndb_cuda_launch_hnsw_build,
 
 	.rf_train = ndb_cuda_rf_train,
 	.rf_predict = ndb_cuda_rf_predict,
@@ -1104,6 +1304,7 @@ static const ndb_gpu_backend ndb_cuda_backend = {
 	.hf_rerank = ndb_cuda_hf_rerank,
 
 	.hnsw_search = ndb_cuda_hnsw_search,
+	.hnsw_search_filtered = ndb_cuda_hnsw_search_filtered,
 	.hnsw_search_batch = ndb_cuda_hnsw_search_batch,
 	.ivf_search = ndb_cuda_ivf_search,
 	.ivf_search_batch = ndb_cuda_ivf_search_batch,

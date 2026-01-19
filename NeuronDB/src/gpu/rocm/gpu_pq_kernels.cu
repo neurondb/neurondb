@@ -90,6 +90,63 @@ pq_encode_kernel(const float *vectors,
 }
 
 /*
+ * GPU kernel: PQ asymmetric distance computation
+ *
+ * Compute distances from query vector to PQ-encoded database vectors.
+ * Uses asymmetric distance (query not quantized).
+ *
+ * Args:
+ *   query:      Query vector [dim]
+ *   codes:      PQ codes [nvec x m]
+ *   codebooks:  PQ codebooks [m x ks x subspace_dim]
+ *   distances:  Output distances [nvec]
+ *   nvec:       Number of database vectors
+ *   dim:        Vector dimensionality
+ *   m:          Number of subspaces
+ *   ks:         Codebook size
+ */
+__global__ void
+pq_asymmetric_distance_kernel(const float *query,
+	const uint8_t *codes,
+	const float *codebooks,
+	float *distances,
+	int nvec,
+	int dim,
+	int m,
+	int ks)
+{
+	int idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+	if (idx >= nvec)
+		return;
+
+	const uint8_t *code = codes + idx * m;
+	int subspace_dim = dim / m;
+	float total_dist = 0.0f;
+
+	/* Accumulate distance across subspaces */
+	for (int sub = 0; sub < m; sub++)
+	{
+		const float *query_sub = query + sub * subspace_dim;
+		const float *codebook = codebooks + sub * ks * subspace_dim;
+		uint8_t code_idx = code[sub];
+
+		const float *codeword = codebook + code_idx * subspace_dim;
+		float dist_sub = 0.0f;
+
+		for (int d = 0; d < subspace_dim; d++)
+		{
+			float diff = query_sub[d] - codeword[d];
+			dist_sub += diff * diff;
+		}
+
+		total_dist += dist_sub;
+	}
+
+	distances[idx] = total_dist;
+}
+
+/*
  * Host wrapper: GPU PQ encoding
  */
 extern "C" int
@@ -141,6 +198,58 @@ gpu_pq_encode_batch_hip(const float *h_vectors,
 	hipFree(d_vectors);
 	hipFree(d_codebooks);
 	hipFree(d_codes);
+
+	return hipGetLastError() == hipSuccess ? 0 : -1;
+}
+
+/*
+ * Host wrapper: GPU PQ asymmetric distance
+ */
+extern "C" int
+gpu_pq_asymmetric_distance_batch_hip(const float *h_query,
+	const uint8_t *h_codes,
+	const float *h_codebooks,
+	float *h_distances,
+	int nvec,
+	int dim,
+	int m,
+	int ks)
+{
+	float *d_query = NULL;
+	uint8_t *d_codes = NULL;
+	float *d_codebooks = NULL;
+	float *d_distances = NULL;
+
+	int subspace_dim = dim / m;
+
+	/* Allocate device memory */
+	hipMalloc(&d_query, dim * sizeof(float));
+	hipMalloc(&d_codes, nvec * m * sizeof(uint8_t));
+	hipMalloc(&d_codebooks, m * ks * subspace_dim * sizeof(float));
+	hipMalloc(&d_distances, nvec * sizeof(float));
+
+	/* Copy data to device */
+	hipMemcpy(d_query, h_query, dim * sizeof(float), hipMemcpyHostToDevice);
+	hipMemcpy(d_codes, h_codes, nvec * m * sizeof(uint8_t), hipMemcpyHostToDevice);
+	hipMemcpy(d_codebooks, h_codebooks, m * ks * subspace_dim * sizeof(float), hipMemcpyHostToDevice);
+
+	/* Launch kernel */
+	int threads = 256;
+	int blocks = (nvec + threads - 1) / threads;
+	hipLaunchKernelGGL(pq_asymmetric_distance_kernel,
+		dim3(blocks),
+		dim3(threads),
+		0,
+		0,
+		d_query, d_codes, d_codebooks, d_distances, nvec, dim, m, ks);
+
+	/* Copy results back */
+	hipMemcpy(h_distances, d_distances, nvec * sizeof(float), hipMemcpyDeviceToHost);
+
+	hipFree(d_query);
+	hipFree(d_codes);
+	hipFree(d_codebooks);
+	hipFree(d_distances);
 
 	return hipGetLastError() == hipSuccess ? 0 : -1;
 }
