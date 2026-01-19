@@ -303,73 +303,15 @@ LIMIT 5;
 
 ### Ecosystem Overview
 
-```mermaid
-%%{init: {'theme':'base', 'themeVariables': {'fontSize':'11px', 'primaryColor':'#fff', 'primaryTextColor':'#000', 'primaryBorderColor':'#000', 'lineColor':'#000', 'secondaryColor':'#fff', 'tertiaryColor':'#fff'}, 'flowchart': {'nodeSpacing': 40, 'rankSpacing': 50, 'curve': 'basis'}}}%%
-flowchart TB
-    subgraph Clients["Client Applications"]
-        CLI[CLI Tools]
-        WEB[Web Browser]
-        MCP_CLIENT[MCP Clients<br/>Claude Desktop]
-        API_CLIENT[API Clients]
-    end
-    
-    subgraph Services["NeuronDB Services"]
-        DESKTOP[NeuronDesktop<br/>Web UI + API<br/>Ports: 3000, 8081]
-        AGENT[NeuronAgent<br/>REST/WebSocket API<br/>Port: 8080]
-        MCP[NeuronMCP<br/>MCP Protocol Server<br/>stdio]
-    end
-    
-    subgraph Core["Core Database"]
-        DB[(NeuronDB PostgreSQL<br/>Port: 5433-5436)]
-        EXT[NeuronDB Extension<br/>Vector Search + ML]
-    end
-    
-    CLI -->|SQL| DB
-    WEB -->|HTTP| DESKTOP
-    MCP_CLIENT -->|JSON-RPC| MCP
-    API_CLIENT -->|HTTP| AGENT
-    
-    DESKTOP -->|HTTP| AGENT
-    DESKTOP -->|SQL| DB
-    AGENT -->|SQL| DB
-    MCP -->|SQL| DB
-    
-    DB --> EXT
-    
-    style DB fill:#e1f5ff,stroke:#01579b,stroke-width:2px
-    style EXT fill:#b3e5fc,stroke:#0277bd,stroke-width:2px
-    style AGENT fill:#fff4e1,stroke:#e65100,stroke-width:2px
-    style MCP fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
-    style DESKTOP fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
-```
+<div align="center">
+  <img src="Docs/assets/ecosystem-overview.svg" alt="Ecosystem Overview" width="700" />
+</div>
 
 ### Component Interaction Flow
 
-```mermaid
-%%{init: {'theme':'base', 'themeVariables': {'fontSize':'11px', 'primaryColor':'#fff', 'primaryTextColor':'#000', 'primaryBorderColor':'#000', 'lineColor':'#000', 'secondaryColor':'#fff', 'tertiaryColor':'#fff'}, 'sequence': {'actorMargin': 50, 'boxMargin': 10, 'boxTextMargin': 5, 'noteMargin': 10, 'messageMargin': 35, 'mirrorActors': true, 'bottomMarginAdj': 1, 'useMaxWidth': true, 'rightAngles': false, 'showSequenceNumbers': false}}}%%
-sequenceDiagram
-    participant User
-    participant Desktop as NeuronDesktop
-    participant Agent as NeuronAgent
-    participant MCP as NeuronMCP
-    participant DB as NeuronDB
-    
-    User->>Desktop: Access Web UI
-    Desktop->>DB: Query vector data
-    DB-->>Desktop: Return results
-    
-    User->>Desktop: Create agent task
-    Desktop->>Agent: POST /api/v1/agents
-    Agent->>DB: Store agent state
-    Agent->>DB: Vector search (memory)
-    DB-->>Agent: Context results
-    Agent-->>Desktop: Agent response
-    
-    User->>MCP: MCP client request
-    MCP->>DB: Execute tool (vector search)
-    DB-->>MCP: Results
-    MCP-->>User: Tool response
-```
+<div align="center">
+  <img src="Docs/assets/component-interaction-flow.svg" alt="Component Interaction Flow" width="700" />
+</div>
 
 > [!NOTE]
 > The root `docker-compose.yml` starts the ecosystem services together. You can also run each component independently (see component READMEs).
