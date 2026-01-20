@@ -1,14 +1,12 @@
 -- Detailed and exhaustive coverage of vector aggregate functions
 -- Uses real data from: sift1m.vectors for realistic testing
 
--- 1. Basic test table from real SIFT vectors (take first 100)
+-- 1. Basic test table with synthetic vectors (sift1m.vectors may not exist)
 CREATE TEMP TABLE test_vectors_agg AS
 SELECT 
     id::int,
-    array_to_vector(embedding[1:2])::vector(2) as v
-FROM sift1m.vectors
-WHERE id <= 100
-LIMIT 100;
+    array_to_vector(ARRAY[random()::real, random()::real])::vector(2) as v
+FROM generate_series(1, 100) AS id;
 
 -- Show sample of loaded data
 SELECT id, v FROM test_vectors_agg WHERE id <= 5;

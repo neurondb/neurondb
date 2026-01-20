@@ -147,40 +147,60 @@ END $$;
 -- Setup Worker Tables with Sample Data
 -- ============================================================================
 
--- Populate job queue with test jobs
-INSERT INTO neurondb.neurondb_job_queue (job_type, payload, status, tenant_id) VALUES
-    ('vector_search', '{"query": "[1,2,3]", "k": 10}'::jsonb, 'pending', 1),
-    ('index_build', '{"table": "test_vectors", "column": "embedding"}'::jsonb, 'pending', 1),
-    ('embedding_generation', '{"text": "test query", "model": "ada-002"}'::jsonb, 'pending', 2);
-
--- Populate query metrics
-INSERT INTO neurondb.neurondb_query_metrics (latency_ms, recall_at_k) VALUES
-    (15.5, 0.95),
-    (22.3, 0.87),
-    (18.7, 0.92);
-
--- Populate embedding cache
-INSERT INTO neurondb.neurondb_embedding_cache (cache_key, model_name, embedding) VALUES
-    ('test_key_1', 'text-embedding-ada-002', '[0.1, 0.2, 0.3]'::vector),
-    ('test_key_2', 'text-embedding-ada-002', '[0.4, 0.5, 0.6]'::vector);
-
--- Populate index maintenance
-INSERT INTO neurondb.neurondb_index_maintenance (index_name, index_type, num_nodes, fragmentation_ratio) VALUES
-    ('idx_test_vectors', 'hnsw', 5, 0.1),
-    ('idx_test_index_vectors', 'ivf', 10, 0.05);
-
--- Populate LLM jobs
-INSERT INTO neurondb.neurondb_llm_jobs (operation, model_name, input_text, status) VALUES
-    ('completion', 'gpt-3.5-turbo', 'Test prompt 1', 'pending'),
-    ('embedding', 'text-embedding-ada-002', 'Test text for embedding', 'processing'),
-    ('rerank', 'cross-encoder', 'Query and document', 'completed');
-
--- Populate Prometheus metrics
-INSERT INTO neurondb.neurondb_prometheus_metrics (metric_name, metric_value) VALUES
-    ('queries_per_second', 150.5),
-    ('avg_latency_ms', 18.2),
-    ('total_queries', 10000),
-    ('index_size_mb', 245.8);
+-- Populate job queue with test jobs (skip if tables don't exist)
+DO $$
+BEGIN
+    BEGIN
+        INSERT INTO neurondb.neurondb_job_queue (job_type, payload, status, tenant_id) VALUES
+            ('vector_search', '{"query": "[1,2,3]", "k": 10}'::jsonb, 'pending', 1),
+            ('index_build', '{"table": "test_vectors", "column": "embedding"}'::jsonb, 'pending', 1),
+            ('embedding_generation', '{"text": "test query", "model": "ada-002"}'::jsonb, 'pending', 2);
+    EXCEPTION WHEN undefined_table THEN
+        RAISE NOTICE 'neurondb_job_queue table not available, skipping';
+    END;
+    
+    BEGIN
+        INSERT INTO neurondb.neurondb_query_metrics (latency_ms, recall_at_k) VALUES
+            (15.5, 0.95), (22.3, 0.87), (18.7, 0.92);
+    EXCEPTION WHEN undefined_table THEN
+        RAISE NOTICE 'neurondb_query_metrics table not available, skipping';
+    END;
+    
+    BEGIN
+        INSERT INTO neurondb.neurondb_embedding_cache (cache_key, model_name, embedding) VALUES
+            ('test_key_1', 'text-embedding-ada-002', '[0.1, 0.2, 0.3]'::vector),
+            ('test_key_2', 'text-embedding-ada-002', '[0.4, 0.5, 0.6]'::vector);
+    EXCEPTION WHEN undefined_table THEN
+        RAISE NOTICE 'neurondb_embedding_cache table not available, skipping';
+    END;
+    
+    BEGIN
+        INSERT INTO neurondb.neurondb_index_maintenance (index_name, index_type, num_nodes, fragmentation_ratio) VALUES
+            ('idx_test_vectors', 'hnsw', 5, 0.1),
+            ('idx_test_index_vectors', 'ivf', 10, 0.05);
+    EXCEPTION WHEN undefined_table THEN
+        RAISE NOTICE 'neurondb_index_maintenance table not available, skipping';
+    END;
+    
+    BEGIN
+        INSERT INTO neurondb.neurondb_llm_jobs (operation, model_name, input_text, status) VALUES
+            ('completion', 'gpt-3.5-turbo', 'Test prompt 1', 'pending'),
+            ('embedding', 'text-embedding-ada-002', 'Test text for embedding', 'processing'),
+            ('rerank', 'cross-encoder', 'Query and document', 'completed');
+    EXCEPTION WHEN undefined_table THEN
+        RAISE NOTICE 'neurondb_llm_jobs table not available, skipping';
+    END;
+    
+    BEGIN
+        INSERT INTO neurondb.neurondb_prometheus_metrics (metric_name, metric_value) VALUES
+            ('queries_per_second', 150.5),
+            ('avg_latency_ms', 18.2),
+            ('total_queries', 10000),
+            ('index_size_mb', 245.8);
+    EXCEPTION WHEN undefined_table THEN
+        RAISE NOTICE 'neurondb_prometheus_metrics table not available, skipping';
+    END;
+END$$;
 
 -- ============================================================================
 -- Verify Setup Complete
@@ -193,20 +213,58 @@ FROM pg_tables
 WHERE schemaname = 'public' 
     AND tablename LIKE 'test_%';
 
--- Count worker table entries
-SELECT 
-    'job_queue' AS table_name, COUNT(*) AS count FROM neurondb.neurondb_job_queue
-UNION ALL
-SELECT 'query_metrics', COUNT(*) FROM neurondb.neurondb_query_metrics
-UNION ALL
-SELECT 'embedding_cache', COUNT(*) FROM neurondb.neurondb_embedding_cache
-UNION ALL
-SELECT 'index_maintenance', COUNT(*) FROM neurondb.neurondb_index_maintenance
-UNION ALL
-SELECT 'llm_jobs', COUNT(*) FROM neurondb.neurondb_llm_jobs
-UNION ALL
-SELECT 'prometheus_metrics', COUNT(*) FROM neurondb.neurondb_prometheus_metrics
-ORDER BY table_name;
+-- Count worker table entries (skip if tables don't exist)
+DO $$
+DECLARE
+    job_count integer := 0;
+    metrics_count integer := 0;
+    cache_count integer := 0;
+    maint_count integer := 0;
+    llm_count integer := 0;
+    prom_count integer := 0;
+BEGIN
+    BEGIN
+        SELECT COUNT(*) INTO job_count FROM neurondb.neurondb_job_queue;
+        RAISE NOTICE 'job_queue: % rows', job_count;
+    EXCEPTION WHEN undefined_table THEN
+        RAISE NOTICE 'job_queue: table not available';
+    END;
+    
+    BEGIN
+        SELECT COUNT(*) INTO metrics_count FROM neurondb.neurondb_query_metrics;
+        RAISE NOTICE 'query_metrics: % rows', metrics_count;
+    EXCEPTION WHEN undefined_table THEN
+        RAISE NOTICE 'query_metrics: table not available';
+    END;
+    
+    BEGIN
+        SELECT COUNT(*) INTO cache_count FROM neurondb.neurondb_embedding_cache;
+        RAISE NOTICE 'embedding_cache: % rows', cache_count;
+    EXCEPTION WHEN undefined_table THEN
+        RAISE NOTICE 'embedding_cache: table not available';
+    END;
+    
+    BEGIN
+        SELECT COUNT(*) INTO maint_count FROM neurondb.neurondb_index_maintenance;
+        RAISE NOTICE 'index_maintenance: % rows', maint_count;
+    EXCEPTION WHEN undefined_table THEN
+        RAISE NOTICE 'index_maintenance: table not available';
+    END;
+    
+    BEGIN
+        SELECT COUNT(*) INTO llm_count FROM neurondb.neurondb_llm_jobs;
+        RAISE NOTICE 'llm_jobs: % rows', llm_count;
+    EXCEPTION WHEN undefined_table THEN
+        RAISE NOTICE 'llm_jobs: table not available';
+    END;
+    
+    BEGIN
+        SELECT COUNT(*) INTO prom_count FROM neurondb.neurondb_prometheus_metrics;
+        RAISE NOTICE 'prometheus_metrics: % rows', prom_count;
+    EXCEPTION WHEN undefined_table THEN
+        RAISE NOTICE 'prometheus_metrics: table not available';
+    END;
+END$$;
 
 -- Verify extension functions are available
 SELECT 

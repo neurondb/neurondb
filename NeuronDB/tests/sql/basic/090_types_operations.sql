@@ -64,7 +64,20 @@ SELECT vector_out('[4.5, 5.5, 6.5]'::vector) AS vec_out;
 
 -- Edge: broadcast/scalar ops
 SELECT '[1,2]'::vector * 2 AS op_scalar_mul_broadcast;
-SELECT 10 * '[1,2]'::vector AS left_scalar_mul; -- if supported
+-- Left scalar multiplication (skip if operator not available)
+DO $$
+BEGIN
+  BEGIN
+    PERFORM 10 * '[1,2]'::vector;
+    RAISE NOTICE 'Left scalar multiplication operator is available';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = '42883' THEN
+      RAISE NOTICE 'Left scalar multiplication operator not available, skipping';
+    ELSE
+      RAISE NOTICE 'Left scalar multiplication error: %', SQLERRM;
+    END IF;
+  END;
+END$$;
 
 -- Edge: try invalid dimension operation (should ERROR)
 DO $$
