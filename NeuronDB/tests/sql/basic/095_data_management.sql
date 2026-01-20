@@ -10,10 +10,10 @@ CREATE TEMP TABLE test_vectors_dm (
     is_compressed boolean DEFAULT false
 );
 
--- 2. Insert diverse test vectors from real SIFT data with simulated timestamps
+-- 2. Insert diverse test vectors with simulated timestamps (sift1m.vectors may not exist)
 INSERT INTO test_vectors_dm (embedding, last_accessed, is_compressed)
 SELECT 
-    array_to_vector(embedding[1:10])::vector(10) as embedding,
+    array_to_vector(ARRAY(SELECT random()::real FROM generate_series(1, 10)))::vector(10) as embedding,
     CASE 
         WHEN id % 6 = 0 THEN now() - INTERVAL '40 days'
         WHEN id % 6 = 1 THEN now() - INTERVAL '20 days'
@@ -23,9 +23,7 @@ SELECT
         ELSE now() - INTERVAL '90 days'
     END as last_accessed,
     CASE WHEN id % 3 = 0 THEN true ELSE false END as is_compressed
-FROM sift1m.vectors
-WHERE id <= 100
-LIMIT 100;
+FROM generate_series(1, 100) AS id;
 
 -- Show sample of loaded data
 SELECT id, vector_dims(embedding) as dims, last_accessed, is_compressed 
