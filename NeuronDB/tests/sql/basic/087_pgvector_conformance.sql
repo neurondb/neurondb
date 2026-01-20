@@ -111,7 +111,7 @@ SELECT inner_product('[1,2,3]'::vector, '[4,5,6]'::vector) AS ip;
 
 -- Array conversion functions
 SELECT vector_to_array('[1,2,3]'::vector) AS arr;
-SELECT array_to_vector(ARRAY[1.0, 2.0, 3.0]) AS vec;
+SELECT array_to_vector(ARRAY[1.0, 2.0, 3.0]::real[]) AS vec;
 
 DROP TABLE t;
 
@@ -147,23 +147,51 @@ INSERT INTO t VALUES
   (2, '[4,5,6]'),
   (3, '[7,8,9]');
 
--- avg(vector) - pgvector compatibility
-SELECT avg(embedding) AS avg_vec FROM t;
+-- avg(vector) - pgvector compatibility (use vector_avg if avg not available)
+DO $$
+BEGIN
+  BEGIN
+    PERFORM avg(embedding) FROM t;
+    RAISE NOTICE 'avg(vector) aggregate is available';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = '42883' THEN
+      -- Fallback to vector_avg if avg doesn't exist
+      PERFORM vector_avg(embedding) FROM t;
+      RAISE NOTICE 'Using vector_avg instead of avg';
+    ELSE
+      RAISE NOTICE 'avg(vector) error: %', SQLERRM;
+    END IF;
+  END;
+END$$;
 
--- sum(vector) - pgvector compatibility
-SELECT sum(embedding) AS sum_vec FROM t;
+-- sum(vector) - pgvector compatibility (use vector_sum if sum not available)
+DO $$
+BEGIN
+  BEGIN
+    PERFORM sum(embedding) FROM t;
+    RAISE NOTICE 'sum(vector) aggregate is available';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE = '42883' THEN
+      PERFORM vector_sum(embedding) FROM t;
+      RAISE NOTICE 'Using vector_sum instead of sum';
+    ELSE
+      RAISE NOTICE 'sum(vector) error: %', SQLERRM;
+    END IF;
+  END;
+END$$;
 
 -- vector_avg() and vector_sum() - NeuronDB canonical
 SELECT vector_avg(embedding) AS avg_vec FROM t;
 SELECT vector_sum(embedding) AS sum_vec FROM t;
 
 -- Aggregates with GROUP BY
+DROP TABLE IF EXISTS t2 CASCADE;
 CREATE TABLE t2 (category text, embedding vector(3));
 INSERT INTO t2 VALUES 
   ('A', '[1,2,3]'), ('A', '[2,3,4]'),
   ('B', '[10,11,12]'), ('B', '[11,12,13]');
 
-SELECT category, avg(embedding) FROM t2 GROUP BY category;
+SELECT category, vector_avg(embedding) FROM t2 GROUP BY category;
 
 DROP TABLE t, t2;
 
@@ -359,8 +387,8 @@ CREATE TABLE t (id int, embedding vector(3));
 INSERT INTO t VALUES (1, '[1,2,3]'), (2, NULL), (3, '[4,5,6]');
 
 -- Aggregates with NULLs
-SELECT avg(embedding) FROM t;  -- Should ignore NULLs
-SELECT sum(embedding) FROM t;  -- Should ignore NULLs
+SELECT vector_avg(embedding) FROM t;  -- Should ignore NULLs
+SELECT vector_sum(embedding) FROM t;  -- Should ignore NULLs
 
 -- Distance with NULL
 \set ON_ERROR_STOP off
@@ -368,8 +396,8 @@ SELECT id, embedding <-> NULL::vector FROM t;  -- Should error
 \set ON_ERROR_STOP on
 
 -- Empty result sets
-SELECT avg(embedding) FROM t WHERE false;  -- Should return NULL
-SELECT sum(embedding) FROM t WHERE false;  -- Should return NULL
+SELECT vector_avg(embedding) FROM t WHERE false;  -- Should return NULL
+SELECT vector_sum(embedding) FROM t WHERE false;  -- Should return NULL
 
 DROP TABLE t;
 

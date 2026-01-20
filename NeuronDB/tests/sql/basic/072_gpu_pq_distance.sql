@@ -20,11 +20,10 @@ BEGIN
 		compute_mode_val := '0';  -- Default to CPU if setting doesn't exist
 	END;
 	
-	-- Skip test if in CPU mode - just print message and exit
+	-- Skip test if in CPU mode - just print message
 	IF compute_mode_val = '0' THEN
 		RAISE NOTICE 'Skipping GPU PQ distance test: running in CPU compute mode';
-		-- Don't execute any test logic
-		RETURN;
+		-- Test will continue but GPU-specific parts will be skipped
 	END IF;
 END$$;
 
@@ -93,22 +92,19 @@ BEGIN
 	-- Try to use vector_pq_search if available
 	BEGIN
 		-- This function should use GPU-accelerated PQ asymmetric distance if GPU is available
-		SELECT COUNT(*) INTO result_count
-		FROM vector_pq_search(
-			query_vec,
-			10,  -- k
-			50   -- rerank_k
-		);
-		
+		-- Note: vector_pq_search may not exist, so we catch the exception
+		SELECT COUNT(*) INTO result_count FROM vector_pq_search(query_vec, 10, 50);
 		IF result_count > 0 THEN
 			RAISE NOTICE 'vector_pq_search returned % results', result_count;
 		ELSE
 			RAISE NOTICE 'vector_pq_search returned 0 results (may need PQ index)';
 		END IF;
-	EXCEPTION WHEN undefined_function THEN
-		RAISE NOTICE 'vector_pq_search function not available, skipping GPU PQ search test';
 	EXCEPTION WHEN OTHERS THEN
-		RAISE NOTICE 'vector_pq_search error: %', SQLERRM;
+		IF SQLSTATE = '42883' THEN
+			RAISE NOTICE 'vector_pq_search function not available, skipping GPU PQ search test';
+		ELSE
+			RAISE NOTICE 'vector_pq_search error: %', SQLERRM;
+		END IF;
 	END;
 END$$;
 
@@ -121,22 +117,24 @@ DO $$
 DECLARE
 	gpu_info record;
 	gpu_available boolean;
+	backend_name text;
 BEGIN
 	-- Check if GPU is available
-	SELECT neurondb_gpu_is_available() INTO gpu_available;
+	SELECT is_available INTO gpu_available FROM neurondb_gpu_info() LIMIT 1;
 	
 	IF gpu_available THEN
-		-- Get GPU info
-		SELECT * INTO gpu_info FROM neurondb_gpu_info();
+		-- Get GPU backend and info
+		SELECT backend INTO backend_name FROM neurondb_llm_gpu_info() LIMIT 1;
+		SELECT * INTO gpu_info FROM neurondb_gpu_info() LIMIT 1;
 		
 		RAISE NOTICE 'GPU backend: %, device: %', 
-			COALESCE(gpu_info.backend, 'unknown'),
+			COALESCE(backend_name, 'unknown'),
 			COALESCE(gpu_info.device_name, 'unknown');
 		
 		-- CUDA and ROCm backends should support PQ asymmetric distance
-		IF gpu_info.backend IN ('cuda', 'rocm') THEN
+		IF backend_name IN ('cuda', 'rocm') THEN
 			RAISE NOTICE 'GPU backend supports PQ asymmetric distance computation';
-		ELSIF gpu_info.backend = 'metal' THEN
+		ELSIF backend_name = 'metal' THEN
 			RAISE NOTICE 'Metal backend: PQ support may be limited (CPU fallback expected)';
 		ELSE
 			RAISE NOTICE 'Unknown GPU backend, PQ support uncertain';

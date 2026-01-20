@@ -47,19 +47,19 @@ DECLARE
 	backend_name text;
 BEGIN
 	-- Check if GPU is available
-	SELECT neurondb_gpu_is_available() INTO gpu_available;
+	SELECT is_available INTO gpu_available FROM neurondb_gpu_info() LIMIT 1;
 	
 	IF gpu_available THEN
-		-- Get GPU backend name
-		SELECT backend INTO backend_name FROM neurondb_gpu_info();
+		-- Get GPU backend name from LLM GPU info
+		SELECT backend INTO backend_name FROM neurondb_llm_gpu_info() LIMIT 1;
 		
 		-- Get GPU utilization metrics
-		SELECT * INTO gpu_util FROM neurondb_llm_gpu_utilization();
+		SELECT * INTO gpu_util FROM neurondb.llm_gpu_utilization() LIMIT 1;
 		
 		IF gpu_util IS NOT NULL THEN
-			utilization := gpu_util.utilization;
-			temperature := gpu_util.temperature;
-			power := gpu_util.power;
+			utilization := gpu_util.utilization_pct;
+			temperature := gpu_util.temperature_c;
+			power := gpu_util.power_w;
 			
 			RAISE NOTICE 'GPU Backend: %', backend_name;
 			RAISE NOTICE 'GPU Utilization: % %%', utilization;
@@ -81,7 +81,7 @@ BEGIN
 				RAISE NOTICE 'Metal backend: IOKit integration deferred, metrics may be zero';
 			END IF;
 		ELSE
-			RAISE NOTICE 'neurondb_llm_gpu_utilization returned NULL';
+			RAISE NOTICE 'neurondb.llm_gpu_utilization returned NULL';
 		END IF;
 	ELSE
 		RAISE NOTICE 'GPU not available, skipping utilization metrics test';
@@ -89,7 +89,7 @@ BEGIN
 END$$;
 
 -- Display GPU utilization
-SELECT * FROM neurondb_llm_gpu_utilization();
+SELECT * FROM neurondb.llm_gpu_utilization();
 
 -- Test 5: GPU Distance Functions (if available)
 \echo ''
