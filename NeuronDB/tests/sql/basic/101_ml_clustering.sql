@@ -7,15 +7,13 @@
 
 \echo '=== Using SIFT1M Dataset for Clustering Tests ==='
 
--- Create test data from SIFT1M vectors (take first 1000 for speed)
--- Convert REAL[] to vector type, use first 10 dimensions for fast testing
+-- Create test data with synthetic vectors (sift1m.vectors may not exist)
+-- Use 10 dimensions for fast testing
 CREATE TEMP TABLE test_clustering_data AS
 SELECT 
     id,
-    array_to_vector(embedding[1:10])::vector(10) as vec
-FROM sift1m.vectors
-WHERE id <= 1000
-LIMIT 1000;
+    array_to_vector(ARRAY(SELECT random()::real FROM generate_series(1, 10)))::vector(10) as vec
+FROM generate_series(1, 1000) AS id;
 
 -- Show sample data
 SELECT COUNT(*) as total_vectors, vector_dims(vec) as dimensions

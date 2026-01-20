@@ -7,41 +7,34 @@
 
 \echo '=== Using SIFT1M Dataset for Drift Detection Tests ==='
 
--- Create baseline data (vectors 1-500)
+-- Create baseline data (synthetic, sift1m.vectors may not exist)
 CREATE TEMP TABLE test_drift_baseline AS
 SELECT 
     id,
-    array_to_vector(embedding[1:8])::vector(8) as vec,
+    array_to_vector(ARRAY(SELECT random()::real FROM generate_series(1, 8)))::vector(8) as vec,
     CASE WHEN id % 2 = 0 THEN 'A' ELSE 'B' END as category
-FROM sift1m.vectors
-WHERE id BETWEEN 1 AND 500
-LIMIT 500;
+FROM generate_series(1, 500) AS id;
 
--- Create current data (vectors 501-1000 for category A, 1-500 for category B)
--- Category A will have different distribution (drift), B will be similar (no drift)
+-- Create current data (category A will have different distribution (drift), B will be similar (no drift))
 CREATE TEMP TABLE test_drift_current AS
 SELECT 
     id,
     vec,
     category
 FROM (
-    -- Category A: use different vectors (simulating drift)
+    -- Category A: use different vectors (simulating drift) - shifted distribution
     SELECT 
         id,
-        array_to_vector(embedding[1:8])::vector(8) as vec,
+        array_to_vector(ARRAY(SELECT (random() + 0.5)::real FROM generate_series(1, 8)))::vector(8) as vec,
         'A' as category
-    FROM sift1m.vectors
-    WHERE id BETWEEN 501 AND 750 AND id % 2 = 0
-    LIMIT 250
+    FROM generate_series(1, 250) AS id
     UNION ALL
-    -- Category B: use same range as baseline (no drift)
+    -- Category B: use similar distribution as baseline (no drift)
     SELECT 
         id,
-        array_to_vector(embedding[1:8])::vector(8) as vec,
+        array_to_vector(ARRAY(SELECT random()::real FROM generate_series(1, 8)))::vector(8) as vec,
         'B' as category
-    FROM sift1m.vectors
-    WHERE id BETWEEN 1 AND 500 AND id % 2 = 1
-    LIMIT 250
+    FROM generate_series(1, 250) AS id
 ) sub;
 
 -- Show sample

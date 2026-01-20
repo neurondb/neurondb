@@ -7,14 +7,12 @@
 
 \echo '=== Using Deep1B Dataset for PCA Tests ==='
 
--- Create test data from Deep1B vectors (take first 500 for speed)
+-- Create test data with synthetic vectors (deep1b.vectors may not exist)
 CREATE TEMP TABLE test_pca_data AS
 SELECT 
     id,
-    array_to_vector(embedding[1:20])::vector(20) as vec
-FROM deep1b.vectors
-WHERE id <= 500
-LIMIT 500;
+    array_to_vector(ARRAY(SELECT random()::real FROM generate_series(1, 20)))::vector(20) as vec
+FROM generate_series(1, 500) AS id;
 
 -- Show sample data
 SELECT COUNT(*) as total_vectors, vector_dims(vec) as dimensions

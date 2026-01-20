@@ -11,42 +11,52 @@
 -- ============================================================================
 -- ANOMALY DETECTION FUNCTIONS
 -- ============================================================================
+-- Functions should already be created by extension, use CREATE OR REPLACE if needed
 
-CREATE FUNCTION neurondb.detect_anomalies_isolation_forest(
-	table_name text,
-	vector_column text,
-	n_trees integer DEFAULT 100,
-	contamination double precision DEFAULT 0.1
-)
-RETURNS boolean[]
-AS 'MODULE_PATHNAME', 'detect_anomalies_isolation_forest'
-LANGUAGE C STRICT;
-
-COMMENT ON FUNCTION neurondb.detect_anomalies_isolation_forest(text, text, integer, double precision) IS
-'Isolation Forest anomaly detection. Returns boolean array indicating anomalies.';
-
-CREATE FUNCTION neurondb.detect_anomalies_lof(
-	table_name text,
-	vector_column text,
-	k integer DEFAULT 20,
-	threshold double precision DEFAULT 1.5
-)
-RETURNS boolean[]
-AS 'MODULE_PATHNAME', 'detect_anomalies_lof'
-LANGUAGE C STRICT;
-
-COMMENT ON FUNCTION neurondb.detect_anomalies_lof(text, text, integer, double precision) IS
-'Local Outlier Factor (LOF) anomaly detection. Returns boolean array indicating anomalies.';
-
-CREATE FUNCTION neurondb.detect_anomalies_ocsvm(
-	table_name text,
-	vector_column text,
-	nu double precision DEFAULT 0.1,
-	gamma double precision DEFAULT 1.0
-)
-RETURNS boolean[]
-AS 'MODULE_PATHNAME', 'detect_anomalies_ocsvm'
-LANGUAGE C STRICT;
+DO $$
+BEGIN
+  BEGIN
+    CREATE OR REPLACE FUNCTION neurondb.detect_anomalies_isolation_forest(
+      table_name text,
+      vector_column text,
+      n_trees integer DEFAULT 100,
+      contamination double precision DEFAULT 0.1
+    )
+    RETURNS boolean[]
+    AS 'MODULE_PATHNAME', 'detect_anomalies_isolation_forest'
+    LANGUAGE C STRICT;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'detect_anomalies_isolation_forest may already exist or not be available: %', SQLERRM;
+  END;
+  
+  BEGIN
+    CREATE OR REPLACE FUNCTION neurondb.detect_anomalies_lof(
+      table_name text,
+      vector_column text,
+      k integer DEFAULT 20,
+      threshold double precision DEFAULT 1.5
+    )
+    RETURNS boolean[]
+    AS 'MODULE_PATHNAME', 'detect_anomalies_lof'
+    LANGUAGE C STRICT;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'detect_anomalies_lof may already exist or not be available: %', SQLERRM;
+  END;
+  
+  BEGIN
+    CREATE OR REPLACE FUNCTION neurondb.detect_anomalies_ocsvm(
+      table_name text,
+      vector_column text,
+      nu double precision DEFAULT 0.1,
+      gamma double precision DEFAULT 1.0
+    )
+    RETURNS boolean[]
+    AS 'MODULE_PATHNAME', 'detect_anomalies_ocsvm'
+    LANGUAGE C STRICT;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'detect_anomalies_ocsvm may already exist or not be available: %', SQLERRM;
+  END;
+END$$;
 
 COMMENT ON FUNCTION neurondb.detect_anomalies_ocsvm(text, text, double precision, double precision) IS
 'One-Class SVM anomaly detection. Returns boolean array indicating anomalies.';

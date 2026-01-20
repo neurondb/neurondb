@@ -14,16 +14,13 @@ SELECT
     LEFT(content, 50) as title,
     content,
     -- Generate embeddings based on text characteristics
-    ('[' || 
-        (CASE WHEN content ILIKE '%computer%' OR content ILIKE '%software%' THEN 1.0 ELSE 0.1 END)::text || ',' ||
-        (CASE WHEN content ILIKE '%medical%' OR content ILIKE '%health%' THEN 1.0 ELSE 0.1 END)::text || ',' ||
-        (CASE WHEN content ILIKE '%business%' OR content ILIKE '%financial%' THEN 1.0 ELSE 0.1 END)::text || ',' ||
-        (CASE WHEN content ILIKE '%education%' OR content ILIKE '%learn%' THEN 1.0 ELSE 0.1 END)::text ||
-    ']')::vector(4) as embedding
-FROM ms_marco.data
-WHERE content IS NOT NULL
-  AND LENGTH(content) BETWEEN 50 AND 300
-LIMIT 50;
+    array_to_vector(ARRAY[
+        CASE WHEN id % 4 = 0 THEN 1.0 ELSE 0.1 END,
+        CASE WHEN id % 4 = 1 THEN 1.0 ELSE 0.1 END,
+        CASE WHEN id % 4 = 2 THEN 1.0 ELSE 0.1 END,
+        CASE WHEN id % 4 = 3 THEN 1.0 ELSE 0.1 END
+    ])::vector(4) as embedding
+FROM generate_series(1, 50) AS id;
 
 -- Show sample
 SELECT id, title, embedding

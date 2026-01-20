@@ -10,42 +10,46 @@
 -- ============================================================================
 -- FP8 QUANTIZATION FUNCTIONS
 -- ============================================================================
+-- Functions should already be created by extension, use CREATE OR REPLACE if needed
 
-CREATE FUNCTION quantize_fp8_e4m3(vector)
-RETURNS bytea
-AS 'MODULE_PATHNAME', 'quantize_fp8_e4m3'
-LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
-
-COMMENT ON FUNCTION quantize_fp8_e4m3(vector) IS
-	'Quantize vector to FP8 E4M3 format (4 exp, 3 mantissa bits)';
-
-CREATE FUNCTION quantize_fp8_e5m2(vector)
-RETURNS bytea
-AS 'MODULE_PATHNAME', 'quantize_fp8_e5m2'
-LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
-
-COMMENT ON FUNCTION quantize_fp8_e5m2(vector) IS
-	'Quantize vector to FP8 E5M2 format (5 exp, 2 mantissa bits)';
-
-CREATE FUNCTION dequantize_fp8(bytea)
-RETURNS vector
-AS 'MODULE_PATHNAME', 'dequantize_fp8'
-LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
-
-COMMENT ON FUNCTION dequantize_fp8(bytea) IS
-	'Dequantize FP8 vector back to float32';
-
--- ============================================================================
--- AUTO QUANTIZATION
--- ============================================================================
-
-CREATE FUNCTION auto_quantize(vector, text)
-RETURNS bytea
-AS 'MODULE_PATHNAME', 'auto_quantize'
-LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
-
-COMMENT ON FUNCTION auto_quantize(vector, text) IS
-	'Automatically select best quantization based on compression type (int4, fp8_e4m3, fp8_e5m2)';
+DO $$
+BEGIN
+  BEGIN
+    CREATE OR REPLACE FUNCTION quantize_fp8_e4m3(vector)
+    RETURNS bytea
+    AS 'MODULE_PATHNAME', 'quantize_fp8_e4m3'
+    LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'quantize_fp8_e4m3 may already exist or not be available: %', SQLERRM;
+  END;
+  
+  BEGIN
+    CREATE OR REPLACE FUNCTION quantize_fp8_e5m2(vector)
+    RETURNS bytea
+    AS 'MODULE_PATHNAME', 'quantize_fp8_e5m2'
+    LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'quantize_fp8_e5m2 may already exist or not be available: %', SQLERRM;
+  END;
+  
+  BEGIN
+    CREATE OR REPLACE FUNCTION dequantize_fp8(bytea)
+    RETURNS vector
+    AS 'MODULE_PATHNAME', 'dequantize_fp8'
+    LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'dequantize_fp8 may already exist or not be available: %', SQLERRM;
+  END;
+  
+  BEGIN
+    CREATE OR REPLACE FUNCTION auto_quantize(vector, text)
+    RETURNS bytea
+    AS 'MODULE_PATHNAME', 'auto_quantize'
+    LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'auto_quantize may already exist or not be available: %', SQLERRM;
+  END;
+END$$;
 
 -- ============================================================================
 -- GRANT PERMISSIONS

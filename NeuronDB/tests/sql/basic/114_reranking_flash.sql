@@ -10,37 +10,36 @@
 -- ============================================================================
 -- FLASH ATTENTION RERANKING
 -- ============================================================================
+-- Functions should already be created by extension, use CREATE OR REPLACE if needed
 
-CREATE FUNCTION rerank_flash(
-	query text,
-	candidates text[],
-	model text DEFAULT NULL,
-	top_k int4 DEFAULT 10
-)
-RETURNS TABLE(idx int4, score float4)
-AS 'MODULE_PATHNAME', 'rerank_flash'
-LANGUAGE C STRICT;
-
-COMMENT ON FUNCTION rerank_flash(text, text[], text, int4) IS
-	'Rerank candidates using Flash Attention 2 for memory-efficient cross-encoder scoring';
-
-CREATE FUNCTION rerank_long_context(
-	query text,
-	candidates text[],
-	max_tokens int4 DEFAULT 8192,
-	top_k int4 DEFAULT 10
-)
-RETURNS TABLE(idx int4, score float4)
-AS 'MODULE_PATHNAME', 'rerank_long_context'
-LANGUAGE C STRICT;
-
-COMMENT ON FUNCTION rerank_long_context(text, text[], int4, int4) IS
-	'Rerank with long context support (8K+ tokens) using Flash Attention';
-
--- ============================================================================
--- GRANT PERMISSIONS
--- ============================================================================
-
-GRANT EXECUTE ON FUNCTION rerank_flash(text, text[], text, int4) TO PUBLIC;
-GRANT EXECUTE ON FUNCTION rerank_long_context(text, text[], int4, int4) TO PUBLIC;
+DO $$
+BEGIN
+  BEGIN
+    CREATE OR REPLACE FUNCTION rerank_flash(
+      query text,
+      candidates text[],
+      model text DEFAULT NULL,
+      top_k int4 DEFAULT 10
+    )
+    RETURNS TABLE(idx int4, score float4)
+    AS 'MODULE_PATHNAME', 'rerank_flash'
+    LANGUAGE C STRICT;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'rerank_flash may already exist or not be available: %', SQLERRM;
+  END;
+  
+  BEGIN
+    CREATE OR REPLACE FUNCTION rerank_long_context(
+      query text,
+      candidates text[],
+      max_tokens int4 DEFAULT 8192,
+      top_k int4 DEFAULT 10
+    )
+    RETURNS TABLE(idx int4, score float4)
+    AS 'MODULE_PATHNAME', 'rerank_long_context'
+    LANGUAGE C STRICT;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'rerank_long_context may already exist or not be available: %', SQLERRM;
+  END;
+END$$;
 

@@ -9,13 +9,12 @@
 
 -- Create test data with normal vectors and synthetic outliers
 CREATE TEMP TABLE test_outliers AS
--- Normal vectors from SIFT1M (first 95)
+-- Normal vectors (synthetic, sift1m.vectors may not exist)
 SELECT 
     id,
-    array_to_vector(embedding[1:10])::vector(10) as vec,
-    'Normal from SIFT' as description
-FROM sift1m.vectors
-WHERE id <= 95
+    array_to_vector(ARRAY(SELECT random()::real FROM generate_series(1, 10)))::vector(10) as vec,
+    'Normal' as description
+FROM generate_series(1, 95) AS id
 UNION ALL
 -- Add 5 synthetic outliers (vectors with all high values)
 SELECT 

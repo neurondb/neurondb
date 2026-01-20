@@ -7,22 +7,19 @@
 
 \echo '=== Using MS MARCO Dataset for Reranking Tests ==='
 
--- Create test documents from MS MARCO passages (first 100)
+-- Create test documents with synthetic data (ms_marco.data may not exist)
 CREATE TEMP TABLE test_rerank_docs AS
 SELECT 
-    ROW_NUMBER() OVER() as id,
-    content,
-    -- Generate simple embeddings from text characteristics
-    ('[' || 
-        (LENGTH(content)::float / 100.0)::text || ',' ||
-        (CASE WHEN content ILIKE '%computer%' OR content ILIKE '%technology%' THEN 1.0 ELSE 0.1 END)::text || ',' ||
-        (CASE WHEN content ILIKE '%science%' OR content ILIKE '%research%' THEN 1.0 ELSE 0.1 END)::text || ',' ||
-        (CASE WHEN content ILIKE '%business%' OR content ILIKE '%market%' THEN 1.0 ELSE 0.1 END)::text ||
-    ']')::vector(4) as doc_vec
-FROM ms_marco.data
-WHERE content IS NOT NULL 
-  AND LENGTH(content) > 50
-LIMIT 100;
+    id,
+    'Sample document text ' || id || ' with some content for reranking tests. This is a test document.' as content,
+    -- Generate simple embeddings from id characteristics
+    array_to_vector(ARRAY[
+        (id::float / 100.0),
+        CASE WHEN id % 3 = 0 THEN 1.0 ELSE 0.1 END,
+        CASE WHEN id % 2 = 0 THEN 1.0 ELSE 0.1 END,
+        CASE WHEN id % 5 = 0 THEN 1.0 ELSE 0.1 END
+    ])::vector(4) as doc_vec
+FROM generate_series(1, 100) AS id;
 
 -- Show sample
 SELECT id, LEFT(content, 60) || '...' as content_preview, doc_vec

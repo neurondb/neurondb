@@ -7,21 +7,18 @@
 
 \echo '=== Reranking Performance Benchmarks ==='
 
--- Create benchmark dataset
+-- Create benchmark dataset (synthetic, ms_marco.data may not exist)
 CREATE TEMP TABLE benchmark_docs AS
 SELECT 
-    ROW_NUMBER() OVER() as id,
-    content,
-    ('[' || 
-        (LENGTH(content)::float / 100.0)::text || ',' ||
-        (CASE WHEN content ILIKE '%computer%' OR content ILIKE '%technology%' THEN 1.0 ELSE 0.1 END)::text || ',' ||
-        (CASE WHEN content ILIKE '%science%' OR content ILIKE '%research%' THEN 1.0 ELSE 0.1 END)::text || ',' ||
-        (CASE WHEN content ILIKE '%business%' OR content ILIKE '%market%' THEN 1.0 ELSE 0.1 END)::text ||
-    ']')::vector(4) as doc_vec
-FROM ms_marco.data
-WHERE content IS NOT NULL 
-  AND LENGTH(content) > 50
-LIMIT 100;
+    id,
+    'Sample document ' || id || ' with content for reranking benchmarks. This is test content for evaluation purposes.' as content,
+    array_to_vector(ARRAY[
+        (id::float / 100.0),
+        CASE WHEN id % 3 = 0 THEN 1.0 ELSE 0.1 END,
+        CASE WHEN id % 2 = 0 THEN 1.0 ELSE 0.1 END,
+        CASE WHEN id % 5 = 0 THEN 1.0 ELSE 0.1 END
+    ])::vector(4) as doc_vec
+FROM generate_series(1, 100) AS id;
 
 -- Benchmark query
 CREATE TEMP TABLE benchmark_query AS

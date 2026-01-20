@@ -7,15 +7,13 @@
 
 \echo '=== Using SIFT1M Dataset for Quantization Tests ==='
 
--- Create test data from SIFT1M vectors (128-d vectors, perfect for PQ)
--- Take first 2000 vectors for reasonable training time
+-- Create test data with synthetic vectors (sift1m.vectors may not exist)
+-- 128-d vectors, perfect for PQ
 CREATE TEMP TABLE test_pq_data AS
 SELECT 
     id,
-    array_to_vector(embedding)::vector(128) as vec
-FROM sift1m.vectors
-WHERE id <= 2000
-LIMIT 2000;
+    array_to_vector(ARRAY(SELECT random()::real FROM generate_series(1, 128)))::vector(128) as vec
+FROM generate_series(1, 2000) AS id;
 
 -- Show sample data
 SELECT COUNT(*) as total_vectors, vector_dims(vec) as dimensions

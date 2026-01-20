@@ -7,20 +7,18 @@
 
 \echo '=== Using Deep1B Dataset for Analytics Tests ==='
 
--- Create test data from Deep1B vectors (first 500 for speed)
+-- Create test data with synthetic vectors (deep1b.vectors may not exist)
 CREATE TEMP TABLE test_graph_data AS
 SELECT 
     id,
-    array_to_vector(embedding[1:8])::vector(8) as vec,
+    array_to_vector(ARRAY(SELECT random()::real FROM generate_series(1, 8)))::vector(8) as vec,
     -- Assign labels based on vector characteristics for clustering validation
     CASE 
         WHEN id % 3 = 0 THEN 'A'
         WHEN id % 3 = 1 THEN 'B'
         ELSE 'C'
     END as label
-FROM deep1b.vectors
-WHERE id <= 500
-LIMIT 500;
+FROM generate_series(1, 500) AS id;
 
 -- Show sample
 SELECT COUNT(*) as total_vectors, vector_dims(vec) as dimensions,

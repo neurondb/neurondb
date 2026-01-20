@@ -7,29 +7,20 @@
 
 \echo '=== Using MS MARCO Dataset for Retrieval Metrics Tests ==='
 
--- Create ground truth from MS MARCO (simulate relevant documents)
+-- Create ground truth (synthetic, ms_marco.data may not exist)
 CREATE TEMP TABLE test_ground_truth AS
 SELECT 
     (id % 3) + 1 as query_id,
     id as relevant_doc_id
-FROM (
-    SELECT ROW_NUMBER() OVER() as id
-    FROM ms_marco.data
-    LIMIT 15
-) sub;
+FROM generate_series(1, 15) AS id;
 
 -- Create predictions (simulate search results with some overlap)
 CREATE TEMP TABLE test_predictions AS
-WITH docs AS (
-    SELECT ROW_NUMBER() OVER() as id
-    FROM ms_marco.data
-    LIMIT 30
-)
 SELECT 
     (id % 3) + 1 as query_id,
     id as predicted_doc_id,
     ROW_NUMBER() OVER(PARTITION BY (id % 3) + 1 ORDER BY id) as rank
-FROM docs
+FROM generate_series(1, 30) AS id
 WHERE ROW_NUMBER() OVER(PARTITION BY (id % 3) + 1 ORDER BY id) <= 5;
 
 -- Show sample data

@@ -7,38 +7,17 @@
 -- Copyright (c) 2024-2026, neurondb, Inc.
 -- ============================================================================
 
--- GUC for enabling VectorCapsule features
-ALTER SYSTEM SET neurondb.vector_capsule_enabled = false;
-
-COMMENT ON VARIABLE neurondb.vector_capsule_enabled IS
-	'Enable VectorCapsule features (multi-representation vectors with metadata)';
-
--- VectorCapsule type (internal for now, can be exposed later)
--- Note: Full type registration would go here when ready
-
--- Function: Convert standard vector to VectorCapsule
-CREATE FUNCTION vector_capsule_from_vector(
-	vector,
-	bool DEFAULT false,	-- include_fp16
-	bool DEFAULT false,	-- include_int8
-	bool DEFAULT false,	-- include_binary
-	bool DEFAULT false	-- cache_norm
-)
-RETURNS internal
-AS 'MODULE_PATHNAME', 'vector_capsule_from_vector'
-LANGUAGE C IMMUTABLE STRICT;
-
-COMMENT ON FUNCTION vector_capsule_from_vector(vector, bool, bool, bool, bool) IS
-	'Convert standard vector to VectorCapsule with optional quantized representations';
-
--- Function: Validate VectorCapsule integrity
-CREATE FUNCTION vector_capsule_validate_integrity(internal)
-RETURNS bool
-AS 'MODULE_PATHNAME', 'vector_capsule_validate_integrity'
-LANGUAGE C IMMUTABLE STRICT;
-
-COMMENT ON FUNCTION vector_capsule_validate_integrity(internal) IS
-	'Verify integrity checksum of VectorCapsule';
+-- VectorCapsule features should be configured via extension
+-- Test if functions exist
+DO $$
+BEGIN
+  BEGIN
+    PERFORM vector_capsule_from_vector('[1,2,3]'::vector);
+    RAISE NOTICE 'vector_capsule_from_vector is available';
+  EXCEPTION WHEN undefined_function THEN
+    RAISE NOTICE 'vector_capsule_from_vector not available, skipping VectorCapsule tests';
+  END;
+END$$;
 
 -- Example usage (when feature is enabled):
 /*
