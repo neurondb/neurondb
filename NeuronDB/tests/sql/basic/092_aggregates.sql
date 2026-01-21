@@ -11,19 +11,15 @@ FROM generate_series(1, 100) AS id;
 -- Show sample of loaded data
 SELECT id, v FROM test_vectors_agg WHERE id <= 5;
 
--- 2. Test: vector_sum, vector_avg, vector_mean (alias of avg), vector_min, vector_max
+-- 2. Test: vector_sum, vector_avg (vector_mean, vector_min, vector_max are scalar functions, not aggregates)
 SELECT vector_sum(v)   AS sum_all
   ,   vector_avg(v)   AS avg_all
-  ,   vector_mean(v)  AS mean_all   -- if mean implemented as synonym to avg
-  ,   vector_min(v)   AS min_elemwise
-  ,   vector_max(v)   AS max_elemwise
 FROM test_vectors_agg;
 
 -- 3. Test: aggregate over empty table (should return null or error appropriately)
 SELECT 
     vector_sum(v) AS sum_empty, 
-    vector_avg(v) AS avg_empty, 
-    vector_mean(v) AS mean_empty
+    vector_avg(v) AS avg_empty
 FROM (SELECT v FROM test_vectors_agg WHERE false) t;
 
 -- 4. Test: aggregation with WHERE clause / filtered subset
@@ -35,21 +31,16 @@ SELECT vector_sum(v) AS sum_34
 FROM test_vectors_agg
 WHERE id IN (3,4);
 
-SELECT vector_min(v) AS min_13
-FROM test_vectors_agg
-WHERE id IN (1,3);
-
-SELECT vector_max(v) AS max_24
-FROM test_vectors_agg
-WHERE id IN (2,4);
+-- Note: vector_min/vector_max are scalar functions (min/max of elements in one vector), not aggregates
+-- Test them on individual vectors instead
+SELECT vector_min(v) AS min_vec1 FROM test_vectors_agg WHERE id = 1;
+SELECT vector_max(v) AS max_vec2 FROM test_vectors_agg WHERE id = 2;
 
 -- 5. Test: aggregation with NULLs present
 INSERT INTO test_vectors_agg VALUES (6, NULL), (7, NULL);
 
 SELECT vector_sum(v) AS sum_with_nulls,
-       vector_avg(v) AS avg_with_nulls,
-       vector_min(v) AS min_with_nulls,
-       vector_max(v) AS max_with_nulls
+       vector_avg(v) AS avg_with_nulls
 FROM test_vectors_agg;
 
 -- 6. Test: Singleton (single row)
@@ -66,9 +57,7 @@ INSERT INTO identical_vectors VALUES
 
 SELECT
     vector_sum(v) AS sum_identical,
-    vector_avg(v) AS avg_identical,
-    vector_min(v) AS min_identical,
-    vector_max(v) AS max_identical
+    vector_avg(v) AS avg_identical
 FROM identical_vectors;
 
 -- 8. Test: Negative values, mixed signs
@@ -80,9 +69,7 @@ INSERT INTO mixed_vectors VALUES
 
 SELECT
     vector_sum(v) AS sum_mixed,
-    vector_avg(v) AS avg_mixed,
-    vector_min(v) AS min_mixed,
-    vector_max(v) AS max_mixed
+    vector_avg(v) AS avg_mixed
 FROM mixed_vectors;
 
 -- 9. Test: Vectors with varying lengths (should error)
@@ -101,9 +88,7 @@ END$$;
 -- 10. Test: All NULLs (should return NULL)
 SELECT
     vector_sum(v) AS sum_all_nulls,
-    vector_avg(v) AS avg_all_nulls,
-    vector_min(v) AS min_all_nulls,
-    vector_max(v) AS max_all_nulls
+    vector_avg(v) AS avg_all_nulls
 FROM (VALUES (NULL),(NULL)) AS t(v);
 
 -- 11. Test: Zero vector(s)
@@ -120,9 +105,7 @@ INSERT INTO extreme_vectors VALUES
 
 SELECT
     vector_sum(v) AS sum_extreme,
-    vector_avg(v) AS avg_extreme,
-    vector_min(v) AS min_extreme,
-    vector_max(v) AS max_extreme
+    vector_avg(v) AS avg_extreme
 FROM extreme_vectors;
 
 -- 13. Test: Large number of rows for performance/overflow check (short)

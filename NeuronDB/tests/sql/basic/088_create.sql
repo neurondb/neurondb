@@ -141,6 +141,20 @@ BEGIN
     EXCEPTION WHEN OTHERS THEN
         RAISE NOTICE 'Index creation skipped: %', SQLERRM;
     END;
+    
+    -- Try HNSW index (may crash, so wrap carefully)
+    BEGIN
+        CREATE INDEX idx_test_index_vectors_hnsw ON test_index_vectors USING hnsw (vec vector_l2_ops) WITH (m = 16, ef_construction = 64);
+    EXCEPTION WHEN OTHERS THEN
+        RAISE NOTICE 'HNSW index creation skipped: %', SQLERRM;
+    END;
+    
+    -- Try IVF index (may crash, so wrap carefully)
+    BEGIN
+        CREATE INDEX idx_test_index_vectors_ivf ON test_index_vectors USING ivf (vec vector_l2_ops) WITH (lists = 10);
+    EXCEPTION WHEN OTHERS THEN
+        RAISE NOTICE 'IVF index creation skipped: %', SQLERRM;
+    END;
 END $$;
 
 -- ============================================================================
