@@ -2528,7 +2528,6 @@ DECLARE
     query_vec real[];
     candidates_vec real[][];
     result_array real[];
-    result_indices integer[];
     result_idx integer;
     result_score real;
     row_data record;
@@ -3153,28 +3152,9 @@ BEGIN
         END IF;
     END LOOP;
     
-    -- Validate that features_matrix has correct dimensions
-    -- features_matrix should be [num_features][num_docs]
-    IF array_length(features_matrix, 1) IS NULL OR array_length(features_matrix, 1) = 0 THEN
-        RETURN;
-    END IF;
-    
-    -- Transpose features_matrix if needed: C function expects [num_docs][num_features]
-    -- But we built it as [num_features][num_docs], so we need to transpose
-    -- For now, validate dimensions match
-    IF array_length(features_matrix, 1) > 0 AND array_length(features_matrix[1], 1) IS NOT NULL THEN
-        IF array_length(features_matrix[1], 1) != array_length(doc_ids_arr, 1) THEN
-            RAISE EXCEPTION 'feature_matrix must have % rows to match doc_ids', array_length(doc_ids_arr, 1);
-        END IF;
-    END IF;
-    
     -- Call array-based ltr_rerank_pointwise
     -- Note: The C function expects [doc_ids][features]
-    BEGIN
-        SELECT ltr_rerank_pointwise(doc_ids_arr, features_matrix, weights, 0.0) INTO result_ids;
-    EXCEPTION WHEN OTHERS THEN
-        RAISE EXCEPTION 'ltr_rerank_pointwise failed: %', SQLERRM;
-    END;
+    SELECT ltr_rerank_pointwise(doc_ids_arr, features_matrix, weights, 0.0) INTO result_ids;
     
     -- Calculate scores and return
     IF result_ids IS NOT NULL THEN
@@ -3183,9 +3163,8 @@ BEGIN
             -- Calculate score from features and weights
             score_val := 0.0;
             FOR j IN 1..array_length(features_matrix, 1) LOOP
-                feature_row := features_matrix[j];
-                IF feature_row IS NOT NULL AND j <= array_length(weights, 1) AND i <= array_length(feature_row, 1) THEN
-                    score_val := score_val + (feature_row[i] * COALESCE(weights[j], 0.0));
+                IF j <= array_length(weights, 1) AND i <= array_length(features_matrix[j], 1) THEN
+                    score_val := score_val + (features_matrix[j][i] * COALESCE(weights[j], 0.0));
                 END IF;
             END LOOP;
             
@@ -3298,169 +3277,6 @@ BEGIN
 END;
 $$;
 
--- Vector statistics function
-CREATE FUNCTION vector_statistics(
-    table_name text,
-    vector_column text
-) RETURNS jsonb
-LANGUAGE plpgsql STABLE AS $$
-DECLARE
-    mean_arr real[];
-    variance_arr real[];
-    stddev_arr real[];
-    min_arr real[];
-    max_arr real[];
-    correlation_matrix real[][];
-    dim_count integer;
-    sql_text text;
-    result_json jsonb;
-BEGIN
-    -- Get dimension count - use a safer approach that handles empty tables
-    BEGIN
-        EXECUTE format('SELECT vector_dims(%I) FROM %I WHERE %I IS NOT NULL LIMIT 1', 
-                       vector_column, table_name, vector_column) INTO dim_count;
-    EXCEPTION WHEN OTHERS THEN
-        -- If table doesn't exist or is empty, return empty statistics
-        RETURN jsonb_build_object(
-            'mean', '[]'::jsonb,
-            'variance', '[]'::jsonb,
-            'stddev', '[]'::jsonb,
-            'min', '[]'::jsonb,
-            'max', '[]'::jsonb,
-            'correlation', '[]'::jsonb
-        );
-    END;
-    
-    IF dim_count IS NULL OR dim_count <= 0 THEN
-        RETURN jsonb_build_object(
-            'mean', '[]'::jsonb,
-            'variance', '[]'::jsonb,
-            'stddev', '[]'::jsonb,
-            'min', '[]'::jsonb,
-            'max', '[]'::jsonb,
-            'correlation', '[]'::jsonb
-        );
-    END IF;
-    
-    -- Calculate statistics per dimension
-    sql_text := format('
-        WITH dim_stats AS (
-            SELECT 
-                dim,
-                AVG(val) as mean_val,
-                VARIANCE(val) as var_val,
-                STDDEV(val) as stddev_val,
-                MIN(val) as min_val,
-                MAX(val) as max_val
-            FROM %I, LATERAL unnest(vector_to_array(%I)) WITH ORDINALITY AS t(val, dim)
-            WHERE %I IS NOT NULL
-            GROUP BY dim
-        )
-        SELECT 
-            array_agg(mean_val ORDER BY dim),
-            array_agg(var_val ORDER BY dim),
-            array_agg(stddev_val ORDER BY dim),
-            array_agg(min_val ORDER BY dim),
-            array_agg(max_val ORDER BY dim)
-        FROM dim_stats',
-        table_name, vector_column, vector_column
-    );
-    
-    BEGIN
-        EXECUTE sql_text INTO mean_arr, variance_arr, stddev_arr, min_arr, max_arr;
-    EXCEPTION WHEN OTHERS THEN
-        -- If calculation fails, return empty statistics
-        mean_arr := ARRAY[]::real[];
-        variance_arr := ARRAY[]::real[];
-        stddev_arr := ARRAY[]::real[];
-        min_arr := ARRAY[]::real[];
-        max_arr := ARRAY[]::real[];
-    END;
-    
-    -- Build correlation matrix (simplified - would calculate actual correlation in production)
-    correlation_matrix := ARRAY[]::real[][];
-    
-    -- Build result JSON
-    result_json := jsonb_build_object(
-        'mean', to_jsonb(mean_arr),
-        'variance', to_jsonb(variance_arr),
-        'stddev', to_jsonb(stddev_arr),
-        'min', to_jsonb(min_arr),
-        'max', to_jsonb(max_arr),
-        'correlation', to_jsonb(correlation_matrix)
-    );
-    
-    RETURN result_json;
-END;
-$$;
-COMMENT ON FUNCTION vector_statistics IS 'Calculate vector statistics: mean, variance, stddev, min, max, correlation per dimension';
-
--- Index quality metrics function
-CREATE FUNCTION index_quality_metrics(
-    index_name text
-) RETURNS jsonb
-LANGUAGE plpgsql STABLE AS $$
-DECLARE
-    index_size bigint;
-    index_scans bigint;
-    tuples_read bigint;
-    tuples_fetched bigint;
-    vector_count bigint;
-    recall_val real;
-    precision_val real;
-    f1_val real;
-    health_status text;
-    result_json jsonb;
-BEGIN
-    -- Get index statistics from pg_stat_user_indexes
-    SELECT 
-        pg_relation_size(indexrelid),
-        idx_scan,
-        idx_tup_read,
-        idx_tup_fetch
-    INTO index_size, index_scans, tuples_read, tuples_fetched
-    FROM pg_stat_user_indexes
-    WHERE indexrelname = index_name;
-    
-    -- Get vector count from the table (simplified - would query actual table in production)
-    vector_count := COALESCE(tuples_read, 0);
-    
-    -- Calculate quality metrics (simplified - would use actual recall/precision in production)
-    recall_val := 0.95;
-    precision_val := 0.90;
-    f1_val := 2.0 * (recall_val * precision_val) / (recall_val + precision_val);
-    
-    -- Determine health status
-    IF recall_val >= 0.9 AND precision_val >= 0.9 THEN
-        health_status := 'healthy';
-    ELSIF recall_val >= 0.7 OR precision_val >= 0.7 THEN
-        health_status := 'degraded';
-    ELSE
-        health_status := 'poor';
-    END IF;
-    
-    -- Build result JSON with all expected fields
-    result_json := jsonb_build_object(
-        'index_name', index_name,
-        'index_size', COALESCE(index_size, 0),
-        'vector_count', vector_count,
-        'recall', recall_val,
-        'precision', precision_val,
-        'f1', f1_val,
-        'health_status', health_status
-    );
-    
-    RETURN result_json;
-END;
-$$;
-COMMENT ON FUNCTION index_quality_metrics IS 'Get index quality metrics: size, scans, tuples read/fetched, recall, precision, f1, health_status';
-
--- Query performance analytics function
-CREATE FUNCTION query_performance_analytics() RETURNS jsonb
-    AS 'MODULE_PATHNAME', 'query_performance_analytics'
-    LANGUAGE C STABLE;
-COMMENT ON FUNCTION query_performance_analytics IS 'Analyze query performance metrics: latency statistics, throughput, GPU utilization';
-
 CREATE FUNCTION neurondb.similarity_histogram(
     table_name text,
     vector_column text,
@@ -3482,8 +3298,7 @@ DECLARE
     total_pairs bigint;
 BEGIN
     -- Call C function and parse RECORD: (min, max, mean, stddev, p50, p90, p95, p99, samples)
-    SELECT * INTO result_record FROM similarity_histogram(table_name, vector_column, 1000) 
-        AS t(min real, max real, mean real, stddev real, p50 real, p90 real, p95 real, p99 real, samples bigint);
+    SELECT * INTO result_record FROM similarity_histogram(table_name, vector_column, 1000);
     
     min_val := (result_record).min::real;
     max_val := (result_record).max::real;
@@ -6099,24 +5914,28 @@ COMMENT ON FUNCTION neurondb_transform_data(text, double precision[]) IS 'Apply 
 -- ============================================================================
 
 -- Chunk text wrapper for NeuronAgent (PL/pgSQL wrapper over C function)
--- Note: We need to drop the conflicting PL/pgSQL function and use the C function directly
--- The C function with 4 params (text, chunk_size, overlap, separator) is the base function
--- For 3-param calls, we'll create a wrapper that calls the 4-param version
-DROP FUNCTION IF EXISTS neurondb_chunk_text(text, integer, integer);
-
--- Create a 3-param wrapper that calls the 4-param C function
 CREATE FUNCTION neurondb_chunk_text(
     text text,
     chunk_size integer,
     overlap integer
-) RETURNS text[]
+) RETURNS text
 LANGUAGE plpgsql STABLE AS $$
+DECLARE
+    chunks_json jsonb;
 BEGIN
-    -- Call the C function directly with default separator (NULL)
-    RETURN neurondb_chunk_text(text, chunk_size, overlap, NULL::text);
+    -- Call neurondb.chunk() with 'fixed' method and convert to JSON array
+    SELECT json_agg(json_build_object(
+        'chunk_id', chunk_id,
+        'chunk_text', chunk_text,
+        'start_pos', start_pos,
+        'end_pos', end_pos
+    )) INTO chunks_json
+    FROM neurondb.chunk(text, chunk_size, overlap, 'fixed');
+    
+    RETURN chunks_json::text;
 END;
 $$;
-COMMENT ON FUNCTION neurondb_chunk_text(text, integer, integer) IS 'Chunk text wrapper (3 params) - calls C function with default separator';
+COMMENT ON FUNCTION neurondb_chunk_text(text, integer, integer) IS 'Text chunking wrapper for NeuronAgent: neurondb_chunk_text(text, chunk_size, overlap). Returns JSON array of chunks.';
 
 -- Rerank results wrapper for NeuronAgent
 CREATE FUNCTION neurondb_rerank_results(
@@ -7951,8 +7770,7 @@ BEGIN
 			BEGIN
 				RETURN neurondb_hf_embedding(model, input_text);
 			EXCEPTION WHEN OTHERS THEN
-				-- Fallback to embed_text if hf_embedding fails
-				RETURN neurondb_embed(input_text, model);
+				RETURN neurondb.generate_embedding(model::text, input_text::text);
 			END;
 		WHEN 'classification', 'classify' THEN
 			RAISE EXCEPTION 'Classification returns text, use neurondb.classify() instead';
@@ -9093,8 +8911,8 @@ DECLARE
 	i integer;
 	inserted_id integer;
 BEGIN
-	-- Chunk the document text (use explicit cast to avoid ambiguity)
-	SELECT neurondb_chunk_text(document_text, chunk_size, chunk_overlap, NULL::text) INTO chunks;
+	-- Chunk the document
+	SELECT neurondb_chunk_text(document_text, chunk_size, chunk_overlap) INTO chunks;
 	
 	-- Generate embeddings for all chunks in batch
 	IF array_length(chunks, 1) > 0 THEN
@@ -11973,7 +11791,7 @@ CREATE FUNCTION neurondb.train_pq_codebook(
     num_subspaces integer,
     num_centroids integer,
     max_iterations integer DEFAULT 100
-) RETURNS TABLE(subvec_id integer, centroid_id integer, centroid vector)
+) RETURNS TABLE(subspace_id integer, centroid_id integer, codebook vector)
 LANGUAGE plpgsql VOLATILE AS $$
 DECLARE
     codebook_bytes bytea;
@@ -11990,10 +11808,10 @@ BEGIN
         -- Actual implementation would parse the bytea codebook structure
         FOR i IN 1..num_subspaces LOOP
             FOR j IN 1..num_centroids LOOP
-                subvec_id := i;
+                subspace_id := i;
                 centroid_id := j;
                 -- Return a zero vector as placeholder (actual codebook is in bytea)
-                centroid := array_to_vector(ARRAY[]::real[])::vector;
+                codebook := array_to_vector(ARRAY[]::real[])::vector;
                 RETURN NEXT;
             END LOOP;
         END LOOP;
@@ -12123,4 +11941,3 @@ COMMENT ON FUNCTION neurondb.rerank_colbert IS 'ColBERT reranking wrapper in neu
 
 -- Vector capsule functions are not yet implemented in the C library
 -- These will be added in a future release when vector_capsule feature is fully implemented
-

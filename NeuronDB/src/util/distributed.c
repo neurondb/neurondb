@@ -523,10 +523,26 @@ PG_FUNCTION_INFO_V1(sync_index_async);
 Datum
 sync_index_async(PG_FUNCTION_ARGS)
 {
-	text	   *index_name = PG_GETARG_TEXT_PP(0);
-	text	   *target_replica = PG_GETARG_TEXT_PP(1);
-	char	   *idx_str = text_to_cstring(index_name);
-	char	   *replica_str = text_to_cstring(target_replica);
+	text	   *index_name = NULL;
+	text	   *target_replica = NULL;
+	char	   *idx_str = NULL;
+	char	   *replica_str = NULL;
+
+	/* Check for NULL arguments */
+	if (PG_ARGISNULL(0))
+		ereport(ERROR,
+				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
+				 errmsg("sync_index_async: index_name cannot be NULL")));
+
+	if (PG_ARGISNULL(1))
+		ereport(ERROR,
+				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
+				 errmsg("sync_index_async: target_replica cannot be NULL")));
+
+	index_name = PG_GETARG_TEXT_PP(0);
+	target_replica = PG_GETARG_TEXT_PP(1);
+	idx_str = text_to_cstring(index_name);
+	replica_str = text_to_cstring(target_replica);
 
 	StringInfoData sql;
 	StringInfoData slot_name;

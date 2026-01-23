@@ -237,11 +237,11 @@ PG_FUNCTION_INFO_V1(cross_modal_search);
 Datum
 cross_modal_search(PG_FUNCTION_ARGS)
 {
-	text	   *table_name = PG_GETARG_TEXT_PP(0);
-	text	   *embedding_col = PG_GETARG_TEXT_PP(1);
-	text	   *query_modality = PG_GETARG_TEXT_PP(2);
-	text	   *query_input = PG_GETARG_TEXT_PP(3);
-	text	   *target_modality = PG_GETARG_TEXT_PP(4);
+	text	   *table_name = NULL;
+	text	   *embedding_col = NULL;
+	text	   *query_modality = NULL;
+	text	   *query_input = NULL;
+	text	   *target_modality = NULL;
 	ReturnSetInfo *rsinfo = NULL;
 	TupleDesc	tupdesc;
 	Tuplestorestate *tupstore = NULL;
@@ -252,8 +252,23 @@ cross_modal_search(PG_FUNCTION_ARGS)
 	char *qmod_str = NULL;
 	char *qin_str = NULL;
 	char *tmod_str = NULL;
+	int32		limit = 10;
 
-	PG_GETARG_INT32(5);
+	/* Check for NULL arguments */
+	if (PG_ARGISNULL(0) || PG_ARGISNULL(1) || PG_ARGISNULL(2) || 
+		PG_ARGISNULL(3) || PG_ARGISNULL(4))
+		ereport(ERROR,
+				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
+				 errmsg("cross_modal_search: all arguments must be non-NULL")));
+
+	table_name = PG_GETARG_TEXT_PP(0);
+	embedding_col = PG_GETARG_TEXT_PP(1);
+	query_modality = PG_GETARG_TEXT_PP(2);
+	query_input = PG_GETARG_TEXT_PP(3);
+	target_modality = PG_GETARG_TEXT_PP(4);
+	
+	if (!PG_ARGISNULL(5))
+		limit = PG_GETARG_INT32(5);
 
 	rsinfo = (ReturnSetInfo *) fcinfo->resultinfo;
 	tbl_str = text_to_cstring(table_name);

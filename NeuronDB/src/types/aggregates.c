@@ -53,6 +53,16 @@ vector_avg_transfn(PG_FUNCTION_ARGS)
 				 errmsg("vector_avg_transfn called in "
 						"non-aggregate context")));
 
+	/* Skip NULL vectors */
+	if (PG_ARGISNULL(1))
+	{
+		/* If state exists, return it unchanged; otherwise return NULL */
+		if (PG_ARGISNULL(0))
+			PG_RETURN_NULL();
+		else
+			PG_RETURN_POINTER(PG_GETARG_POINTER(0));
+	}
+
 	vec = PG_GETARG_VECTOR_P(1);
 	NDB_CHECK_VECTOR_VALID(vec);
 

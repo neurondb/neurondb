@@ -1652,8 +1652,6 @@ PG_FUNCTION_INFO_V1(query_performance_analytics);
 Datum
 query_performance_analytics(PG_FUNCTION_ARGS)
 {
-	text	   *index_name = NULL;
-	char	   *idx_str = NULL;
 	StringInfoData json;
 	int			ret;
 	NdbSpiSession *spi_session = NULL;
@@ -1667,9 +1665,6 @@ query_performance_analytics(PG_FUNCTION_ARGS)
 	float8		gpu_utilization = 0.0;
 
 	/* query_performance_analytics takes no arguments - it analyzes all queries */
-
-	index_name = PG_GETARG_TEXT_PP(0);
-	idx_str = text_to_cstring(index_name);
 
 	oldctx = CurrentMemoryContext;
 	NDB_SPI_SESSION_BEGIN(spi_session, oldctx);
@@ -1686,14 +1681,11 @@ query_performance_analytics(PG_FUNCTION_ARGS)
 						 "PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY latency_ms) as p50, "
 						 "PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY latency_ms) as p95, "
 						 "PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY latency_ms) as p99, "
-						 "SUM(CASE WHEN used_gpu THEN 1 ELSE 0 END) as gpu_queries "
+						 "0 as gpu_queries "
 						 "FROM neurondb.query_metrics "
-						 "WHERE index_name = $1 AND created_at > NOW() - INTERVAL '24 hours'");
-		Oid			argtypes[1] = {TEXTOID};
-		Datum		values[1] = {PointerGetDatum(index_name)};
-		const char nulls[1] = {' '};
+						 "WHERE query_timestamp > NOW() - INTERVAL '24 hours'");
 
-		ret = ndb_spi_execute_with_args(spi_session, sql.data, 1, argtypes, values, nulls, true, 0);
+		ret = ndb_spi_execute_with_args(spi_session, sql.data, 0, NULL, NULL, NULL, true, 0);
 		if (ret == SPI_OK_SELECT && SPI_processed > 0)
 		{
 			bool		isnull;
@@ -1740,18 +1732,16 @@ query_performance_analytics(PG_FUNCTION_ARGS)
 	/* Build JSONB result */
 	initStringInfo(&json);
 	appendStringInfo(&json,
-					 "{\"total_queries\": %lld, "
+					 "{\"query_count\": %lld, "
+					 "\"latency_percentiles\": {\"p50\": %.2f, \"p95\": %.2f, \"p99\": %.2f}, "
 					 "\"avg_latency_ms\": %.2f, "
-					 "\"p50_latency_ms\": %.2f, "
-					 "\"p95_latency_ms\": %.2f, "
-					 "\"p99_latency_ms\": %.2f, "
-					 "\"gpu_queries\": %lld, "
-					 "\"gpu_utilization_percent\": %.2f}",
+					 "\"gpu_query_count\": %lld, "
+					 "\"gpu_utilization\": %.2f}",
 					 (long long) total_queries,
-					 avg_latency_ms,
 					 p50_latency_ms,
 					 p95_latency_ms,
 					 p99_latency_ms,
+					 avg_latency_ms,
 					 (long long) gpu_queries,
 					 gpu_utilization);
 	MemoryContextSwitchTo(oldctx);
