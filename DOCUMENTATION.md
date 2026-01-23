@@ -82,7 +82,7 @@ This documentation is organized to support different reading modes:
 <details>
 <summary><strong>📋 What's available on the official site</strong></summary>
 
-- ✅ Complete API references (all 520+ SQL functions)
+- ✅ Complete API references (all 665+ SQL functions)
 - ✅ Detailed tutorials and step-by-step guides
 - ✅ Best practices and production guides
 - ✅ Performance optimization strategies
@@ -146,8 +146,8 @@ graph TB
 | Component | Quick Links | Description |
 |-----------|-------------|-------------|
 | **NeuronDB** | [README](NeuronDB/README.md) · [INSTALL](NeuronDB/INSTALL.md) · [Docs](NeuronDB/docs/) | PostgreSQL extension with vector search, 52+ ML algorithms, GPU acceleration |
-| **NeuronAgent** | [README](NeuronAgent/README.md) · [API](NeuronAgent/docs/api.md) · [Architecture](NeuronAgent/docs/architecture.md) | REST/WebSocket agent runtime with multi-agent collaboration, workflow engine, HITL, 16+ tools, hierarchical memory, budget management, and evaluation framework |
-| **NeuronMCP** | [README](NeuronMCP/README.md) · [Tools](NeuronMCP/REGISTERED_TOOLS.md) · [Setup](NeuronMCP/docs/neurondb-mcp-setup.md) | MCP protocol server with 100+ tools (50+ vector operations, complete ML pipeline, RAG operations, 27 PostgreSQL admin tools, dataset loading), middleware system, batch operations, progress tracking, enterprise features (Prometheus metrics, webhooks, circuit breaker, caching), and full MCP protocol support (prompts, sampling/completions, resources) |
+| **NeuronAgent** | [README](NeuronAgent/README.md) · [API](NeuronAgent/docs/api.md) · [Architecture](NeuronAgent/docs/architecture.md) | REST/WebSocket agent runtime with multi-agent collaboration, workflow engine, HITL, 18+ tools, hierarchical memory, budget management, and evaluation framework |
+| **NeuronMCP** | [README](NeuronMCP/README.md) · [Tools](NeuronMCP/REGISTERED_TOOLS.md) · [Setup](NeuronMCP/docs/neurondb-mcp-setup.md) | MCP protocol server with 600+ tools (100+ vector operations, complete ML pipeline, RAG operations, 100+ PostgreSQL admin tools, dataset loading, debugging, composition, workflow, plugins), middleware system, batch operations, progress tracking, enterprise features (Prometheus metrics, webhooks, circuit breaker, caching), and full MCP protocol support (prompts, sampling/completions, resources) |
 | **NeuronDesktop** | [README](NeuronDesktop/README.md) · [API](NeuronDesktop/docs/api.md) · [Deployment](NeuronDesktop/docs/deployment.md) | Unified web interface dashboard |
 
 ### Ecosystem Documentation
@@ -291,7 +291,7 @@ graph TB
 
 | Document | Description |
 |----------|-------------|
-| [SQL API Reference](NeuronDB/docs/sql-api.md) | Complete SQL function reference (520+ functions) |
+| [SQL API Reference](NeuronDB/docs/sql-api.md) | Complete SQL function reference (665+ functions) |
 | [Function Stability](NeuronDB/docs/function-stability.md) | API stability classifications |
 | [Deprecation Policy](NeuronDB/docs/deprecation-policy.md) | Deprecation and removal process |
 | [API Snapshots](NeuronDB/docs/api-snapshots/README.md) | Versioned API references |
@@ -308,7 +308,7 @@ graph TB
 
 | Document | Description |
 |----------|-------------|
-| [Tools Reference](NeuronMCP/REGISTERED_TOOLS.md) | Complete tool reference (100+ tools) |
+| [Tools Reference](NeuronMCP/REGISTERED_TOOLS.md) | Complete tool reference (600+ tools) |
 | [PostgreSQL Tools](NeuronMCP/POSTGRESQL_TOOLS.md) | PostgreSQL administration tools (27 tools) |
 | [Tool Catalog](NeuronMCP/docs/tool-resource-catalog.md) | Complete tool and resource catalog |
 | [Setup Guide](NeuronMCP/docs/neurondb-mcp-setup.md) | MCP server setup |
@@ -492,9 +492,9 @@ graph TB
 
 | Category | Count | Details |
 |----------|-------|---------|
-| **SQL Functions** | 520+ | NeuronDB extension functions |
+| **SQL Functions** | 665+ | NeuronDB extension functions |
 | **ML Algorithms** | 52+ | Classification, regression, clustering, etc. |
-| **MCP Tools** | 100+ | Model Context Protocol tools |
+| **MCP Tools** | 600+ | Model Context Protocol tools |
 | **Components** | 4 | NeuronDB, NeuronAgent, NeuronMCP, NeuronDesktop |
 | **PostgreSQL Versions** | 3 | 16, 17, 18 |
 | **GPU Platforms** | 4 | CPU, CUDA, ROCm, Metal |

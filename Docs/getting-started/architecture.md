@@ -56,7 +56,7 @@ NeuronDB has four main components. They work together.
 - ✅ Vector data types (`vector`, `halfvec`, `sparsevec`, etc.)
 - ✅ Vector distance operators (`<=>`, `<->`, `<#>`)
 - ✅ Index types (HNSW, IVF) for fast vector search
-- ✅ 520+ SQL functions for ML, embeddings, RAG
+- ✅ 665+ SQL functions for ML, embeddings, RAG
 - ✅ GPU acceleration (CUDA, ROCm, Metal)
 - ✅ Background workers for async processing
 

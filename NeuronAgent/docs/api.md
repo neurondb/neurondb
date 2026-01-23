@@ -16,6 +16,22 @@
   - [Tools](#tools)
   - [Memory](#memory)
   - [WebSocket](#websocket)
+- [Reflections](#reflections)
+- [Webhooks](#webhooks)
+- [Approval Requests](#approval-requests)
+- [Feedback](#feedback)
+- [Marketplace](#marketplace)
+- [Compliance](#compliance)
+- [Observability](#observability)
+- [Async Tasks](#async-tasks)
+- [Event Streams](#event-streams)
+- [Verification](#verification)
+- [Virtual Filesystem](#virtual-filesystem)
+- [Evaluation](#evaluation)
+- [Replay](#replay)
+- [RAG](#rag)
+- [Embeddings](#embeddings)
+- [Analytics](#analytics)
 - [Error Handling](#error-handling)
 - [Rate Limiting](#rate-limiting)
 
@@ -84,9 +100,89 @@ GET /api/v1/agents
 GET /api/v1/agents/{id}
 ```
 
+#### Update Agent
+```
+PUT /api/v1/agents/{id}
+```
+
 #### Delete Agent
 ```
 DELETE /api/v1/agents/{id}
+```
+
+#### Clone Agent
+```
+POST /api/v1/agents/{id}/clone
+```
+
+#### Generate Plan
+```
+POST /api/v1/agents/{id}/plan
+```
+
+#### Reflect on Response
+```
+POST /api/v1/agents/{id}/reflect
+```
+
+#### Delegate to Agent
+```
+POST /api/v1/agents/{id}/delegate
+```
+
+#### Get Agent Metrics
+```
+GET /api/v1/agents/{id}/metrics
+```
+
+#### Get Agent Costs
+```
+GET /api/v1/agents/{id}/costs
+```
+
+#### List Agent Versions
+```
+GET /api/v1/agents/{id}/versions
+```
+
+#### Create Agent Version
+```
+POST /api/v1/agents/{id}/versions
+```
+
+#### Get Agent Version
+```
+GET /api/v1/agents/{id}/versions/{version}
+```
+
+#### Activate Agent Version
+```
+PUT /api/v1/agents/{id}/versions/{version}/activate
+```
+
+#### List Agent Relationships
+```
+GET /api/v1/agents/{id}/relationships
+```
+
+#### Create Agent Relationship
+```
+POST /api/v1/agents/{id}/relationships
+```
+
+#### Delete Agent Relationship
+```
+DELETE /api/v1/agents/{id}/relationships/{relationship_id}
+```
+
+#### Batch Create Agents
+```
+POST /api/v1/agents/batch
+```
+
+#### Batch Delete Agents
+```
+POST /api/v1/agents/batch/delete
 ```
 
 ### Sessions
@@ -110,6 +206,21 @@ Request body:
 GET /api/v1/sessions/{id}
 ```
 
+#### Update Session
+```
+PUT /api/v1/sessions/{id}
+```
+
+#### Delete Session
+```
+DELETE /api/v1/sessions/{id}
+```
+
+#### List Sessions
+```
+GET /api/v1/agents/{agent_id}/sessions
+```
+
 ### Messages
 
 #### Send Message
@@ -129,6 +240,26 @@ Request body:
 #### Get Messages
 ```
 GET /api/v1/sessions/{session_id}/messages
+```
+
+#### Get Message
+```
+GET /api/v1/messages/{id}
+```
+
+#### Update Message
+```
+PUT /api/v1/messages/{id}
+```
+
+#### Delete Message
+```
+DELETE /api/v1/messages/{id}
+```
+
+#### Batch Delete Messages
+```
+POST /api/v1/messages/batch/delete
 ```
 
 ### WebSocket

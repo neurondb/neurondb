@@ -13,7 +13,7 @@ NeuronDB is a PostgreSQL extension that brings native vector types, approximate 
 
 ## Vector Search & Indexing
 
-- **[Vector Types](vector-search/vector-types.md)** - `vector`, `vectorp`, `vecmap`, `vgraph`, `rtext` types
+- **[Vector Types](vector-search/vector-types.md)** - `vector`, `vectorp`, `vecmap`, `vgraph`, `rtext`, `sparse_vector` types
 - **[Indexing](vector-search/indexing.md)** - HNSW and IVF indexing with automatic tuning
 - **[Distance Metrics](vector-search/distance-metrics.md)** - L2, Cosine, Inner Product, Manhattan, Hamming, Jaccard
 - **[Quantization](vector-search/quantization.md)** - Product Quantization (PQ) and Optimized PQ (OPQ)

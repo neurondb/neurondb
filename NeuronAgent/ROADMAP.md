@@ -133,7 +133,7 @@ NeuronAgent already has a solid foundation:
 ### 2.1 Leverage NeuronDB ML Capabilities
 
 **Current State**: Basic integration with embeddings and LLM functions  
-**Goal**: Full utilization of NeuronDB's 520+ SQL functions and 52+ ML algorithms
+**Goal**: Full utilization of NeuronDB's 665+ SQL functions and 52+ ML algorithms
 
 **Features**:
 

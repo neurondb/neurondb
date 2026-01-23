@@ -2,10 +2,10 @@
 
 <div align="center">
 
-**Model Context Protocol (MCP) server with 100+ tools for NeuronDB**
+**Model Context Protocol (MCP) server with 600+ tools for NeuronDB**
 
 [![Status](https://img.shields.io/badge/status-stable-brightgreen)](.)
-[![Tools](https://img.shields.io/badge/tools-100+-green)](.)
+[![Tools](https://img.shields.io/badge/tools-600+-green)](.)
 [![Protocol](https://img.shields.io/badge/protocol-MCP-blue)](.)
 
 </div>
@@ -13,7 +13,7 @@
 ---
 
 > [!TIP]
-> NeuronMCP provides a complete MCP protocol implementation. It includes 100+ tools for vector operations, ML, RAG, and PostgreSQL administration.
+> NeuronMCP provides a complete MCP protocol implementation. It includes 600+ tools for vector operations, ML, RAG, PostgreSQL administration, debugging, composition, workflow, plugins, and more.
 
 ---
 
@@ -24,7 +24,7 @@ NeuronMCP is a Model Context Protocol (MCP) server providing comprehensive tools
 | Feature | Description | Status |
 |---------|-------------|--------|
 | **MCP Protocol Server** | Full JSON-RPC 2.0 implementation with stdio, HTTP, and SSE transport | ✅ Stable |
-| **Tool Server** | 100+ tools covering vector operations, ML, RAG, PostgreSQL administration, and dataset loading | ✅ Stable |
+| **Tool Server** | 600+ tools covering vector operations, ML, RAG, PostgreSQL administration, dataset loading, debugging, composition, workflow, plugins, and more | ✅ Stable |
 | **Resource Provider** | Schema, models, indexes, config, workers, and stats with real-time subscriptions | ✅ Stable |
 | **Enterprise Platform** | Middleware system, authentication, caching, metrics, webhooks, and resilience features | ✅ Stable |
 
@@ -38,7 +38,7 @@ NeuronMCP is a Model Context Protocol (MCP) server providing comprehensive tools
 - **Prompts Protocol**: Full prompts/list and prompts/get with template engine support
 - **Sampling/Completions**: sampling/createMessage with streaming support for LLM interactions
 
-### Vector Operations (50+ Tools)
+### Vector Operations (100+ Tools)
 
 Comprehensive vector operations with extensive tooling:
 
@@ -106,7 +106,7 @@ Complete machine learning pipeline with 52+ algorithms:
 
 ### PostgreSQL Administration (100+ Tools)
 
-NeuronMCP provides comprehensive PostgreSQL administration with 100+ tools covering complete database control:
+NeuronMCP provides comprehensive PostgreSQL administration with 100+ PostgreSQL-specific tools (part of the total 600+ tools) covering complete database control:
 
 #### Server Information (8 tools)
 - Version, stats, databases, connections, locks, replication, settings, extensions

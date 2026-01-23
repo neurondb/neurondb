@@ -5,7 +5,7 @@ NeuronDB is a PostgreSQL extension that adds vector search, machine learning, an
 ## What it is
 
 - A PostgreSQL extension that defines types (for example `vector`), operators, and index access methods
-- 520+ SQL functions for vector operations, ML algorithms, embeddings, and RAG pipelines
+- 665+ SQL functions for vector operations, ML algorithms, embeddings, and RAG pipelines
 - Support for 52+ machine learning algorithms
 - GPU acceleration for CUDA, ROCm, and Metal platforms
 - Background workers for async operations, auto-tuning, and maintenance
@@ -13,7 +13,7 @@ NeuronDB is a PostgreSQL extension that adds vector search, machine learning, an
 ## Key Modules & Features
 
 ### Vector Operations
-- **Vector Types**: `vector`, `vectorp`, `vecmap`, `vgraph`, `rtext` for dense and sparse vectors
+- **Vector Types**: `vector`, `vectorp`, `vecmap`, `vgraph`, `rtext`, `sparse_vector` for dense and sparse vectors
 - **Distance Metrics**: L2, cosine similarity, inner product, and more
 - **Indexing**: HNSW and IVF indexes for fast similarity search
 - **Quantization**: Product Quantization (PQ) and Optimized Product Quantization (OPQ)
@@ -81,7 +81,7 @@ NeuronDB is a PostgreSQL extension that adds vector search, machine learning, an
 - **Main README**: `NeuronDB/README.md`
 - **Installation**: `NeuronDB/INSTALL.md`
 - **Complete Docs**: `NeuronDB/docs/`
-- **SQL API**: 520+ functions defined in `NeuronDB/sql/neurondb--2.0.sql`
+- **SQL API**: 665+ functions defined in `NeuronDB/sql/neurondb--3.0.0-devel.sql`
 - **Official Docs**: [https://www.neurondb.ai/docs](https://www.neurondb.ai/docs)
 
 ## Docker

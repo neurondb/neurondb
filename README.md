@@ -238,7 +238,7 @@ LIMIT 5;
 
 **Connect MCP clients (Claude Desktop, etc.) to NeuronDB:**
 
-- ✅ 100+ tools available via MCP
+- ✅ 600+ tools available via MCP
 - ✅ Vector operations
 - ✅ ML pipeline tools
 - ✅ PostgreSQL administration
@@ -263,10 +263,10 @@ LIMIT 5;
 | **GPU acceleration** | CUDA, ROCm, Metal (3 backends) | Single backend or CPU-only |
 | **Benchmark coverage** | RAGAS, MTEB, BEIR integrated | Manual setup required |
 | **Agent runtime** | ✅ NeuronAgent included | ❌ External services needed |
-| **MCP server** | ✅ NeuronMCP included (100+ tools) | ❌ Separate integration required |
+| **MCP server** | ✅ NeuronMCP included (600+ tools) | ❌ Separate integration required |
 | **Desktop UI** | ✅ NeuronDesktop included | ❌ Build your own |
 | **ML algorithms** | 52+ algorithms | Extension only (limited) |
-| **SQL functions** | 520+ functions | Typically <100 |
+| **SQL functions** | 665+ functions | Typically <100 |
 
 </details>
 
@@ -597,8 +597,8 @@ No additional services, ports, or configuration required!
 | Component | Path | What it is |
 |---|---|---|
 | NeuronDB | `NeuronDB/` | PostgreSQL extension with vector search, ML algorithms, GPU acceleration (CUDA/ROCm/Metal), embeddings, RAG pipeline, hybrid search, and background workers |
-| NeuronAgent | `NeuronAgent/` | Agent runtime + REST/WebSocket API (Go) with multi-agent collaboration, DAG-based workflow engine with human-in-the-loop (HITL), hierarchical memory management, planning & reflection, evaluation framework, budget & cost management, 16+ tools (SQL, HTTP, Code, Shell, Browser, Visualization, Filesystem, Memory, Collaboration, NeuronDB tools, Multimodal), Prometheus metrics, RBAC, audit logging, and background workers |
-| NeuronMCP | `NeuronMCP/` | MCP server for MCP-compatible clients (Go) with 100+ tools (50+ vector operations, complete ML pipeline, RAG operations, 27 PostgreSQL admin tools, dataset loading), middleware system (validation, logging, timeout, error handling, auth, rate limiting), enterprise features (Prometheus metrics, webhooks, circuit breaker, caching, connection pooling), batch operations, progress tracking, authentication (JWT, API keys, OAuth2), and full MCP protocol support (prompts, sampling/completions, resources) |
+| NeuronAgent | `NeuronAgent/` | Agent runtime + REST/WebSocket API (Go) with multi-agent collaboration, DAG-based workflow engine with human-in-the-loop (HITL), hierarchical memory management, planning & reflection, evaluation framework, budget & cost management, 18+ tools (SQL, HTTP, Code, Shell, Browser, Visualization, Filesystem, Memory, Collaboration, NeuronDB tools, Multimodal, Web Search, Retrieval, Analytics), Prometheus metrics, RBAC, audit logging, and background workers |
+| NeuronMCP | `NeuronMCP/` | MCP server for MCP-compatible clients (Go) with 600+ tools (100+ vector operations, complete ML pipeline, RAG operations, 100+ PostgreSQL admin tools, dataset loading, debugging, composition, workflow, plugins), middleware system (validation, logging, timeout, error handling, auth, rate limiting), enterprise features (Prometheus metrics, webhooks, circuit breaker, caching, connection pooling), batch operations, progress tracking, authentication (JWT, API keys, OAuth2), and full MCP protocol support (prompts, sampling/completions, resources) |
 | NeuronDesktop | `NeuronDesktop/` | Web UI + API for the ecosystem providing a unified interface |
 
 ### Component READMEs
@@ -861,9 +861,9 @@ Key operational considerations for production:
 <details>
 <summary><strong>Stats snapshot (may change)</strong></summary>
 
-- **520+ SQL functions** in NeuronDB extension
+- **665+ SQL functions** in NeuronDB extension
 - **52+ ML algorithms** supported
-- **100+ MCP tools** available
+- **600+ MCP tools** available
 - **4 integrated components** working together
 - **3 PostgreSQL versions** supported (16, 17, 18)
 - **4 GPU platforms** supported (CPU, CUDA, ROCm, Metal)

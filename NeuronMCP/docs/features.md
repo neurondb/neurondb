@@ -14,14 +14,14 @@ NeuronMCP is a Model Context Protocol (MCP) server that provides access to Neuro
 ### Tool Registration Modes
 - **PostgreSQL-Only Mode**: Default mode with 5 essential PostgreSQL tools
 - **Category-Based Selection**: Select tools by category
-- **Full Tool Set**: Access to all 100+ tools
+- **Full Tool Set**: Access to all 600+ tools
 - **Custom Tool Registration**: Register custom tools
 
 ## Tool Categories
 
-### Vector Operations (8 tools)
+### Vector Operations (12+ tools)
 - Vector similarity search with multiple distance metrics
-- L2, cosine, and inner product search
+- L2, cosine, inner product, L1, Hamming, Chebyshev, and Minkowski search
 - Vector arithmetic operations
 - Vector distance calculations
 - Unified vector similarity
@@ -119,7 +119,42 @@ NeuronMCP is a Model Context Protocol (MCP) server that provides access to Neuro
 - Multiple distance metrics
 - Vector arithmetic
 
-### Dataset Loading (1 tool)
+### Dataset Loading
+- Load from HuggingFace
+- Load from URLs (CSV, JSON, Parquet)
+- Load from GitHub repositories
+- Load from S3 buckets
+- Load from local files
+- Automatic schema detection
+- Auto-embedding generation
+- Index creation
+
+### Debugging Tools (5+ tools)
+- Debug tool calls
+- Query plan analysis
+- Monitor active connections
+- Monitor query performance
+- Trace requests
+
+### Composition Tools (4+ tools)
+- Tool chaining
+- Parallel execution
+- Conditional execution
+- Retry logic
+
+### Workflow Tools (4+ tools)
+- Create workflows
+- Execute workflows
+- Monitor workflow status
+- List workflows
+
+### Plugin Tools (6+ tools)
+- Plugin marketplace
+- Hot reload
+- Versioning
+- Sandbox
+- Testing
+- Builder (1 tool)
 - Load from HuggingFace
 - Load from URL
 - Load from GitHub

@@ -55,7 +55,7 @@ NeuronAgent integrates with NeuronDB PostgreSQL extension to provide agent runti
 
 - 🤖 **Autonomous Agents** - Build agents that can reason, plan, and execute complex tasks
 - 🧠 **Persistent Memory** - Long-term memory with vector search for context retrieval
-- 🔧 **Tool Execution** - 16+ built-in tools plus custom tool registration
+- 🔧 **Tool Execution** - 18+ built-in tools plus custom tool registration
 - 🔄 **Workflow Orchestration** - DAG-based workflows with human-in-the-loop support
 - 👥 **Multi-Agent Collaboration** - Agents can communicate and collaborate on tasks
 - 💰 **Cost Management** - Real-time budget tracking and cost controls
@@ -105,7 +105,7 @@ The official documentation provides:
 | **Planning & Reflection** | LLM-based planning with task decomposition, agent self-reflection, and quality assessment | ✅ Stable |
 | **Evaluation Framework** | Built-in evaluation system for agent performance with automated quality scoring | ✅ Stable |
 | **Budget & Cost Management** | Real-time cost tracking, per-agent and per-session budget controls, and budget alerts | ✅ Stable |
-| **Tool System** | 16+ tools: SQL, HTTP, Code, Shell, Browser, Visualization, Filesystem, Memory, Collaboration, NeuronDB tools, Multimodal | ✅ Stable |
+| **Tool System** | 18+ tools: SQL, HTTP, Code, Shell, Browser, Visualization, Filesystem, Memory, Collaboration, NeuronDB tools (ML, Vector, RAG, Hybrid Search, Reranking, Analytics), Multimodal, Web Search, Retrieval | ✅ Stable |
 | **REST API** | Full CRUD API for agents, sessions, messages, workflows, plans, budgets, and collaborations | ✅ Stable |
 | **WebSocket Support** | Streaming agent responses in real-time with event streaming | ✅ Stable |
 | **Authentication & Security** | API key-based authentication with bcrypt hashing, RBAC, fine-grained permissions, and audit logging | ✅ Stable |
@@ -133,7 +133,7 @@ graph TB
         STATE[Agent State Machine<br/>Task Execution]
         SESSION[Session Management<br/>Conversation Context]
         MEMORY[Memory Store<br/>HNSW Vector Search]
-        TOOLS[Tool Registry<br/>16+ Tools]
+        TOOLS[Tool Registry<br/>18+ Tools]
         WORKFLOW[Workflow Engine<br/>DAG Execution]
     end
     

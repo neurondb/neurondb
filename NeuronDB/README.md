@@ -60,11 +60,11 @@ NeuronDB extends PostgreSQL with vector search, ML model inference, hybrid retri
 
 | Category | Features | Count |
 |:---------|:---------|:-----|
-| **Vector Types** | `vector`, `vectorp`, `vecmap`, `vgraph`, `rtext` | 5 types |
+| **Vector Types** | `vector`, `vectorp`, `vecmap`, `vgraph`, `rtext`, `sparse_vector` | 6 types |
 | **Index Types** | HNSW, IVF, PQ, OPQ, hybrid, multi-vector | 6+ types |
 | **Distance Metrics** | L2, Cosine, Inner Product, Hamming, Jaccard, etc. | 7+ metrics |
 | **ML Algorithms** | Random Forest, XGBoost, LightGBM, K-Means, PCA, etc. | 52+ algorithms |
-| **SQL Functions** | Vector ops, ML inference, embeddings, RAG, etc. | 520+ functions |
+| **SQL Functions** | Vector ops, ML inference, embeddings, RAG, etc. | 665+ functions |
 | **GPU Backends** | CUDA, ROCm, Metal | 3 backends |
 | **Background Workers** | neuranq, neuranmon, neurandefrag, neuranllm | 4 workers |
 
@@ -109,7 +109,7 @@ $$QPS = \frac{1}{T_{query}} = \frac{1}{O(\log N + ef_{search} \cdot k)}$$
 - **[Quick Start](docs/getting-started/quickstart.md)** - Get up and running quickly
 
 ### Vector Search & Indexing
-- **[Vector Types](docs/vector-search/vector-types.md)** - `vector`, `vectorp`, `vecmap`, `vgraph`, `rtext` types
+- **[Vector Types](docs/vector-search/vector-types.md)** - `vector`, `vectorp`, `vecmap`, `vgraph`, `rtext`, `sparse_vector` types
 - **[Indexing](docs/vector-search/indexing.md)** - HNSW and IVF indexing
 - **[Distance Metrics](docs/vector-search/distance-metrics.md)** - L2, Cosine, Inner Product, and more
 - **[Quantization](docs/vector-search/quantization.md)** - PQ and OPQ compression
@@ -180,7 +180,7 @@ $$QPS = \frac{1}{T_{query}} = \frac{1}{O(\log N + ef_{search} \cdot k)}$$
 🌐 **[https://www.neurondb.ai/docs](https://www.neurondb.ai/docs)**
 
 The official documentation site provides:
-- **Complete API Reference**: All 520+ SQL functions with examples
+- **Complete API Reference**: All 665+ SQL functions with examples
 - **Detailed Tutorials**: Step-by-step guides for all features
 - **Performance Guides**: Optimization strategies and benchmarks
 - **Production Best Practices**: Deployment, scaling, and monitoring
@@ -210,8 +210,8 @@ NeuronDB follows PostgreSQL's architectural patterns and extends the database wi
 ```mermaid
 graph TB
     subgraph SQL["SQL Interface Layer"]
-        FUNC[520+ SQL Functions]
-        TYPES[Vector Types<br/>vector, vectorp, vecmap, vgraph, rtext]
+        FUNC[665+ SQL Functions]
+        TYPES[Vector Types<br/>vector, vectorp, vecmap, vgraph, rtext, sparse_vector]
         OPS[Distance Operators<br/><=>, <->, <#>]
     end
     

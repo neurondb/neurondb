@@ -45,7 +45,7 @@ This section is for deeper dives: internals, performance tuning, deployment patt
 - [Ecosystem Overview](../ecosystem/README.md) - How components work together
 
 ### API References
-- [NeuronDB SQL API](../../NeuronDB/docs/sql-api.md) - 520+ SQL functions
+- [NeuronDB SQL API](../../NeuronDB/docs/sql-api.md) - 665+ SQL functions
 - [NeuronAgent REST API](../../NeuronAgent/docs/api.md) - Complete REST API
 - [NeuronMCP Tools](../../NeuronMCP/REGISTERED_TOOLS.md) - 100+ MCP tools
 - [NeuronDesktop API](../../NeuronDesktop/docs/api.md) - Web UI API

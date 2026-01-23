@@ -138,7 +138,7 @@ NeuronAgent is a comprehensive AI agent runtime system with advanced capabilitie
 - **Version History**: Track agent version history
 
 ### Tool System
-- **16+ Built-in Tools**: SQL, HTTP, Code, Shell, Browser, Visualization, Filesystem, Memory, Collaboration, NeuronDB tools
+- **18+ Built-in Tools**: SQL, HTTP, Code, Shell, Browser, Visualization, Filesystem, Memory, Collaboration, NeuronDB tools (ML, Vector, RAG, Hybrid Search, Reranking, Analytics), Multimodal, Web Search, Retrieval
 - **Custom Tools**: Register custom tools
 - **Tool Analytics**: Analytics for tool usage
 - **Tool Versioning**: Version control for tools

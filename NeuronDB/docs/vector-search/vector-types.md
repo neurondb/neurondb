@@ -57,6 +57,22 @@ Specialized type for retrieval-optimized text.
 SELECT rtext_in('retrieval optimized text');
 ```
 
+## sparse_vector (Sparse Vector)
+
+Stores sparse vectors efficiently, ideal for high-dimensional sparse data.
+
+```sql
+CREATE TABLE sparse_docs (
+    id SERIAL PRIMARY KEY,
+    content TEXT,
+    embedding sparse_vector
+);
+
+-- Sparse vectors store only non-zero values
+INSERT INTO sparse_docs (content, embedding)
+VALUES ('Document text', sparse_vector_in('{0: 1.5, 100: 2.3, 1000: 0.8}'));
+```
+
 ## Learn More
 
 For detailed documentation on all vector types, when to use each, storage optimization, and performance characteristics, visit:

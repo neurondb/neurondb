@@ -24,13 +24,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - PostgreSQL extension for vector search (HNSW, IVF indexes)
-- 473+ SQL functions
+- 665+ SQL functions
 - 52+ ML algorithms (classification, regression, clustering)
 - GPU acceleration (CUDA, ROCm, Metal)
 - Embedding generation and RAG pipelines
 - Hybrid search (vector + full-text search)
 - NeuronAgent: REST/WebSocket API for agent runtime
-- NeuronMCP: MCP protocol server with 100+ tools
+- NeuronMCP: MCP protocol server with 600+ tools
 - NeuronDesktop: Web UI for ecosystem management
 - Benchmark suite (Vector, Hybrid, RAG)
 - Comprehensive documentation

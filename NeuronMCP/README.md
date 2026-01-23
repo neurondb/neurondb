@@ -22,7 +22,7 @@ NeuronMCP implements the Model Context Protocol using JSON-RPC 2.0 over stdio. I
 ### Key Capabilities
 
 - 🔌 **MCP Protocol** - Full JSON-RPC 2.0 implementation with stdio, HTTP, and SSE transport
-- 🛠️ **100+ Tools** - Comprehensive tool catalog covering vector ops, ML, RAG, and PostgreSQL administration
+- 🛠️ **600+ Tools** - Comprehensive tool catalog covering vector ops, ML, RAG, PostgreSQL administration, debugging, composition, workflow, and plugins
 - 📊 **Resources** - Real-time access to schema, models, indexes, and system stats
 - 🔐 **Enterprise Security** - JWT, API keys, OAuth2, rate limiting, and audit logging
 - ⚡ **High Performance** - TTL caching, connection pooling, and optimized query execution
@@ -90,7 +90,7 @@ NeuronMCP implements the Model Context Protocol using JSON-RPC 2.0 over stdio. I
   }
 }
 ```
-**Tools available**: 5 essential PostgreSQL tools (version, execute_query, tables, query_plan, cancel_query)
+**Tools available**: 5 essential PostgreSQL tools (version, execute_query, tables, query_plan, cancel_query). Note: Claude Desktop has a hard limit of 5 tools per MCP server in default mode.
 
 **Note**: Claude Desktop has a hard limit of 5 tools per MCP server. Additional tools can be enabled using category-based selection.
 
@@ -113,7 +113,7 @@ NeuronMCP implements the Model Context Protocol using JSON-RPC 2.0 over stdio. I
   }
 }
 ```
-**Tools available**: 6 tools including vector and RAG tools
+**Tools available**: 6 tools including vector and RAG tools. Note: `neurondb_` prefixed tools may not display in Claude Desktop but work with other MCP clients.
 
 #### Category-Based Selection
 ```json
@@ -155,10 +155,14 @@ The official documentation provides:
 | Feature | Description | Count |
 |:--------|:------------|:-----|
 | **MCP Protocol** | Full JSON-RPC 2.0 implementation with stdio, HTTP, and SSE transport | ✅ |
-| **Vector Operations** | Vector search (L2, cosine, inner product), embedding generation, indexing (HNSW, IVF), quantization | 50+ tools |
+| **Vector Operations** | Vector search (L2, cosine, inner product), embedding generation, indexing (HNSW, IVF), quantization | 100+ tools |
 | **ML Tools** | Complete ML pipeline: training, prediction, evaluation, AutoML, ONNX, time series | 52+ algorithms |
 | **RAG Operations** | Document processing, context retrieval, response generation with multiple reranking methods | ✅ |
 | **PostgreSQL Tools** | Complete database control: DDL, DML, DCL, user/role management, backup/restore | 100+ tools |
+| **Debugging Tools** | Debug tool calls, query plans, monitor connections and performance, trace requests | 5+ tools |
+| **Composition Tools** | Tool chaining, parallel execution, conditional execution, retry logic | 4+ tools |
+| **Workflow Tools** | Create, execute, monitor workflows | 4+ tools |
+| **Plugin Tools** | Marketplace, hot reload, versioning, sandbox, testing, builder | 6+ tools |
 | **Dataset Loading** | Load from HuggingFace, URLs, GitHub, S3, local files with auto-embedding | ✅ |
 | **Resources** | Schema, models, indexes, config, workers, stats with real-time subscriptions | 6+ resources |
 | **Prompts Protocol** | Full prompts/list and prompts/get with template engine | ✅ |
@@ -190,7 +194,7 @@ graph TB
     
     subgraph MCP["NeuronMCP Server"]
         PROTOCOL[MCP Protocol Handler<br/>JSON-RPC 2.0]
-        TOOLS[Tool Registry<br/>100+ Tools]
+        TOOLS[Tool Registry<br/>600+ Tools]
         RESOURCES[Resource Manager<br/>Schema, Models, Indexes]
         MIDDLEWARE[Middleware Pipeline<br/>Auth, Logging, Rate Limit]
         CACHE[TTL Cache<br/>Idempotency]
@@ -200,7 +204,7 @@ graph TB
         VEC[Vector Operations<br/>50+ tools]
         ML[ML Pipeline<br/>52+ algorithms]
         RAG[RAG Operations<br/>Document processing]
-        PG[PostgreSQL Tools<br/>100+ DDL/DML/DCL]
+        PG[PostgreSQL Tools<br/>100+ DDL/DML/DCL<br/>600+ Total Tools]
         DATASET[Dataset Loading<br/>HuggingFace, S3, GitHub]
     end
     
@@ -253,7 +257,7 @@ sequenceDiagram
     Client->>Server: tools/list
     Server->>Tools: Get available tools
     Tools-->>Server: Tool catalog
-    Server-->>Client: Tool list (100+ tools)
+    Server-->>Client: Tool list (600+ tools)
     
     Client->>Server: tools/call {"name": "vector_search", ...}
     Server->>Server: Validate & authenticate
@@ -270,7 +274,7 @@ sequenceDiagram
 
 ```mermaid
 graph LR
-    subgraph TOOLS["100+ Tools"]
+    subgraph TOOLS["600+ Tools"]
         VEC_TOOLS[Vector Operations<br/>50+ tools<br/>Search, Embeddings, Indexing]
         ML_TOOLS[ML Pipeline<br/>52+ algorithms<br/>Training, Prediction, Evaluation]
         RAG_TOOLS[RAG Operations<br/>Document Processing<br/>Context Retrieval]
@@ -488,7 +492,7 @@ NeuronMCP provides comprehensive tools covering all NeuronDB capabilities:
 
 | Tool Category | Tools |
 |---------------|-------|
-| **Vector Operations** | `vector_search`, `vector_search_l2`, `vector_search_cosine`, `vector_search_inner_product`, `vector_similarity`, `vector_arithmetic`, `vector_distance`, `vector_similarity_unified` |
+| **Vector Operations** | `vector_search`, `vector_search_l2`, `vector_search_cosine`, `vector_search_inner_product`, `vector_search_l1`, `vector_search_hamming`, `vector_search_chebyshev`, `vector_search_minkowski`, `vector_similarity`, `vector_arithmetic`, `vector_distance`, `vector_similarity_unified` |
 | **Vector Quantization** | `vector_quantize`, `quantization_analyze` (int8, fp16, binary, uint8, ternary, int4) |
 | **Embeddings** | `generate_embedding`, `batch_embedding`, `embed_image`, `embed_multimodal`, `embed_cached`, `configure_embedding_model`, `get_embedding_model_config`, `list_embedding_model_configs`, `delete_embedding_model_config` |
 | **Hybrid Search** | `hybrid_search`, `reciprocal_rank_fusion`, `semantic_keyword_search`, `multi_vector_search`, `faceted_vector_search`, `temporal_vector_search`, `diverse_vector_search` |
@@ -507,7 +511,7 @@ NeuronMCP provides comprehensive tools covering all NeuronDB capabilities:
 | **PostgreSQL (100+ tools)** | Complete PostgreSQL control: **DDL** (CREATE/ALTER/DROP for databases, schemas, tables, indexes, views, functions, triggers, sequences, types, domains, materialized views, partitions, foreign tables), **DML** (INSERT, UPDATE, DELETE, TRUNCATE, COPY), **DCL** (GRANT/REVOKE), **User/Role Management** (CREATE/ALTER/DROP USER/ROLE), **Backup/Recovery** (pg_dump/pg_restore), **Security** (SQL validation, permission checking, audit), plus all administration, monitoring, and statistics tools |
 
 **Comprehensive Documentation:**
-- **[TOOLS_REFERENCE.md](TOOLS_REFERENCE.md)** - Complete reference for all 100+ tools with parameters, examples, and error codes
+- **[TOOLS_REFERENCE.md](TOOLS_REFERENCE.md)** - Complete reference for all 600+ tools with parameters, examples, and error codes
 - **[POSTGRESQL_TOOLS.md](POSTGRESQL_TOOLS.md)** - Detailed documentation for all PostgreSQL tools (100+ tools covering DDL, DML, DCL, administration, backup, security)
 
 For a comprehensive catalog of all tools and resources, see [docs/tool-resource-catalog.md](docs/tool-resource-catalog.md).
