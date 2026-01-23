@@ -70,8 +70,8 @@ class ProtocolTester:
                 self.test_results["failed"] += 1
                 return
             
-            if len(tools) < 100:
-                print(f"  ⚠️  WARNING: Expected 100+ tools, got {len(tools)}")
+            if len(tools) < 600:
+                print(f"  ⚠️  WARNING: Expected 600+ tools, got {len(tools)}")
             
             # Verify tool definitions
             for tool in tools[:10]:  # Check first 10

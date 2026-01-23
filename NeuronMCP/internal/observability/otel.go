@@ -167,12 +167,17 @@ func TraceToolExecution(ctx context.Context, tracer *TracerProvider, toolName st
 }
 
 /* ExportTrace exports traces to a collector */
-/* TODO: Implement actual export to Jaeger/Zipkin */
+/* Note: Trace export to external collectors (Jaeger/Zipkin) is not yet implemented. */
+/* Traces are currently only available in-memory. Future implementation will support: */
+/* - OTLP export to Jaeger/Zipkin */
+/* - HTTP/gRPC export to OpenTelemetry collectors */
+/* - File-based export for debugging */
 func ExportTrace(ctx context.Context, tracer *TracerProvider, endpoint string) error {
 	if !tracer.enabled {
 		return nil
 	}
 
-	/* TODO: Implement trace export */
+	/* Trace export not implemented - traces remain in-memory only */
+	/* This is a placeholder for future implementation */
 	return nil
 }

@@ -134,8 +134,8 @@ class IntegrationVerifier:
                     "tool_count": tool_count
                 })
                 print(f"  ✅ PASSED: Found {tool_count} tools")
-                if tool_count < 100:
-                    print(f"  ⚠️  WARNING: Expected 100+ tools, got {tool_count}")
+                if tool_count < 600:
+                    print(f"  ⚠️  WARNING: Expected 600+ tools, got {tool_count}")
         except Exception as e:
             self._record_result("mcp_protocol", "tools_list", "failed", {
                 "error": str(e)

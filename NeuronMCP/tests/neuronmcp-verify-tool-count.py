@@ -144,12 +144,12 @@ def main():
     logger.info("-" * 80)
     logger.info(f"Total: {counts.get('total', 0)} tools")
     
-    if counts.get('total', 0) >= 100:
+    if counts.get('total', 0) >= 600:
         logger.info("")
-        logger.info("✅ PASSED: 100+ tools registered")
+        logger.info("✅ PASSED: 600+ tools registered")
     else:
         logger.info("")
-        logger.warning(f"⚠️  WARNING: Only {counts.get('total', 0)} tools registered (expected 100+)")
+        logger.warning(f"⚠️  WARNING: Only {counts.get('total', 0)} tools registered (expected 600+)")
 
 
 if __name__ == "__main__":

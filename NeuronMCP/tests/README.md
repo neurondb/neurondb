@@ -1,6 +1,6 @@
 # NeuronMCP Test Suite
 
-Comprehensive test suite for NeuronMCP covering all 100+ tools, 9 resources, MCP protocol endpoints, and integration scenarios.
+Comprehensive test suite for NeuronMCP covering all 600+ tools, 9 resources, MCP protocol endpoints, and integration scenarios.
 
 ## Test Structure
 
@@ -9,7 +9,7 @@ tests/
 ├── test_protocol.py          # MCP protocol endpoint tests
 ├── test_tools_postgresql.py   # PostgreSQL tools tests (27 tools)
 ├── test_resources.py          # Resources tests (9 resources)
-├── test_comprehensive.py      # Comprehensive tool tests (100+ tools)
+├── test_comprehensive.py      # Comprehensive tool tests (600+ tools)
 ├── test_dataloading.py        # Dataset loading comprehensive tests
 └── run_all_tests.py          # Test runner script
 ```
@@ -41,7 +41,7 @@ tests/
 - Invalid resource handling
 
 ### 4. Comprehensive Tool Tests (`test_comprehensive.py`)
-- All 100+ tools across all categories
+- All 600+ tools across all categories
 - Vector operations
 - Embedding tools
 - ML operations
@@ -150,7 +150,7 @@ Tests report results in the following format:
 
 The test suite aims for:
 
-- **100% Tool Coverage**: All 100+ tools tested
+- **100% Tool Coverage**: All 600+ tools tested
 - **100% Resource Coverage**: All 9 resources tested
 - **100% Protocol Coverage**: All MCP protocol endpoints tested
 - **>80% Code Coverage**: Unit tests cover >80% of codebase
