@@ -15,13 +15,17 @@ SELECT
 FROM generate_series(1, 15) AS id;
 
 -- Create predictions (simulate search results with some overlap)
+-- Use subquery to avoid window function in WHERE clause
 CREATE TEMP TABLE test_predictions AS
-SELECT 
-    (id % 3) + 1 as query_id,
-    id as predicted_doc_id,
-    ROW_NUMBER() OVER(PARTITION BY (id % 3) + 1 ORDER BY id) as rank
-FROM generate_series(1, 30) AS id
-WHERE ROW_NUMBER() OVER(PARTITION BY (id % 3) + 1 ORDER BY id) <= 5;
+SELECT query_id, predicted_doc_id, rank
+FROM (
+    SELECT 
+        (id % 3) + 1 as query_id,
+        id as predicted_doc_id,
+        ROW_NUMBER() OVER(PARTITION BY (id % 3) + 1 ORDER BY id) as rank
+    FROM generate_series(1, 30) AS id
+) ranked
+WHERE rank <= 5;
 
 -- Show sample data
 SELECT 'Ground Truth' as type, query_id, COUNT(*) as num_relevant

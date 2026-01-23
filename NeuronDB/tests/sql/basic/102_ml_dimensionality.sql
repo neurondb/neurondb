@@ -15,71 +15,84 @@ SELECT
 FROM generate_series(1, 500) AS id;
 
 -- Show sample data
-SELECT COUNT(*) as total_vectors, vector_dims(vec) as dimensions
-FROM test_pca_data
-LIMIT 1;
+SELECT COUNT(*) as total_vectors, (SELECT vector_dims(vec) FROM test_pca_data LIMIT 1) as dimensions
+FROM test_pca_data;
 
 \echo '=== Testing PCA (Principal Component Analysis) ==='
 
--- Check if reduce_pca function exists
+-- Test PCA: reduce from 20 dimensions to 2
+-- Validate that function returns expected results
 DO $$
+DECLARE
+    result_count INT;
+    dim_check INT;
 BEGIN
-  BEGIN
-    PERFORM 1 FROM neurondb.reduce_pca('test_pca_data', 'vec', 2) LIMIT 1;
-    RAISE NOTICE 'reduce_pca function is available';
-  EXCEPTION WHEN undefined_function THEN
-    RAISE NOTICE 'reduce_pca function not available, skipping PCA tests';
-    RETURN;
-  END;
+    SELECT COUNT(*), vector_dims(reduced_vector)
+    INTO result_count, dim_check
+    FROM neurondb.reduce_pca('test_pca_data', 'vec', 2)
+    LIMIT 1;
+    
+    IF result_count = 0 THEN
+        RAISE EXCEPTION 'reduce_pca returned no results';
+    END IF;
+    
+    IF dim_check != 2 THEN
+        RAISE EXCEPTION 'reduce_pca returned vector with % dimensions, expected 2', dim_check;
+    END IF;
 END$$;
 
--- Test PCA: reduce from 20 dimensions to 2 (only if function exists)
 SELECT 
     id,
-    reduced_vec
+    reduced_vector
 FROM neurondb.reduce_pca('test_pca_data', 'vec', 2)
-WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'reduce_pca' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'neurondb'))
 ORDER BY id
 LIMIT 10;
 
 -- Verify reduced dimensionality
 SELECT 
     id,
-    vector_dims(reduced_vec) as new_dims
+    vector_dims(reduced_vector) as new_dims
 FROM neurondb.reduce_pca('test_pca_data', 'vec', 2)
-WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'reduce_pca' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'neurondb'))
 ORDER BY id
 LIMIT 3;
 
 -- Test PCA: reduce to 3 dimensions
 SELECT 
     id,
-    reduced_vec
+    reduced_vector
 FROM neurondb.reduce_pca('test_pca_data', 'vec', 3)
-WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'reduce_pca' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'neurondb'))
 ORDER BY id
 LIMIT 10;
 
 -- Test PCA: reduce to 1 dimension
 SELECT 
     id,
-    reduced_vec
+    reduced_vector
 FROM neurondb.reduce_pca('test_pca_data', 'vec', 1)
-WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'reduce_pca' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'neurondb'))
 ORDER BY id
 LIMIT 5;
 
 \echo '=== Testing PCA Whitening ==='
 
--- Check if whiten_embeddings function exists
+-- Test PCA Whitening
+-- Validate that function returns expected results
 DO $$
+DECLARE
+    result_count INT;
+    dim_check INT;
 BEGIN
-  BEGIN
-    PERFORM 1 FROM neurondb.whiten_embeddings('test_pca_data', 'vec') LIMIT 1;
-    RAISE NOTICE 'whiten_embeddings function is available';
-  EXCEPTION WHEN undefined_function THEN
-    RAISE NOTICE 'whiten_embeddings function not available, skipping whitening tests';
-  END;
+    SELECT COUNT(*), vector_dims(whitened_vec)
+    INTO result_count, dim_check
+    FROM neurondb.whiten_embeddings('test_pca_data', 'vec')
+    LIMIT 1;
+    
+    IF result_count = 0 THEN
+        RAISE EXCEPTION 'whiten_embeddings returned no results';
+    END IF;
+    
+    IF dim_check != 20 THEN
+        RAISE EXCEPTION 'whiten_embeddings returned vector with % dimensions, expected 20', dim_check;
+    END IF;
 END$$;
 
 -- Test PCA Whitening (decorrelates and normalizes)
@@ -87,7 +100,6 @@ SELECT
     id,
     whitened_vec
 FROM neurondb.whiten_embeddings('test_pca_data', 'vec')
-WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'whiten_embeddings' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'neurondb'))
 ORDER BY id
 LIMIT 10;
 
@@ -96,7 +108,6 @@ SELECT
     id,
     vector_dims(whitened_vec) as dims
 FROM neurondb.whiten_embeddings('test_pca_data', 'vec')
-WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'whiten_embeddings' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'neurondb'))
 ORDER BY id
 LIMIT 3;
 
@@ -109,7 +120,6 @@ SELECT
     END as vec_changed
 FROM test_pca_data t
 JOIN neurondb.whiten_embeddings('test_pca_data', 'vec') w ON t.id = w.id
-WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'whiten_embeddings' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'neurondb'))
 ORDER BY t.id
 LIMIT 5;
 
@@ -131,9 +141,8 @@ INSERT INTO test_pca_skewed (vec) VALUES
 -- PCA should capture the high-variance dimension in first component
 SELECT 
     id,
-    reduced_vec
+    reduced_vector
 FROM neurondb.reduce_pca('test_pca_skewed', 'vec', 2)
-WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'reduce_pca' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'neurondb'))
 ORDER BY id;
 
 -- Whitening should normalize the high variance
@@ -141,7 +150,6 @@ SELECT
     id,
     whitened_vec
 FROM neurondb.whiten_embeddings('test_pca_skewed', 'vec')
-WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'whiten_embeddings' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'neurondb'))
 ORDER BY id;
 
 \echo '=== Edge Cases and Error Handling ==='
@@ -159,17 +167,15 @@ INSERT INTO test_pca_minimal (vec) VALUES
 -- PCA with 2 points
 SELECT 
     id,
-    reduced_vec
+    reduced_vector
 FROM neurondb.reduce_pca('test_pca_minimal', 'vec', 2)
-WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'reduce_pca' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'neurondb'))
 ORDER BY id;
 
 -- Test reducing to same dimensionality as input
 SELECT 
     id,
-    reduced_vec
+    reduced_vector
 FROM neurondb.reduce_pca('test_pca_data', 'vec', 5)
-WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'reduce_pca' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'neurondb'))
 ORDER BY id
 LIMIT 3;
 
@@ -178,7 +184,6 @@ SELECT
     id,
     whitened_vec
 FROM neurondb.whiten_embeddings('test_pca_minimal', 'vec')
-WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'whiten_embeddings' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'neurondb'))
 ORDER BY id;
 
 \echo '=== Testing PCA Preservation of Relative Distances ==='
@@ -198,7 +203,7 @@ reduced_dists AS (
     SELECT 
         a.id as id1,
         b.id as id2,
-        a.reduced_vec <-> b.reduced_vec as reduced_dist
+        a.reduced_vector <-> b.reduced_vector as reduced_dist
     FROM neurondb.reduce_pca('test_pca_data', 'vec', 2) a,
          neurondb.reduce_pca('test_pca_data', 'vec', 2) b
     WHERE a.id < b.id AND a.id <= 3 AND b.id <= 3

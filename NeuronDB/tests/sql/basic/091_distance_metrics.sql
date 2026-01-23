@@ -32,19 +32,37 @@ SELECT vector_l2_distance('[42]'::vector, '[24]'::vector) AS l2_singleton;
 -- =============================
 
 SELECT vector_l1_distance('[1.0, 2.0]'::vector, '[4.0, 6.0]'::vector) AS l1_basic;
--- Cityblock distance (use l1_distance if cityblock not available)
+-- Cityblock distance (synonym for l1_distance)
+-- Validate that cityblock_distance works if available, otherwise test l1_distance
 DO $$
+DECLARE
+    cityblock_result REAL;
+    l1_result REAL;
 BEGIN
-  BEGIN
-    PERFORM vector_cityblock_distance('[1.0, 2.0]'::vector, '[4.0, 6.0]'::vector);
-    RAISE NOTICE 'vector_cityblock_distance is available';
-  EXCEPTION WHEN undefined_function THEN
-    -- Fallback to l1_distance
-    PERFORM vector_l1_distance('[1.0, 2.0]'::vector, '[4.0, 6.0]'::vector);
-    RAISE NOTICE 'Using vector_l1_distance instead of vector_cityblock_distance';
-  END;
+    -- Try cityblock_distance first
+    BEGIN
+        SELECT vector_cityblock_distance('[1.0, 2.0]'::vector, '[4.0, 6.0]'::vector) INTO cityblock_result;
+        SELECT vector_l1_distance('[1.0, 2.0]'::vector, '[4.0, 6.0]'::vector) INTO l1_result;
+        
+        -- If both exist, they should give the same result
+        IF ABS(cityblock_result - l1_result) > 0.0001 THEN
+            RAISE EXCEPTION 'cityblock_distance (%) and l1_distance (%) should be equal', cityblock_result, l1_result;
+        END IF;
+    EXCEPTION WHEN undefined_function THEN
+        -- If cityblock doesn't exist, just test l1_distance
+        SELECT vector_l1_distance('[1.0, 2.0]'::vector, '[4.0, 6.0]'::vector) INTO l1_result;
+        IF l1_result IS NULL THEN
+            RAISE EXCEPTION 'vector_l1_distance returned NULL';
+        END IF;
+    END;
 END$$;
-SELECT vector_l1_distance('[1.0, 2.0]'::vector, '[4.0, 6.0]'::vector) AS l1_cityblock_synonym;
+
+-- Test cityblock if available, otherwise just show l1
+SELECT 
+    COALESCE(
+        (SELECT vector_cityblock_distance('[1.0, 2.0]'::vector, '[4.0, 6.0]'::vector)),
+        vector_l1_distance('[1.0, 2.0]'::vector, '[4.0, 6.0]'::vector)
+    ) AS l1_cityblock_synonym;
 
 -- Edge: identical inputs
 SELECT vector_l1_distance('[7,8,9]'::vector, '[7,8,9]'::vector) AS l1_identical_is_0;
@@ -150,26 +168,30 @@ END$$;
 -- Bray-Curtis Distance
 -- =============================
 
--- Bray-Curtis distance (skip if function doesn't exist)
+-- Bray-Curtis distance
+-- Validate that function returns expected results
 DO $$
+DECLARE
+    result REAL;
 BEGIN
-  BEGIN
-    PERFORM vector_bray_curtis_distance('[1,2]'::vector, '[3,4]'::vector);
-    RAISE NOTICE 'vector_bray_curtis_distance is available';
-  EXCEPTION WHEN undefined_function THEN
-    RAISE NOTICE 'vector_bray_curtis_distance not available, skipping bray_curtis tests';
-  END;
+    SELECT vector_bray_curtis_distance('[1,2]'::vector, '[3,4]'::vector) INTO result;
+    
+    IF result IS NULL THEN
+        RAISE EXCEPTION 'vector_bray_curtis_distance returned NULL';
+    END IF;
+    
+    IF result < 0 OR result > 1 THEN
+        RAISE EXCEPTION 'vector_bray_curtis_distance returned value out of range [0,1]: %', result;
+    END IF;
 END$$;
+
+SELECT vector_bray_curtis_distance('[1,2]'::vector, '[3,4]'::vector) AS bray_curtis_basic;
 
 -- Edge: all zeros (should error)
 DO $$
 BEGIN
   BEGIN
-    BEGIN
-      PERFORM vector_bray_curtis_distance('[0,0]'::vector, '[0,0]'::vector);
-    EXCEPTION WHEN undefined_function THEN
-      RAISE NOTICE 'vector_bray_curtis_distance not available';
-    END;
+    PERFORM vector_bray_curtis_distance('[0,0]'::vector, '[0,0]'::vector);
     RAISE WARNING 'Bray-Curtis zero denominator not rejected!';
   EXCEPTION WHEN OTHERS THEN
     RAISE NOTICE 'Correctly rejected bray-curtis all-zero: %', SQLERRM;
@@ -180,26 +202,30 @@ END$$;
 -- Canberra Distance
 -- =============================
 
--- Canberra distance (skip if function doesn't exist)
+-- Canberra distance
+-- Validate that function returns expected results
 DO $$
+DECLARE
+    result REAL;
 BEGIN
-  BEGIN
-    PERFORM vector_canberra_distance('[1,3]'::vector, '[2,0]'::vector);
-    RAISE NOTICE 'vector_canberra_distance is available';
-  EXCEPTION WHEN undefined_function THEN
-    RAISE NOTICE 'vector_canberra_distance not available, skipping canberra tests';
-  END;
+    SELECT vector_canberra_distance('[1,3]'::vector, '[2,0]'::vector) INTO result;
+    
+    IF result IS NULL THEN
+        RAISE EXCEPTION 'vector_canberra_distance returned NULL';
+    END IF;
+    
+    IF result < 0 THEN
+        RAISE EXCEPTION 'vector_canberra_distance returned negative value: %', result;
+    END IF;
 END$$;
+
+SELECT vector_canberra_distance('[1,3]'::vector, '[2,0]'::vector) AS canberra_basic;
 
 -- Edge: all zeros (should error)
 DO $$
 BEGIN
   BEGIN
-    BEGIN
-      PERFORM vector_canberra_distance('[0,0]'::vector, '[0,0]'::vector);
-    EXCEPTION WHEN undefined_function THEN
-      RAISE NOTICE 'vector_canberra_distance not available';
-    END;
+    PERFORM vector_canberra_distance('[0,0]'::vector, '[0,0]'::vector);
     RAISE WARNING 'Canberra all zero input NOT rejected!';
   EXCEPTION WHEN OTHERS THEN
     RAISE NOTICE 'Correctly rejected canberra all-zero: %', SQLERRM;
@@ -214,52 +240,84 @@ END$$;
 SELECT vector_jaccard_distance('[1,1,0]'::vector, '[1,0,1]'::vector) AS jaccard_basic;
 SELECT vector_jaccard_distance('[0,0,0]'::vector, '[0,0,0]'::vector) AS jaccard_both_zero;
 
--- Sokal-Michener (skip if function doesn't exist)
+-- Sokal-Michener
+-- Validate that function returns expected results
 DO $$
+DECLARE
+    result REAL;
 BEGIN
-  BEGIN
-    PERFORM vector_sokal_michener_distance('[1,1,0]'::vector, '[1,0,1]'::vector);
-    RAISE NOTICE 'vector_sokal_michener_distance is available';
-  EXCEPTION WHEN undefined_function THEN
-    RAISE NOTICE 'vector_sokal_michener_distance not available, skipping';
-  END;
+    SELECT vector_sokal_michener_distance('[1,1,0]'::vector, '[1,0,1]'::vector) INTO result;
+    
+    IF result IS NULL THEN
+        RAISE EXCEPTION 'vector_sokal_michener_distance returned NULL';
+    END IF;
+    
+    IF result < 0 OR result > 1 THEN
+        RAISE EXCEPTION 'vector_sokal_michener_distance returned value out of range [0,1]: %', result;
+    END IF;
 END$$;
 
--- Rogers-Tanimoto (skip if function doesn't exist)
+SELECT vector_sokal_michener_distance('[1,1,0]'::vector, '[1,0,1]'::vector) AS sokal_michener_basic;
+
+-- Rogers-Tanimoto
+-- Validate that function returns expected results
 DO $$
+DECLARE
+    result REAL;
 BEGIN
-  BEGIN
-    PERFORM vector_rogers_tanimoto_distance('[1,1,0]'::vector, '[1,0,1]'::vector);
-    RAISE NOTICE 'vector_rogers_tanimoto_distance is available';
-  EXCEPTION WHEN undefined_function THEN
-    RAISE NOTICE 'vector_rogers_tanimoto_distance not available, skipping';
-  END;
+    SELECT vector_rogers_tanimoto_distance('[1,1,0]'::vector, '[1,0,1]'::vector) INTO result;
+    
+    IF result IS NULL THEN
+        RAISE EXCEPTION 'vector_rogers_tanimoto_distance returned NULL';
+    END IF;
+    
+    IF result < 0 OR result > 1 THEN
+        RAISE EXCEPTION 'vector_rogers_tanimoto_distance returned value out of range [0,1]: %', result;
+    END IF;
 END$$;
+
+SELECT vector_rogers_tanimoto_distance('[1,1,0]'::vector, '[1,0,1]'::vector) AS rogers_tanimoto_basic;
 
 -- Dice
 SELECT vector_dice_distance('[1,1,0]'::vector, '[1,0,1]'::vector) AS dice_basic;
 
--- Russell-Rao (skip if function doesn't exist)
+-- Russell-Rao
+-- Validate that function returns expected results
 DO $$
+DECLARE
+    result REAL;
 BEGIN
-  BEGIN
-    PERFORM vector_russell_rao_distance('[1,1,0]'::vector, '[1,0,1]'::vector);
-    RAISE NOTICE 'vector_russell_rao_distance is available';
-  EXCEPTION WHEN undefined_function THEN
-    RAISE NOTICE 'vector_russell_rao_distance not available, skipping';
-  END;
+    SELECT vector_russell_rao_distance('[1,1,0]'::vector, '[1,0,1]'::vector) INTO result;
+    
+    IF result IS NULL THEN
+        RAISE EXCEPTION 'vector_russell_rao_distance returned NULL';
+    END IF;
+    
+    IF result < 0 OR result > 1 THEN
+        RAISE EXCEPTION 'vector_russell_rao_distance returned value out of range [0,1]: %', result;
+    END IF;
 END$$;
 
--- Matching coefficient (skip if function doesn't exist)
+SELECT vector_russell_rao_distance('[1,1,0]'::vector, '[1,0,1]'::vector) AS russell_rao_basic;
+
+-- Matching coefficient
+-- Validate that function returns expected results
 DO $$
+DECLARE
+    result REAL;
 BEGIN
-  BEGIN
-    PERFORM vector_matching_coefficient('[1,1,0]'::vector, '[1,0,1]'::vector);
-    RAISE NOTICE 'vector_matching_coefficient is available';
-  EXCEPTION WHEN undefined_function THEN
-    RAISE NOTICE 'vector_matching_coefficient not available, skipping';
-  END;
+    SELECT vector_matching_coefficient('[1,1,0]'::vector, '[1,0,1]'::vector) INTO result;
+    
+    IF result IS NULL THEN
+        RAISE EXCEPTION 'vector_matching_coefficient returned NULL';
+    END IF;
+    
+    IF result < 0 OR result > 1 THEN
+        RAISE EXCEPTION 'vector_matching_coefficient returned value out of range [0,1]: %', result;
+    END IF;
 END$$;
+
+SELECT vector_matching_coefficient('[1,1,0]'::vector, '[1,0,1]'::vector) AS matching_coefficient_basic;
 
 -- =============================
 -- Additional Edge Cases & Sanity Checks
@@ -286,25 +344,38 @@ SELECT vector_hamming_distance('[1,1,1]'::vector, '[1,1,1]'::vector) AS hamming_
 SELECT vector_hamming_distance('[0,0,0]'::vector, '[1,1,1]'::vector) AS hamming_all_diff;
 
 -- Zeros in numerator/denominator for susceptible metrics
--- Bray-Curtis distance edge case (skip if function doesn't exist)
+-- Bray-Curtis distance edge case
+-- Validate that function handles edge cases correctly
 DO $$
+DECLARE
+    result REAL;
 BEGIN
-  BEGIN
-    PERFORM vector_bray_curtis_distance('[0,1]'::vector, '[1,0]'::vector);
-    RAISE NOTICE 'vector_bray_curtis_distance edge case test passed';
-  EXCEPTION WHEN undefined_function THEN
-    RAISE NOTICE 'vector_bray_curtis_distance not available, skipping';
-  END;
+    SELECT vector_bray_curtis_distance('[0,1]'::vector, '[1,0]'::vector) INTO result;
+    
+    IF result IS NULL THEN
+        RAISE EXCEPTION 'vector_bray_curtis_distance edge case returned NULL';
+    END IF;
+    
+    IF result < 0 OR result > 1 THEN
+        RAISE EXCEPTION 'vector_bray_curtis_distance edge case returned value out of range [0,1]: %', result;
+    END IF;
 END$$;
--- Canberra distance edge case (skip if function doesn't exist)
+
+-- Canberra distance edge case
+-- Validate that function handles edge cases correctly
 DO $$
+DECLARE
+    result REAL;
 BEGIN
-  BEGIN
-    PERFORM vector_canberra_distance('[0,1]'::vector, '[1,0]'::vector);
-    RAISE NOTICE 'vector_canberra_distance edge case test passed';
-  EXCEPTION WHEN undefined_function THEN
-    RAISE NOTICE 'vector_canberra_distance not available, skipping';
-  END;
+    SELECT vector_canberra_distance('[0,1]'::vector, '[1,0]'::vector) INTO result;
+    
+    IF result IS NULL THEN
+        RAISE EXCEPTION 'vector_canberra_distance edge case returned NULL';
+    END IF;
+    
+    IF result < 0 THEN
+        RAISE EXCEPTION 'vector_canberra_distance edge case returned negative value: %', result;
+    END IF;
 END$$;
 
 -- End of all detailed test coverage for distance metrics

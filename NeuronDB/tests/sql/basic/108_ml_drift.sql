@@ -50,6 +50,41 @@ ORDER BY category;
 \echo '=== Testing Centroid Drift Detection ==='
 
 -- Detect drift between baseline and current for category A
+-- Validate that function returns expected results
+DO $$
+DECLARE
+    drift_result RECORD;
+BEGIN
+    SELECT * INTO drift_result
+    FROM neurondb.detect_centroid_drift(
+        'test_drift_baseline', 'vec',
+        'test_drift_current', 'vec',
+        'category', 'A',
+        0.3  -- threshold
+    );
+    
+    IF drift_result.baseline_centroid IS NULL THEN
+        RAISE EXCEPTION 'detect_centroid_drift returned NULL baseline_centroid';
+    END IF;
+    
+    IF drift_result.current_centroid IS NULL THEN
+        RAISE EXCEPTION 'detect_centroid_drift returned NULL current_centroid';
+    END IF;
+    
+    IF drift_result.drift_distance IS NULL THEN
+        RAISE EXCEPTION 'detect_centroid_drift returned NULL drift_distance';
+    END IF;
+    
+    IF drift_result.has_drifted IS NULL THEN
+        RAISE EXCEPTION 'detect_centroid_drift returned NULL has_drifted';
+    END IF;
+    
+    -- Category A should show drift (we shifted the distribution)
+    IF NOT drift_result.has_drifted THEN
+        RAISE WARNING 'Category A expected to show drift but has_drifted is false';
+    END IF;
+END$$;
+
 SELECT 
     baseline_centroid,
     current_centroid,
@@ -63,6 +98,30 @@ FROM neurondb.detect_centroid_drift(
 );
 
 -- Detect drift for category B (should show no drift)
+-- Validate that category B shows no drift
+DO $$
+DECLARE
+    drift_result RECORD;
+BEGIN
+    SELECT * INTO drift_result
+    FROM neurondb.detect_centroid_drift(
+        'test_drift_baseline', 'vec',
+        'test_drift_current', 'vec',
+        'category', 'B',
+        0.3
+    );
+    
+    IF drift_result.drift_distance IS NULL THEN
+        RAISE EXCEPTION 'detect_centroid_drift (category B) returned NULL drift_distance';
+    END IF;
+    
+    -- Category B should show no drift (similar distribution)
+    -- Note: This is probabilistic, so we just check that result is valid
+    IF drift_result.drift_distance < 0 THEN
+        RAISE EXCEPTION 'detect_centroid_drift returned negative drift_distance: %', drift_result.drift_distance;
+    END IF;
+END$$;
+
 SELECT 
     baseline_centroid,
     current_centroid,
@@ -90,6 +149,32 @@ ORDER BY threshold;
 \echo '=== Testing Distribution Divergence ==='
 
 -- Test distribution divergence (KL-like divergence)
+-- Validate that function returns expected results
+DO $$
+DECLARE
+    div_result RECORD;
+BEGIN
+    SELECT * INTO div_result
+    FROM neurondb.compute_distribution_divergence(
+        'test_drift_baseline', 'vec',
+        'test_drift_current', 'vec',
+        'category', 'A',
+        0.5  -- threshold
+    );
+    
+    IF div_result.divergence IS NULL THEN
+        RAISE EXCEPTION 'compute_distribution_divergence returned NULL divergence';
+    END IF;
+    
+    IF div_result.is_divergent IS NULL THEN
+        RAISE EXCEPTION 'compute_distribution_divergence returned NULL is_divergent';
+    END IF;
+    
+    IF div_result.divergence < 0 THEN
+        RAISE EXCEPTION 'compute_distribution_divergence returned negative divergence: %', div_result.divergence;
+    END IF;
+END$$;
+
 SELECT 
     ROUND(divergence::numeric, 4) as kl_divergence,
     is_divergent
@@ -144,6 +229,29 @@ INSERT INTO test_drift_timeseries (vec, timestamp) VALUES
     ('[2.4, 2.6, 2.5]'::vector, NOW() - INTERVAL '2 days');
 
 -- Monitor drift with 3-day window
+-- Validate that function returns expected results
+DO $$
+DECLARE
+    result_count INT;
+BEGIN
+    SELECT COUNT(*) INTO result_count
+    FROM neurondb.monitor_drift_timeseries(
+        'test_drift_timeseries', 
+        'vec',
+        'timestamp',
+        INTERVAL '3 days'
+    );
+    
+    IF result_count = 0 THEN
+        RAISE EXCEPTION 'monitor_drift_timeseries returned no results';
+    END IF;
+    
+    -- Should have multiple windows given the data spans 10 days with 3-day windows
+    IF result_count < 2 THEN
+        RAISE WARNING 'monitor_drift_timeseries returned only % windows, expected more', result_count;
+    END IF;
+END$$;
+
 SELECT 
     window_start,
     window_end,

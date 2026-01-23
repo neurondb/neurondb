@@ -1,46 +1,62 @@
 -- Test all possible sync scenarios: valid, invalid, and missing arguments
 
--- 1. Valid sync (skip if function doesn't exist)
+-- 1. Valid sync
+-- Validate that function works or handles errors properly
 DO $$
+DECLARE
+    sync_result TEXT;
 BEGIN
-  BEGIN
-    PERFORM sync_index_async('test_index', 'replica_host');
-    RAISE NOTICE 'sync_index_async function is available';
-  EXCEPTION WHEN undefined_function THEN
-    RAISE NOTICE 'sync_index_async function not available, skipping sync tests';
-  EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'sync_index_async error (expected for test_index): %', SQLERRM;
-  END;
+    -- Test with valid parameters (index may not exist, allow errors)
+    BEGIN
+        SELECT sync_index_async('test_index', 'replica_host') INTO sync_result;
+        
+        IF sync_result IS NULL THEN
+            RAISE WARNING 'sync_index_async returned NULL';
+        END IF;
+    EXCEPTION WHEN OTHERS THEN
+        IF SQLSTATE = '42883' THEN
+            RAISE EXCEPTION 'sync_index_async function not available - this is a required function';
+        ELSE
+            -- Index might not exist, which is acceptable
+            RAISE NOTICE 'sync_index_async error (expected for test_index): %', SQLERRM;
+        END IF;
+    END;
 END$$;
 
--- 2-7. Additional sync tests (skip if function doesn't exist)
+-- 2-7. Additional sync tests
+-- Validate error handling for various invalid inputs
 DO $$
 BEGIN
   BEGIN
     PERFORM sync_index_async('nonexistent_index', 'replica_host');
-  EXCEPTION WHEN undefined_function THEN
-    -- Function doesn't exist, skip all sync tests
-    RETURN;
+    RAISE WARNING 'sync_index_async should have raised error for nonexistent index';
   EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'sync_index_async correctly handled invalid index';
+    IF SQLSTATE = '42883' THEN
+      RAISE EXCEPTION 'sync_index_async function not available - this is a required function';
+    ELSE
+      RAISE NOTICE 'sync_index_async correctly handled invalid index: %', SQLERRM;
+    END IF;
   END;
   
   BEGIN
     PERFORM sync_index_async('test_index', 'nonexistent_host');
+    RAISE WARNING 'sync_index_async should have raised error for invalid host';
   EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'sync_index_async correctly handled invalid host';
+    RAISE NOTICE 'sync_index_async correctly handled invalid host: %', SQLERRM;
   END;
   
   BEGIN
     PERFORM sync_index_async(NULL, 'replica_host');
+    RAISE WARNING 'sync_index_async should have raised error for NULL index';
   EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'sync_index_async correctly handled NULL index';
+    RAISE NOTICE 'sync_index_async correctly handled NULL index: %', SQLERRM;
   END;
   
   BEGIN
     PERFORM sync_index_async('test_index', NULL);
+    RAISE WARNING 'sync_index_async should have raised error for NULL host';
   EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'sync_index_async correctly handled NULL host';
+    RAISE NOTICE 'sync_index_async correctly handled NULL host: %', SQLERRM;
   END;
 END$$;
 

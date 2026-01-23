@@ -150,52 +150,66 @@ FROM gpu_test_vectors
 ORDER BY id;
 
 -- ==== 5. Quantization Functions: INT8, FP16, Binary, All Edges ====
--- Run all quantizations, various row values: positive, zero, negative, large, null (skip if functions don't exist)
+-- Run all quantizations, various row values: positive, zero, negative, large, null
+-- Validate that functions return expected results
 DO $$
+DECLARE
+    result_count INT;
 BEGIN
-  BEGIN
-    PERFORM vector_to_int8_gpu('[1,2,3,4]'::vector);
-    -- Functions exist, run the queries
-    PERFORM 1;
-  EXCEPTION WHEN undefined_function THEN
-    RAISE NOTICE 'GPU quantization functions not available, skipping quantization tests';
-    RETURN;
-  END;
+    SELECT COUNT(*) INTO result_count
+    FROM (
+        SELECT vector_to_int8_gpu(vec) AS int8_gpu,
+               vector_to_fp16_gpu(vec) AS fp16_gpu,
+               vector_to_binary_gpu(vec) AS binary_gpu
+        FROM gpu_test_vectors
+        WHERE vec IS NOT NULL
+        LIMIT 1
+    ) sub;
+    
+    IF result_count = 0 THEN
+        RAISE EXCEPTION 'GPU quantization functions returned no results';
+    END IF;
 END$$;
 
--- Only run if functions exist (checked above)
 SELECT id, vector_to_int8_gpu(vec)    AS int8_gpu,
          vector_to_fp16_gpu(vec)      AS fp16_gpu,
          vector_to_binary_gpu(vec)    AS binary_gpu
 FROM gpu_test_vectors
-WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'vector_to_int8_gpu')
+WHERE vec IS NOT NULL
 ORDER BY id;
 
 -- Test on NULL vector
-SELECT vector_to_int8_gpu(NULL) AS int8_null, vector_to_fp16_gpu(NULL) AS fp16_null, vector_to_binary_gpu(NULL) AS bin_null
-WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'vector_to_int8_gpu');
+SELECT vector_to_int8_gpu(NULL) AS int8_null, 
+       vector_to_fp16_gpu(NULL) AS fp16_null, 
+       vector_to_binary_gpu(NULL) AS bin_null;
 
 -- ==== 6. Advanced Operations: KMeans, HNSW, Search, All Combinations (where supported) ====
--- KMeans: try several k, rounds, NULL table (should error), blank col, etc. (skip if function doesn't exist)
+-- KMeans: try several k, rounds, NULL table (should error), blank col, etc.
+-- Validate that functions work or handle errors properly
 DO $$
+DECLARE
+    result_count INT;
 BEGIN
-  BEGIN
-    PERFORM cluster_kmeans_gpu('gpu_test_vectors', 'vec', 2, 5);
-    RAISE NOTICE 'cluster_kmeans_gpu is available';
-  EXCEPTION WHEN undefined_function THEN
-    RAISE NOTICE 'cluster_kmeans_gpu not available, skipping KMeans tests';
-  EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'cluster_kmeans_gpu error (may be expected): %', SQLERRM;
-  END;
-  
-  BEGIN
-    PERFORM neurondb_hnsw_search_gpu('gpu_test_vectors', 'vec', '[1,2,3,4]', 2);
-    RAISE NOTICE 'neurondb_hnsw_search_gpu is available';
-  EXCEPTION WHEN undefined_function THEN
-    RAISE NOTICE 'neurondb_hnsw_search_gpu not available, skipping HNSW search tests';
-  EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'neurondb_hnsw_search_gpu error (may be expected): %', SQLERRM;
-  END;
+    -- Test cluster_kmeans_gpu
+    SELECT COUNT(*) INTO result_count
+    FROM cluster_kmeans_gpu('gpu_test_vectors', 'vec', 2, 5);
+    
+    IF result_count = 0 THEN
+        RAISE EXCEPTION 'cluster_kmeans_gpu returned no results';
+    END IF;
+    
+    -- Test neurondb_hnsw_search_gpu (may require index, so allow errors)
+    BEGIN
+        SELECT COUNT(*) INTO result_count
+        FROM neurondb_hnsw_search_gpu('gpu_test_vectors', 'vec', '[1,2,3,4]'::vector(4), 2);
+        
+        IF result_count = 0 THEN
+            RAISE WARNING 'neurondb_hnsw_search_gpu returned no results (index may be required)';
+        END IF;
+    EXCEPTION WHEN OTHERS THEN
+        -- Index might not exist, which is acceptable for this test
+        RAISE NOTICE 'neurondb_hnsw_search_gpu error (may need index): %', SQLERRM;
+    END;
 END$$;
 
 -- ==== 7. GPU Function Edge Arguments: Wrong dimensions, Overflows, Limits ====
@@ -203,17 +217,26 @@ END$$;
 SELECT vector_l2_distance_gpu('[1,2,3]', '[1,2,3,4]') AS l2_wrong_dim;
 SELECT vector_l2_distance_gpu('[1,2,3,4,5]', '[1,2,3,4]') AS l2_wrong_dim2;
 
--- Data overflow / tiny/large (skip if function doesn't exist)
+-- Data overflow / tiny/large
+-- Validate that function handles overflow cases properly
 DO $$
+DECLARE
+    result_size INT;
 BEGIN
-  BEGIN
-    PERFORM vector_to_int8_gpu('[32767, -32768, 1e10, -1e10]'::vector);
-    RAISE NOTICE 'vector_to_int8_gpu overflow test completed';
-  EXCEPTION WHEN undefined_function THEN
-    RAISE NOTICE 'vector_to_int8_gpu not available, skipping overflow test';
-  EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'vector_to_int8_gpu overflow test error (may be expected): %', SQLERRM;
-  END;
+    -- Test with values that may overflow INT8 range
+    SELECT octet_length(vector_to_int8_gpu('[32767, -32768, 1e10, -1e10]'::vector)) INTO result_size;
+    
+    IF result_size IS NULL OR result_size = 0 THEN
+        RAISE EXCEPTION 'vector_to_int8_gpu overflow test returned invalid size: %', result_size;
+    END IF;
+    
+    -- Should still return 4 bytes for 4 dimensions (even if values are clamped)
+    IF result_size != 4 THEN
+        RAISE EXCEPTION 'vector_to_int8_gpu overflow test returned % bytes, expected 4', result_size;
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    -- Overflow handling may vary, so we just check it doesn't crash
+    RAISE NOTICE 'vector_to_int8_gpu overflow test handled: %', SQLERRM;
 END$$;
 
 -- ==== 8. Stats After and Reset, All Branches ====

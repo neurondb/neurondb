@@ -8,6 +8,9 @@
 
 \set ON_ERROR_STOP on
 
+-- Ensure neurondb types/operators (including vector) are available
+CREATE EXTENSION IF NOT EXISTS neurondb;
+
 -- Create test_train table and view if they don't exist (after extension is loaded)
 DROP TABLE IF EXISTS test_train CASCADE;
 CREATE TABLE test_train (features vector(28), label integer);

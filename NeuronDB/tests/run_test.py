@@ -2484,6 +2484,11 @@ def parse_args() -> argparse.Namespace:
 		default=None,
 		help="Module to run tests for (default: all). Examples: ml, vector, embedding, rag, hybrid, reranking, index, quantization, core, worker, storage, scan, util, planner, tenant, types, metrics, gpu, onnx, crash, multimodal, llm. By default, all modules are tested.",
 	)
+	parser.add_argument(
+		"--stop-on-failure",
+		action="store_true",
+		help="Stop test execution on first failure or crash, then continue to next test."
+	)
 	return parser.parse_args()
 
 
@@ -2988,6 +2993,17 @@ def main() -> int:
 		
 		# Overwrite the starting line with final result (colored: green ✓ or red ✗ or crash )
 		print(format_test_line(ok, when, idx, total, name, elapsed, critical_crash))
+		
+		# Stop on first failure if requested (show error details, then continue to next test)
+		if hasattr(args, 'stop_on_failure') and args.stop_on_failure and (not ok or critical_crash):
+			print(f"\n{RED_BOLD}⚠ Test failed/crashed (stop-on-failure mode): {name}{RESET}")
+			if err_text:
+				err_lines = err_text.strip().splitlines()
+				print(f"{RED_BOLD}Error details (last 20 lines):{RESET}")
+				for line in err_lines[-20:]:
+					print(f"  {line}")
+			print(f"{RED_BOLD}Continuing to next test...{RESET}\n")
+			# Note: We don't break here - we continue to next test as user requested
 		
 		# Verify GPU usage for ML training tests in GPU or auto mode (only if not crashed)
 		if ok and not critical_crash and args.compute in ("gpu", "auto") and ("train" in name.lower() or "linreg" in name.lower() or "logreg" in name.lower() or "rf" in name.lower() or "svm" in name.lower() or "ridge" in name.lower() or "lasso" in name.lower() or "dt" in name.lower() or "nb" in name.lower()):

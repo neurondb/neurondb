@@ -1,6 +1,9 @@
 -- Basic tests for IVF index access method
 -- Tests the fixed IVF scan implementation
 
+-- Ensure neurondb types/operators (including vector) are available
+CREATE EXTENSION IF NOT EXISTS neurondb;
+
 -- Cleanup any existing test data
 DROP TABLE IF EXISTS ivf_test_vectors CASCADE;
 DROP INDEX IF EXISTS ivf_test_idx;

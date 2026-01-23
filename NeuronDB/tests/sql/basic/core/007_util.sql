@@ -8,6 +8,9 @@
 
 \set ON_ERROR_STOP on
 
+-- Ensure neurondb types/operators (including vector) are available
+CREATE EXTENSION IF NOT EXISTS neurondb;
+
 \echo '=========================================================================='
 \echo 'Utility Module: Basic Functionality Tests'
 \echo '=========================================================================='

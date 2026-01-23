@@ -28,6 +28,7 @@ SELECT 'artificial intelligence and machine learning research'::text as query_te
 \echo '=== Benchmark 1: Cross-Encoder Performance ==='
 
 -- Measure cross-encoder latency
+-- Validate that function works and measure performance
 DO $$
 DECLARE
     start_time timestamp;
@@ -37,8 +38,22 @@ DECLARE
     i int;
     iterations int := 5;
     total_time numeric := 0;
+    result_count INT;
 BEGIN
     SELECT ARRAY(SELECT content FROM benchmark_docs LIMIT 10) INTO candidates;
+    
+    -- First verify function works
+    SELECT COUNT(*) INTO result_count
+    FROM neurondb.rerank_cross_encoder(
+        (SELECT query_text FROM benchmark_query),
+        candidates,
+        NULL,
+        5
+    );
+    
+    IF result_count = 0 THEN
+        RAISE EXCEPTION 'rerank_cross_encoder returned no results';
+    END IF;
     
     FOR i IN 1..iterations LOOP
         start_time := clock_timestamp();
@@ -57,6 +72,10 @@ BEGIN
         RAISE NOTICE 'Cross-Encoder iteration %: %.2f ms', i, duration_ms;
     END LOOP;
     
+    IF total_time <= 0 THEN
+        RAISE EXCEPTION 'Cross-Encoder benchmark failed: total_time is %', total_time;
+    END IF;
+    
     RAISE NOTICE 'Cross-Encoder average latency: %.2f ms', total_time / iterations;
     RAISE NOTICE 'Cross-Encoder throughput: %.2f queries/sec', 
         (iterations * 1000.0) / total_time;
@@ -65,6 +84,7 @@ END $$;
 \echo '=== Benchmark 2: LLM Reranking Performance ==='
 
 -- Measure LLM reranking latency
+-- Validate that function works and measure performance
 DO $$
 DECLARE
     start_time timestamp;
@@ -74,8 +94,24 @@ DECLARE
     i int;
     iterations int := 3;  -- Fewer iterations for LLM (slower)
     total_time numeric := 0;
+    result_count INT;
 BEGIN
     SELECT ARRAY(SELECT content FROM benchmark_docs LIMIT 5) INTO candidates;
+    
+    -- First verify function works
+    SELECT COUNT(*) INTO result_count
+    FROM neurondb.rerank_llm(
+        (SELECT query_text FROM benchmark_query),
+        candidates,
+        NULL,
+        3,
+        NULL,
+        0.0
+    );
+    
+    IF result_count = 0 THEN
+        RAISE EXCEPTION 'rerank_llm returned no results';
+    END IF;
     
     FOR i IN 1..iterations LOOP
         start_time := clock_timestamp();
@@ -96,6 +132,10 @@ BEGIN
         RAISE NOTICE 'LLM Reranking iteration %: %.2f ms', i, duration_ms;
     END LOOP;
     
+    IF total_time <= 0 THEN
+        RAISE EXCEPTION 'LLM Reranking benchmark failed: total_time is %', total_time;
+    END IF;
+    
     RAISE NOTICE 'LLM Reranking average latency: %.2f ms', total_time / iterations;
     RAISE NOTICE 'LLM Reranking throughput: %.2f queries/sec', 
         (iterations * 1000.0) / total_time;
@@ -104,6 +144,7 @@ END $$;
 \echo '=== Benchmark 3: ColBERT Performance ==='
 
 -- Measure ColBERT latency
+-- Validate that function works and measure performance
 DO $$
 DECLARE
     start_time timestamp;
@@ -113,8 +154,24 @@ DECLARE
     i int;
     iterations int := 5;
     total_time numeric := 0;
+    result_count INT;
 BEGIN
     SELECT ARRAY(SELECT content FROM benchmark_docs LIMIT 5) INTO candidates;
+    
+    -- First verify function works
+    SELECT COUNT(*) INTO result_count
+    FROM neurondb.rerank_colbert(
+        (SELECT query_text FROM benchmark_query),
+        candidates,
+        NULL,
+        3,
+        2,
+        1
+    );
+    
+    IF result_count = 0 THEN
+        RAISE EXCEPTION 'rerank_colbert returned no results';
+    END IF;
     
     FOR i IN 1..iterations LOOP
         start_time := clock_timestamp();
@@ -134,6 +191,10 @@ BEGIN
         
         RAISE NOTICE 'ColBERT iteration %: %.2f ms', i, duration_ms;
     END LOOP;
+    
+    IF total_time <= 0 THEN
+        RAISE EXCEPTION 'ColBERT benchmark failed: total_time is %', total_time;
+    END IF;
     
     RAISE NOTICE 'ColBERT average latency: %.2f ms', total_time / iterations;
     RAISE NOTICE 'ColBERT throughput: %.2f queries/sec', 
@@ -209,6 +270,54 @@ END $$;
 
 -- Compare memory efficiency of different methods
 -- (This is a simplified check - actual memory profiling requires pg_stat_statements)
+-- Validate that all methods return results
+DO $$
+DECLARE
+    cross_encoder_count INT;
+    llm_count INT;
+    colbert_count INT;
+BEGIN
+    SELECT COUNT(*) INTO cross_encoder_count
+    FROM neurondb.rerank_cross_encoder(
+        (SELECT query_text FROM benchmark_query),
+        ARRAY(SELECT content FROM benchmark_docs LIMIT 10),
+        NULL,
+        10
+    );
+    
+    SELECT COUNT(*) INTO llm_count
+    FROM neurondb.rerank_llm(
+        (SELECT query_text FROM benchmark_query),
+        ARRAY(SELECT content FROM benchmark_docs LIMIT 10),
+        NULL,
+        10,
+        NULL,
+        0.0
+    );
+    
+    SELECT COUNT(*) INTO colbert_count
+    FROM neurondb.rerank_colbert(
+        (SELECT query_text FROM benchmark_query),
+        ARRAY(SELECT content FROM benchmark_docs LIMIT 10),
+        NULL,
+        10,
+        2,
+        1
+    );
+    
+    IF cross_encoder_count = 0 THEN
+        RAISE EXCEPTION 'rerank_cross_encoder returned no results in comparison';
+    END IF;
+    
+    IF llm_count = 0 THEN
+        RAISE EXCEPTION 'rerank_llm returned no results in comparison';
+    END IF;
+    
+    IF colbert_count = 0 THEN
+        RAISE EXCEPTION 'rerank_colbert returned no results in comparison';
+    END IF;
+END$$;
+
 SELECT 
     'Cross-Encoder' as method,
     COUNT(*) as result_count,

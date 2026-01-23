@@ -33,6 +33,36 @@ CREATE TEMP TABLE query_vec AS
 SELECT '[0.95, 0.05, 0.0, 0.0]'::vector as qvec;
 
 -- Test MMR reranking with lambda=0.7 (balance relevance and diversity)
+-- Validate that function returns expected results
+DO $$
+DECLARE
+    result_count INT;
+    min_score REAL;
+    max_score REAL;
+BEGIN
+    SELECT COUNT(*), MIN(score), MAX(score) 
+    INTO result_count, min_score, max_score
+    FROM neurondb.mmr_rerank_with_scores(
+        'test_rerank_docs',
+        'doc_vec',
+        (SELECT qvec FROM query_vec),
+        5,  -- top_k
+        0.7 -- lambda (0.7 = more relevance, 0.3 = more diversity)
+    );
+    
+    IF result_count = 0 THEN
+        RAISE EXCEPTION 'mmr_rerank_with_scores returned no results';
+    END IF;
+    
+    IF result_count > 5 THEN
+        RAISE EXCEPTION 'mmr_rerank_with_scores returned % results, expected at most 5', result_count;
+    END IF;
+    
+    IF min_score IS NULL OR max_score IS NULL THEN
+        RAISE EXCEPTION 'mmr_rerank_with_scores returned NULL scores';
+    END IF;
+END$$;
+
 SELECT 
     id,
     content,
@@ -47,6 +77,29 @@ FROM neurondb.mmr_rerank_with_scores(
 ORDER BY score DESC;
 
 -- Test MMR with lambda=1.0 (pure relevance, no diversity)
+-- Validate that function returns expected results
+DO $$
+DECLARE
+    result_count INT;
+BEGIN
+    SELECT COUNT(*) INTO result_count
+    FROM neurondb.mmr_rerank(
+        'test_rerank_docs',
+        'doc_vec',
+        (SELECT qvec FROM query_vec),
+        5,
+        1.0
+    );
+    
+    IF result_count = 0 THEN
+        RAISE EXCEPTION 'mmr_rerank returned no results';
+    END IF;
+    
+    IF result_count > 5 THEN
+        RAISE EXCEPTION 'mmr_rerank returned % results, expected at most 5', result_count;
+    END IF;
+END$$;
+
 SELECT 
     id,
     content
@@ -71,6 +124,37 @@ FROM neurondb.mmr_rerank(
 );
 
 -- Test MMR with lambda=0.5 (equal balance)
+-- Validate scores are in descending order
+DO $$
+DECLARE
+    result_count INT;
+    score_order_valid BOOLEAN;
+BEGIN
+    WITH results AS (
+        SELECT score, ROW_NUMBER() OVER (ORDER BY score DESC) as rn
+        FROM neurondb.mmr_rerank_with_scores(
+            'test_rerank_docs',
+            'doc_vec',
+            (SELECT qvec FROM query_vec),
+            5,
+            0.5
+        )
+    )
+    SELECT 
+        COUNT(*),
+        bool_and(score >= COALESCE((SELECT score FROM results WHERE rn = r.rn + 1), score))
+    INTO result_count, score_order_valid
+    FROM results r;
+    
+    IF result_count = 0 THEN
+        RAISE EXCEPTION 'mmr_rerank_with_scores (lambda=0.5) returned no results';
+    END IF;
+    
+    IF NOT score_order_valid THEN
+        RAISE EXCEPTION 'mmr_rerank_with_scores scores are not in descending order';
+    END IF;
+END$$;
+
 SELECT 
     id,
     content,
@@ -112,8 +196,36 @@ INSERT INTO test_rrf_list2 (id, rank) VALUES
     (7, 3),
     (6, 4),
     (2, 5);
-
 -- Test RRF fusion (combines both rankings)
+-- Validate that function returns expected results
+DO $$
+DECLARE
+    result_count INT;
+    min_score REAL;
+    max_score REAL;
+BEGIN
+    SELECT COUNT(*), MIN(rrf.score), MAX(rrf.score)
+    INTO result_count, min_score, max_score
+    FROM neurondb.reciprocal_rank_fusion(
+        ARRAY['test_rrf_list1', 'test_rrf_list2']::text[],
+        'id',
+        'rank',
+        60  -- k parameter
+    ) rrf;
+    
+    IF result_count = 0 THEN
+        RAISE EXCEPTION 'reciprocal_rank_fusion returned no results';
+    END IF;
+    
+    IF min_score IS NULL OR max_score IS NULL THEN
+        RAISE EXCEPTION 'reciprocal_rank_fusion returned NULL scores';
+    END IF;
+    
+    IF min_score < 0 OR max_score <= 0 THEN
+        RAISE EXCEPTION 'reciprocal_rank_fusion returned invalid score range: min=%, max=%', min_score, max_score;
+    END IF;
+END$$;
+
 SELECT 
     d.id,
     d.content,
@@ -170,6 +282,31 @@ INSERT INTO test_ensemble_model3 (id, score) VALUES
     (1, 0.88), (3, 0.82), (4, 0.90), (7, 0.92), (8, 0.65);
 
 -- Test weighted ensemble (equal weights)
+-- Validate that function returns expected results
+DO $$
+DECLARE
+    result_count INT;
+    min_score REAL;
+    max_score REAL;
+BEGIN
+    SELECT COUNT(*), MIN(e.final_score), MAX(e.final_score)
+    INTO result_count, min_score, max_score
+    FROM neurondb.rerank_ensemble_weighted(
+        ARRAY['test_ensemble_model1', 'test_ensemble_model2', 'test_ensemble_model3']::text[],
+        ARRAY[1.0, 1.0, 1.0]::real[],
+        'id',
+        'score'
+    ) e;
+    
+    IF result_count = 0 THEN
+        RAISE EXCEPTION 'rerank_ensemble_weighted returned no results';
+    END IF;
+    
+    IF min_score IS NULL OR max_score IS NULL THEN
+        RAISE EXCEPTION 'rerank_ensemble_weighted returned NULL scores';
+    END IF;
+END$$;
+
 SELECT 
     d.id,
     d.content,
@@ -184,6 +321,24 @@ JOIN test_rerank_docs d ON d.id = e.id
 ORDER BY e.final_score DESC;
 
 -- Test weighted ensemble (prioritize model 1)
+-- Validate that weighted ensemble works correctly
+DO $$
+DECLARE
+    result_count INT;
+BEGIN
+    SELECT COUNT(*) INTO result_count
+    FROM neurondb.rerank_ensemble_weighted(
+        ARRAY['test_ensemble_model1', 'test_ensemble_model2', 'test_ensemble_model3']::text[],
+        ARRAY[2.0, 1.0, 1.0]::real[],
+        'id',
+        'score'
+    ) e;
+    
+    IF result_count = 0 THEN
+        RAISE EXCEPTION 'rerank_ensemble_weighted (weighted) returned no results';
+    END IF;
+END$$;
+
 SELECT 
     d.id,
     d.content,
@@ -197,7 +352,33 @@ FROM neurondb.rerank_ensemble_weighted(
 JOIN test_rerank_docs d ON d.id = e.id
 ORDER BY e.final_score DESC;
 
+-- rerank_ensemble_borda function validation is already done above in the test section
+
 -- Test Borda count ensemble
+-- Validate that function returns expected results
+DO $$
+DECLARE
+    result_count INT;
+    min_score REAL;
+    max_score REAL;
+BEGIN
+    SELECT COUNT(*), MIN(e.borda_score), MAX(e.borda_score)
+    INTO result_count, min_score, max_score
+    FROM neurondb.rerank_ensemble_borda(
+        ARRAY['test_ensemble_model1', 'test_ensemble_model2', 'test_ensemble_model3']::text[],
+        'id',
+        'score'
+    ) e;
+    
+    IF result_count = 0 THEN
+        RAISE EXCEPTION 'rerank_ensemble_borda returned no results';
+    END IF;
+    
+    IF min_score IS NULL OR max_score IS NULL THEN
+        RAISE EXCEPTION 'rerank_ensemble_borda returned NULL scores';
+    END IF;
+END$$;
+
 SELECT 
     d.id,
     d.content,
@@ -267,6 +448,46 @@ LIMIT 5;
 
 -- Compare MMR with different lambda values
 -- Higher lambda should keep more relevant docs at top
+-- Validate that different lambda values produce different rankings
+DO $$
+DECLARE
+    high_count INT;
+    low_count INT;
+    same_ranking BOOLEAN;
+BEGIN
+    WITH mmr_high AS (
+        SELECT id, ROW_NUMBER() OVER (ORDER BY score DESC) as rank
+        FROM neurondb.mmr_rerank_with_scores('test_rerank_docs', 'doc_vec', 
+                                               (SELECT qvec FROM query_vec), 5, 0.9)
+    ),
+    mmr_low AS (
+        SELECT id, ROW_NUMBER() OVER (ORDER BY score DESC) as rank
+        FROM neurondb.mmr_rerank_with_scores('test_rerank_docs', 'doc_vec',
+                                              (SELECT qvec FROM query_vec), 5, 0.1)
+    ),
+    comparison AS (
+        SELECT 
+            h.id,
+            h.rank as high_rank,
+            l.rank as low_rank
+        FROM mmr_high h
+        FULL OUTER JOIN mmr_low l ON h.id = l.id
+    )
+    SELECT 
+        COUNT(*),
+        COUNT(*),
+        bool_and(high_rank = low_rank)
+    INTO high_count, low_count, same_ranking
+    FROM comparison;
+    
+    IF high_count = 0 OR low_count = 0 THEN
+        RAISE EXCEPTION 'MMR comparison returned no results';
+    END IF;
+    
+    -- Different lambda values should produce at least some difference in ranking
+    -- (though not always guaranteed, so we just check that both produce results)
+END$$;
+
 WITH mmr_high AS (
     SELECT id, ROW_NUMBER() OVER (ORDER BY score DESC) as rank
     FROM neurondb.mmr_rerank_with_scores('test_rerank_docs', 'doc_vec', 

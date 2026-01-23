@@ -8,18 +8,19 @@
 \echo '=== Using MS MARCO Dataset for Hybrid Search Tests ==='
 
 -- Create test documents from MS MARCO with generated embeddings
+DROP TABLE IF EXISTS test_hybrid_docs CASCADE;
 CREATE TEMP TABLE test_hybrid_docs AS
 SELECT 
     ROW_NUMBER() OVER() as id,
-    LEFT(content, 50) as title,
-    content,
+    'Document ' || ROW_NUMBER() OVER() as title,
+    'Document ' || ROW_NUMBER() OVER() as content,
     -- Generate embeddings based on text characteristics
     array_to_vector(ARRAY[
         CASE WHEN id % 4 = 0 THEN 1.0 ELSE 0.1 END,
         CASE WHEN id % 4 = 1 THEN 1.0 ELSE 0.1 END,
         CASE WHEN id % 4 = 2 THEN 1.0 ELSE 0.1 END,
         CASE WHEN id % 4 = 3 THEN 1.0 ELSE 0.1 END
-    ])::vector(4) as embedding
+    ]::real[])::vector(4) as embedding
 FROM generate_series(1, 50) AS id;
 
 -- Show sample
@@ -54,6 +55,30 @@ ORDER BY score DESC
 LIMIT 10;
 
 -- Test hybrid fusion with equal weights (0.5 semantic, 0.5 lexical)
+-- Validate that function returns expected results
+DO $$
+DECLARE
+    result_count INT;
+    min_score REAL;
+    max_score REAL;
+BEGIN
+    SELECT COUNT(*), MIN(h.combined_score), MAX(h.combined_score)
+    INTO result_count, min_score, max_score
+    FROM neurondb.hybrid_search_fusion(
+        'semantic_results', 'lexical_results',
+        'id', 'score', 'score',
+        0.5  -- alpha (semantic weight)
+    ) h;
+    
+    IF result_count = 0 THEN
+        RAISE EXCEPTION 'hybrid_search_fusion returned no results';
+    END IF;
+    
+    IF min_score IS NULL OR max_score IS NULL THEN
+        RAISE EXCEPTION 'hybrid_search_fusion returned NULL scores';
+    END IF;
+END$$;
+
 SELECT 
     d.id,
     d.title,
@@ -128,6 +153,37 @@ SELECT
     ARRAY[0.4, 0.3, 0.2, 0.1]::real[] as weights;
 
 -- Test pointwise LTR reranking for query 1
+-- Validate that function returns expected results
+DO $$
+DECLARE
+    result_count INT;
+    min_score REAL;
+    max_score REAL;
+BEGIN
+    SELECT COUNT(*), MIN(score), MAX(score)
+    INTO result_count, min_score, max_score
+    FROM neurondb.ltr_rerank_pointwise(
+        'test_ltr_candidates',
+        ARRAY['semantic_score', 'bm25_score', 'recency_score', 'popularity_score']::text[],
+        (SELECT weights FROM ltr_weights),
+        'query_id', 1,
+        'doc_id'
+    );
+    
+    IF result_count = 0 THEN
+        RAISE EXCEPTION 'ltr_rerank_pointwise returned no results';
+    END IF;
+    
+    IF min_score IS NULL OR max_score IS NULL THEN
+        RAISE EXCEPTION 'ltr_rerank_pointwise returned NULL scores';
+    END IF;
+    
+    -- Should have 5 results for query 1
+    IF result_count != 5 THEN
+        RAISE EXCEPTION 'ltr_rerank_pointwise returned % results, expected 5', result_count;
+    END IF;
+END$$;
+
 SELECT 
     doc_id,
     ROUND(score::numeric, 4) as ltr_score,
@@ -180,6 +236,29 @@ ORDER BY c.relevance_label DESC, l.ltr_rank;
 \echo '=== Testing LTR Feature Scoring ==='
 
 -- Score features for a single document
+-- Validate that function returns expected results
+DO $$
+DECLARE
+    result_count INT;
+BEGIN
+    SELECT COUNT(*) INTO result_count
+    FROM neurondb.ltr_score_features(
+        'test_ltr_candidates',
+        ARRAY['semantic_score', 'bm25_score', 'recency_score', 'popularity_score']::text[],
+        'query_id', 1,
+        'doc_id', 101
+    );
+    
+    IF result_count = 0 THEN
+        RAISE EXCEPTION 'ltr_score_features returned no results';
+    END IF;
+    
+    -- Should have 4 features
+    IF result_count != 4 THEN
+        RAISE EXCEPTION 'ltr_score_features returned % results, expected 4', result_count;
+    END IF;
+END$$;
+
 SELECT 
     feature_name,
     ROUND(feature_value::numeric, 4) as value

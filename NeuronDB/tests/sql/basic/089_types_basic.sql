@@ -48,16 +48,22 @@ SELECT '[6,9,12]'::vector / 3.0 AS v_div;
 SELECT vector_concat('[1,2]'::vector, '[3,4]'::vector) AS vcat;
 
 -- ===============================
--- PACKED VECTORS (vectorp) - Skip if type doesn't exist
+-- PACKED VECTORS (vectorp)
 -- ===============================
+-- Validate that vectorp type works if available
+-- Note: vectorp may be an optional type, so we test it but allow it to not exist
 DO $$
+DECLARE
+    result TEXT;
 BEGIN
-  BEGIN
-    PERFORM vectorp_in('[1.0, 2.0, 3.0]')::text;
-    RAISE NOTICE 'vectorp type is available';
-  EXCEPTION WHEN undefined_function OR undefined_object THEN
-    RAISE NOTICE 'vectorp type not available, skipping vectorp tests';
-  END;
+    SELECT vectorp_in('[1.0, 2.0, 3.0]')::text INTO result;
+    
+    IF result IS NULL THEN
+        RAISE EXCEPTION 'vectorp_in returned NULL';
+    END IF;
+EXCEPTION WHEN undefined_function OR undefined_object THEN
+    -- vectorp is optional, so we allow it to not exist
+    RAISE NOTICE 'vectorp type not available (optional feature)';
 END$$;
 
 -- ===============================

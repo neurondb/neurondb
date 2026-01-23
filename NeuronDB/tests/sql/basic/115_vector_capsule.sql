@@ -8,15 +8,33 @@
 -- ============================================================================
 
 -- VectorCapsule features should be configured via extension
--- Test if functions exist
+-- Validate that function returns expected results
 DO $$
+DECLARE
+    capsule_result bytea;
+    func_exists boolean;
 BEGIN
-  BEGIN
-    PERFORM vector_capsule_from_vector('[1,2,3]'::vector);
-    RAISE NOTICE 'vector_capsule_from_vector is available';
-  EXCEPTION WHEN undefined_function THEN
-    RAISE NOTICE 'vector_capsule_from_vector not available, skipping VectorCapsule tests';
-  END;
+    -- Check if function exists and feature is enabled
+    SELECT EXISTS (
+        SELECT 1 FROM pg_proc p
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname = 'public' AND p.proname = 'vector_capsule_from_vector'
+    ) INTO func_exists;
+    
+    IF func_exists THEN
+        -- Check if feature is enabled
+        IF current_setting('neurondb.vector_capsule_enabled', true) = 'true' THEN
+            SELECT vector_capsule_from_vector('[1,2,3]'::vector) INTO capsule_result;
+            
+            IF capsule_result IS NULL THEN
+                RAISE WARNING 'vector_capsule_from_vector returned NULL';
+            END IF;
+        ELSE
+            RAISE NOTICE 'vector_capsule_from_vector requires neurondb.vector_capsule_enabled = true';
+        END IF;
+    ELSE
+        RAISE NOTICE 'vector_capsule_from_vector function not available (feature may be disabled)';
+    END IF;
 END$$;
 
 -- Example usage (when feature is enabled):

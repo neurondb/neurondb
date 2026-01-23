@@ -21,7 +21,8 @@ SELECT nspname FROM pg_namespace WHERE nspname = 'neurondb';
 -- ============================================================================
 
 -- Test vectors table for basic operations
-CREATE TABLE IF NOT EXISTS test_vectors (
+DROP TABLE IF EXISTS test_vectors CASCADE;
+CREATE TABLE test_vectors (
     id SERIAL PRIMARY KEY,
     name TEXT,
     embedding vector(3),
@@ -29,7 +30,8 @@ CREATE TABLE IF NOT EXISTS test_vectors (
 );
 
 -- Large dimension test table
-CREATE TABLE IF NOT EXISTS test_high_dim (
+DROP TABLE IF EXISTS test_high_dim CASCADE;
+CREATE TABLE test_high_dim (
     id SERIAL PRIMARY KEY,
     vec_128 vector(128),
     vec_256 vector(256),
@@ -38,7 +40,8 @@ CREATE TABLE IF NOT EXISTS test_high_dim (
 );
 
 -- Table for index testing
-CREATE TABLE IF NOT EXISTS test_index_vectors (
+DROP TABLE IF EXISTS test_index_vectors CASCADE;
+CREATE TABLE test_index_vectors (
     id SERIAL PRIMARY KEY,
     vec vector(4),
     label TEXT,
@@ -46,7 +49,8 @@ CREATE TABLE IF NOT EXISTS test_index_vectors (
 );
 
 -- Table for aggregation testing
-CREATE TABLE IF NOT EXISTS test_aggregates (
+DROP TABLE IF EXISTS test_aggregates CASCADE;
+CREATE TABLE test_aggregates (
     id SERIAL PRIMARY KEY,
     vec vector(5),
     group_id INTEGER,
@@ -54,7 +58,8 @@ CREATE TABLE IF NOT EXISTS test_aggregates (
 );
 
 -- Table for distance metric testing
-CREATE TABLE IF NOT EXISTS test_distances (
+DROP TABLE IF EXISTS test_distances CASCADE;
+CREATE TABLE test_distances (
     id SERIAL PRIMARY KEY,
     vec1 vector(3),
     vec2 vector(3),
@@ -63,7 +68,8 @@ CREATE TABLE IF NOT EXISTS test_distances (
 );
 
 -- Table for worker functionality testing
-CREATE TABLE IF NOT EXISTS test_worker_data (
+DROP TABLE IF EXISTS test_worker_data CASCADE;
+CREATE TABLE test_worker_data (
     id SERIAL PRIMARY KEY,
     job_type TEXT,
     status TEXT,

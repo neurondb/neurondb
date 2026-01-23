@@ -89,13 +89,13 @@ END$$;
 SELECT
     vector_sum(v) AS sum_all_nulls,
     vector_avg(v) AS avg_all_nulls
-FROM (VALUES (NULL),(NULL)) AS t(v);
+FROM (VALUES (NULL::vector),(NULL::vector)) AS t(v);
 
 -- 11. Test: Zero vector(s)
 SELECT
     vector_sum(v) AS sum_zero_vectors,
     vector_avg(v) AS avg_zero_vectors
-FROM (VALUES ('[0.0, 0.0, 0.0]'), ('[0.0, 0.0, 0.0]')) AS t(v);
+FROM (VALUES ('[0.0, 0.0, 0.0]'::vector), ('[0.0, 0.0, 0.0]'::vector)) AS t(v);
 
 -- 12. Test: Extreme float values (Edge: Inf, -Inf, NaN)
 CREATE TEMP TABLE extreme_vectors(v vector);

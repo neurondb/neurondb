@@ -30,51 +30,73 @@ FROM test_outliers;
 
 \echo '=== Testing Z-Score Outlier Detection ==='
 
--- Check if detect_outliers_zscore function exists
+-- Test Z-score outlier detection
+-- Validate that function returns expected results
 DO $$
+DECLARE
+    result_count INT;
+    outlier_count INT;
 BEGIN
-  BEGIN
-    PERFORM 1 FROM neurondb.detect_outliers_zscore('test_outliers', 'vec', 3.0) LIMIT 1;
-    RAISE NOTICE 'detect_outliers_zscore function is available';
-  EXCEPTION WHEN undefined_function THEN
-    RAISE NOTICE 'detect_outliers_zscore function not available, skipping outlier detection tests';
-    RETURN;
-  END;
+    SELECT COUNT(*), SUM(CASE WHEN is_outlier THEN 1 ELSE 0 END)
+    INTO result_count, outlier_count
+    FROM neurondb.detect_outliers_zscore('test_outliers', 'vec', 3.0);
+    
+    IF result_count = 0 THEN
+        RAISE EXCEPTION 'detect_outliers_zscore returned no results';
+    END IF;
+    
+    -- Should have 100 results (95 normal + 5 outliers)
+    IF result_count != 100 THEN
+        RAISE EXCEPTION 'detect_outliers_zscore returned % results, expected 100', result_count;
+    END IF;
 END$$;
 
--- Test Z-score outlier detection (only if function exists)
 SELECT 
-    id,
-    description,
-    is_outlier
-FROM neurondb.detect_outliers_zscore('test_outliers', 'vec', 3.0)
-WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'detect_outliers_zscore' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'neurondb'))
-ORDER BY id;
+    o.id,
+    t.description,
+    o.is_outlier
+FROM neurondb.detect_outliers_zscore('test_outliers', 'vec', 3.0) o
+JOIN test_outliers t ON t.id = o.id
+ORDER BY o.id;
 
 SELECT 
-    id,
-    description,
-    is_outlier
-FROM neurondb.detect_outliers_zscore('test_outliers', 'vec', 2.0)
-WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'detect_outliers_zscore' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'neurondb'))
-ORDER BY id;
+    o.id,
+    t.description,
+    o.is_outlier
+FROM neurondb.detect_outliers_zscore('test_outliers', 'vec', 2.0) o
+JOIN test_outliers t ON t.id = o.id
+ORDER BY o.id;
 
 SELECT 
-    id,
-    description,
-    is_outlier
-FROM neurondb.detect_outliers_zscore('test_outliers', 'vec', 1.0)
-WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'detect_outliers_zscore' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'neurondb'))
-ORDER BY id;
+    o.id,
+    t.description,
+    o.is_outlier
+FROM neurondb.detect_outliers_zscore('test_outliers', 'vec', 1.0) o
+JOIN test_outliers t ON t.id = o.id
+ORDER BY o.id;
 
--- Count outliers at each threshold (skip if function doesn't exist)
+-- Count outliers at each threshold
+-- Validate that different thresholds produce different results
 DO $$
+DECLARE
+    threshold_3_outliers INT;
+    threshold_2_outliers INT;
+    threshold_1_outliers INT;
 BEGIN
-  BEGIN
-    PERFORM 1 FROM neurondb.detect_outliers_zscore('test_outliers', 'vec', 3.0) LIMIT 1;
-  EXCEPTION WHEN undefined_function THEN
-    RETURN;
-  END;
+    SELECT SUM(CASE WHEN is_outlier THEN 1 ELSE 0 END) INTO threshold_3_outliers
+    FROM neurondb.detect_outliers_zscore('test_outliers', 'vec', 3.0);
+    
+    SELECT SUM(CASE WHEN is_outlier THEN 1 ELSE 0 END) INTO threshold_2_outliers
+    FROM neurondb.detect_outliers_zscore('test_outliers', 'vec', 2.0);
+    
+    SELECT SUM(CASE WHEN is_outlier THEN 1 ELSE 0 END) INTO threshold_1_outliers
+    FROM neurondb.detect_outliers_zscore('test_outliers', 'vec', 1.0);
+    
+    -- Lower thresholds should detect more outliers
+    IF threshold_1_outliers < threshold_2_outliers OR threshold_2_outliers < threshold_3_outliers THEN
+        RAISE WARNING 'Outlier detection threshold behavior unexpected: 3.0=%%, 2.0=%%, 1.0=%%', 
+            threshold_3_outliers, threshold_2_outliers, threshold_1_outliers;
+    END IF;
 END$$;
 
 SELECT 
@@ -84,52 +106,55 @@ SELECT
 FROM (
     SELECT 3.0 as threshold, is_outlier 
     FROM neurondb.detect_outliers_zscore('test_outliers', 'vec', 3.0)
-    WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'detect_outliers_zscore' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'neurondb'))
     UNION ALL
     SELECT 2.0, is_outlier 
     FROM neurondb.detect_outliers_zscore('test_outliers', 'vec', 2.0)
-    WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'detect_outliers_zscore' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'neurondb'))
     UNION ALL
     SELECT 1.0, is_outlier 
     FROM neurondb.detect_outliers_zscore('test_outliers', 'vec', 1.0)
-    WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'detect_outliers_zscore' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'neurondb'))
 ) sub
 GROUP BY threshold
 ORDER BY threshold DESC;
 
 \echo '=== Testing Outlier Score Computation ==='
 
--- Check if compute_outlier_scores function exists
+-- Get outlier scores
+-- Validate that function returns expected results
 DO $$
+DECLARE
+    result_count INT;
+    max_score REAL;
+    min_score REAL;
 BEGIN
-  BEGIN
-    PERFORM 1 FROM neurondb.compute_outlier_scores('test_outliers', 'vec', 'zscore') LIMIT 1;
-    RAISE NOTICE 'compute_outlier_scores function is available';
-  EXCEPTION WHEN undefined_function THEN
-    RAISE NOTICE 'compute_outlier_scores function not available, skipping score computation tests';
-  END;
+    SELECT COUNT(*), MAX(score), MIN(score)
+    INTO result_count, max_score, min_score
+    FROM neurondb.compute_outlier_scores('test_outliers', 'vec', 'zscore');
+    
+    IF result_count = 0 THEN
+        RAISE EXCEPTION 'compute_outlier_scores returned no results';
+    END IF;
+    
+    IF max_score IS NULL OR min_score IS NULL THEN
+        RAISE EXCEPTION 'compute_outlier_scores returned NULL scores';
+    END IF;
 END$$;
 
--- Get outlier scores (only if function exists)
 SELECT 
     id,
     description,
     ROUND(score::numeric, 4) as outlier_score
 FROM neurondb.compute_outlier_scores('test_outliers', 'vec', 'zscore')
-WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'compute_outlier_scores' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'neurondb'))
 ORDER BY score DESC
 LIMIT 10;
 
--- Compare Z-score and Modified Z-score methods (skip if functions don't exist)
+-- Compare Z-score and Modified Z-score methods
 WITH zscore AS (
     SELECT id, score as z_score
     FROM neurondb.compute_outlier_scores('test_outliers', 'vec', 'zscore')
-    WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'compute_outlier_scores' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'neurondb'))
 ),
 mod_zscore AS (
     SELECT id, score as mod_z_score
     FROM neurondb.compute_outlier_scores('test_outliers', 'vec', 'modified_zscore')
-    WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'compute_outlier_scores' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'neurondb'))
 )
 SELECT 
     t.id,
@@ -148,7 +173,6 @@ SELECT
     description,
     ROUND(score::numeric, 4) as iqr_score
 FROM neurondb.compute_outlier_scores('test_outliers', 'vec', 'iqr')
-WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'compute_outlier_scores' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'neurondb'))
 ORDER BY score DESC
 LIMIT 10;
 
@@ -158,32 +182,27 @@ SELECT
     description,
     ROUND(score::numeric, 4) as isolation_score
 FROM neurondb.compute_outlier_scores('test_outliers', 'vec', 'isolation_forest')
-WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'compute_outlier_scores' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'neurondb'))
 ORDER BY score DESC
 LIMIT 10;
 
 \echo '=== Testing Method Comparison ==='
 
--- Compare all methods (skip if functions don't exist)
+-- Compare all methods
 WITH zscore AS (
     SELECT id, is_outlier as z_outlier
     FROM neurondb.detect_outliers_zscore('test_outliers', 'vec', 3.0)
-    WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'detect_outliers_zscore' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'neurondb'))
 ),
 scores AS (
     SELECT id, score > 3.0 as mod_z_outlier
     FROM neurondb.compute_outlier_scores('test_outliers', 'vec', 'modified_zscore')
-    WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'compute_outlier_scores' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'neurondb'))
 ),
 iqr AS (
     SELECT id, score > 1.5 as iqr_outlier
     FROM neurondb.compute_outlier_scores('test_outliers', 'vec', 'iqr')
-    WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'compute_outlier_scores' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'neurondb'))
 ),
 isolation AS (
     SELECT id, score > 0.6 as if_outlier
     FROM neurondb.compute_outlier_scores('test_outliers', 'vec', 'isolation_forest')
-    WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'compute_outlier_scores' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'neurondb'))
 )
 SELECT 
     t.id,
@@ -218,12 +237,11 @@ INSERT INTO test_outliers_minimal (vec) VALUES
     ('[1.1, 2.1]'::vector),
     ('[10.0, 20.0]'::vector);
 
--- Z-score with minimal data (skip if function doesn't exist)
+-- Z-score with minimal data
 SELECT 
     id,
     is_outlier
 FROM neurondb.detect_outliers_zscore('test_outliers_minimal', 'vec', 3.0)
-WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'detect_outliers_zscore' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'neurondb'))
 ORDER BY id;
 
 -- Outlier scores with minimal data
@@ -231,20 +249,24 @@ SELECT
     id,
     ROUND(score::numeric, 4) as score
 FROM neurondb.compute_outlier_scores('test_outliers_minimal', 'vec', 'zscore')
-WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'compute_outlier_scores' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'neurondb'))
 ORDER BY score DESC;
 
 \echo '=== Testing Outlier Detection Sensitivity ==='
 
--- Test how threshold affects detection rate (skip if function doesn't exist)
+-- Test how threshold affects detection rate
+-- Validate that function works across different thresholds
 DO $$
+DECLARE
+    result_count INT;
 BEGIN
-  BEGIN
-    PERFORM 1 FROM neurondb.detect_outliers_zscore('test_outliers', 'vec', 3.0) LIMIT 1;
-  EXCEPTION WHEN undefined_function THEN
-    RAISE NOTICE 'detect_outliers_zscore not available, skipping sensitivity test';
-    RETURN;
-  END;
+    SELECT COUNT(*) INTO result_count
+    FROM (VALUES (1.0), (1.5), (2.0), (2.5), (3.0), (3.5), (4.0)) t(threshold)
+    CROSS JOIN LATERAL neurondb.detect_outliers_zscore('test_outliers', 'vec', t.threshold) o
+    LIMIT 1;
+    
+    IF result_count = 0 THEN
+        RAISE EXCEPTION 'detect_outliers_zscore threshold sensitivity test returned no results';
+    END IF;
 END$$;
 
 CREATE TABLE test_threshold_sensitivity AS
@@ -255,7 +277,6 @@ SELECT
     ROUND((COUNT(*) FILTER (WHERE o.is_outlier)::numeric / COUNT(*)::numeric * 100), 2) as pct_outliers
 FROM (VALUES (1.0), (1.5), (2.0), (2.5), (3.0), (3.5), (4.0)) t(threshold)
 CROSS JOIN LATERAL neurondb.detect_outliers_zscore('test_outliers', 'vec', t.threshold) o
-WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'detect_outliers_zscore' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'neurondb'))
 GROUP BY t.threshold
 ORDER BY t.threshold;
 
@@ -276,12 +297,11 @@ INSERT INTO test_outliers_highd (vec) VALUES
     ('[10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0]'::vector),
     ('[1.05, 1.05, 1.05, 1.05, 1.05, 1.05, 1.05, 1.05, 1.05, 1.05]'::vector);
 
--- Detect outliers in high dimensions (skip if function doesn't exist)
+-- Detect outliers in high dimensions
 SELECT 
     id,
     is_outlier
 FROM neurondb.detect_outliers_zscore('test_outliers_highd', 'vec', 3.0)
-WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'detect_outliers_zscore' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'neurondb'))
 ORDER BY id;
 
 -- Outlier scores in high dimensions
@@ -290,7 +310,6 @@ SELECT
     ROUND(score::numeric, 4) as score,
     CASE WHEN score > 3.0 THEN 'Outlier' ELSE 'Normal' END as classification
 FROM neurondb.compute_outlier_scores('test_outliers_highd', 'vec', 'zscore')
-WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'compute_outlier_scores' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'neurondb'))
 ORDER BY score DESC;
 
 -- Cleanup

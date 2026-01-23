@@ -161,10 +161,12 @@ BEGIN
   BEGIN
     INSERT INTO neurondb.neurondb_embedding_cache (embedding, model_name) VALUES ('[7.0, 8.0, 9.0]'::vector, 'missing_key');
     RAISE WARNING 'ERROR: insert succeeded even though cache_key is missing!';
-  EXCEPTION WHEN undefined_table THEN
-    RAISE NOTICE 'neurondb_embedding_cache table not available, skipping constraint test';
   EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'Correctly enforced NOT NULL on cache_key: %', SQLERRM;
+    IF SQLSTATE = '42P01' THEN
+      RAISE NOTICE 'neurondb_embedding_cache table not available, skipping constraint test';
+    ELSE
+      RAISE NOTICE 'Correctly enforced NOT NULL on cache_key: %', SQLERRM;
+    END IF;
   END;
 END$$;
 
@@ -187,10 +189,12 @@ BEGIN
     INSERT INTO neurondb.neurondb_embedding_cache (cache_key, embedding, model_name)
     VALUES ('test_key', '[9.9, 9.9, 9.9]'::vector, 'some_model');
     RAISE WARNING 'ERROR: duplicate cache_key allowed!';
-  EXCEPTION WHEN undefined_table THEN
-    RAISE NOTICE 'neurondb_embedding_cache table not available, skipping duplicate key test';
   EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'Correctly rejected duplicate key: %', SQLERRM;
+    IF SQLSTATE = '42P01' THEN
+      RAISE NOTICE 'neurondb_embedding_cache table not available, skipping duplicate key test';
+    ELSE
+      RAISE NOTICE 'Correctly rejected duplicate key: %', SQLERRM;
+    END IF;
   END;
 END$$;
 

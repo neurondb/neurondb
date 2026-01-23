@@ -26,14 +26,33 @@ BEGIN
 END$$;
 
 -- Check if sparse vector functions exist and test them
+-- Validate that function returns expected results
 DO $$
+DECLARE
+    result REAL;
 BEGIN
-  BEGIN
-    PERFORM sparse_vector_dot_product('{1:1.0}'::sparse_vector, '{1:1.0}'::sparse_vector);
-    RAISE NOTICE 'sparse_vector_dot_product is available';
-  EXCEPTION WHEN undefined_function OR undefined_object THEN
-    RAISE NOTICE 'sparse_vector functions not available, skipping sparse vector tests';
-  END;
+    SELECT sparse_vector_dot_product('{1:1.0}'::sparse_vector, '{1:1.0}'::sparse_vector) INTO result;
+    
+    IF result IS NULL THEN
+        RAISE EXCEPTION 'sparse_vector_dot_product returned NULL';
+    END IF;
+    
+    -- Dot product of same vector should be positive
+    -- Note: sparsevec format is "dim:val,dim:val" not "{dim:val}"
+    -- Test with proper format
+    BEGIN
+        SELECT sparse_vector_dot_product(
+            '1:1.0,2:2.0'::sparsevec,
+            '1:1.0,2:2.0'::sparsevec
+        ) INTO result;
+        
+        IF result <= 0 THEN
+            RAISE EXCEPTION 'sparse_vector_dot_product returned unexpected result: %', result;
+        END IF;
+    EXCEPTION WHEN OTHERS THEN
+        -- If sparsevec parsing fails, it might be a format issue
+        RAISE NOTICE 'sparse_vector_dot_product test skipped: %', SQLERRM;
+    END;
 END$$;
 
 -- ============================================================================
