@@ -1,0 +1,30 @@
+[Unit]
+Description=NeuronMCP Server
+Documentation=https://www.neurondb.ai/docs/neuronmcp
+After=postgresql.service network.target
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=neurondb
+Group=neurondb
+WorkingDirectory=/opt/neurondb
+ExecStart=/usr/local/bin/neurondb-mcp
+EnvironmentFile=-/etc/neurondb/neuronmcp.env
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=neuronmcp
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Resource limits (adjust as needed)
+LimitNOFILE=65536
+MemoryLimit=512M
+CPUQuota=200%
+
+[Install]
+WantedBy=multi-user.target

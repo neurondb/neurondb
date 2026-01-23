@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.neurondb.neuronmcp</string>
+    
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/neurondb-mcp</string>
+    </array>
+    
+    <key>WorkingDirectory</key>
+    <string>/usr/local/var/neurondb</string>
+    
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>NEURONDB_HOST</key>
+        <string>localhost</string>
+        <key>NEURONDB_PORT</key>
+        <string>5432</string>
+        <key>NEURONDB_DATABASE</key>
+        <string>neurondb</string>
+        <key>NEURONDB_USER</key>
+        <string>neurondb</string>
+        <key>NEURONDB_PASSWORD</key>
+        <string>your_password_here</string>
+        <key>NEURONDB_LOG_LEVEL</key>
+        <string>info</string>
+        <key>NEURONDB_LOG_FORMAT</key>
+        <string>text</string>
+        <key>NEURONDB_LOG_OUTPUT</key>
+        <string>stderr</string>
+        <key>NEURONDB_ENABLE_GPU</key>
+        <string>false</string>
+    </dict>
+    
+    <key>RunAtLoad</key>
+    <true/>
+    
+    <key>KeepAlive</key>
+    <true/>
+    
+    <key>StandardOutPath</key>
+    <string>/usr/local/var/log/neurondb/neuronmcp.log</string>
+    
+    <key>StandardErrorPath</key>
+    <string>/usr/local/var/log/neurondb/neuronmcp.error.log</string>
+    
+    <key>ProcessType</key>
+    <string>Background</string>
+    
+    <key>Nice</key>
+    <integer>0</integer>
+</dict>
+</plist>

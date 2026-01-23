@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.neurondb.neuronagent</string>
+    
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/neuronagent</string>
+    </array>
+    
+    <key>WorkingDirectory</key>
+    <string>/usr/local/var/neurondb</string>
+    
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>DB_HOST</key>
+        <string>localhost</string>
+        <key>DB_PORT</key>
+        <string>5432</string>
+        <key>DB_NAME</key>
+        <string>neurondb</string>
+        <key>DB_USER</key>
+        <string>neurondb</string>
+        <key>DB_PASSWORD</key>
+        <string>your_password_here</string>
+        <key>SERVER_HOST</key>
+        <string>0.0.0.0</string>
+        <key>SERVER_PORT</key>
+        <string>8080</string>
+        <key>LOG_LEVEL</key>
+        <string>info</string>
+        <key>LOG_FORMAT</key>
+        <string>json</string>
+    </dict>
+    
+    <key>RunAtLoad</key>
+    <true/>
+    
+    <key>KeepAlive</key>
+    <true/>
+    
+    <key>StandardOutPath</key>
+    <string>/usr/local/var/log/neurondb/neuronagent.log</string>
+    
+    <key>StandardErrorPath</key>
+    <string>/usr/local/var/log/neurondb/neuronagent.error.log</string>
+    
+    <key>ProcessType</key>
+    <string>Background</string>
+    
+    <key>Nice</key>
+    <integer>0</integer>
+</dict>
+</plist>

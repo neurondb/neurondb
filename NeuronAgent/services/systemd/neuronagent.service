@@ -1,0 +1,30 @@
+[Unit]
+Description=NeuronAgent Server
+Documentation=https://www.neurondb.ai/docs/neuronagent
+After=postgresql.service network.target
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=neurondb
+Group=neurondb
+WorkingDirectory=/opt/neurondb
+ExecStart=/usr/local/bin/neuronagent
+EnvironmentFile=-/etc/neurondb/neuronagent.env
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=neuronagent
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Resource limits (adjust as needed)
+LimitNOFILE=65536
+MemoryLimit=1G
+CPUQuota=200%
+
+[Install]
+WantedBy=multi-user.target
