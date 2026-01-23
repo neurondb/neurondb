@@ -53,6 +53,7 @@ func NewCapabilitiesManager(serverName, serverVersion string, toolRegistry *tool
 			"deprecation":       true,
 			"composite_tools":   true,
 			"resource_catalog":  true,
+			"completions":       true,
 		},
 		modelVersions: map[string]string{
 			"default_embedding": "2.0.0",
@@ -137,6 +138,9 @@ func (cm *CapabilitiesManager) GetServerCapabilities() mcp.ServerCapabilities {
 		},
 		Elicitation: &mcp.ElicitationCapability{
 			Enabled: true, /* Elicitation is enabled by default */
+		},
+		Completions: &mcp.CompletionsCapability{
+			Enabled: true, /* Completions are enabled by default */
 		},
 		Experimental: map[string]interface{}{
 			"feature_flags":  featureFlags,

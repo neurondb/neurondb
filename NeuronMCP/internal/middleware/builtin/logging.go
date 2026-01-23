@@ -18,15 +18,23 @@ package builtin
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/neurondb/NeuronMCP/internal/logging"
 	"github.com/neurondb/NeuronMCP/internal/middleware"
 )
 
+/* Keys to redact in logs (case-insensitive) */
+var sensitiveLogKeys = map[string]bool{
+	"apikey": true, "api_key": true, "token": true, "password": true,
+	"passwd": true, "secret": true, "authorization": true, "x-api-key": true,
+	"bearer": true, "access_token": true, "refresh_token": true,
+}
+
 /* LoggingMiddleware logs requests and responses */
 type LoggingMiddleware struct {
-	logger              *logging.Logger
+	logger                *logging.Logger
 	enableRequestLogging  bool
 	enableResponseLogging bool
 }
@@ -55,6 +63,35 @@ func (m *LoggingMiddleware) Enabled() bool {
 	return true
 }
 
+/* sanitizeForLogging redacts sensitive keys from maps before logging */
+func sanitizeForLogging(in map[string]interface{}) map[string]interface{} {
+	if in == nil {
+		return nil
+	}
+	out := make(map[string]interface{}, len(in))
+	for k, v := range in {
+		keyLower := strings.ToLower(strings.TrimSpace(k))
+		if sensitiveLogKeys[keyLower] {
+			out[k] = "[REDACTED]"
+			continue
+		}
+		/* Redact "query" to avoid logging raw SQL (may contain sensitive data) */
+		if keyLower == "query" {
+			if _, ok := v.(string); ok {
+				out[k] = "[REDACTED]"
+				continue
+			}
+		}
+		/* Recurse into nested maps (e.g. arguments) */
+		if m, ok := v.(map[string]interface{}); ok {
+			out[k] = sanitizeForLogging(m)
+			continue
+		}
+		out[k] = v
+	}
+	return out
+}
+
 /* Execute executes the middleware */
 func (m *LoggingMiddleware) Execute(ctx context.Context, req *middleware.MCPRequest, next middleware.Handler) (*middleware.MCPResponse, error) {
 	start := time.Now()
@@ -62,8 +99,8 @@ func (m *LoggingMiddleware) Execute(ctx context.Context, req *middleware.MCPRequ
 	if m.enableRequestLogging {
 		m.logger.Info("Request", map[string]interface{}{
 			"method":   req.Method,
-			"params":   req.Params,
-			"metadata": req.Metadata,
+			"params":   sanitizeForLogging(req.Params),
+			"metadata": sanitizeForLogging(req.Metadata),
 		})
 	}
 
@@ -74,7 +111,7 @@ func (m *LoggingMiddleware) Execute(ctx context.Context, req *middleware.MCPRequ
 		m.logger.Error("Request failed", err, map[string]interface{}{
 			"method":   req.Method,
 			"duration": duration,
-			"params":   req.Params,
+			"params":   sanitizeForLogging(req.Params),
 		})
 		return nil, err
 	}
@@ -84,7 +121,7 @@ func (m *LoggingMiddleware) Execute(ctx context.Context, req *middleware.MCPRequ
 			"method":   req.Method,
 			"duration": duration,
 			"success":  !resp.IsError,
-			"metadata": resp.Metadata,
+			"metadata": sanitizeForLogging(resp.Metadata),
 		})
 	}
 

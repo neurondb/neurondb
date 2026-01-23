@@ -530,6 +530,16 @@ func RegisterAllTools(registry *ToolRegistry, db *database.Database, logger *log
 	registry.Register(NewIngestDocumentsTool(db, logger))
 	registry.Register(NewAnswerWithCitationsTool(db, logger))
 	registry.Register(NewChunkDocumentTool(db, logger))
+	registry.Register(NewRAGEvaluateTool(db, logger))
+	registry.Register(NewRAGChatTool(db, logger))
+	registry.Register(NewRAGHybridTool(db, logger))
+	registry.Register(NewRAGRerankTool(db, logger))
+	registry.Register(NewRAGHyDETool(db, logger))
+	registry.Register(NewRAGGraphTool(db, logger))
+	registry.Register(NewRAGCorrectiveTool(db, logger))
+	registry.Register(NewRAGAgenticTool(db, logger))
+	registry.Register(NewRAGContextualTool(db, logger))
+	registry.Register(NewRAGModularTool(db, logger))
 
 	/* Indexing tools */
 	registry.Register(NewCreateHNSWIndexTool(db, logger))
@@ -1337,6 +1347,16 @@ func RegisterPostgreSQLTools(registry *ToolRegistry, db *database.Database, logg
 	registry.Register(NewIngestDocumentsTool(db, logger))
 	registry.Register(NewAnswerWithCitationsTool(db, logger))
 	registry.Register(NewChunkDocumentTool(db, logger))
+	registry.Register(NewRAGEvaluateTool(db, logger))
+	registry.Register(NewRAGChatTool(db, logger))
+	registry.Register(NewRAGHybridTool(db, logger))
+	registry.Register(NewRAGRerankTool(db, logger))
+	registry.Register(NewRAGHyDETool(db, logger))
+	registry.Register(NewRAGGraphTool(db, logger))
+	registry.Register(NewRAGCorrectiveTool(db, logger))
+	registry.Register(NewRAGAgenticTool(db, logger))
+	registry.Register(NewRAGContextualTool(db, logger))
+	registry.Register(NewRAGModularTool(db, logger))
 
 	/* NeuronDB Indexing Tools */
 	registry.Register(NewCreateHNSWIndexTool(db, logger))
@@ -1423,4 +1443,25 @@ func RegisterRAGTools(registry *ToolRegistry, db *database.Database, logger *log
 	registry.Register(NewChunkDocumentTool(db, logger))
 	registry.Register(NewIngestDocumentsTool(db, logger))
 	registry.Register(NewRetrieveContextTool(db, logger))
+	/* Composite RAG tools - All 8 RAG architectures */
+	/* 1. Naive RAG - Basic retrieval (via RetrieveContextTool) */
+	/* 2. HyDE RAG - Hypothetical Document Embeddings */
+	registry.Register(NewRAGHyDETool(db, logger))
+	/* 3. Graph RAG - Knowledge graph traversal */
+	registry.Register(NewRAGGraphTool(db, logger))
+	/* 4. Corrective RAG - Iterative self-correction */
+	registry.Register(NewRAGCorrectiveTool(db, logger))
+	/* 5. Hybrid RAG - Vector + full-text fusion */
+	registry.Register(NewRAGHybridTool(db, logger))
+	/* 6. Agentic RAG - Autonomous planning */
+	registry.Register(NewRAGAgenticTool(db, logger))
+	/* 7. Contextual RAG - Context-aware query rewriting */
+	registry.Register(NewRAGContextualTool(db, logger))
+	/* 8. Modular RAG - Composable modules */
+	registry.Register(NewRAGModularTool(db, logger))
+	/* Additional RAG tools */
+	registry.Register(NewRAGEvaluateTool(db, logger))
+	registry.Register(NewRAGChatTool(db, logger))
+	registry.Register(NewRAGRerankTool(db, logger))
+	registry.Register(NewAnswerWithCitationsTool(db, logger))
 }

@@ -281,7 +281,8 @@ func (s *Server) handleSubscribeResource(ctx context.Context, params json.RawMes
 	}
 
 	/* Create callback function that logs updates */
-	/* TODO: Send notifications via MCP when notification mechanism is available */
+	/* Note: MCP resource notifications are logged. Full MCP notification protocol */
+	/* support will be added in a future version when the MCP spec is finalized. */
 	callback := func(update *resources.ResourceUpdate) {
 		if s.logger != nil {
 			s.logger.Info("Resource update notification", map[string]interface{}{

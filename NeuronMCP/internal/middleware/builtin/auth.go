@@ -16,8 +16,10 @@ package builtin
 import (
 	"context"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/pem"
 	"fmt"
 	"strings"
@@ -31,11 +33,30 @@ import (
 
 /* AuthConfig holds authentication configuration */
 type AuthConfig struct {
-	Enabled      bool
-	APIKeys      map[string]string  /* API key -> user mapping */
-	JWTSecret    string
-	JWTPublicKey *rsa.PublicKey
-	OAuth2Config *OAuth2Config
+	Enabled       bool
+	APIKeyHashes  map[string]string /* SHA256 hex hash of API key -> user mapping */
+	JWTSecret     string
+	JWTPublicKey  *rsa.PublicKey
+	OAuth2Config  *OAuth2Config
+}
+
+/* HashAPIKey returns SHA256 hex hash of an API key for secure storage */
+func HashAPIKey(apiKey string) string {
+	h := sha256.Sum256([]byte(apiKey))
+	return hex.EncodeToString(h[:])
+}
+
+/* SetAPIKeysFromPlaintext hashes and stores API keys from plaintext format.
+ * This is a migration helper function. In production, API keys should be
+ * provided already hashed via APIKeyHashes map.
+ */
+func (c *AuthConfig) SetAPIKeysFromPlaintext(plain map[string]string) {
+	if c.APIKeyHashes == nil {
+		c.APIKeyHashes = make(map[string]string)
+	}
+	for k, u := range plain {
+		c.APIKeyHashes[HashAPIKey(k)] = u
+	}
 }
 
 /* OAuth2Config holds OAuth2 configuration */
@@ -92,10 +113,9 @@ func (m *AuthMiddleware) Execute(ctx context.Context, req *middleware.MCPRequest
 		}, nil
 	}
 
-	/* Try API key authentication first */
-	if m.config.APIKeys != nil {
-		if user, ok := m.config.APIKeys[token]; ok {
-			/* Add user to context using typed key */
+	/* Try API key authentication (hashed storage only) */
+	if m.config.APIKeyHashes != nil {
+		if user, ok := m.config.APIKeyHashes[HashAPIKey(token)]; ok {
 			ctx = context.WithValue(ctx, contextkeys.UserKey{}, user)
 			return next(ctx, req)
 		}
@@ -122,46 +142,72 @@ func (m *AuthMiddleware) Execute(ctx context.Context, req *middleware.MCPRequest
 	}, nil
 }
 
-/* extractToken extracts token from request */
-/* Supports both stdio (via metadata/params) and HTTP (via headers extracted to metadata) */
+/* extractToken extracts token from request with strict precedence; rejects multiple sources */
+/* Precedence: Authorization Bearer > X-API-Key > metadata apiKey/token > params token/apiKey */
 func (m *AuthMiddleware) extractToken(req *middleware.MCPRequest) string {
-	/* Check metadata (populated from HTTP headers by HTTP transport, or from stdio metadata) */
+	type source struct {
+		token string
+		name  string
+	}
+	var candidates []source
+
+	add := func(t, name string) {
+		if t != "" {
+			candidates = append(candidates, source{t, name})
+		}
+	}
+
+	/* 1. Authorization Bearer */
 	if req.Metadata != nil {
-		/* Check for API key in metadata (from X-API-Key header or apiKey metadata) */
-		if apiKey, ok := req.Metadata["apiKey"].(string); ok {
-			return apiKey
-		}
-		/* Check for X-Api-Key header (case-insensitive header extraction) */
-		if apiKey, ok := req.Metadata["X-Api-Key"].(string); ok {
-			return apiKey
-		}
-		if apiKey, ok := req.Metadata["x-api-key"].(string); ok {
-			return apiKey
-		}
-		/* Check for token in metadata */
-		if token, ok := req.Metadata["token"].(string); ok {
-			return token
-		}
-		/* Check for Authorization header (Bearer token) */
-		if auth, ok := req.Metadata["authorization"].(string); ok {
-			return m.extractBearerToken(auth)
-		}
-		if auth, ok := req.Metadata["Authorization"].(string); ok {
-			return m.extractBearerToken(auth)
+		for _, k := range []string{"authorization", "Authorization"} {
+			if auth, ok := req.Metadata[k].(string); ok {
+				add(m.extractBearerToken(auth), "Authorization")
+				break
+			}
 		}
 	}
 
-	/* Check params */
+	/* 2. X-API-Key (metadata from headers) */
+	if req.Metadata != nil {
+		for _, k := range []string{"X-Api-Key", "x-api-key", "apiKey"} {
+			if v, ok := req.Metadata[k].(string); ok && v != "" {
+				add(v, "X-API-Key")
+				break
+			}
+		}
+	}
+
+	/* 3. metadata token */
+	if req.Metadata != nil {
+		if v, ok := req.Metadata["token"].(string); ok && v != "" {
+			add(v, "metadata.token")
+		}
+	}
+
+	/* 4. params token / apiKey */
 	if req.Params != nil {
-		if token, ok := req.Params["token"].(string); ok {
-			return token
-		}
-		if apiKey, ok := req.Params["apiKey"].(string); ok {
-			return apiKey
+		if v, ok := req.Params["token"].(string); ok && v != "" {
+			add(v, "params.token")
+		} else if v, ok := req.Params["apiKey"].(string); ok && v != "" {
+			add(v, "params.apiKey")
 		}
 	}
 
-	return ""
+	if len(candidates) == 0 {
+		return ""
+	}
+	/* Reject if multiple token sources present (potential bypass) */
+	if len(candidates) > 1 {
+		names := make([]string, len(candidates))
+		for i := range candidates {
+			names[i] = candidates[i].name
+		}
+		m.logger.Warn("Multiple token sources provided; rejecting", map[string]interface{}{
+			"sources": names,
+		})
+		return ""
+	}
+	return candidates[0].token
 }
 
 /* extractBearerToken extracts bearer token from Authorization header */
@@ -212,9 +258,11 @@ func (m *AuthMiddleware) validateJWT(tokenString string) (string, error) {
 		return "", fmt.Errorf("invalid claims")
 	}
 
-	/* Check expiration */
+	/* Check expiration with clock skew tolerance (5 minutes) */
 	if exp, ok := claims["exp"].(float64); ok {
-		if time.Now().Unix() > int64(exp) {
+		clockSkew := 5 * time.Minute
+		expTime := time.Unix(int64(exp), 0)
+		if time.Now().Add(clockSkew).After(expTime) {
 			return "", fmt.Errorf("token expired")
 		}
 	}

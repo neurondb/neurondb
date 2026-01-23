@@ -143,13 +143,35 @@ func (t *PostgreSQLExecuteQueryTool) Execute(ctx context.Context, params map[str
 	var queryParams []interface{}
 	if strings.HasPrefix(queryUpper, "SELECT") {
 		hasLimit := validation.HasLimitClause(query)
-		
+
 		if !hasLimit {
-			/* Wrap query in subquery to safely add LIMIT using parameterized query */
-			/* This ensures the user's query is treated as a complete unit */
-			/* The LIMIT value is parameterized to prevent SQL injection */
-			/* Note: The user's query itself is embedded in the subquery, which is safe
-			 * because it's wrapped and treated as a single unit. The LIMIT is parameterized. */
+			if err := validation.ValidateQueryForSubqueryWrap(query); err != nil {
+				return Error(
+					fmt.Sprintf("Query validation failed: %v", err),
+					"INVALID_QUERY",
+					map[string]interface{}{"error": err.Error()},
+				), nil
+			}
+			/* Additional validation: ensure query doesn't contain dangerous patterns that could break subquery wrapping */
+			if strings.Contains(strings.ToUpper(query), "LIMIT") || strings.Contains(strings.ToUpper(query), "OFFSET") {
+				/* Query may have LIMIT/OFFSET in a way we didn't detect - be conservative */
+				t.logger.Warn("Query may contain LIMIT/OFFSET clause, but validation passed", map[string]interface{}{
+					"query_preview": func() string {
+						if len(query) > 100 {
+							return query[:100] + "..."
+						}
+						return query
+					}(),
+				})
+			}
+			/* Wrap query in subquery to safely add LIMIT using parameterized query.
+			 * This approach is safe because:
+			 * 1. The query has been validated to not contain semicolons (multiple statements)
+			 * 2. The query has been validated to not contain null bytes
+			 * 3. The query has been validated to not contain ') AS subquery' pattern
+			 * 4. The LIMIT value is parameterized, preventing injection
+			 * 5. The subquery wrapping ensures the user query is treated as a single unit
+			 */
 			query = "SELECT * FROM (" + query + ") AS subquery LIMIT $1"
 			queryParams = []interface{}{maxRows}
 		}

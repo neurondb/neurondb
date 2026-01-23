@@ -21,6 +21,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/neurondb/NeuronMCP/internal/config"
 	"github.com/neurondb/NeuronMCP/internal/database"
@@ -468,6 +469,75 @@ func (t *DatasetLoadingTool) findDatasetLoaderScript() string {
 	return ""
 }
 
+/* validateScriptPath validates that script path is within allowed directories */
+func (t *DatasetLoadingTool) validateScriptPath(scriptPath string) error {
+	if scriptPath == "" {
+		return fmt.Errorf("script path cannot be empty")
+	}
+	
+	/* Get absolute path */
+	absPath, err := filepath.Abs(scriptPath)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute path: %w", err)
+	}
+	
+	/* Check for path traversal */
+	if strings.Contains(absPath, "..") {
+		return fmt.Errorf("script path contains path traversal")
+	}
+	
+	/* Whitelist: script must be in NeuronMCP/internal/tools/ or similar allowed locations */
+	allowedPatterns := []string{
+		"NeuronMCP/internal/tools/",
+		"internal/tools/",
+	}
+	
+	valid := false
+	for _, pattern := range allowedPatterns {
+		if strings.Contains(absPath, pattern) {
+			valid = true
+			break
+		}
+	}
+	
+	if !valid {
+		return fmt.Errorf("script path not in allowed directories: %s", absPath)
+	}
+	
+	return nil
+}
+
+/* sanitizeEnvironment sanitizes environment variables before passing to subprocess */
+func (t *DatasetLoadingTool) sanitizeEnvironment(env []string) []string {
+	sanitized := make([]string, 0, len(env))
+	allowedPrefixes := []string{
+		"PGHOST=", "PGPORT=", "PGUSER=", "PGDATABASE=", "PGPASSWORD=",
+		"HF_HOME=", "HF_DATASETS_CACHE=", "HOME=",
+		"PATH=", "PYTHONPATH=", "LD_LIBRARY_PATH=",
+	}
+	
+	for _, e := range env {
+		/* Only allow environment variables with safe prefixes */
+		allowed := false
+		for _, prefix := range allowedPrefixes {
+			if strings.HasPrefix(e, prefix) {
+				allowed = true
+				/* Additional check: ensure no newlines or control characters */
+				if !strings.ContainsAny(e, "\n\r\t\x00") {
+					sanitized = append(sanitized, e)
+				}
+				break
+			}
+		}
+		if !allowed {
+			/* Skip environment variables not in whitelist */
+			continue
+		}
+	}
+	
+	return sanitized
+}
+
 /* loadDataset loads dataset using the comprehensive Python loader */
 func (t *DatasetLoadingTool) loadDataset(ctx context.Context, sourceType, sourcePath, split, datasetConfig string,
 	limit, batchSize int, autoEmbed bool, embeddingModel, schemaName, tableName string,
@@ -476,6 +546,40 @@ func (t *DatasetLoadingTool) loadDataset(ctx context.Context, sourceType, source
 	checkpointKey string, useCheckpoint bool, csvDelimiter string, csvHeader, csvSkipRows int,
 	excelSheet, awsAccessKey, awsSecretKey, awsRegion, azureConnectionString, gcsCredentials,
 	githubToken, query string, transformations map[string]interface{}) (*ToolResult, error) {
+	/* Validate inputs to prevent command injection and path traversal */
+	if err := validation.ValidateDatasetSourceType(sourceType); err != nil {
+		return Error(fmt.Sprintf("Invalid source_type: %v", err), "INVALID_PARAMETER", nil), nil
+	}
+	if err := validation.ValidateSafePath(sourcePath, "source_path"); err != nil {
+		return Error(fmt.Sprintf("Invalid source_path: %v", err), "INVALID_PARAMETER", nil), nil
+	}
+	if schemaName != "" {
+		if err := validation.ValidateSchemaName(schemaName); err != nil {
+			return Error(fmt.Sprintf("Invalid schema_name: %v", err), "INVALID_PARAMETER", nil), nil
+		}
+	}
+	if tableName != "" {
+		if err := validation.ValidateTableName(tableName); err != nil {
+			return Error(fmt.Sprintf("Invalid table_name: %v", err), "INVALID_PARAMETER", nil), nil
+		}
+	}
+	if cacheDir != "" {
+		if err := validation.ValidateSafePath(cacheDir, "cache_dir"); err != nil {
+			return Error(fmt.Sprintf("Invalid cache_dir: %v", err), "INVALID_PARAMETER", nil), nil
+		}
+	}
+	for i, col := range textColumns {
+		if err := validation.ValidateColumnName(col); err != nil {
+			return Error(fmt.Sprintf("Invalid text_columns[%d]: %v", i, err), "INVALID_PARAMETER", nil), nil
+		}
+	}
+	if err := validation.ValidateNoNullBytes(datasetConfig, "config"); err != nil && datasetConfig != "" {
+		return Error(fmt.Sprintf("Invalid config: %v", err), "INVALID_PARAMETER", nil), nil
+	}
+	if err := validation.ValidateNoNullBytes(split, "split"); err != nil && split != "" {
+		return Error(fmt.Sprintf("Invalid split: %v", err), "INVALID_PARAMETER", nil), nil
+	}
+
 	/* Find the Python loader script */
 	scriptPath := t.findDatasetLoaderScript()
 	if scriptPath == "" {
@@ -487,6 +591,11 @@ func (t *DatasetLoadingTool) loadDataset(ctx context.Context, sourceType, source
 		})
 		/* Fallback: try to use inline Python code if script not found */
 		return t.loadGenericDatasetFallback(ctx, sourceType, sourcePath, split, datasetConfig, limit)
+	}
+
+	/* Validate script path is within allowed directories (whitelist approach) */
+	if err := t.validateScriptPath(scriptPath); err != nil {
+		return Error(fmt.Sprintf("Script path validation failed: %v", err), "INVALID_SCRIPT_PATH", nil), nil
 	}
 
 	/* Log that we found the script */
@@ -605,7 +714,7 @@ func (t *DatasetLoadingTool) loadDataset(ctx context.Context, sourceType, source
 	}
 
 	/* Transformations (JSON) */
-	if transformations != nil && len(transformations) > 0 {
+	if len(transformations) > 0 {
 		transJSON, err := json.Marshal(transformations)
 		if err == nil {
 			args = append(args, "--transformations", string(transJSON))
@@ -635,9 +744,15 @@ func (t *DatasetLoadingTool) loadDataset(ctx context.Context, sourceType, source
 		env = append(env, fmt.Sprintf("PGPASSWORD=%s", *pwd))
 	}
 
-	/* Execute Python script */
-	cmd := exec.CommandContext(ctx, "python3", args...)
-	cmd.Env = env
+	/* Create context with explicit timeout (30 minutes for dataset loading) */
+	subprocessTimeout := 30 * time.Minute
+	subprocessCtx, cancel := context.WithTimeout(ctx, subprocessTimeout)
+	defer cancel()
+
+	/* Execute Python script with explicit timeout */
+	cmd := exec.CommandContext(subprocessCtx, "python3", args...)
+	/* Sanitize environment variables before passing */
+	cmd.Env = t.sanitizeEnvironment(env)
 
 	output, err := cmd.CombinedOutput()
 	outputStr := strings.TrimSpace(string(output))

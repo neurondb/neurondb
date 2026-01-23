@@ -14,6 +14,8 @@
 package server
 
 import (
+	"os"
+	"strings"
 	"time"
 
 	"github.com/neurondb/NeuronMCP/internal/audit"
@@ -38,9 +40,13 @@ func setupBuiltInMiddleware(mgr *middleware.Manager, cfgMgr *config.ConfigManage
 	auditLogger := audit.NewLogger(logger)
 	mgr.Register(builtin.NewAuditMiddleware(auditLogger))
 
-  /* Authentication middleware (order: 0) */
+  /* Authentication middleware (order: 0) - enabled by default for security */
+	authDisabled := strings.ToLower(strings.TrimSpace(os.Getenv("NEURONMCP_AUTH_DISABLED"))) == "true" || os.Getenv("NEURONMCP_AUTH_DISABLED") == "1"
 	authConfig := &builtin.AuthConfig{
-		Enabled: false, /* Disabled by default */
+		Enabled: !authDisabled,
+	}
+	if authDisabled {
+		logger.Warn("Authentication is DISABLED (NEURONMCP_AUTH_DISABLED=true) - insecure for production", nil)
 	}
 	mgr.Register(builtin.NewAuthMiddleware(authConfig, logger))
 
@@ -49,13 +55,18 @@ func setupBuiltInMiddleware(mgr *middleware.Manager, cfgMgr *config.ConfigManage
 	scopeChecker := builtin.NewDefaultScopeChecker()
 	mgr.Register(builtin.NewScopedAuthMiddleware(scopeChecker))
 
-  /* Rate limiting middleware (order: 10) */
+  /* Rate limiting middleware (order: 10) - enabled by default for security */
+	/* Can be disabled via NEURONMCP_RATE_LIMIT_DISABLED=true environment variable */
+	rateLimitDisabled := strings.ToLower(strings.TrimSpace(os.Getenv("NEURONMCP_RATE_LIMIT_DISABLED"))) == "true" || os.Getenv("NEURONMCP_RATE_LIMIT_DISABLED") == "1"
 	rateLimitConfig := &builtin.RateLimitConfig{
-		Enabled:        false, /* Disabled by default */
+		Enabled:        !rateLimitDisabled, /* Enabled by default */
 		RequestsPerMin: 60,
 		BurstSize:      10,
 		PerUser:        false,
 		PerTool:        false,
+	}
+	if rateLimitDisabled {
+		logger.Warn("Rate limiting is DISABLED (NEURONMCP_RATE_LIMIT_DISABLED=true) - insecure for production", nil)
 	}
 	mgr.Register(builtin.NewRateLimitMiddleware(rateLimitConfig, logger))
 

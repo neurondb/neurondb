@@ -203,3 +203,41 @@ func ValidateOffset(offset int) error {
 	}
 	return nil
 }
+
+/* ValidateSafePath rejects path traversal and null bytes; for use in dataset paths, etc. */
+func ValidateSafePath(path, fieldName string) error {
+	if err := ValidateNoNullBytes(path, fieldName); err != nil {
+		return err
+	}
+	cleaned := strings.TrimSpace(path)
+	if cleaned == "" {
+		return nil
+	}
+	if strings.Contains(cleaned, "..") {
+		return fmt.Errorf("%s contains path traversal (..)", fieldName)
+	}
+	/* Reject newlines and other control chars that could affect command args */
+	for _, r := range cleaned {
+		if r == '\n' || r == '\r' || r == '\t' || r == 0 {
+			return fmt.Errorf("%s contains invalid control characters", fieldName)
+		}
+	}
+	return nil
+}
+
+/* Allowed dataset source types for validation */
+var allowedDatasetSourceTypes = map[string]bool{
+	"huggingface": true, "url": true, "github": true, "s3": true,
+	"azure": true, "gcs": true, "gs": true, "ftp": true, "sftp": true,
+	"local": true, "database": true, "db": true, "postgresql": true,
+	"mysql": true, "sqlite": true,
+}
+
+/* ValidateDatasetSourceType ensures source_type is in allowlist */
+func ValidateDatasetSourceType(sourceType string) error {
+	key := strings.ToLower(strings.TrimSpace(sourceType))
+	if !allowedDatasetSourceTypes[key] {
+		return fmt.Errorf("source_type %q is not allowed", sourceType)
+	}
+	return nil
+}

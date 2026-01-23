@@ -152,9 +152,12 @@ func (e *Executor) executeStep(ctx context.Context, executionID string, step Ste
 	}
 
 	/* Evaluate condition if present */
+	/* Note: Condition evaluation is not yet implemented. Steps with conditions will always execute. */
+	/* Future implementation will support expressions like "variable == 'value'" or "status == 'success'" */
 	if step.Condition != nil && *step.Condition != "" {
-		/* TODO: Implement condition evaluation */
-		/* For now, skip if condition is false */
+		/* Condition evaluation not implemented - proceed with execution */
+		/* In a full implementation, this would evaluate the condition against exec.Variables */
+		/* TODO: Add logger to Executor struct to enable warning logs */
 	}
 
 	/* Prepare arguments with variable substitution */

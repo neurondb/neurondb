@@ -128,6 +128,8 @@ func (s *Server) HandleHTTPRequest(ctx context.Context, mcpReq *middleware.MCPRe
 		return s.handleHTTPGetPrompt(ctx, mcpReq)
 	case "sampling/createMessage":
 		return s.handleHTTPCreateMessage(ctx, mcpReq)
+	case "completion/complete":
+		return s.handleHTTPComplete(ctx, mcpReq)
 	case "progress/get":
 		return s.handleHTTPGetProgress(ctx, mcpReq)
 	case "health/check":
@@ -426,6 +428,30 @@ func (s *Server) handleHTTPListPrompts(ctx context.Context, mcpReq *middleware.M
 func (s *Server) handleHTTPGetPrompt(ctx context.Context, mcpReq *middleware.MCPRequest) (*middleware.MCPResponse, error) {
 	paramsJSON, _ := json.Marshal(mcpReq.Params)
 	result, err := s.handleGetPrompt(ctx, paramsJSON)
+	if err != nil {
+		return &middleware.MCPResponse{
+			Content: []middleware.ContentBlock{
+				{Type: "text", Text: err.Error()},
+			},
+			IsError: true,
+		}, nil
+	}
+
+	resultJSON, _ := json.Marshal(result)
+	return &middleware.MCPResponse{
+		Content: []middleware.ContentBlock{
+			{Type: "text", Text: string(resultJSON)},
+		},
+		Metadata: map[string]interface{}{
+			"result": result,
+		},
+	}, nil
+}
+
+/* handleHTTPComplete handles completion/complete requests */
+func (s *Server) handleHTTPComplete(ctx context.Context, mcpReq *middleware.MCPRequest) (*middleware.MCPResponse, error) {
+	paramsJSON, _ := json.Marshal(mcpReq.Params)
+	result, err := s.handleComplete(ctx, paramsJSON)
 	if err != nil {
 		return &middleware.MCPResponse{
 			Content: []middleware.ContentBlock{

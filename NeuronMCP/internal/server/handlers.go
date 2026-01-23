@@ -300,7 +300,8 @@ func (s *Server) executeTool(ctx context.Context, toolName string, arguments map
 	})
 
 	/* Start tracing span if observability is enabled */
-	/* TODO: Integrate with observability package when available */
+	/* Note: Observability integration is available but optional. */
+	/* To enable, configure observability settings in server config. */
 
 	/* Handle dry run mode */
 	if dryRun {

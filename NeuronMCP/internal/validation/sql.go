@@ -233,5 +233,25 @@ func ValidateColumnName(columnName string) error {
 	return ValidateSQLIdentifier(columnName, "column_name")
 }
 
+/* ValidateQueryForSubqueryWrap validates a query before wrapping in "SELECT * FROM (q) AS subquery LIMIT $1" */
+/* Rejects multiple statements, null bytes, and breakout attempts */
+func ValidateQueryForSubqueryWrap(query string) error {
+	if query == "" {
+		return fmt.Errorf("query cannot be empty")
+	}
+	if strings.Contains(query, "\x00") {
+		return fmt.Errorf("query contains null bytes")
+	}
+	if strings.Contains(query, ";") {
+		return fmt.Errorf("query may not contain semicolons (multiple statements)")
+	}
+	/* Reject strings that could break subquery wrapping (e.g. ") AS subquery" or similar) */
+	q := strings.ToUpper(strings.TrimSpace(query))
+	if strings.Contains(q, ") AS SUBQUERY") || strings.Contains(q, ") AS subquery") {
+		return fmt.Errorf("query may not contain ') AS subquery'")
+	}
+	return nil
+}
+
 
 

@@ -112,3 +112,70 @@ func TestValidateIntRange(t *testing.T) {
 	}
 }
 
+func TestValidateQueryForSubqueryWrap(t *testing.T) {
+	tests := []struct {
+		name    string
+		query   string
+		wantErr bool
+	}{
+		{"valid select", "SELECT 1", false},
+		{"valid select from", "SELECT * FROM t", false},
+		{"empty", "", true},
+		{"null bytes", "SELECT * FROM t\x00", true},
+		{"semicolon", "SELECT 1; DROP TABLE t", true},
+		{"subquery breakout", "SELECT 1) AS subquery LIMIT 0", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateQueryForSubqueryWrap(tt.query)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateQueryForSubqueryWrap() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestValidateSafePath(t *testing.T) {
+	tests := []struct {
+		name    string
+		path    string
+		wantErr bool
+	}{
+		{"empty", "", false},
+		{"simple", "a/b/c", false},
+		{"traversal", "a/../etc/passwd", true},
+		{"null", "a\x00b", true},
+		{"newline", "a\nb", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateSafePath(tt.path, "path")
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateSafePath() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestValidateDatasetSourceType(t *testing.T) {
+	tests := []struct {
+		name    string
+		st      string
+		wantErr bool
+	}{
+		{"huggingface", "huggingface", false},
+		{"local", "local", false},
+		{"s3", "s3", false},
+		{"invalid", "invalid", true},
+		{"empty", "", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateDatasetSourceType(tt.st)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateDatasetSourceType() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+

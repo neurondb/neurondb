@@ -145,6 +145,7 @@ type ServerCapabilities struct {
 	Prompts      map[string]interface{}       `json:"prompts,omitempty"`
 	Sampling     map[string]interface{}       `json:"sampling,omitempty"`
 	Elicitation  *ElicitationCapability       `json:"elicitation,omitempty"`
+	Completions  *CompletionsCapability       `json:"completions,omitempty"`
 	Experimental map[string]interface{}       `json:"experimental,omitempty"`
 }
 
@@ -167,6 +168,10 @@ type ElicitationCapability struct {
 	Enabled bool `json:"enabled"`
 }
 
+type CompletionsCapability struct {
+	Enabled bool `json:"enabled"`
+}
+
 type RequestPromptRequest struct {
 	Message  string                 `json:"message"`
 	Type     string                 `json:"type,omitempty"`
@@ -184,5 +189,32 @@ type InitializeResponse struct {
 	ProtocolVersion string             `json:"protocolVersion"`
 	Capabilities    ServerCapabilities `json:"capabilities"`
 	ServerInfo      ServerInfo         `json:"serverInfo"`
+}
+
+/* Completion request types */
+type CompletionRequest struct {
+	Ref       CompletionReference `json:"ref"`
+	Argument  CompletionArgument  `json:"argument"`
+	Context   map[string]interface{} `json:"context,omitempty"`
+}
+
+type CompletionReference struct {
+	Type string `json:"type"` /* ref/prompt or ref/resource */
+	Name string `json:"name,omitempty"` /* Prompt name for ref/prompt */
+}
+
+type CompletionArgument struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+type CompletionResponse struct {
+	Completion CompletionResult `json:"completion"`
+}
+
+type CompletionResult struct {
+	Values  []string `json:"values"`
+	Total   int      `json:"total"`
+	HasMore bool     `json:"hasMore"`
 }
 

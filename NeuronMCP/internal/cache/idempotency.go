@@ -28,6 +28,7 @@ type IdempotencyCacheEntry struct {
 	Result    *mcp.ToolResult
 	Timestamp time.Time
 	ExpiresAt time.Time
+	LastAccess time.Time /* For LRU eviction */
 }
 
 /* IdempotencyCache provides caching for idempotency keys */
@@ -35,6 +36,7 @@ type IdempotencyCache struct {
 	entries map[string]*IdempotencyCacheEntry
 	mu      sync.RWMutex
 	ttl     time.Duration
+	maxSize int /* Maximum number of entries (0 = unlimited) */
 	cleanupInterval time.Duration
 	stopCleanup     chan struct{}
 	closeOnce       sync.Once /* Ensure Close() is only called once */
@@ -42,9 +44,15 @@ type IdempotencyCache struct {
 
 /* NewIdempotencyCache creates a new idempotency cache */
 func NewIdempotencyCache(ttl time.Duration) *IdempotencyCache {
+	return NewIdempotencyCacheWithSize(ttl, 0) /* Default: unlimited size */
+}
+
+/* NewIdempotencyCacheWithSize creates a new idempotency cache with size limit */
+func NewIdempotencyCacheWithSize(ttl time.Duration, maxSize int) *IdempotencyCache {
 	cache := &IdempotencyCache{
 		entries:         make(map[string]*IdempotencyCacheEntry),
 		ttl:              ttl,
+		maxSize:         maxSize,
 		cleanupInterval: time.Minute * 5, /* Clean up expired entries every 5 minutes */
 		stopCleanup:     make(chan struct{}),
 	}
@@ -61,8 +69,8 @@ func (c *IdempotencyCache) Get(key string) (*mcp.ToolResult, bool) {
 		return nil, false
 	}
 	
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	
 	entry, exists := c.entries[key]
 	if !exists {
@@ -71,9 +79,13 @@ func (c *IdempotencyCache) Get(key string) (*mcp.ToolResult, bool) {
 	
 	/* Check if entry has expired */
 	if time.Now().After(entry.ExpiresAt) {
-		/* Entry expired, but we'll let cleanup handle it */
+		/* Entry expired, remove it */
+		delete(c.entries, key)
 		return nil, false
 	}
+	
+	/* Update last access time for LRU */
+	entry.LastAccess = time.Now()
 	
 	return entry.Result, true
 }
@@ -87,11 +99,42 @@ func (c *IdempotencyCache) Set(key string, result *mcp.ToolResult) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	
+	/* If cache is at max size and key doesn't exist, evict LRU entry */
+	if c.maxSize > 0 && len(c.entries) >= c.maxSize {
+		if _, exists := c.entries[key]; !exists {
+			c.evictLRU()
+		}
+	}
+	
 	now := time.Now()
 	c.entries[key] = &IdempotencyCacheEntry{
-		Result:    result,
-		Timestamp: now,
-		ExpiresAt: now.Add(c.ttl),
+		Result:     result,
+		Timestamp:  now,
+		ExpiresAt:  now.Add(c.ttl),
+		LastAccess: now,
+	}
+}
+
+/* evictLRU evicts the least recently used entry */
+func (c *IdempotencyCache) evictLRU() {
+	if len(c.entries) == 0 {
+		return
+	}
+	
+	var oldestKey string
+	var oldestTime time.Time
+	first := true
+	
+	for key, entry := range c.entries {
+		if first || entry.LastAccess.Before(oldestTime) {
+			oldestKey = key
+			oldestTime = entry.LastAccess
+			first = false
+		}
+	}
+	
+	if oldestKey != "" {
+		delete(c.entries, oldestKey)
 	}
 }
 

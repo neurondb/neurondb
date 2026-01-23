@@ -16,6 +16,7 @@ import (
 
 	"github.com/neurondb/NeuronMCP/internal/batch"
 	"github.com/neurondb/NeuronMCP/internal/cache"
+	"github.com/neurondb/NeuronMCP/internal/completion"
 	"github.com/neurondb/NeuronMCP/internal/config"
 	"github.com/neurondb/NeuronMCP/internal/database"
 	"github.com/neurondb/NeuronMCP/internal/elicitation"
@@ -46,6 +47,7 @@ type Server struct {
 	prompts             *prompts.Manager
 	sampling            *sampling.Manager
 	elicitation         *elicitation.Manager
+	completionManager   *completion.Manager
 	health              *health.Checker
 	progress            *progress.Tracker
 	batch               *batch.Processor
@@ -132,6 +134,7 @@ func NewServerWithConfig(configPath string) (*Server, error) {
 	promptsManager := prompts.NewManager(db, logger)
 	samplingManager := sampling.NewManager(db, logger)
 	elicitationManager := elicitation.NewManager(logger)
+	completionManager := completion.NewManager(promptsManager, resourcesManager)
 	
 	/* Start periodic cleanup for elicitation sessions */
 	go func() {
@@ -149,8 +152,8 @@ func NewServerWithConfig(configPath string) (*Server, error) {
 	batchProcessor := batch.NewProcessor(db, toolRegistry, logger)
 	batchProcessor.SetProgressTracker(progressTracker)
 
-	/* Create idempotency cache with 1 hour TTL */
-	idempotencyCache := cache.NewIdempotencyCache(time.Hour)
+	/* Create idempotency cache with 1 hour TTL and max 10000 entries (LRU eviction) */
+	idempotencyCache := cache.NewIdempotencyCacheWithSize(time.Hour, 10000)
 
 	/* Create metrics collector */
 	metricsCollector := metrics.NewCollectorWithDB(db)
@@ -185,6 +188,7 @@ func NewServerWithConfig(configPath string) (*Server, error) {
 		prompts:             promptsManager,
 		sampling:            samplingManager,
 		elicitation:         elicitationManager,
+		completionManager:   completionManager,
 		health:              healthChecker,
 		progress:            progressTracker,
 		batch:               batchProcessor,
@@ -219,6 +223,7 @@ func (s *Server) setupHandlers() {
 	s.setupPromptHandlers()
 	s.setupSamplingHandlers()
 	s.setupElicitationHandlers()
+	s.setupCompletionHandlers()
 	s.setupHealthHandlers()
 	s.setupProgressHandlers()
 	s.setupBatchHandlers()
@@ -259,12 +264,33 @@ func (s *Server) Start(ctx context.Context) error {
 	if s.httpTransport != nil {
 		s.httpTransportDone = make(chan error, 1)
 		go func() {
+			/* Ensure goroutine always sends to channel to prevent leaks */
+			defer func() {
+				/* Recover from any panics */
+				if r := recover(); r != nil {
+					if s.logger != nil {
+						s.logger.Error("Panic in HTTP transport goroutine", fmt.Errorf("panic: %v", r), nil)
+					}
+					/* Send panic error to channel */
+					select {
+					case s.httpTransportDone <- fmt.Errorf("panic: %v", r):
+					default:
+						/* Channel full, but error logged */
+					}
+				}
+			}()
 			err := s.httpTransport.Start()
-			/* Send error (or nil) to done channel */
+			/* Send error (or nil) to done channel - ensure it always sends */
 			select {
 			case s.httpTransportDone <- err:
-			default:
-				/* Channel already closed or full, ignore */
+				/* Successfully sent */
+			case <-time.After(1 * time.Second):
+				/* Channel full or receiver not ready - log warning */
+				if s.logger != nil {
+					s.logger.Warn("HTTP transport done channel not read within timeout", map[string]interface{}{
+						"error": err,
+					})
+				}
 			}
 		}()
 		s.logger.Info("HTTP transport started", map[string]interface{}{

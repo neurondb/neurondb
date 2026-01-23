@@ -260,7 +260,7 @@ func NewRetrieveContextTool(db *database.Database, logger *logging.Logger) *Retr
 	return &RetrieveContextTool{
 		BaseTool: NewBaseTool(
 			"postgresql_retrieve_context",
-			"Retrieve relevant context using vector search",
+			"Retrieve relevant context using vector search with optional reranking, hybrid search, temporal, and faceted support",
 			map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
@@ -282,6 +282,72 @@ func NewRetrieveContextTool(db *database.Database, logger *logging.Logger) *Retr
 						"minimum":     1,
 						"maximum":     100,
 						"description": "Number of results to return",
+					},
+					"rerank": map[string]interface{}{
+						"type":        "boolean",
+						"default":     false,
+						"description": "Whether to rerank results",
+					},
+					"rerank_model": map[string]interface{}{
+						"type":        "string",
+						"default":     "cross-encoder",
+						"description": "Reranking model to use",
+					},
+					"initial_k": map[string]interface{}{
+						"type":        "number",
+						"default":     20,
+						"minimum":     1,
+						"maximum":     100,
+						"description": "Initial number of results before reranking (if rerank is enabled)",
+					},
+					"hybrid": map[string]interface{}{
+						"type":        "boolean",
+						"default":     false,
+						"description": "Whether to use hybrid search (vector + full-text)",
+					},
+					"text_column": map[string]interface{}{
+						"type":        "string",
+						"default":     "content",
+						"description": "Text column name for full-text search (if hybrid is enabled)",
+					},
+					"vector_weight": map[string]interface{}{
+						"type":        "number",
+						"default":     0.7,
+						"minimum":     0,
+						"maximum":     1,
+						"description": "Weight for vector search in hybrid mode (0-1)",
+					},
+					"temporal": map[string]interface{}{
+						"type":        "boolean",
+						"default":     false,
+						"description": "Whether to use temporal weighting (recency boost)",
+					},
+					"timestamp_column": map[string]interface{}{
+						"type":        "string",
+						"default":     "created_at",
+						"description": "Timestamp column name for temporal weighting",
+					},
+					"recency_weight": map[string]interface{}{
+						"type":        "number",
+						"default":     0.3,
+						"minimum":     0,
+						"maximum":     1,
+						"description": "Weight for recency in temporal mode (0-1)",
+					},
+					"faceted": map[string]interface{}{
+						"type":        "boolean",
+						"default":     false,
+						"description": "Whether to use faceted search (category filtering)",
+					},
+					"category_column": map[string]interface{}{
+						"type":        "string",
+						"default":     "category",
+						"description": "Category column name for faceted search",
+					},
+					"categories": map[string]interface{}{
+						"type":        "array",
+						"items":       map[string]interface{}{"type": "string"},
+						"description": "List of categories to filter by (if faceted is enabled)",
 					},
 				},
 				"required": []interface{}{"query", "table", "vector_column"},
@@ -309,6 +375,59 @@ func (t *RetrieveContextTool) Execute(ctx context.Context, params map[string]int
 	limit := 5
 	if l, ok := params["limit"].(float64); ok {
 		limit = int(l)
+	}
+	rerank := false
+	if r, ok := params["rerank"].(bool); ok {
+		rerank = r
+	}
+	rerankModel := "cross-encoder"
+	if rm, ok := params["rerank_model"].(string); ok && rm != "" {
+		rerankModel = rm
+	}
+	initialK := 20
+	if ik, ok := params["initial_k"].(float64); ok {
+		initialK = int(ik)
+	}
+	hybrid := false
+	if h, ok := params["hybrid"].(bool); ok {
+		hybrid = h
+	}
+	textColumn := "content"
+	if tc, ok := params["text_column"].(string); ok && tc != "" {
+		textColumn = tc
+	}
+	vectorWeight := 0.7
+	if vw, ok := params["vector_weight"].(float64); ok {
+		vectorWeight = vw
+	}
+	temporal := false
+	if t, ok := params["temporal"].(bool); ok {
+		temporal = t
+	}
+	timestampColumn := "created_at"
+	if ts, ok := params["timestamp_column"].(string); ok && ts != "" {
+		timestampColumn = ts
+	}
+	recencyWeight := 0.3
+	if rw, ok := params["recency_weight"].(float64); ok {
+		recencyWeight = rw
+	}
+	faceted := false
+	if f, ok := params["faceted"].(bool); ok {
+		faceted = f
+	}
+	categoryColumn := "category"
+	if cc, ok := params["category_column"].(string); ok && cc != "" {
+		categoryColumn = cc
+	}
+	var categories []string
+	if cats, ok := params["categories"].([]interface{}); ok {
+		categories = make([]string, 0, len(cats))
+		for _, cat := range cats {
+			if catStr, ok := cat.(string); ok {
+				categories = append(categories, catStr)
+			}
+		}
 	}
 
 	if queryText == "" {
@@ -428,16 +547,74 @@ func (t *RetrieveContextTool) Execute(ctx context.Context, params map[string]int
 	/* Use EscapeIdentifier to prevent SQL injection (table and vectorColumn are validated above) */
 	escapedTable := database.EscapeIdentifier(table)
 	escapedVectorCol := database.EscapeIdentifier(vectorColumn)
-	retrieveQuery := fmt.Sprintf(`
-		SELECT 
-			*,
-			1 - (%s <=> $1::vector) AS similarity
-		FROM %s
-		ORDER BY %s <=> $1::vector
-		LIMIT $2
-	`, escapedVectorCol, escapedTable, escapedVectorCol)
 	
-	result, err := t.executor.ExecuteQuery(ctx, retrieveQuery, []interface{}{embeddingStr, limit})
+	var retrieveQuery string
+	var queryParams []interface{}
+	
+	/* Determine search mode and build query */
+	/* Use initialK when reranking is enabled, otherwise use limit */
+	retrieveLimit := limit
+	if rerank {
+		retrieveLimit = initialK
+	}
+	
+	if hybrid {
+		/* Hybrid search: combine vector and full-text */
+		escapedTextCol := database.EscapeIdentifier(textColumn)
+		retrieveQuery = fmt.Sprintf(`
+			SELECT 
+				*,
+				(%s <=> $1::vector) * $3 + 
+				(1.0 - ts_rank(to_tsvector('english', %s), plainto_tsquery('english', $2))) * (1.0 - $3) AS combined_score,
+				1 - (%s <=> $1::vector) AS similarity
+			FROM %s
+			WHERE to_tsvector('english', %s) @@ plainto_tsquery('english', $2)
+			ORDER BY combined_score
+			LIMIT $4
+		`, escapedVectorCol, escapedTextCol, escapedVectorCol, escapedTable, escapedTextCol)
+		queryParams = []interface{}{embeddingStr, queryText, vectorWeight, retrieveLimit}
+	} else if temporal {
+		/* Temporal search: combine vector similarity with recency */
+		escapedTimestampCol := database.EscapeIdentifier(timestampColumn)
+		retrieveQuery = fmt.Sprintf(`
+			SELECT 
+				*,
+				(1 - (%s <=> $1::vector)) * (1 - $3) + 
+				(EXP(-EXTRACT(EPOCH FROM (NOW() - %s)) / 86400.0) / 7.0) * $3 AS combined_score,
+				1 - (%s <=> $1::vector) AS similarity
+			FROM %s
+			ORDER BY combined_score DESC
+			LIMIT $2
+		`, escapedVectorCol, escapedTimestampCol, escapedVectorCol, escapedTable)
+		queryParams = []interface{}{embeddingStr, retrieveLimit, recencyWeight}
+	} else if faceted && len(categories) > 0 {
+		/* Faceted search: filter by categories */
+		escapedCategoryCol := database.EscapeIdentifier(categoryColumn)
+		retrieveQuery = fmt.Sprintf(`
+			SELECT 
+				*,
+				1 - (%s <=> $1::vector) AS similarity
+			FROM %s
+			WHERE %s = ANY($3::text[])
+			ORDER BY %s <=> $1::vector
+			LIMIT $2
+		`, escapedVectorCol, escapedTable, escapedCategoryCol, escapedVectorCol)
+		queryParams = []interface{}{embeddingStr, retrieveLimit, categories}
+	} else {
+		/* Basic vector search */
+		retrieveQuery = fmt.Sprintf(`
+			SELECT 
+				*,
+				1 - (%s <=> $1::vector) AS similarity
+			FROM %s
+			ORDER BY %s <=> $1::vector
+			LIMIT $2
+		`, escapedVectorCol, escapedTable, escapedVectorCol)
+		queryParams = []interface{}{embeddingStr, retrieveLimit}
+	}
+	
+	/* Execute initial retrieval */
+	result, err := t.executor.ExecuteQuery(ctx, retrieveQuery, queryParams)
 	if err != nil {
 		t.logger.Error("Context retrieval failed", err, params)
 		return Error(fmt.Sprintf("Context retrieval execution failed: query_length=%d, table='%s', vector_column='%s', limit=%d, error=%v", len(queryText), table, vectorColumn, limit, err), "RAG_ERROR", map[string]interface{}{
@@ -449,9 +626,55 @@ func (t *RetrieveContextTool) Execute(ctx context.Context, params map[string]int
 		}), nil
 	}
 
+	/* Apply reranking if requested */
+	if rerank && len(result) > 0 {
+		/* Extract text content for reranking */
+		documents := make([]string, 0, len(result))
+		for _, row := range result {
+			if text, ok := row[textColumn].(string); ok {
+				documents = append(documents, text)
+			}
+		}
+		
+		if len(documents) > 0 {
+			/* Use rerank_cross_encoder function */
+			rerankQuery := `SELECT rerank_cross_encoder($1, $2::text[], $3, $4) AS reranked`
+			rerankResult, err := t.executor.ExecuteQueryOne(ctx, rerankQuery, []interface{}{queryText, documents, rerankModel, limit})
+			if err == nil {
+				/* Reranking succeeded - use reranked results */
+				if rerankedData, ok := rerankResult["reranked"].(map[string]interface{}); ok {
+					if rankedArray, ok := rerankedData["ranked"].([]interface{}); ok {
+						/* Reorder results based on reranking */
+						rerankedResults := make([]map[string]interface{}, 0, len(rankedArray))
+						for _, rankedItem := range rankedArray {
+							if itemMap, ok := rankedItem.(map[string]interface{}); ok {
+								if idx, ok := itemMap["idx"].(float64); ok {
+									idxInt := int(idx)
+									if idxInt >= 0 && idxInt < len(result) {
+										rerankedResults = append(rerankedResults, result[idxInt])
+									}
+								}
+							}
+						}
+						result = rerankedResults[:min(limit, len(rerankedResults))]
+					}
+				}
+			} else {
+				/* Reranking failed - log but continue with original results */
+				t.logger.Warn("Reranking failed, using original results", map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
+		}
+	}
+
 	return Success(result, map[string]interface{}{
 		"limit": limit,
 		"count": len(result),
+		"reranked": rerank,
+		"hybrid": hybrid,
+		"temporal": temporal,
+		"faceted": faceted,
 	}), nil
 }
 

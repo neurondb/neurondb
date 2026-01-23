@@ -21,7 +21,9 @@ import (
 )
 
 /* RedisCache is a Redis-backed cache implementation */
-/* Note: This is a stub implementation. In production, use a Redis client library like go-redis */
+/* Note: This is a stub implementation that falls back to in-memory cache. */
+/* To enable Redis support, implement using a Redis client library like go-redis/redis. */
+/* Current implementation provides graceful fallback to memory cache when Redis is unavailable. */
 type RedisCache struct {
 	/* In a real implementation, this would contain a Redis client */
 	/* For now, we'll use a fallback to memory cache */

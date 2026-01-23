@@ -24,10 +24,18 @@ import (
 
 var (
 	/* Patterns to detect and sanitize sensitive information */
-	passwordPattern     = regexp.MustCompile(`(?i)(password|pwd|passwd)\s*[=:]\s*[^\s,;\)]+`)
-	connectionStringPattern = regexp.MustCompile(`(?i)(postgresql://|postgres://|mysql://)[^'"\s]+`)
-	apiKeyPattern      = regexp.MustCompile(`(?i)(api[_-]?key|apikey|token)\s*[=:]\s*[^\s,;\)]+`)
-	secretPattern      = regexp.MustCompile(`(?i)(secret|private[_-]?key)\s*[=:]\s*[^\s,;\)]+`)
+	passwordPattern     = regexp.MustCompile(`(?i)(password|pwd|passwd|pass)\s*[=:]\s*[^\s,;\)]+`)
+	connectionStringPattern = regexp.MustCompile(`(?i)(postgresql://|postgres://|mysql://|mongodb://|redis://|http://|https://)[^'"\s]+`)
+	apiKeyPattern      = regexp.MustCompile(`(?i)(api[_-]?key|apikey|token|bearer|auth[_-]?token|access[_-]?token)\s*[=:]\s*[^\s,;\)]+`)
+	secretPattern      = regexp.MustCompile(`(?i)(secret|private[_-]?key|private[_-]?key|session[_-]?key|encryption[_-]?key)\s*[=:]\s*[^\s,;\)]+`)
+	/* Additional patterns for common sensitive data */
+	emailPattern       = regexp.MustCompile(`(?i)\b[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}\b`)
+	creditCardPattern  = regexp.MustCompile(`\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b`)
+	ssnPattern         = regexp.MustCompile(`\b\d{3}-\d{2}-\d{4}\b`)
+	/* AWS/GCP/Azure credential patterns */
+	awsKeyPattern      = regexp.MustCompile(`(?i)(aws[_-]?(access[_-]?key|secret[_-]?key|session[_-]?token))\s*[=:]\s*[^\s,;\)]+`)
+	gcpKeyPattern      = regexp.MustCompile(`(?i)(gcp[_-]?(key|credentials|service[_-]?account))\s*[=:]\s*[^\s,;\)]+`)
+	azureKeyPattern    = regexp.MustCompile(`(?i)(azure[_-]?(key|secret|connection[_-]?string))\s*[=:]\s*[^\s,;\)]+`)
 )
 
 /* SanitizeError sanitizes an error message to remove sensitive information */
@@ -55,29 +63,54 @@ func SanitizeString(s string) string {
 	
 	result := s
 	
-	/* Remove passwords */
+	/* Remove passwords (highest priority - most common) */
 	result = passwordPattern.ReplaceAllString(result, "[password redacted]")
 	
 	/* Remove connection strings (but preserve the protocol part for debugging) */
 	result = connectionStringPattern.ReplaceAllStringFunc(result, func(match string) string {
 		/* Extract protocol */
-		if strings.HasPrefix(strings.ToLower(match), "postgresql://") {
+		matchLower := strings.ToLower(match)
+		if strings.HasPrefix(matchLower, "postgresql://") {
 			return "postgresql://[connection string redacted]"
 		}
-		if strings.HasPrefix(strings.ToLower(match), "postgres://") {
+		if strings.HasPrefix(matchLower, "postgres://") {
 			return "postgres://[connection string redacted]"
 		}
-		if strings.HasPrefix(strings.ToLower(match), "mysql://") {
+		if strings.HasPrefix(matchLower, "mysql://") {
 			return "mysql://[connection string redacted]"
+		}
+		if strings.HasPrefix(matchLower, "mongodb://") {
+			return "mongodb://[connection string redacted]"
+		}
+		if strings.HasPrefix(matchLower, "redis://") {
+			return "redis://[connection string redacted]"
 		}
 		return "[connection string redacted]"
 	})
 	
-	/* Remove API keys */
+	/* Remove API keys and tokens */
 	result = apiKeyPattern.ReplaceAllString(result, "[api key redacted]")
 	
-	/* Remove secrets */
+	/* Remove secrets and private keys */
 	result = secretPattern.ReplaceAllString(result, "[secret redacted]")
+	
+	/* Remove AWS credentials */
+	result = awsKeyPattern.ReplaceAllString(result, "[aws credential redacted]")
+	
+	/* Remove GCP credentials */
+	result = gcpKeyPattern.ReplaceAllString(result, "[gcp credential redacted]")
+	
+	/* Remove Azure credentials */
+	result = azureKeyPattern.ReplaceAllString(result, "[azure credential redacted]")
+	
+	/* Remove email addresses (may contain sensitive info) */
+	result = emailPattern.ReplaceAllString(result, "[email redacted]")
+	
+	/* Remove credit card numbers */
+	result = creditCardPattern.ReplaceAllString(result, "[credit card redacted]")
+	
+	/* Remove SSN */
+	result = ssnPattern.ReplaceAllString(result, "[SSN redacted]")
 	
 	return result
 }

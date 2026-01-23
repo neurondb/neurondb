@@ -180,9 +180,10 @@ func TestStdioTransport_ReadMessage_JSONDirect(t *testing.T) {
 func TestStdioTransport_WriteMessage(t *testing.T) {
 	var buf bytes.Buffer
 	transport := &StdioTransport{
-		stdin:  bufio.NewReader(strings.NewReader("")),
-		stdout: bufio.NewWriter(&buf),
-		stderr: &bytes.Buffer{},
+		stdin:              bufio.NewReader(strings.NewReader("")),
+		stdout:             bufio.NewWriter(&buf),
+		stderr:             &bytes.Buffer{},
+		clientUsesHeaders:  true,
 	}
 
 	resp := CreateResponse(json.RawMessage("1"), map[string]string{"test": "value"})
@@ -253,9 +254,10 @@ func TestStdioTransport_WriteMessage_NilResponse(t *testing.T) {
 func TestStdioTransport_WriteNotification(t *testing.T) {
 	var buf bytes.Buffer
 	transport := &StdioTransport{
-		stdin:  bufio.NewReader(strings.NewReader("")),
-		stdout: bufio.NewWriter(&buf),
-		stderr: &bytes.Buffer{},
+		stdin:              bufio.NewReader(strings.NewReader("")),
+		stdout:             bufio.NewWriter(&buf),
+		stderr:             &bytes.Buffer{},
+		clientUsesHeaders:  true,
 	}
 
 	err := transport.WriteNotification("test/notification", map[string]string{"test": "value"})
