@@ -410,6 +410,16 @@ func (c *Client) ExecuteSQL(ctx context.Context, query string) (interface{}, err
 	return results, nil
 }
 
+/* ExecuteQuery executes a parameterized SQL query and returns rows */
+func (c *Client) ExecuteQuery(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
+	return c.db.QueryContext(ctx, query, args...)
+}
+
+/* ExecuteQueryRow executes a parameterized SQL query and returns a single row */
+func (c *Client) ExecuteQueryRow(ctx context.Context, query string, args ...interface{}) *sql.Row {
+	return c.db.QueryRowContext(ctx, query, args...)
+}
+
 /* ExecuteSQLFull executes any SQL query (full database access) */
 /* This allows CREATE, INSERT, UPDATE, DELETE, DROP, etc. */
 /* Use with extreme caution - no safety checks are performed */

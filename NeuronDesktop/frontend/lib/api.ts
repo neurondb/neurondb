@@ -577,6 +577,121 @@ export interface DashboardStats {
   }
 }
 
+// RAG API
+export interface RAGQueryRequest {
+  query: string
+  table_name: string
+  vector_col?: string
+  text_col?: string
+  model?: string
+  top_k?: number
+  rerank?: boolean
+  rerank_model?: string
+  hybrid?: boolean
+  vector_weight?: number
+  temporal?: boolean
+  recency_weight?: number
+  faceted?: boolean
+  categories?: string[]
+  custom_context?: Record<string, any>
+  // RAG Architecture Selection
+  architecture?: 'naive' | 'hyde' | 'graph' | 'corrective' | 'hybrid' | 'agentic' | 'contextual' | 'modular'
+  // HyDE parameters
+  num_hypotheticals?: number
+  hypothetical_weight?: number
+  // Graph RAG parameters
+  entity_col?: string
+  relation_col?: string
+  max_depth?: number
+  traversal_method?: 'bfs' | 'dfs'
+  // Corrective RAG parameters
+  max_iterations?: number
+  quality_threshold?: number
+  // Agentic RAG parameters
+  max_steps?: number
+  evidence_threshold?: number
+  max_tokens?: number
+  // Contextual RAG parameters
+  conversation_history?: Array<{ role: string; content: string }>
+  session_context?: Record<string, any>
+  cross_session_context?: boolean
+  // Modular RAG parameters
+  module_config?: {
+    name: string
+    modules: Array<{
+      name: string
+      type: 'retrieval' | 'reranking' | 'generation' | 'filter'
+      parameters?: Record<string, any>
+      enabled?: boolean
+    }>
+  }
+}
+
+export interface RAGQueryResponse {
+  answer: string
+  documents: string[]
+  count: number
+  method: string
+  metadata?: Record<string, any>
+}
+
+export interface RAGIngestRequest {
+  document_text: string
+  table_name: string
+  text_col?: string
+  vector_col?: string
+  embedding_model?: string
+  chunk_size?: number
+  chunk_overlap?: number
+  metadata?: Record<string, any>
+}
+
+export interface RAGIngestResponse {
+  chunks_created: number
+  chunk_ids?: number[]
+  message: string
+}
+
+export interface RAGEvaluateRequest {
+  query: string
+  answer: string
+  context_chunks: string[]
+  evaluation_type?: string
+}
+
+export interface RAGEvaluateResponse {
+  faithfulness: number
+  relevancy: number
+  context_precision: number
+  context_recall: number
+  semantic_similarity: number
+  overall_score: number
+  metadata?: Record<string, any>
+}
+
+export interface RAGPipeline {
+  pipeline_id: number
+  pipeline_name: string
+  embedding_model: string
+  config?: Record<string, any>
+  created_at: string
+}
+
+export const ragAPI = {
+  query: (profileId: string, request: RAGQueryRequest) =>
+    api.post<RAGQueryResponse>(`/profiles/${profileId}/rag/query`, request),
+  ingest: (profileId: string, request: RAGIngestRequest) =>
+    api.post<RAGIngestResponse>(`/profiles/${profileId}/rag/ingest`, request),
+  evaluate: (profileId: string, request: RAGEvaluateRequest) =>
+    api.post<RAGEvaluateResponse>(`/profiles/${profileId}/rag/evaluate`, request),
+  listPipelines: (profileId: string) =>
+    api.get<{ pipelines: RAGPipeline[]; count: number }>(`/profiles/${profileId}/rag/pipelines`),
+  createPipeline: (profileId: string, pipeline: Partial<RAGPipeline>) =>
+    api.post<RAGPipeline>(`/profiles/${profileId}/rag/pipelines`, pipeline),
+  getPipeline: (profileId: string, pipelineId: string) =>
+    api.get<RAGPipeline>(`/profiles/${profileId}/rag/pipelines/${pipelineId}`),
+}
+
 export const dashboardAPI = {
   getDashboard: (profileId: string) => 
     api.get<DashboardStats>(`/profiles/${profileId}/dashboard`),

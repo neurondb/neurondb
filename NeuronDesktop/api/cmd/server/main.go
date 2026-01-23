@@ -356,6 +356,15 @@ func main() {
 		neurondbHandlers.ExecuteSQLFull(w, r)
 	}).Methods("POST", "OPTIONS")
 
+	/* RAG routes */
+	ragHandlers := handlers.NewRAGHandlers(queries, neurondbHandlers)
+	apiRouter.HandleFunc("/profiles/{profileId}/rag/query", ragHandlers.RAGQuery).Methods("POST")
+	apiRouter.HandleFunc("/profiles/{profileId}/rag/ingest", ragHandlers.RAGIngest).Methods("POST")
+	apiRouter.HandleFunc("/profiles/{profileId}/rag/evaluate", ragHandlers.RAGEvaluate).Methods("POST")
+	apiRouter.HandleFunc("/profiles/{profileId}/rag/pipelines", ragHandlers.ListRAGPipelines).Methods("GET")
+	apiRouter.HandleFunc("/profiles/{profileId}/rag/pipelines", ragHandlers.CreateRAGPipeline).Methods("POST")
+	apiRouter.HandleFunc("/profiles/{profileId}/rag/pipelines/{id}", ragHandlers.GetRAGPipeline).Methods("GET")
+
 	apiRouter.HandleFunc("/agent/test", agentHandlers.TestAgentConfig).Methods("POST")
 	apiRouter.HandleFunc("/profiles/{profile_id}/agent/agents", agentHandlers.ListAgents).Methods("GET")
 	apiRouter.HandleFunc("/profiles/{profile_id}/agent/agents", agentHandlers.CreateAgent).Methods("POST")
