@@ -27,10 +27,9 @@ DECLARE
     result_count INT;
     dim_check INT;
 BEGIN
-    SELECT COUNT(*), vector_dims(reduced_vector)
+    SELECT COUNT(*), vector_dims(MAX(reduced_vector))
     INTO result_count, dim_check
-    FROM neurondb.reduce_pca('test_pca_data', 'vec', 2)
-    LIMIT 1;
+    FROM neurondb.reduce_pca('test_pca_data', 'vec', 2);
     
     IF result_count = 0 THEN
         RAISE EXCEPTION 'reduce_pca returned no results';
