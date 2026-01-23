@@ -140,6 +140,7 @@ func NewDBWithRetry(connStr string, poolConfig PoolConfig, maxRetries int, retry
 		}
 	}
 
+	/* Format connection info without password for error message */
 	connInfoStr := utils.FormatConnectionInfo(connInfo.Host, connInfo.Port, connInfo.Database, connInfo.User)
 	return nil, fmt.Errorf("failed to connect to %s after %d attempts (last error: %w)", connInfoStr, maxRetries, err)
 }

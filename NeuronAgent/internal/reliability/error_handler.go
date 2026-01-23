@@ -26,6 +26,7 @@ import (
 
 	"github.com/neurondb/NeuronAgent/internal/db"
 	"github.com/neurondb/NeuronAgent/internal/metrics"
+	"github.com/neurondb/NeuronAgent/internal/utils"
 )
 
 /* ErrorHandler provides advanced error handling */
@@ -112,19 +113,9 @@ func (eh *ErrorHandler) RetryWithBackoff(ctx context.Context, fn func() error) e
 }
 
 /* isRetryable checks if an error is retryable */
+/* Uses shared classification logic from utils package */
 func (eh *ErrorHandler) isRetryable(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	errStr := err.Error()
-	for key := range eh.retryableErrors {
-		if contains(errStr, key) {
-			return true
-		}
-	}
-
-	return false
+	return utils.IsRetryable(err)
 }
 
 /* calculateDelay calculates retry delay with exponential backoff */
@@ -146,26 +137,19 @@ func (eh *ErrorHandler) calculateDelay(attempt int, err error) time.Duration {
 }
 
 /* ClassifyError classifies an error type */
+/* Uses shared classification logic from utils package */
 func (eh *ErrorHandler) ClassifyError(err error) ErrorType {
-	if err == nil {
+	errorType := utils.ClassifyError(err)
+	switch errorType {
+	case utils.ErrorTypeTimeout:
+		return ErrorTypeTimeout
+	case utils.ErrorTypeRateLimit:
+		return ErrorTypeRateLimit
+	case utils.ErrorTypeRetryable:
+		return ErrorTypeTransient
+	default:
 		return ErrorTypePermanent
 	}
-
-	errStr := err.Error()
-
-	if contains(errStr, "timeout") {
-		return ErrorTypeTimeout
-	}
-
-	if contains(errStr, "rate_limit") {
-		return ErrorTypeRateLimit
-	}
-
-	if eh.isRetryable(err) {
-		return ErrorTypeTransient
-	}
-
-	return ErrorTypePermanent
 }
 
 /* StoreDeadLetter stores failed operation in dead letter queue */

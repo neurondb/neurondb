@@ -16,8 +16,9 @@ package jobs
 import (
 	"context"
 	"math"
-	"strings"
 	"time"
+
+	"github.com/neurondb/NeuronAgent/internal/utils"
 )
 
 /* RetryConfig configures retry behavior */
@@ -60,74 +61,20 @@ func CalculateDelay(attempt int, config RetryConfig) time.Duration {
 	return time.Duration(delay)
 }
 
-/* ErrorType classifies errors for retry logic */
-type ErrorType int
+/* ErrorType is an alias for utils.ErrorType for backward compatibility */
+type ErrorType = utils.ErrorType
 
 const (
-	ErrorTypeRetryable ErrorType = iota
-	ErrorTypeNonRetryable
-	ErrorTypeUnknown
+	ErrorTypeRetryable    = utils.ErrorTypeRetryable
+	ErrorTypeNonRetryable = utils.ErrorTypeNonRetryable
+	ErrorTypeTimeout      = utils.ErrorTypeTimeout
+	ErrorTypeRateLimit    = utils.ErrorTypeRateLimit
 )
 
 /* ClassifyError classifies an error as retryable or non-retryable */
+/* Uses shared classification logic from utils package */
 func ClassifyError(err error) ErrorType {
-	if err == nil {
-		return ErrorTypeNonRetryable
-	}
-
-	errStr := err.Error()
-
-	/* Non-retryable errors: validation, authentication, authorization, not found */
-	nonRetryablePatterns := []string{
-		"validation",
-		"invalid",
-		"unauthorized",
-		"forbidden",
-		"not found",
-		"does not exist",
-		"already exists",
-		"duplicate",
-		"malformed",
-		"parse error",
-		"syntax error",
-	}
-
-	/* Retryable errors: network, timeout, temporary, rate limit, server errors */
-	retryablePatterns := []string{
-		"connection",
-		"timeout",
-		"temporary",
-		"temporarily",
-		"rate limit",
-		"too many",
-		"server error",
-		"internal error",
-		"deadline exceeded",
-		"context canceled",
-		"network",
-		"unavailable",
-		"busy",
-		"locked",
-	}
-
-	errLower := strings.ToLower(errStr)
-
-	/* Check for non-retryable patterns first */
-	for _, pattern := range nonRetryablePatterns {
-		if strings.Contains(errLower, pattern) {
-			return ErrorTypeNonRetryable
-		}
-	}
-
-	/* Check for retryable patterns */
-	for _, pattern := range retryablePatterns {
-		if strings.Contains(errLower, pattern) {
-			return ErrorTypeRetryable
-		}
-	}
-
-	/* Default to retryable for unknown errors (conservative approach) */
-	return ErrorTypeRetryable
+	return utils.ClassifyError(err)
 }
 
 /* ShouldRetry determines if a job should be retried based on error */
@@ -137,8 +84,7 @@ func ShouldRetry(err error, attempt int, maxRetries int) bool {
 	}
 
 	/* Classify error to determine if it's retryable */
-	errorType := ClassifyError(err)
-	return errorType == ErrorTypeRetryable
+	return utils.IsRetryable(err)
 }
 
 /* RetryWithBackoff retries a function with exponential backoff */

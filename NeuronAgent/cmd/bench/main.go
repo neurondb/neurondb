@@ -28,6 +28,7 @@ import (
 	"github.com/neurondb/NeuronAgent/internal/db"
 	"github.com/neurondb/NeuronAgent/internal/eval"
 	"github.com/neurondb/NeuronAgent/internal/tools"
+	"github.com/neurondb/NeuronAgent/internal/utils"
 	"github.com/neurondb/NeuronAgent/pkg/neurondb"
 )
 
@@ -63,8 +64,14 @@ func main() {
 	}
 
 	/* Connect to database */
-	connStr := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
-		cfg.Database.Host, cfg.Database.Port, cfg.Database.User, cfg.Database.Password, cfg.Database.Database)
+	connStr := utils.BuildConnectionString(
+		cfg.Database.Host,
+		cfg.Database.Port,
+		cfg.Database.User,
+		cfg.Database.Password,
+		cfg.Database.Database,
+		"",
+	)
 
 	database, err := db.NewDB(connStr, db.PoolConfig{
 		MaxOpenConns:    cfg.Database.MaxOpenConns,
@@ -73,7 +80,14 @@ func main() {
 		ConnMaxIdleTime: 10 * time.Minute,
 	})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: Failed to connect to database at %s:%d: %v\n", cfg.Database.Host, cfg.Database.Port, err)
+		maskedConnStr := utils.BuildMaskedConnectionString(
+			cfg.Database.Host,
+			cfg.Database.Port,
+			cfg.Database.User,
+			cfg.Database.Database,
+			"",
+		)
+		fmt.Fprintf(os.Stderr, "Error: Failed to connect to database: %s: %v\n", maskedConnStr, err)
 		os.Exit(1)
 	}
 	defer database.Close()

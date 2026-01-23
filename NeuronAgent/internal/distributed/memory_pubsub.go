@@ -28,6 +28,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/neurondb/NeuronAgent/internal/db"
+	"github.com/neurondb/NeuronAgent/internal/utils"
 	"github.com/neurondb/NeuronAgent/internal/metrics"
 )
 
@@ -89,8 +90,7 @@ func (mps *MemoryPubSub) Start(ctx context.Context) error {
 			dbname = "neurondb"
 		}
 		
-		connStr = fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
-			host, port, user, password, dbname)
+		connStr = utils.BuildConnectionString(host, port, user, password, dbname, "")
 	}
 	
 	/* Create PostgreSQL listener */

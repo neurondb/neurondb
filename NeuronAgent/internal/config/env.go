@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -80,6 +81,16 @@ func LoadFromEnv(cfg *Config) error {
 	if header := os.Getenv("AUTH_API_KEY_HEADER"); header != "" {
 		cfg.Auth.APIKeyHeader = header
 	}
+	/* CORS/WebSocket allowed origins - comma-separated list */
+	if origins := os.Getenv("CORS_ALLOWED_ORIGINS"); origins != "" {
+		cfg.Auth.AllowedOrigins = parseCommaSeparated(origins)
+	}
+	if wsOrigins := os.Getenv("WEBSOCKET_ALLOWED_ORIGINS"); wsOrigins != "" {
+		cfg.Auth.WebSocketAllowedOrigins = parseCommaSeparated(wsOrigins)
+	} else if len(cfg.Auth.AllowedOrigins) > 0 {
+		/* If WebSocket origins not set, use CORS origins */
+		cfg.Auth.WebSocketAllowedOrigins = cfg.Auth.AllowedOrigins
+	}
 
 	/* Logging config */
 	if level := os.Getenv("LOG_LEVEL"); level != "" {
@@ -106,6 +117,15 @@ func LoadFromEnv(cfg *Config) error {
 			cfg.Distributed.RPCTimeout = d
 		}
 	}
+	if secret := os.Getenv("RPC_SECRET"); secret != "" {
+		cfg.Distributed.RPCSecret = secret
+	}
+	if apiKey := os.Getenv("RPC_API_KEY"); apiKey != "" {
+		cfg.Distributed.RPCAPIKey = apiKey
+	}
+	if useTLS := os.Getenv("RPC_USE_TLS"); useTLS == "true" {
+		cfg.Distributed.UseTLS = true
+	}
 
 	/* Cache config */
 	if enabled := os.Getenv("DISTRIBUTED_CACHE_ENABLED"); enabled == "true" {
@@ -128,6 +148,22 @@ func LoadFromEnv(cfg *Config) error {
 	}
 
 	return nil
+}
+
+/* parseCommaSeparated parses a comma-separated string into a slice */
+func parseCommaSeparated(s string) []string {
+	if s == "" {
+		return []string{}
+	}
+	parts := strings.Split(s, ",")
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
 }
 
 /* GetEnvOrDefault gets environment variable or returns default */

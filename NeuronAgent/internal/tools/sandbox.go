@@ -19,7 +19,6 @@ import (
 	"os/exec"
 	"runtime"
 	"syscall"
-	"time"
 )
 
 /* Sandbox provides security sandboxing for tool execution */
@@ -102,18 +101,4 @@ func (s *Sandbox) Chroot(cmd *exec.Cmd) error {
 	/* But this requires root and proper setup */
 
 	return nil
-}
-
-/* SetTimeout sets a timeout for command execution */
-/* Note: exec.Cmd doesn't have a settable Context field directly. */
-/* The context should be set when creating the command with exec.CommandContext */
-/* This function is deprecated - use exec.CommandContext instead */
-func SetTimeout(cmd *exec.Cmd, timeout time.Duration) *exec.Cmd {
-	/* Note: This function cannot properly set context on an existing command. */
-	/* The context must be provided when creating the command with exec.CommandContext. */
-	/* This function is kept for backward compatibility but does nothing. */
-	/* Callers should use exec.CommandContext(ctx, name, args...) instead. */
-	/* timeout parameter is intentionally ignored - this deprecated function does nothing */
-	_ = timeout
-	return cmd
 }

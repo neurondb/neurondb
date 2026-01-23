@@ -34,9 +34,7 @@ func NewStorageBackend(backendType string, config map[string]interface{}) (Stora
 	switch backendType {
 	case "database":
 		return NewDatabaseStorage(config)
-	case "s3":
-		return NewS3Storage(config)
 	default:
-		return nil, fmt.Errorf("unsupported storage backend: %s", backendType)
+		return nil, fmt.Errorf("unsupported storage backend: %s (only 'database' is supported)", backendType)
 	}
 }

@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -28,15 +29,71 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/neurondb/NeuronAgent/internal/agent"
 	"github.com/neurondb/NeuronAgent/internal/auth"
+	"github.com/neurondb/NeuronAgent/internal/config"
 	"github.com/neurondb/NeuronAgent/internal/db"
 	"github.com/neurondb/NeuronAgent/internal/metrics"
 )
 
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool {
-		return true /* Allow all origins in development */
-	},
-	HandshakeTimeout: 10 * time.Second,
+/* createUpgrader creates a WebSocket upgrader with origin checking */
+func createUpgrader(cfg *config.Config) websocket.Upgrader {
+	allowedOrigins := cfg.Auth.WebSocketAllowedOrigins
+	if len(allowedOrigins) == 0 {
+		/* Fallback to CORS origins if WebSocket origins not set */
+		allowedOrigins = cfg.Auth.AllowedOrigins
+	}
+	
+	/* If still empty, check environment variable for development */
+	if len(allowedOrigins) == 0 {
+		if envOrigins := os.Getenv("WEBSOCKET_ALLOWED_ORIGINS"); envOrigins != "" {
+			parts := strings.Split(envOrigins, ",")
+			for _, part := range parts {
+				trimmed := strings.TrimSpace(part)
+				if trimmed != "" {
+					allowedOrigins = append(allowedOrigins, trimmed)
+				}
+			}
+		}
+	}
+
+	return websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			origin := r.Header.Get("Origin")
+			if origin == "" {
+				/* No origin header - allow for non-browser clients */
+				return true
+			}
+
+			/* If no origins configured, deny in production, allow in development */
+			if len(allowedOrigins) == 0 {
+				env := os.Getenv("ENV")
+				if env == "production" || env == "prod" {
+					metrics.WarnWithContext(r.Context(), "WebSocket connection denied: no allowed origins configured in production", map[string]interface{}{
+						"origin": origin,
+					})
+					return false
+				}
+				/* Development mode - warn but allow */
+				metrics.WarnWithContext(r.Context(), "WebSocket connection allowed without origin check (development mode)", map[string]interface{}{
+					"origin": origin,
+				})
+				return true
+			}
+
+			/* Check against allowed origins */
+			for _, allowed := range allowedOrigins {
+				if origin == allowed {
+					return true
+				}
+			}
+
+			metrics.WarnWithContext(r.Context(), "WebSocket connection denied: origin not allowed", map[string]interface{}{
+				"origin":         origin,
+				"allowed_origins": allowedOrigins,
+			})
+			return false
+		},
+		HandshakeTimeout: 10 * time.Second,
+	}
 }
 
 const (
@@ -59,7 +116,9 @@ type connectionState struct {
 }
 
 /* HandleWebSocket handles WebSocket connections for streaming agent responses */
-func HandleWebSocket(runtime *agent.Runtime, keyManager *auth.APIKeyManager) http.HandlerFunc {
+func HandleWebSocket(runtime *agent.Runtime, keyManager *auth.APIKeyManager, cfg *config.Config) http.HandlerFunc {
+	upgrader := createUpgrader(cfg)
+	
 	return func(w http.ResponseWriter, r *http.Request) {
 		requestID := GetRequestID(r.Context())
 		logCtx := metrics.WithLogContext(r.Context(), requestID, "", "", "", "")
@@ -117,26 +176,38 @@ func HandleWebSocket(runtime *agent.Runtime, keyManager *auth.APIKeyManager) htt
 		/* Start ping goroutine */
 		go state.pingLoop()
 
+		/* Ensure cleanup happens even if handleMessages panics */
+		defer state.close()
+
 		/* Handle connection */
 		state.handleMessages(runtime, logCtx)
-
-		/* Cleanup */
-		state.close()
 	}
 }
 
 /* authenticateWebSocket authenticates WebSocket connection */
 func authenticateWebSocket(r *http.Request, keyManager *auth.APIKeyManager, logCtx context.Context) (*db.APIKey, error) {
-	/* Try to get API key from query parameter first */
-	apiKeyStr := r.URL.Query().Get("api_key")
+	/* Prefer Authorization header over query parameter for security */
+	apiKeyStr := ""
+	authHeader := r.Header.Get("Authorization")
+	if authHeader != "" {
+		parts := strings.Fields(authHeader)
+		if len(parts) == 2 && (parts[0] == "Bearer" || parts[0] == "ApiKey") {
+			apiKeyStr = parts[1]
+		}
+	}
+	
+	/* Fallback to query parameter if header not present (for compatibility) */
+	/* Note: Query parameters may be logged - prefer Authorization header */
 	if apiKeyStr == "" {
-		/* Try Authorization header */
-		authHeader := r.Header.Get("Authorization")
-		if authHeader != "" {
-			parts := strings.Fields(authHeader)
-			if len(parts) == 2 && (parts[0] == "Bearer" || parts[0] == "ApiKey") {
-				apiKeyStr = parts[1]
+		apiKeyStr = r.URL.Query().Get("api_key")
+		if apiKeyStr != "" {
+			keyPrefix := apiKeyStr
+			if len(keyPrefix) > 8 {
+				keyPrefix = keyPrefix[:8]
 			}
+			metrics.WarnWithContext(logCtx, "API key provided via query parameter (prefer Authorization header)", map[string]interface{}{
+				"key_prefix": keyPrefix,
+			})
 		}
 	}
 

@@ -31,14 +31,16 @@ func DefaultConfig() *Config {
 			Port:            5432,
 			Database:        "neurondb",
 			User:            "postgres",
-			Password:        "postgres",
+			Password:        "", /* Must be set via environment variable or config file */
 			MaxOpenConns:    25,
 			MaxIdleConns:    5,
 			ConnMaxLifetime: 5 * time.Minute,
 			ConnMaxIdleTime: 10 * time.Minute,
 		},
 		Auth: AuthConfig{
-			APIKeyHeader: "Authorization",
+			APIKeyHeader:        "Authorization",
+			AllowedOrigins:      []string{}, /* Empty by default - must be configured */
+			WebSocketAllowedOrigins: []string{}, /* Empty by default - must be configured */
 		},
 		Logging: LoggingConfig{
 			Level:  "info",

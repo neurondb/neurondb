@@ -179,6 +179,52 @@ type RAGContext struct {
 	Similarity float64                `db:"similarity"`
 }
 
+/* Query performs a complete RAG query */
+func (c *RAGClient) Query(ctx context.Context, query, tableName, vectorCol, textCol string, topK int) (string, error) {
+	/* Use neurondb.rag_query SQL function */
+	querySQL := `SELECT neurondb.rag_query($1, $2, $3, $4, 'default', $5) AS result`
+	
+	var result string
+	err := c.db.GetContext(ctx, &result, querySQL, query, tableName, vectorCol, textCol, topK)
+	if err != nil {
+		return "", fmt.Errorf("RAG query failed via NeuronDB: query_length=%d, table_name='%s', vector_col='%s', text_col='%s', top_k=%d, error=%w",
+			len(query), tableName, vectorCol, textCol, topK, err)
+	}
+	
+	return result, nil
+}
+
+/* IngestDocument ingests a document using the RAG ingestion pipeline */
+func (c *RAGClient) IngestDocument(ctx context.Context, documentText, tableName, textCol, vectorCol, embeddingModel string, chunkSize, chunkOverlap int, metadata map[string]interface{}) ([]int64, error) {
+	/* Use neurondb.rag_ingest_document SQL function */
+	metadataJSON, err := json.Marshal(metadata)
+	if err != nil {
+		return nil, fmt.Errorf("RAG document ingestion failed: metadata_marshaling_error=true, error=%w", err)
+	}
+	
+	querySQL := `SELECT * FROM neurondb.rag_ingest_document($1, $2, $3, $4, $5, $6, $7, $8::jsonb)`
+	
+	type ChunkResult struct {
+		ChunkID    int64   `db:"chunk_id"`
+		ChunkText  string  `db:"chunk_text"`
+		Embedding  Vector  `db:"embedding"`
+	}
+	
+	var chunks []ChunkResult
+	err = c.db.SelectContext(ctx, &chunks, querySQL, documentText, tableName, textCol, vectorCol, embeddingModel, chunkSize, chunkOverlap, metadataJSON)
+	if err != nil {
+		return nil, fmt.Errorf("RAG document ingestion failed via NeuronDB: document_length=%d, table_name='%s', chunk_size=%d, chunk_overlap=%d, error=%w",
+			len(documentText), tableName, chunkSize, chunkOverlap, err)
+	}
+	
+	chunkIDs := make([]int64, len(chunks))
+	for i, chunk := range chunks {
+		chunkIDs[i] = chunk.ChunkID
+	}
+	
+	return chunkIDs, nil
+}
+
 /* RerankResult represents a reranked result */
 type RerankResult struct {
 	Document string  `json:"document"`

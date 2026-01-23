@@ -55,7 +55,20 @@ func (m *MLPoweredFeatures) MLPoweredMemory(ctx context.Context, agentID uuid.UU
 	}
 
 	/* Create temporary table for embeddings */
-	tableName := fmt.Sprintf("temp_memory_embeddings_%s", agentID.String()[:8])
+	/* Sanitize table name to prevent SQL injection */
+	agentIDPrefix := agentID.String()[:8]
+	/* Remove any non-alphanumeric characters from agent ID prefix */
+	sanitizedPrefix := ""
+	for _, r := range agentIDPrefix {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
+			sanitizedPrefix += string(r)
+		}
+	}
+	if sanitizedPrefix == "" {
+		sanitizedPrefix = "default"
+	}
+	tableName := fmt.Sprintf("temp_memory_embeddings_%s", sanitizedPrefix)
+	/* Use PostgreSQL quote_ident for additional safety */
 	createTable := fmt.Sprintf(`CREATE TEMP TABLE %s (
 		id SERIAL PRIMARY KEY,
 		embedding vector(%d)
@@ -128,7 +141,18 @@ func (m *MLPoweredFeatures) AnomalyDetection(ctx context.Context, agentID uuid.U
 	}
 
 	/* Create temporary table */
-	tableName := fmt.Sprintf("temp_behavior_%s", agentID.String()[:8])
+	/* Sanitize table name */
+	agentIDPrefix := agentID.String()[:8]
+	sanitizedPrefix := ""
+	for _, r := range agentIDPrefix {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
+			sanitizedPrefix += string(r)
+		}
+	}
+	if sanitizedPrefix == "" {
+		sanitizedPrefix = "default"
+	}
+	tableName := fmt.Sprintf("temp_behavior_%s", sanitizedPrefix)
 	createTable := fmt.Sprintf(`CREATE TEMP TABLE %s (
 		id SERIAL PRIMARY KEY,
 		timestamp TIMESTAMP,

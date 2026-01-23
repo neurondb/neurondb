@@ -26,6 +26,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/neurondb/NeuronAgent/internal/agent"
+	"github.com/neurondb/NeuronAgent/internal/auth"
 	"github.com/neurondb/NeuronAgent/internal/db"
 	"github.com/neurondb/NeuronAgent/internal/metrics"
 	"github.com/neurondb/NeuronAgent/internal/validation"
@@ -49,6 +50,17 @@ func (h *Handlers) CreateAgent(w http.ResponseWriter, r *http.Request) {
 	requestID := GetRequestID(r.Context())
 	endpoint := r.URL.Path
 	method := r.Method
+
+	/* Check authorization - require user or admin role */
+	apiKey, ok := GetAPIKeyFromContext(r.Context())
+	if !ok {
+		respondError(w, WrapError(ErrUnauthorized, requestID))
+		return
+	}
+	if err := auth.RequireAnyRole(apiKey, auth.RoleAdmin, auth.RoleUser); err != nil {
+		respondError(w, NewErrorWithContext(http.StatusForbidden, "insufficient permissions: agent creation requires user or admin role", err, requestID, endpoint, method, "agent", "", nil))
+		return
+	}
 
 	/* Validate request body size (max 1MB) */
 	const maxBodySize = 1024 * 1024
@@ -149,6 +161,17 @@ func (h *Handlers) UpdateAgent(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	requestID := GetRequestID(r.Context())
 
+	/* Check authorization - require user or admin role */
+	apiKey, ok := GetAPIKeyFromContext(r.Context())
+	if !ok {
+		respondError(w, WrapError(ErrUnauthorized, requestID))
+		return
+	}
+	if err := auth.RequireAnyRole(apiKey, auth.RoleAdmin, auth.RoleUser); err != nil {
+		respondError(w, NewErrorWithContext(http.StatusForbidden, "insufficient permissions: agent update requires user or admin role", err, requestID, r.URL.Path, r.Method, "agent", "", nil))
+		return
+	}
+
 	if err := validation.ValidateUUIDRequired(vars["id"], "agent_id"); err != nil {
 		respondError(w, NewErrorWithContext(http.StatusBadRequest, "invalid agent ID", err, requestID, r.URL.Path, r.Method, "agent", "", nil))
 		return
@@ -208,6 +231,17 @@ func (h *Handlers) UpdateAgent(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) DeleteAgent(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	requestID := GetRequestID(r.Context())
+
+	/* Check authorization - require admin role for deletion */
+	apiKey, ok := GetAPIKeyFromContext(r.Context())
+	if !ok {
+		respondError(w, WrapError(ErrUnauthorized, requestID))
+		return
+	}
+	if err := auth.RequireRole(apiKey, auth.RoleAdmin); err != nil {
+		respondError(w, NewErrorWithContext(http.StatusForbidden, "insufficient permissions: agent deletion requires admin role", err, requestID, r.URL.Path, r.Method, "agent", "", nil))
+		return
+	}
 
 	if err := validation.ValidateUUIDRequired(vars["id"], "agent_id"); err != nil {
 		respondError(w, NewErrorWithContext(http.StatusBadRequest, "invalid agent ID", err, requestID, r.URL.Path, r.Method, "agent", "", nil))
@@ -382,6 +416,17 @@ func (h *Handlers) UpdateSession(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	requestID := GetRequestID(r.Context())
 
+	/* Check authorization - require user or admin role */
+	apiKey, ok := GetAPIKeyFromContext(r.Context())
+	if !ok {
+		respondError(w, WrapError(ErrUnauthorized, requestID))
+		return
+	}
+	if err := auth.RequireAnyRole(apiKey, auth.RoleAdmin, auth.RoleUser); err != nil {
+		respondError(w, NewErrorWithContext(http.StatusForbidden, "insufficient permissions: session update requires user or admin role", err, requestID, r.URL.Path, r.Method, "session", "", nil))
+		return
+	}
+
 	if err := validation.ValidateUUIDRequired(vars["id"], "session_id"); err != nil {
 		respondError(w, NewErrorWithContext(http.StatusBadRequest, "invalid session ID", err, requestID, r.URL.Path, r.Method, "session", "", nil))
 		return
@@ -439,6 +484,17 @@ func (h *Handlers) UpdateSession(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) DeleteSession(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	requestID := GetRequestID(r.Context())
+
+	/* Check authorization - require user or admin role */
+	apiKey, ok := GetAPIKeyFromContext(r.Context())
+	if !ok {
+		respondError(w, WrapError(ErrUnauthorized, requestID))
+		return
+	}
+	if err := auth.RequireAnyRole(apiKey, auth.RoleAdmin, auth.RoleUser); err != nil {
+		respondError(w, NewErrorWithContext(http.StatusForbidden, "insufficient permissions: session deletion requires user or admin role", err, requestID, r.URL.Path, r.Method, "session", "", nil))
+		return
+	}
 
 	if err := validation.ValidateUUIDRequired(vars["id"], "session_id"); err != nil {
 		respondError(w, NewErrorWithContext(http.StatusBadRequest, "invalid session ID", err, requestID, r.URL.Path, r.Method, "session", "", nil))
@@ -643,9 +699,21 @@ func (h *Handlers) GetMessage(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handlers) UpdateMessage(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
+	requestID := GetRequestID(r.Context())
+
+	/* Check authorization - require user or admin role */
+	apiKey, ok := GetAPIKeyFromContext(r.Context())
+	if !ok {
+		respondError(w, WrapError(ErrUnauthorized, requestID))
+		return
+	}
+	if err := auth.RequireAnyRole(apiKey, auth.RoleAdmin, auth.RoleUser); err != nil {
+		respondError(w, NewErrorWithContext(http.StatusForbidden, "insufficient permissions: message update requires user or admin role", err, requestID, r.URL.Path, r.Method, "message", "", nil))
+		return
+	}
+
 	var id int64
 	if _, err := fmt.Sscanf(vars["id"], "%d", &id); err != nil {
-		requestID := GetRequestID(r.Context())
 		respondError(w, WrapError(ErrBadRequest, requestID))
 		return
 	}
@@ -688,9 +756,21 @@ func (h *Handlers) UpdateMessage(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handlers) DeleteMessage(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
+	requestID := GetRequestID(r.Context())
+
+	/* Check authorization - require user or admin role */
+	apiKey, ok := GetAPIKeyFromContext(r.Context())
+	if !ok {
+		respondError(w, WrapError(ErrUnauthorized, requestID))
+		return
+	}
+	if err := auth.RequireAnyRole(apiKey, auth.RoleAdmin, auth.RoleUser); err != nil {
+		respondError(w, NewErrorWithContext(http.StatusForbidden, "insufficient permissions: message deletion requires user or admin role", err, requestID, r.URL.Path, r.Method, "message", "", nil))
+		return
+	}
+
 	var id int64
 	if _, err := fmt.Sscanf(vars["id"], "%d", &id); err != nil {
-		requestID := GetRequestID(r.Context())
 		respondError(w, WrapError(ErrBadRequest, requestID))
 		return
 	}

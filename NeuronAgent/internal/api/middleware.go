@@ -19,10 +19,12 @@ package api
 import (
 	"context"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/neurondb/NeuronAgent/internal/auth"
+	"github.com/neurondb/NeuronAgent/internal/config"
 	"github.com/neurondb/NeuronAgent/internal/metrics"
 )
 
@@ -94,11 +96,21 @@ func AuthMiddleware(keyManager *auth.APIKeyManager, principalManager *auth.Princ
 			/* Resolve principal */
 			principal, err := principalManager.ResolvePrincipalFromAPIKey(r.Context(), apiKey)
 			if err != nil {
-				metrics.WarnWithContext(logCtx, "Principal resolution failed, continuing with request", map[string]interface{}{
+				/* In production, principal resolution failure should be more strict */
+				env := os.Getenv("ENV")
+				if env == "production" || env == "prod" {
+					metrics.WarnWithContext(logCtx, "Principal resolution failed in production, blocking request", map[string]interface{}{
+						"key_id": apiKey.ID.String(),
+						"error":  err.Error(),
+					})
+					respondError(w, WrapError(NewError(http.StatusInternalServerError, "principal resolution failed", err), requestID))
+					return
+				}
+				/* Development mode: warn but continue */
+				metrics.WarnWithContext(logCtx, "Principal resolution failed, continuing with request (development mode)", map[string]interface{}{
 					"key_id": apiKey.ID.String(),
 					"error":  err.Error(),
 				})
-				/* Continue anyway - principal resolution failure should not block requests */
 			}
 
 			/* Add API key and principal to context */
@@ -129,20 +141,74 @@ func SecurityHeadersMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-/* CORSMiddleware adds CORS headers */
-func CORSMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+/* CORSMiddleware adds CORS headers with configurable allowed origins */
+func CORSMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			origin := r.Header.Get("Origin")
+			allowedOrigins := cfg.Auth.AllowedOrigins
+			
+			/* If no origins configured, check environment variable */
+			if len(allowedOrigins) == 0 {
+				if envOrigins := os.Getenv("CORS_ALLOWED_ORIGINS"); envOrigins != "" {
+					parts := strings.Split(envOrigins, ",")
+					for _, part := range parts {
+						trimmed := strings.TrimSpace(part)
+						if trimmed != "" {
+							allowedOrigins = append(allowedOrigins, trimmed)
+						}
+					}
+				}
+			}
 
-		if r.Method == "OPTIONS" {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
+			/* Determine allowed origin */
+			allowedOrigin := ""
+			if len(allowedOrigins) == 0 {
+				/* No origins configured - deny in production, allow in development */
+				env := os.Getenv("ENV")
+				if env == "production" || env == "prod" {
+					/* Production: deny all */
+					allowedOrigin = ""
+				} else {
+					/* Development: allow all with warning */
+					allowedOrigin = "*"
+					metrics.WarnWithContext(r.Context(), "CORS allowing all origins (development mode)", map[string]interface{}{
+						"origin": origin,
+					})
+				}
+			} else {
+				/* Check if origin is in allowed list */
+				for _, allowed := range allowedOrigins {
+					if origin == allowed {
+						allowedOrigin = origin
+						break
+					}
+				}
+				/* If origin not in list and origin header present, deny */
+				if allowedOrigin == "" && origin != "" {
+					metrics.WarnWithContext(r.Context(), "CORS request denied: origin not allowed", map[string]interface{}{
+						"origin":         origin,
+						"allowed_origins": allowedOrigins,
+					})
+				}
+			}
 
-		next.ServeHTTP(w, r)
-	})
+			/* Set CORS headers */
+			if allowedOrigin != "" {
+				w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
+			}
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+
+			if r.Method == "OPTIONS" {
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 /* LoggingMiddleware logs requests with structured logging and metrics */

@@ -44,33 +44,54 @@ func NewEncryption(secretKey string) (*Encryption, error) {
 	}, nil
 }
 
-/* Encrypt encrypts data */
+/* Encrypt encrypts data with a random salt per encryption */
 func (e *Encryption) Encrypt(plaintext []byte) ([]byte, error) {
-	block, err := aes.NewCipher(e.key)
-	if err != nil {
-		return nil, fmt.Errorf("encryption failed: cipher_creation_error=true, error=%w", err)
+	/* Generate random salt for this encryption (32 bytes) */
+	salt := make([]byte, 32)
+	if _, err := io.ReadFull(rand.Reader, salt); err != nil {
+		return nil, fmt.Errorf("encryption failed: salt_creation_error=true, error=%w", err)
 	}
 
-	/* Create GCM */
-	aesGCM, err := cipher.NewGCM(block)
+	/* Derive encryption key from master key and salt */
+	encKey := pbkdf2.Key(e.key, salt, 4096, 32, sha256.New)
+	encBlock, err := aes.NewCipher(encKey)
 	if err != nil {
-		return nil, fmt.Errorf("encryption failed: gcm_creation_error=true, error=%w", err)
+		return nil, fmt.Errorf("encryption failed: derived_cipher_creation_error=true, error=%w", err)
+	}
+	encGCM, err := cipher.NewGCM(encBlock)
+	if err != nil {
+		return nil, fmt.Errorf("encryption failed: derived_gcm_creation_error=true, error=%w", err)
 	}
 
 	/* Create nonce */
-	nonce := make([]byte, aesGCM.NonceSize())
-	if _, err = io.ReadFull(rand.Reader, nonce); err != nil {
+	nonce := make([]byte, encGCM.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
 		return nil, fmt.Errorf("encryption failed: nonce_creation_error=true, error=%w", err)
 	}
 
 	/* Encrypt */
-	ciphertext := aesGCM.Seal(nonce, nonce, plaintext, nil)
-	return ciphertext, nil
+	ciphertext := encGCM.Seal(nonce, nonce, plaintext, nil)
+	
+	/* Prepend salt to ciphertext: [salt (32 bytes)][nonce + ciphertext] */
+	result := append(salt, ciphertext...)
+	return result, nil
 }
 
 /* Decrypt decrypts data */
 func (e *Encryption) Decrypt(ciphertext []byte) ([]byte, error) {
-	block, err := aes.NewCipher(e.key)
+	/* Check minimum length: salt (32) + nonce (12) + at least 1 byte of ciphertext */
+	const saltSize = 32
+	if len(ciphertext) < saltSize+13 {
+		return nil, fmt.Errorf("decryption failed: invalid_ciphertext_length=true, length=%d (minimum %d)", len(ciphertext), saltSize+13)
+	}
+
+	/* Extract salt */
+	salt := ciphertext[:saltSize]
+	encryptedData := ciphertext[saltSize:]
+
+	/* Derive decryption key from master key and salt */
+	decKey := pbkdf2.Key(e.key, salt, 4096, 32, sha256.New)
+	block, err := aes.NewCipher(decKey)
 	if err != nil {
 		return nil, fmt.Errorf("decryption failed: cipher_creation_error=true, error=%w", err)
 	}
@@ -83,14 +104,14 @@ func (e *Encryption) Decrypt(ciphertext []byte) ([]byte, error) {
 
 	/* Extract nonce */
 	nonceSize := aesGCM.NonceSize()
-	if len(ciphertext) < nonceSize {
-		return nil, fmt.Errorf("decryption failed: invalid_ciphertext_length=true, length=%d", len(ciphertext))
+	if len(encryptedData) < nonceSize {
+		return nil, fmt.Errorf("decryption failed: invalid_encrypted_data_length=true, length=%d (minimum %d)", len(encryptedData), nonceSize)
 	}
 
-	nonce, ciphertext := ciphertext[:nonceSize], ciphertext[nonceSize:]
+	nonce, encryptedData := encryptedData[:nonceSize], encryptedData[nonceSize:]
 
 	/* Decrypt */
-	plaintext, err := aesGCM.Open(nil, nonce, ciphertext, nil)
+	plaintext, err := aesGCM.Open(nil, nonce, encryptedData, nil)
 	if err != nil {
 		return nil, fmt.Errorf("decryption failed: decryption_error=true, error=%w", err)
 	}

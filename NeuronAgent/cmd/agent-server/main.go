@@ -45,6 +45,7 @@ import (
 	"github.com/neurondb/NeuronAgent/internal/distributed"
 	"github.com/neurondb/NeuronAgent/internal/events"
 	"github.com/neurondb/NeuronAgent/internal/cache"
+	"github.com/neurondb/NeuronAgent/internal/utils"
 	"github.com/neurondb/NeuronAgent/pkg/neurondb"
 )
 
@@ -118,13 +119,41 @@ func main() {
 		config.LoadFromEnv(cfg)
 	}
 
+	/* Validate database password is set (security check) */
+	if cfg.Database.Password == "" {
+		fmt.Fprintf(os.Stderr, "FATAL: Database password is required. Set DB_PASSWORD environment variable or configure in config file.\n")
+		os.Exit(1)
+	}
+	
+	/* Warn if using default password in production */
+	env := os.Getenv("ENV")
+	if (env == "production" || env == "prod") && cfg.Database.Password == "postgres" {
+		fmt.Fprintf(os.Stderr, "FATAL: Insecure default password detected in production. Set DB_PASSWORD environment variable.\n")
+		os.Exit(1)
+	}
+
 	/* Initialize logging */
 	metrics.InitLogging(cfg.Logging.Level, cfg.Logging.Format)
 
 	/* Connect to database */
-	/* Add search_path to connection string to ensure it's set for all connections */
-	connStr := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable search_path=neurondb_agent,public",
-		cfg.Database.Host, cfg.Database.Port, cfg.Database.User, cfg.Database.Password, cfg.Database.Database)
+	/* Construct connection string safely to avoid password exposure */
+	connStr := utils.BuildConnectionString(
+		cfg.Database.Host,
+		cfg.Database.Port,
+		cfg.Database.User,
+		cfg.Database.Password,
+		cfg.Database.Database,
+		"neurondb_agent,public",
+	)
+	
+	/* Create masked connection string for logging (password replaced with ***) */
+	maskedConnStr := utils.BuildMaskedConnectionString(
+		cfg.Database.Host,
+		cfg.Database.Port,
+		cfg.Database.User,
+		cfg.Database.Database,
+		"neurondb_agent,public",
+	)
 
 	connMaxIdleTime := 10 * time.Minute
 	if cfg.Database.ConnMaxIdleTime > 0 {
@@ -139,8 +168,8 @@ func main() {
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "FATAL: Failed to connect to database: %v\n", err)
-		fmt.Fprintf(os.Stderr, "Connection string: host=%s port=%d user=%s dbname=%s\n",
-			cfg.Database.Host, cfg.Database.Port, cfg.Database.User, cfg.Database.Database)
+		/* Use masked connection string to avoid password exposure */
+		fmt.Fprintf(os.Stderr, "Connection info: %s\n", maskedConnStr)
 		os.Exit(1)
 	}
 	defer database.Close()
@@ -319,7 +348,7 @@ func main() {
 	router := mux.NewRouter()
 	router.Use(api.RequestIDMiddleware)
 	router.Use(api.SecurityHeadersMiddleware) /* Security headers must be set early */
-	router.Use(api.CORSMiddleware)
+	router.Use(api.CORSMiddleware(cfg))
 	router.Use(api.LoggingMiddleware)
 	router.Use(api.AuthMiddleware(keyManager, principalManager, rateLimiter))
 
@@ -327,6 +356,27 @@ func main() {
 	marketplaceHandlers := api.NewMarketplaceHandlers(queries)
 	complianceHandlers := api.NewComplianceHandlers(queries)
 	observabilityHandlers := api.NewObservabilityHandlers(queries)
+
+	/* Initialize RAG and embedding handlers */
+	llmClient := agent.NewLLMClient(database)
+	advancedRAG := agent.NewAdvancedRAG(
+		database,
+		queries,
+		neurondbClient.RAG,
+		neurondbClient.HybridSearch,
+		neurondbClient.Reranking,
+		embedClient,
+		llmClient,
+	)
+	ragHandlers := api.NewRAGHandlers(
+		queries,
+		advancedRAG,
+		neurondbClient.RAG,
+		neurondbClient.HybridSearch,
+		neurondbClient.Reranking,
+		embedClient,
+	)
+	embeddingHandlers := api.NewEmbeddingHandlers(embedClient)
 
 	/* API routes */
 	apiRouter := router.PathPrefix("/api/v1").Subrouter()
@@ -402,7 +452,7 @@ func main() {
 	apiRouter.HandleFunc("/tools/{name}/analytics", handlers.GetToolAnalytics).Methods("GET")
 	apiRouter.HandleFunc("/memory/{id}/summarize", handlers.SummarizeMemory).Methods("POST")
 	apiRouter.HandleFunc("/analytics/overview", handlers.GetAnalyticsOverview).Methods("GET")
-	apiRouter.HandleFunc("/ws", api.HandleWebSocket(runtime, keyManager)).Methods("GET")
+	apiRouter.HandleFunc("/ws", api.HandleWebSocket(runtime, keyManager, cfg)).Methods("GET")
 
 	/* Marketplace routes */
 	apiRouter.HandleFunc("/marketplace/tools", marketplaceHandlers.ListMarketplaceTools).Methods("GET")
@@ -490,6 +540,19 @@ func main() {
 	apiRouter.HandleFunc("/eval/runs/{run_id}/execute", evaluationHandlers.ExecuteEvalRun).Methods("POST")
 	apiRouter.HandleFunc("/eval/runs/{run_id}/results", evaluationHandlers.GetEvalRunResults).Methods("GET")
 	apiRouter.HandleFunc("/eval/runs/{run_id}/results/{result_id}/retrieval", evaluationHandlers.CreateEvalRetrievalResult).Methods("POST")
+
+	/* RAG routes */
+	apiRouter.HandleFunc("/rag/query", ragHandlers.RAGQuery).Methods("POST")
+	apiRouter.HandleFunc("/rag/ingest", ragHandlers.RAGIngest).Methods("POST")
+	apiRouter.HandleFunc("/rag/evaluate", ragHandlers.RAGEvaluate).Methods("POST")
+	apiRouter.HandleFunc("/rag/pipelines", ragHandlers.ListRAGPipelines).Methods("GET")
+	apiRouter.HandleFunc("/rag/pipelines", ragHandlers.CreateRAGPipeline).Methods("POST")
+	apiRouter.HandleFunc("/rag/pipelines/{id}", ragHandlers.GetRAGPipeline).Methods("GET")
+
+	/* Embedding routes */
+	apiRouter.HandleFunc("/embeddings/generate", embeddingHandlers.GenerateEmbedding).Methods("POST")
+	apiRouter.HandleFunc("/embeddings/batch", embeddingHandlers.BatchGenerateEmbeddings).Methods("POST")
+	apiRouter.HandleFunc("/embeddings/models", embeddingHandlers.ListEmbeddingModels).Methods("GET")
 
 	/* Execution snapshots and replay routes */
 	apiRouter.HandleFunc("/sessions/{session_id}/snapshots", replayHandlers.CreateSnapshot).Methods("POST")
@@ -640,15 +703,20 @@ func main() {
 	/* Stop background workers */
 	if memoryPromoterCancel != nil {
 		memoryPromoterCancel()
+		/* Give worker time to finish current operation */
+		time.Sleep(1 * time.Second)
 	}
 	if memoryMaintenanceCancel != nil {
 		memoryMaintenanceCancel()
+		time.Sleep(1 * time.Second)
 	}
 	if verifierWorkerCancel != nil {
 		verifierWorkerCancel()
+		time.Sleep(1 * time.Second)
 	}
 	if asyncTaskWorkerCancel != nil {
 		asyncTaskWorkerCancel()
+		time.Sleep(1 * time.Second)
 	}
 
 	/* Cleanup resources */

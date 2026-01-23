@@ -56,7 +56,9 @@ type DatabaseConfig struct {
 }
 
 type AuthConfig struct {
-	APIKeyHeader string `yaml:"api_key_header"`
+	APIKeyHeader        string   `yaml:"api_key_header"`
+	AllowedOrigins      []string `yaml:"allowed_origins"`      /* Allowed origins for CORS and WebSocket */
+	WebSocketAllowedOrigins []string `yaml:"websocket_allowed_origins"` /* Separate WebSocket origins if needed */
 }
 
 type LoggingConfig struct {
@@ -65,10 +67,13 @@ type LoggingConfig struct {
 }
 
 type DistributedConfig struct {
-	Enabled     bool          `yaml:"enabled"`
-	NodeAddress string        `yaml:"node_address"`
-	NodePort    int           `yaml:"node_port"`
-	RPCTimeout  time.Duration `yaml:"rpc_timeout"`
+	Enabled        bool          `yaml:"enabled"`
+	NodeAddress    string        `yaml:"node_address"`
+	NodePort       int           `yaml:"node_port"`
+	RPCTimeout     time.Duration `yaml:"rpc_timeout"`
+	RPCSecret      string        `yaml:"rpc_secret"`      /* Shared secret for node-to-node authentication */
+	RPCAPIKey      string        `yaml:"rpc_api_key"`     /* Alternative: API key for RPC authentication */
+	UseTLS         bool          `yaml:"use_tls"`         /* Use HTTPS for RPC calls */
 }
 
 type CacheConfig struct {

@@ -45,6 +45,28 @@ func SanitizeValue(value interface{}) string {
 	return str
 }
 
+/* BuildConnectionString builds a PostgreSQL connection string safely */
+func BuildConnectionString(host string, port int, user string, password string, database string, searchPath string) string {
+	/* Use fmt.Sprintf for connection string - password is needed for actual connection */
+	/* This function should only be used for actual connection, not logging */
+	connStr := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
+		host, port, user, password, database)
+	if searchPath != "" {
+		connStr += " search_path=" + searchPath
+	}
+	return connStr
+}
+
+/* BuildMaskedConnectionString builds a connection string with masked password for logging */
+func BuildMaskedConnectionString(host string, port int, user string, database string, searchPath string) string {
+	connStr := fmt.Sprintf("host=%s port=%d user=%s password=*** dbname=%s sslmode=disable",
+		host, port, user, database)
+	if searchPath != "" {
+		connStr += " search_path=" + searchPath
+	}
+	return connStr
+}
+
 /* FormatConnectionInfo formats database connection information for error messages */
 func FormatConnectionInfo(host string, port int, database string, user string) string {
 	return fmt.Sprintf("database '%s' on host '%s:%d' as user '%s'", database, host, port, user)

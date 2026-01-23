@@ -19,6 +19,9 @@ package distributed
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"hash/crc32"
@@ -189,7 +192,11 @@ func (c *Coordinator) executeRemote(ctx context.Context, nodeID string, sessionI
 	}
 
 	/* Build RPC request */
-	url := fmt.Sprintf("http://%s:%d/api/v1/sessions/%s/messages", node.Address, node.Port, sessionID.String())
+	protocol := "http"
+	if c.config.UseTLS {
+		protocol = "https"
+	}
+	url := fmt.Sprintf("%s://%s:%d/api/v1/sessions/%s/messages", protocol, node.Address, node.Port, sessionID.String())
 	
 	requestBody := map[string]interface{}{
 		"content": userMessage,
@@ -210,8 +217,30 @@ func (c *Coordinator) executeRemote(ctx context.Context, nodeID string, sessionI
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	/* Add API key if available from context or config */
-	/* For now, remote nodes would need to share API keys or use internal auth */
+	
+	/* Add RPC authentication */
+	if c.config.RPCAPIKey != "" {
+		/* Use API key authentication */
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.config.RPCAPIKey))
+		req.Header.Set("X-RPC-Node-ID", c.nodeID)
+	} else if c.config.RPCSecret != "" {
+		/* Use shared secret authentication with HMAC */
+		timestamp := fmt.Sprintf("%d", time.Now().Unix())
+		mac := hmac.New(sha256.New, []byte(c.config.RPCSecret))
+		mac.Write(jsonBody)
+		mac.Write([]byte(c.nodeID))
+		mac.Write([]byte(timestamp))
+		signature := hex.EncodeToString(mac.Sum(nil))
+		req.Header.Set("X-RPC-Signature", signature)
+		req.Header.Set("X-RPC-Node-ID", c.nodeID)
+		req.Header.Set("X-RPC-Timestamp", timestamp)
+	} else {
+		/* No authentication configured - warn but allow for backward compatibility */
+		metrics.WarnWithContext(ctx, "RPC call without authentication (security risk)", map[string]interface{}{
+			"node_id":    nodeID,
+			"session_id": sessionID.String(),
+		})
+	}
 
 	/* Execute HTTP request with retry logic */
 	var resp *http.Response
