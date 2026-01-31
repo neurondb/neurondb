@@ -26,6 +26,7 @@
 #include "utils/memutils.h"
 #include "utils/syscache.h"
 #include "utils/guc.h"
+#include "utils/elog.h"
 #include "neurondb.h"
 #include "neurondb_ml.h"
 #include "neurondb_types.h"
@@ -62,10 +63,27 @@ PG_FUNCTION_INFO_V1(clip_embed);
 Datum
 clip_embed(PG_FUNCTION_ARGS)
 {
-	text	   *input = PG_GETARG_TEXT_PP(0);
-	text	   *modality_text = PG_ARGISNULL(1) ? NULL : PG_GETARG_TEXT_PP(1);
-	char	   *input_str = text_to_cstring(input);
-	char	   *modality_str = modality_text ? text_to_cstring(modality_text) : "text";
+	text	   *input = NULL;
+	text	   *modality_text = NULL;
+	char	   *input_str = NULL;
+	char	   *modality_str = "text";
+	char	   *modality_alloced = NULL;	/* only nfree this, never literal "text" */
+	Vector	   *result_vec = NULL;
+	float	   *vec_data = NULL;
+	int			dim = 512;
+	int			i;
+
+	if (PG_ARGISNULL(0))
+		ereport(ERROR,
+				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
+				 errmsg("clip_embed: input must not be null")));
+	input = PG_GETARG_TEXT_PP(0);
+	modality_text = PG_ARGISNULL(1) ? NULL : PG_GETARG_TEXT_PP(1);
+	input_str = text_to_cstring(input);
+	if (input_str == NULL)
+		input_str = "";
+	modality_alloced = modality_text ? text_to_cstring(modality_text) : NULL;
+	modality_str = (modality_alloced != NULL) ? modality_alloced : "text";
 
 	/* Determine modality */
 	if (pg_strcasecmp(modality_str, "image") == 0)
@@ -88,11 +106,6 @@ clip_embed(PG_FUNCTION_ARGS)
 		NdbLLMConfig cfg;
 		NdbLLMCallOptions call_opts;
 
-		float *vec_data = NULL;
-		Vector *result_vec = NULL;
-		int			dim = 0;
-		int			i;
-
 		memset(&cfg, 0, sizeof(cfg));
 		cfg.provider = (neurondb_llm_provider != NULL) ? neurondb_llm_provider : "huggingface";
 		cfg.endpoint = (neurondb_llm_endpoint != NULL) ?
@@ -109,25 +122,66 @@ clip_embed(PG_FUNCTION_ARGS)
 		call_opts.require_gpu = cfg.require_gpu;
 		call_opts.fail_open = neurondb_llm_fail_open;
 
-		if (ndb_llm_route_embed(&cfg, &call_opts, input_str, &vec_data, &dim) != 0 ||
-			vec_data == NULL || dim <= 0)
+		/* Wrap embedding call in error handling to prevent crashes */
+		PG_TRY();
 		{
-			/* Fallback: return zero vector when embedding fails */
-			/* This is acceptable behavior - zero vector indicates failure */
+			if (ndb_llm_route_embed(&cfg, &call_opts, input_str, &vec_data, &dim) != 0 ||
+				vec_data == NULL || dim <= 0)
+			{
+				/* Fallback: return zero vector when embedding fails */
+				dim = 512;
+				if (vec_data)
+					nfree(vec_data);
+				vec_data = (float *) palloc0(dim * sizeof(float));
+			}
+		}
+		PG_CATCH();
+		{
+			/* If embedding crashes, return safe zero vector */
 			dim = 512;
+			if (vec_data)
+				nfree(vec_data);
+			vec_data = (float *) palloc0(dim * sizeof(float));
+		}
+		PG_END_TRY();
+
+		/* Validate dimension before creating vector */
+		if (dim <= 0 || dim > 16384)
+		{
+			dim = 512;		/* Safe default for CLIP */
+			if (vec_data)
+				nfree(vec_data);
 			vec_data = (float *) palloc0(dim * sizeof(float));
 		}
 
-		result_vec = (Vector *) palloc0(VARHDRSZ + sizeof(int16) * 2 + dim * sizeof(float4));
-		SET_VARSIZE(result_vec, VARHDRSZ + sizeof(int16) * 2 + dim * sizeof(float4));
-		result_vec->dim = dim;
+		/* Safely allocate result vector */
+		PG_TRY();
+		{
+			result_vec = (Vector *) palloc0(VARHDRSZ + sizeof(int16) * 2 + dim * sizeof(float4));
+			SET_VARSIZE(result_vec, VARHDRSZ + sizeof(int16) * 2 + dim * sizeof(float4));
+			result_vec->dim = dim;
 
-		for (i = 0; i < dim; i++)
-			result_vec->data[i] = vec_data[i];
+			if (vec_data != NULL)
+			{
+				for (i = 0; i < dim; i++)
+					result_vec->data[i] = vec_data[i];
+			}
+		}
+		PG_CATCH();
+		{
+			/* If allocation fails, return NULL and let caller handle */
+			if (vec_data)
+				nfree(vec_data);
+			nfree(input_str);
+			if (modality_alloced)
+				nfree(modality_alloced);
+			PG_RE_THROW();
+		}
+		PG_END_TRY();
 
 		nfree(input_str);
-		if (modality_str)
-			nfree(modality_str);
+		if (modality_alloced)
+			nfree(modality_alloced);
 		if (vec_data)
 			nfree(vec_data);
 
@@ -142,10 +196,23 @@ PG_FUNCTION_INFO_V1(imagebind_embed);
 Datum
 imagebind_embed(PG_FUNCTION_ARGS)
 {
-	text	   *input = PG_GETARG_TEXT_PP(0);
-	text	   *modality_text = PG_GETARG_TEXT_PP(1);
-	char	   *input_str = text_to_cstring(input);
-	char	   *modality_str = text_to_cstring(modality_text);
+	text	   *input = NULL;
+	text	   *modality_text = NULL;
+	char	   *input_str = NULL;
+	char	   *modality_str = NULL;
+
+	if (PG_ARGISNULL(0) || PG_ARGISNULL(1))
+		ereport(ERROR,
+				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
+				 errmsg("imagebind_embed: input and modality must not be null")));
+	input = PG_GETARG_TEXT_PP(0);
+	modality_text = PG_GETARG_TEXT_PP(1);
+	input_str = text_to_cstring(input);
+	modality_str = text_to_cstring(modality_text);
+	if (input_str == NULL)
+		input_str = "";
+	if (modality_str == NULL)
+		modality_str = "text";
 
 	/* Map modality string to enum */
 	if (pg_strcasecmp(modality_str, "text") == 0)
@@ -205,21 +272,61 @@ imagebind_embed(PG_FUNCTION_ARGS)
 		call_opts.require_gpu = cfg.require_gpu;
 		call_opts.fail_open = neurondb_llm_fail_open;
 
-		if (ndb_llm_route_embed(&cfg, &call_opts, input_str, &vec_data, &dim) != 0 ||
-			vec_data == NULL || dim <= 0)
+		/* Wrap embedding call in error handling to prevent crashes */
+		PG_TRY();
 		{
-			/* Fallback: return zero vector when embedding fails */
-			/* This is acceptable behavior - zero vector indicates failure */
+			if (ndb_llm_route_embed(&cfg, &call_opts, input_str, &vec_data, &dim) != 0 ||
+				vec_data == NULL || dim <= 0)
+			{
+				/* Fallback: return zero vector when embedding fails */
+				dim = 768;
+				if (vec_data)
+					nfree(vec_data);
+				vec_data = (float *) palloc0(dim * sizeof(float));
+			}
+		}
+		PG_CATCH();
+		{
+			/* If embedding crashes, return safe zero vector */
 			dim = 768;
+			if (vec_data)
+				nfree(vec_data);
+			vec_data = (float *) palloc0(dim * sizeof(float));
+		}
+		PG_END_TRY();
+
+		/* Validate dimension before creating vector */
+		if (dim <= 0 || dim > 16384)
+		{
+			dim = 768;		/* Safe default for ImageBind */
+			if (vec_data)
+				nfree(vec_data);
 			vec_data = (float *) palloc0(dim * sizeof(float));
 		}
 
-		result_vec = (Vector *) palloc0(VARHDRSZ + sizeof(int16) * 2 + dim * sizeof(float4));
-		SET_VARSIZE(result_vec, VARHDRSZ + sizeof(int16) * 2 + dim * sizeof(float4));
-		result_vec->dim = dim;
+		/* Safely allocate result vector */
+		PG_TRY();
+		{
+			result_vec = (Vector *) palloc0(VARHDRSZ + sizeof(int16) * 2 + dim * sizeof(float4));
+			SET_VARSIZE(result_vec, VARHDRSZ + sizeof(int16) * 2 + dim * sizeof(float4));
+			result_vec->dim = dim;
 
-		for (i = 0; i < dim; i++)
-			result_vec->data[i] = vec_data[i];
+			if (vec_data != NULL)
+			{
+				for (i = 0; i < dim; i++)
+					result_vec->data[i] = vec_data[i];
+			}
+		}
+		PG_CATCH();
+		{
+			/* If allocation fails, return NULL and let caller handle */
+			if (vec_data)
+				nfree(vec_data);
+			nfree(input_str);
+			nfree(modality_str);
+			PG_RE_THROW();
+		}
+		PG_END_TRY();
 
 		nfree(input_str);
 		nfree(modality_str);
@@ -269,6 +376,7 @@ cross_modal_search(PG_FUNCTION_ARGS)
 	
 	if (!PG_ARGISNULL(5))
 		limit = PG_GETARG_INT32(5);
+	(void) limit;	/* reserved for future top-k limit in search */
 
 	rsinfo = (ReturnSetInfo *) fcinfo->resultinfo;
 	tbl_str = text_to_cstring(table_name);
@@ -333,10 +441,19 @@ cross_modal_search(PG_FUNCTION_ARGS)
 			if (OidIsValid(func_oid))
 			{
 				fmgr_info(func_oid, &flinfo);
-				query_datum = FunctionCall2(&flinfo,
-											PointerGetDatum(query_input),
-											PointerGetDatum(query_modality));
-				query_vec = (Vector *) DatumGetPointer(query_datum);
+				PG_TRY();
+				{
+					query_datum = FunctionCall2(&flinfo,
+												PointerGetDatum(query_input),
+												PointerGetDatum(query_modality));
+					query_vec = (Vector *) DatumGetPointer(query_datum);
+				}
+				PG_CATCH();
+				{
+					query_vec = NULL;
+					FlushErrorState();
+				}
+				PG_END_TRY();
 			}
 		}
 		else
@@ -348,14 +465,23 @@ cross_modal_search(PG_FUNCTION_ARGS)
 			if (OidIsValid(func_oid))
 			{
 				fmgr_info(func_oid, &flinfo);
-				query_datum = FunctionCall2(&flinfo,
-											PointerGetDatum(query_input),
-											PointerGetDatum(query_modality));
-				query_vec = (Vector *) DatumGetPointer(query_datum);
+				PG_TRY();
+				{
+					query_datum = FunctionCall2(&flinfo,
+												PointerGetDatum(query_input),
+												PointerGetDatum(query_modality));
+					query_vec = (Vector *) DatumGetPointer(query_datum);
+				}
+				PG_CATCH();
+				{
+					query_vec = NULL;
+					FlushErrorState();
+				}
+				PG_END_TRY();
 			}
 		}
 
-		if (query_vec == NULL)
+		if (query_vec == NULL || query_vec->dim <= 0)
 		{
 			/* Return empty result set */
 			tuplestore_end(tupstore);
@@ -365,6 +491,21 @@ cross_modal_search(PG_FUNCTION_ARGS)
 			nfree(qin_str);
 			nfree(tmod_str);
 			PG_RETURN_NULL();
+		}
+		
+		/* Validate query vector dimension */
+		if (query_vec->dim > 16384)
+		{
+			tuplestore_end(tupstore);
+			nfree(tbl_str);
+			nfree(col_str);
+			nfree(qmod_str);
+			nfree(qin_str);
+			nfree(tmod_str);
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					 errmsg("cross_modal_search: query vector dimension %d exceeds maximum 16384",
+							query_vec->dim)));
 		}
 
 		/* In a full implementation, search table and compute similarity */

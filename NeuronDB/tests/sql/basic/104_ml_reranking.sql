@@ -5,6 +5,9 @@
 -- Uses real data from: ms_marco.data (passages with text)
 -- ====================================================================
 
+-- Ensure neurondb types/operators (including vector) are available
+CREATE EXTENSION IF NOT EXISTS neurondb;
+
 \echo '=== Using MS MARCO Dataset for Reranking Tests ==='
 
 -- Create test documents with synthetic data (ms_marco.data may not exist)

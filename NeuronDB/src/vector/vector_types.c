@@ -900,7 +900,14 @@ rtext_in(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("neurondb: rtext_in requires at least 1 argument")));
 
+	if (PG_ARGISNULL(0))
+		ereport(ERROR,
+				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
+				 errmsg("neurondb: rtext_in input must not be null")));
+
 	str = PG_GETARG_CSTRING(0);
+	if (str == NULL)
+		str = "";
 
 	text_len = strlen(str);
 
@@ -931,7 +938,21 @@ rtext_out(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("neurondb: rtext_out requires 1 argument")));
 
+	if (PG_ARGISNULL(0))
+		ereport(ERROR,
+				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
+				 errmsg("neurondb: rtext_out input must not be null")));
+
 	rt = (RetrievableText *) PG_GETARG_POINTER(0);
+	if (rt == NULL)
+		ereport(ERROR,
+				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
+				 errmsg("neurondb: rtext_out invalid pointer")));
+
+	if (rt->text_len < 0 || rt->text_len > 1048576)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
+				 errmsg("neurondb: rtext_out invalid text_len %d", rt->text_len)));
 
 	nalloc(result, char, rt->text_len + 1);
 	memcpy(result, RTEXT_DATA(rt), rt->text_len);
@@ -960,7 +981,16 @@ vgraph_in(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("neurondb: vgraph_in requires at least 1 argument")));
 
+	if (PG_ARGISNULL(0))
+		ereport(ERROR,
+				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
+				 errmsg("neurondb: vgraph_in input must not be null")));
+
 	str = PG_GETARG_CSTRING(0);
+	if (str == NULL)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
+				 errmsg("neurondb: vgraph_in invalid input")));
 
 	num_nodes = 0;
 	num_edges = 0;

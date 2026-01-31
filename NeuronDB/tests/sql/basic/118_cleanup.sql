@@ -18,11 +18,16 @@ DROP TABLE IF EXISTS test_worker_data CASCADE;
 -- Clean Worker Tables (Remove Test Data Only)
 -- ============================================================================
 
--- Remove test jobs from job queue
-DELETE FROM neurondb.job_queue 
-WHERE job_type IN ('vector_search', 'index_build', 'embedding_generation', 'test_job', 'vector_index')
-   OR payload::text LIKE '%test%'
-   OR payload::text LIKE '%Test%';
+-- Remove test jobs from job queue (if table exists)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'neurondb' AND table_name = 'job_queue') THEN
+        DELETE FROM neurondb.job_queue 
+        WHERE job_type IN ('vector_search', 'index_build', 'embedding_generation', 'test_job', 'vector_index')
+           OR payload::text LIKE '%test%'
+           OR payload::text LIKE '%Test%';
+    END IF;
+END$$;
 
 -- Remove test query metrics
 DELETE FROM neurondb.query_metrics 

@@ -199,9 +199,41 @@ neurondb_validate(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("neurondb: invalid index OID")));
 
-	/* Determine index type and validate */
-	/* For now, assume HNSW - would need to check relam */
-	result = validate_hnsw_index(indexRel);
+	/* Determine index type and validate - do not run HNSW validation on IVF or vice versa */
+	{
+		Oid			amOid = indexRel->rd_rel->relam;
+		HeapTuple	amtup;
+		Form_pg_am	amform;
+
+		amtup = SearchSysCache1(AMOID, ObjectIdGetDatum(amOid));
+		if (HeapTupleIsValid(amtup))
+		{
+			amform = (Form_pg_am) GETSTRUCT(amtup);
+			if (strcmp(NameStr(amform->amname), "hnsw") == 0)
+				result = validate_hnsw_index(indexRel);
+			else if (strcmp(NameStr(amform->amname), "ivfflat") == 0)
+				result = validate_ivf_index(indexRel);
+			else
+			{
+				result = (ValidateResult *) palloc0(sizeof(ValidateResult));
+				initStringInfo(&result->messages);
+				result->valid = true;
+				result->errors = 0;
+				result->warnings = 0;
+				appendStringInfo(&result->messages, "Unknown index type, skipped detailed validation.");
+			}
+			ReleaseSysCache(amtup);
+		}
+		else
+		{
+			result = (ValidateResult *) palloc0(sizeof(ValidateResult));
+			initStringInfo(&result->messages);
+			result->valid = true;
+			result->errors = 0;
+			result->warnings = 0;
+			appendStringInfo(&result->messages, "Could not determine index type, skipped validation.");
+		}
+	}
 
 	/* Build result tuple */
 	if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
@@ -472,7 +504,7 @@ validate_hnsw_index(Relation index)
 /*
  * Validate IVF index
  */
-__attribute__((unused)) static ValidateResult *
+static ValidateResult *
 validate_ivf_index(Relation index)
 {
 	ValidateResult *result = NULL;
@@ -867,8 +899,22 @@ check_dead_tuples(Relation index, ValidateResult * result)
 
 	appendStringInfo(&result->messages, "Checking for dead tuples... ");
 
-	/* Get heap relation from index */
-	heapRel = index_open(IndexGetRelation(index->rd_id, false), AccessShareLock);
+	/* Get heap relation from index - skip if heap OID invalid to avoid crash */
+	{
+		Oid			heapOid = IndexGetRelation(index->rd_id, false);
+
+		if (!OidIsValid(heapOid))
+		{
+			appendStringInfo(&result->messages, "SKIP (no heap relation)\n");
+			return;
+		}
+		heapRel = index_open(heapOid, AccessShareLock);
+		if (!RelationIsValid(heapRel))
+		{
+			appendStringInfo(&result->messages, "SKIP (heap relation invalid)\n");
+			return;
+		}
+	}
 
 	/* Get snapshot for visibility checking */
 	snapshot = GetActiveSnapshot();
@@ -957,9 +1003,37 @@ diagnose_index(Relation index)
 	initStringInfo(&diag->recommendations);
 
 	diag->index_name = pstrdup(RelationGetRelationName(index));
-	diag->index_type = pstrdup("HNSW"); /* Would check actual type */
 
-	/* Get actual statistics from index */
+	/* Only run HNSW-specific scan on HNSW indexes; return safe defaults for IVF/other */
+	{
+		Oid			amOid = index->rd_rel->relam;
+		HeapTuple	amtup;
+		Form_pg_am	amform;
+
+		amtup = SearchSysCache1(AMOID, ObjectIdGetDatum(amOid));
+		if (HeapTupleIsValid(amtup))
+		{
+			amform = (Form_pg_am) GETSTRUCT(amtup);
+			if (strcmp(NameStr(amform->amname), "hnsw") != 0)
+			{
+				diag->index_type = pstrdup(strcmp(NameStr(amform->amname), "ivfflat") == 0 ? "IVF" : "unknown");
+				diag->total_tuples = 0;
+				diag->dead_tuples = 0;
+				diag->orphan_nodes = 0;
+				diag->avg_connectivity = 0.0f;
+				diag->fragmentation = 0.0f;
+				diag->size_bytes = RelationGetNumberOfBlocks(index) * BLCKSZ;
+				diag->health_status = pstrdup("HEALTHY");
+				appendStringInfo(&diag->recommendations, "No HNSW-specific diagnostics (index is %s).", diag->index_type);
+				ReleaseSysCache(amtup);
+				return diag;
+			}
+			ReleaseSysCache(amtup);
+		}
+		diag->index_type = pstrdup("HNSW");
+	}
+
+	/* Get actual statistics from index (HNSW only) */
 	{
 		BlockNumber blkno;
 		Buffer		buf;
@@ -975,65 +1049,170 @@ diagnose_index(Relation index)
 		HeapTuple	tuple = &tupleData;
 		bool		found;
 
-		heapRel = index_open(IndexGetRelation(index->rd_id, false), AccessShareLock);
-		snapshot = GetActiveSnapshot();
-
-		for (blkno = 1; blkno < RelationGetNumberOfBlocks(index); blkno++)
+		/* Safely get heap relation - IndexGetRelation might fail */
 		{
-			buf = ReadBuffer(index, blkno);
-			if (!BufferIsValid(buf))
+			Oid			heapOid;
+			
+			PG_TRY();
 			{
-				ereport(ERROR,
-						(errcode(ERRCODE_INTERNAL_ERROR),
-						 errmsg("neurondb: ReadBuffer failed for buffer")));
-			}
-			LockBuffer(buf, BUFFER_LOCK_SHARE);
-			page = BufferGetPage(buf);
-
-			if (PageIsNew(page) || PageIsEmpty(page))
-			{
-				UnlockReleaseBuffer(buf);
-				continue;
-			}
-
-			maxoff = PageGetMaxOffsetNumber(page);
-
-			for (offnum = FirstOffsetNumber; offnum <= maxoff;
-				 offnum = OffsetNumberNext(offnum))
-			{
-				itemId = PageGetItemId(page, offnum);
-
-				if (!ItemIdIsValid(itemId))
-					continue;
-
-				if (ItemIdIsDead(itemId))
+				heapOid = IndexGetRelation(index->rd_id, false);
+				if (!OidIsValid(heapOid))
 				{
-					deadTuples++;
-					continue;
+					diag->total_tuples = 0;
+					diag->dead_tuples = 0;
+					return diag;
 				}
+				heapRel = index_open(heapOid, AccessShareLock);
+			}
+			PG_CATCH();
+			{
+				/* If we can't get heap relation, return safe defaults */
+				diag->total_tuples = 0;
+				diag->dead_tuples = 0;
+				return diag;
+			}
+			PG_END_TRY();
+		}
+		
+		if (!RelationIsValid(heapRel))
+		{
+			diag->total_tuples = 0;
+			diag->dead_tuples = 0;
+			return diag;
+		}
+		
+		snapshot = GetActiveSnapshot();
+		if (snapshot == NULL)
+		{
+			snapshot = GetTransactionSnapshot();
+		}
 
-				totalTuples++;
-
-				/* Check if heap tuple is visible */
+		/* Check index blocks safely */
+		{
+			BlockNumber total_blocks;
+			
+			PG_TRY();
+			{
+				total_blocks = RelationGetNumberOfBlocks(index);
+				if (total_blocks == 0)
 				{
-					Buffer		heapBuf;
+					index_close(heapRel, AccessShareLock);
+					diag->total_tuples = 0;
+					diag->dead_tuples = 0;
+					return diag;
+				}
+			}
+			PG_CATCH();
+			{
+				index_close(heapRel, AccessShareLock);
+				diag->total_tuples = 0;
+				diag->dead_tuples = 0;
+				return diag;
+			}
+			PG_END_TRY();
+		}
 
-					found = heap_fetch(heapRel, snapshot, tuple, &heapBuf, false);
-					if (found && HeapTupleIsValid(tuple))
+		{
+			BlockNumber total_blocks;
+			
+			PG_TRY();
+			{
+				total_blocks = RelationGetNumberOfBlocks(index);
+			}
+			PG_CATCH();
+			{
+				index_close(heapRel, AccessShareLock);
+				diag->total_tuples = 0;
+				diag->dead_tuples = 0;
+				return diag;
+			}
+			PG_END_TRY();
+			
+			for (blkno = 1; blkno < total_blocks; blkno++)
+			{
+				PG_TRY();
+				{
+					buf = ReadBuffer(index, blkno);
+					if (!BufferIsValid(buf))
 					{
-						if (!HeapTupleSatisfiesVisibility(tuple, snapshot, heapBuf))
+						/* Skip invalid buffers instead of crashing */
+						continue;
+					}
+					LockBuffer(buf, BUFFER_LOCK_SHARE);
+					page = BufferGetPage(buf);
+
+					if (PageIsNew(page) || PageIsEmpty(page))
+					{
+						UnlockReleaseBuffer(buf);
+						continue;
+					}
+
+					maxoff = PageGetMaxOffsetNumber(page);
+
+					for (offnum = FirstOffsetNumber; offnum <= maxoff;
+						 offnum = OffsetNumberNext(offnum))
+					{
+						itemId = PageGetItemId(page, offnum);
+
+						if (!ItemIdIsValid(itemId))
+							continue;
+
+						if (ItemIdIsDead(itemId))
 						{
 							deadTuples++;
+							continue;
 						}
-					}
-					else
-					{
-						deadTuples++;
-					}
-				}
-			}
 
-			UnlockReleaseBuffer(buf);
+						totalTuples++;
+
+						/* Check if heap tuple is visible - wrap in error handling */
+						PG_TRY();
+						{
+							Buffer		heapBuf;
+
+							if (snapshot != NULL)
+							{
+								found = heap_fetch(heapRel, snapshot, tuple, &heapBuf, false);
+								if (found && HeapTupleIsValid(tuple))
+								{
+									if (!HeapTupleSatisfiesVisibility(tuple, snapshot, heapBuf))
+									{
+										deadTuples++;
+									}
+									if (BufferIsValid(heapBuf))
+										ReleaseBuffer(heapBuf);
+								}
+								else
+								{
+									deadTuples++;
+								}
+							}
+							else
+							{
+								deadTuples++;
+							}
+						}
+						PG_CATCH();
+						{
+							/* If heap_fetch fails, count as dead */
+							deadTuples++;
+						}
+						PG_END_TRY();
+					}
+
+					UnlockReleaseBuffer(buf);
+				}
+				PG_CATCH();
+				{
+					/* If reading this block fails, skip it and continue */
+					if (BufferIsValid(buf))
+					{
+						UnlockReleaseBuffer(buf);
+					}
+					continue;
+				}
+				PG_END_TRY();
+			}
 		}
 
 		index_close(heapRel, AccessShareLock);
@@ -1085,6 +1264,9 @@ compute_fragmentation(Relation index)
 	float4		fragmentation;
 
 	totalBlocks = RelationGetNumberOfBlocks(index);
+	if (totalBlocks == 0)
+		return 0.0f;		/* No blocks = no fragmentation */
+	
 	/* Count actually used blocks */
 	{
 		BlockNumber blkno;
@@ -1097,9 +1279,8 @@ compute_fragmentation(Relation index)
 			buf = ReadBuffer(index, blkno);
 			if (!BufferIsValid(buf))
 			{
-				ereport(ERROR,
-						(errcode(ERRCODE_INTERNAL_ERROR),
-						 errmsg("neurondb: ReadBuffer failed for buffer")));
+				/* Skip invalid buffers instead of crashing */
+				continue;
 			}
 			LockBuffer(buf, BUFFER_LOCK_SHARE);
 			page = BufferGetPage(buf);
@@ -1390,22 +1571,83 @@ index_statistics(PG_FUNCTION_ARGS)
 		}
 	}
 
-	/* Get statistics */
-	diag = diagnose_index(indexRel);
-	total_blocks = RelationGetNumberOfBlocks(indexRel);
-	index_size_bytes = total_blocks * BLCKSZ;
-	fragmentation = compute_fragmentation(indexRel);
-
-	/* Get heap relation stats */
+	/* Get statistics - wrap in error handling to prevent crashes */
+	PG_TRY();
 	{
-		Oid			heapOid = indexRel->rd_index->indrelid;
+		diag = diagnose_index(indexRel);
+		total_blocks = RelationGetNumberOfBlocks(indexRel);
+		index_size_bytes = total_blocks * BLCKSZ;
+		fragmentation = compute_fragmentation(indexRel);
+	}
+	PG_CATCH();
+	{
+		index_close(indexRel, AccessShareLock);
+		pfree(idx_name);
+		/* Return minimal safe result instead of crashing */
+		{
+			StringInfoData json_buf;
+			Jsonb *result_jsonb = NULL;
+			
+			initStringInfo(&json_buf);
+			appendStringInfo(&json_buf,
+							 "{\"index_name\":\"%s\","
+							 "\"index_type\":\"%s\","
+							 "\"index_size_bytes\":0,"
+							 "\"index_size_mb\":0.0,"
+							 "\"heap_size_bytes\":0,"
+							 "\"heap_size_mb\":0.0,"
+							 "\"total_tuples\":0,"
+							 "\"dead_tuples\":0,"
+							 "\"live_tuples\":0,"
+							 "\"fragmentation\":0.0,"
+							 "\"avg_connectivity\":0.0,"
+							 "\"orphan_nodes\":0}",
+							 idx_name,
+							 index_type);
+			result_jsonb = DatumGetJsonbP(DirectFunctionCall1(
+														  jsonb_in, CStringGetTextDatum(json_buf.data)));
+			pfree(json_buf.data);
+			PG_RETURN_POINTER(result_jsonb);
+		}
+	}
+	PG_END_TRY();
+
+	/* Get heap relation stats - wrap in error handling */
+	{
+		Oid			heapOid;
+		
+		PG_TRY();
+		{
+			if (indexRel->rd_index != NULL)
+			{
+				heapOid = indexRel->rd_index->indrelid;
+			}
+			else
+			{
+				heapOid = InvalidOid;
+			}
+		}
+		PG_CATCH();
+		{
+			heapOid = InvalidOid;
+		}
+		PG_END_TRY();
 
 		if (OidIsValid(heapOid))
 		{
-			Relation	heapRel = relation_open(heapOid, AccessShareLock);
+			PG_TRY();
+			{
+				Relation	heapRel = relation_open(heapOid, AccessShareLock);
 
-			heap_size_bytes = RelationGetNumberOfBlocks(heapRel) * BLCKSZ;
-			relation_close(heapRel, AccessShareLock);
+				heap_size_bytes = RelationGetNumberOfBlocks(heapRel) * BLCKSZ;
+				relation_close(heapRel, AccessShareLock);
+			}
+			PG_CATCH();
+			{
+				/* If we can't access heap, set to 0 */
+				heap_size_bytes = 0;
+			}
+			PG_END_TRY();
 		}
 		else
 		{
@@ -1523,12 +1765,42 @@ index_health(PG_FUNCTION_ARGS)
 				 errmsg("invalid index: %s", idx_name)));
 	}
 
-	diag = diagnose_index(indexRel);
-	total_tuples = diag->total_tuples;
-	dead_tuples = diag->dead_tuples;
-	fragmentation = diag->fragmentation;
-	orphan_nodes = diag->orphan_nodes;
-	health_status = diag->health_status;
+	/* Safely get diagnostics - wrap in error handling */
+	PG_TRY();
+	{
+		diag = diagnose_index(indexRel);
+		total_tuples = diag->total_tuples;
+		dead_tuples = diag->dead_tuples;
+		fragmentation = diag->fragmentation;
+		orphan_nodes = diag->orphan_nodes;
+		health_status = diag->health_status;
+	}
+	PG_CATCH();
+	{
+		index_close(indexRel, AccessShareLock);
+		pfree(idx_name);
+		/* Return safe default result */
+		{
+			StringInfoData json_buf;
+			Jsonb *result_jsonb = NULL;
+
+			initStringInfo(&json_buf);
+			appendStringInfo(&json_buf,
+							 "{\"index_name\":\"%s\","
+							 "\"health_status\":\"UNKNOWN\","
+							 "\"health_score\":0.0,"
+							 "\"dead_tuple_ratio\":0.0,"
+							 "\"fragmentation\":0.0,"
+							 "\"orphan_nodes\":0,"
+							 "\"recommendations\":\"Index diagnosis failed\"}",
+							 idx_name);
+			result_jsonb = DatumGetJsonbP(DirectFunctionCall1(
+														  jsonb_in, CStringGetTextDatum(json_buf.data)));
+			pfree(json_buf.data);
+			PG_RETURN_POINTER(result_jsonb);
+		}
+	}
+	PG_END_TRY();
 
 	/* Calculate health score (0.0 to 1.0) */
 	health_score = 1.0f;

@@ -1285,6 +1285,20 @@ vector_statistics(PG_FUNCTION_ARGS)
 				 errmsg("No vectors found in table")));
 	}
 
+	if (dim <= 0)
+	{
+		int			i;
+
+		for (i = 0; i < nvec; i++)
+			nfree(data[i]);
+		nfree(data);
+		nfree(tbl_str);
+		nfree(col_str);
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("Invalid vector dimension: %d", dim)));
+	}
+
 	oldctx = MemoryContextSwitchTo(CurrentMemoryContext);
 
 	/* Allocate arrays for statistics */
@@ -1297,15 +1311,31 @@ vector_statistics(PG_FUNCTION_ARGS)
 	/* Initialize */
 	memset(mean, 0, sizeof(float) * dim);
 	memset(variance, 0, sizeof(float) * dim);
-	for (d = 0; d < dim; d++)
+	
+	/* Initialize min/max from first vector (safely) */
+	if (nvec > 0 && data[0] != NULL)
 	{
-		min_vals[d] = data[0][d];
-		max_vals[d] = data[0][d];
+		for (d = 0; d < dim; d++)
+		{
+			min_vals[d] = data[0][d];
+			max_vals[d] = data[0][d];
+		}
+	}
+	else
+	{
+		/* Fallback: set to zero if no valid data */
+		for (d = 0; d < dim; d++)
+		{
+			min_vals[d] = 0.0f;
+			max_vals[d] = 0.0f;
+		}
 	}
 
 	/* Compute mean, min, max */
 	for (i = 0; i < nvec; i++)
 	{
+		if (data[i] == NULL)
+			continue;		/* Skip NULL vectors */
 		for (d = 0; d < dim; d++)
 		{
 			mean[d] += data[i][d];
@@ -1316,12 +1346,29 @@ vector_statistics(PG_FUNCTION_ARGS)
 		}
 	}
 
-	for (d = 0; d < dim; d++)
-		mean[d] /= nvec;
+	/* Calculate mean, accounting for NULL vectors */
+	{
+		int			valid_count = 0;
+		int			i_count;
+
+		for (i_count = 0; i_count < nvec; i_count++)
+		{
+			if (data[i_count] != NULL)
+				valid_count++;
+		}
+		
+		if (valid_count > 0)
+		{
+			for (d = 0; d < dim; d++)
+				mean[d] /= valid_count;
+		}
+	}
 
 	/* Compute variance and stddev */
 	for (i = 0; i < nvec; i++)
 	{
+		if (data[i] == NULL)
+			continue;		/* Skip NULL vectors */
 		for (d = 0; d < dim; d++)
 		{
 			float		diff = data[i][d] - mean[d];
@@ -1330,10 +1377,25 @@ vector_statistics(PG_FUNCTION_ARGS)
 		}
 	}
 
-	for (d = 0; d < dim; d++)
+	/* Calculate variance and stddev, accounting for NULL vectors */
 	{
-		variance[d] /= nvec;
-		stddev[d] = sqrt(variance[d]);
+		int			valid_count = 0;
+		int			i_count;
+
+		for (i_count = 0; i_count < nvec; i_count++)
+		{
+			if (data[i_count] != NULL)
+				valid_count++;
+		}
+		
+		if (valid_count > 0)
+		{
+			for (d = 0; d < dim; d++)
+			{
+				variance[d] /= valid_count;
+				stddev[d] = sqrt(variance[d]);
+			}
+		}
 	}
 
 	/* Build JSONB result */
@@ -1401,10 +1463,18 @@ vector_statistics(PG_FUNCTION_ARGS)
 				{
 					double		cov = 0.0;
 					int			k;
+					int			valid_count = 0;
 
 					for (k = 0; k < nvec; k++)
-						cov += (data[k][i] - mean[i]) * (data[k][j] - mean[j]);
-					cov /= nvec;
+					{
+						if (data[k] != NULL)
+						{
+							cov += (data[k][i] - mean[i]) * (data[k][j] - mean[j]);
+							valid_count++;
+						}
+					}
+					if (valid_count > 0)
+						cov /= valid_count;
 					if (stddev[i] > 0 && stddev[j] > 0)
 					{
 						double		corr = cov / (stddev[i] * stddev[j]);
@@ -1670,6 +1740,7 @@ query_performance_analytics(PG_FUNCTION_ARGS)
 	NDB_SPI_SESSION_BEGIN(spi_session, oldctx);
 
 	/* Query performance metrics from neurondb.query_metrics */
+	/* Handle case where table might not exist */
 	{
 		StringInfoData sql;
 
@@ -1686,7 +1757,14 @@ query_performance_analytics(PG_FUNCTION_ARGS)
 						 "WHERE query_timestamp > NOW() - INTERVAL '24 hours'");
 
 		ret = ndb_spi_execute_with_args(spi_session, sql.data, 0, NULL, NULL, NULL, true, 0);
-		if (ret == SPI_OK_SELECT && SPI_processed > 0)
+		
+		/* If table doesn't exist, use default values */
+		if (ret != SPI_OK_SELECT)
+		{
+			pfree(sql.data);
+			/* Continue with default values (all zeros) */
+		}
+		else if (ret == SPI_OK_SELECT && SPI_processed > 0)
 		{
 			bool		isnull;
 			Datum		datum;

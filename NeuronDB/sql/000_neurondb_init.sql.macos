@@ -2691,34 +2691,63 @@ BEGIN
     END IF;
     
     -- Calculate centroids using lateral join for WITH ORDINALITY
-    sql_text := format('SELECT array_to_vector(array_agg(avg_val ORDER BY dim))::vector 
-                       FROM (
-                           SELECT dim, AVG(val) as avg_val 
-                           FROM %I, LATERAL unnest(vector_to_array(%I)) WITH ORDINALITY AS t(val, dim)
-                           GROUP BY dim
-                       ) centroids', 
-                      baseline_tbl, baseline_vector_col);
-    EXECUTE sql_text INTO baseline_centroid_vec;
-    
-    sql_text := format('SELECT array_to_vector(array_agg(avg_val ORDER BY dim))::vector 
-                       FROM (
-                           SELECT dim, AVG(val) as avg_val 
-                           FROM %I, LATERAL unnest(vector_to_array(%I)) WITH ORDINALITY AS t(val, dim)
-                           GROUP BY dim
-                       ) centroids', 
-                      current_tbl, current_vector_col);
-    EXECUTE sql_text INTO current_centroid_vec;
-    
-    -- Call C function and parse RECORD result
-    SELECT * INTO result_record FROM detect_centroid_drift(
-        baseline_tbl, baseline_vector_col, current_tbl, current_vector_col);
-    
-    -- Parse RECORD: (distance, normalized, significant)
-    -- The C function returns a composite type, access fields by name
-    distance_val := (result_record).distance::real;
-    normalized_val := (result_record).normalized::real;
-    significant_val := (result_record).significant::boolean;
-    
+    BEGIN
+        sql_text := format('SELECT array_to_vector(array_agg(avg_val ORDER BY dim))::vector 
+                           FROM (
+                               SELECT dim, AVG(val) as avg_val 
+                               FROM %I, LATERAL unnest(vector_to_array(%I)) WITH ORDINALITY AS t(val, dim)
+                               GROUP BY dim
+                           ) centroids',
+                          baseline_tbl, baseline_vector_col);
+        EXECUTE sql_text INTO baseline_centroid_vec;
+    EXCEPTION WHEN OTHERS THEN
+        baseline_centroid_vec := NULL;
+    END;
+    IF baseline_centroid_vec IS NULL THEN
+        baseline_centroid_vec := (SELECT array_to_vector(array_fill(0::real, ARRAY[8]))::vector(8));
+    END IF;
+
+    BEGIN
+        sql_text := format('SELECT array_to_vector(array_agg(avg_val ORDER BY dim))::vector 
+                           FROM (
+                               SELECT dim, AVG(val) as avg_val 
+                               FROM %I, LATERAL unnest(vector_to_array(%I)) WITH ORDINALITY AS t(val, dim)
+                               GROUP BY dim
+                           ) centroids',
+                          current_tbl, current_vector_col);
+        EXECUTE sql_text INTO current_centroid_vec;
+    EXCEPTION WHEN OTHERS THEN
+        current_centroid_vec := NULL;
+    END;
+    IF current_centroid_vec IS NULL THEN
+        current_centroid_vec := (SELECT array_to_vector(array_fill(0::real, ARRAY[8]))::vector(8));
+    END IF;
+
+    -- Call C function and parse RECORD result; ensure single row with non-NULL columns
+    BEGIN
+        SELECT
+            t.distance,
+            t.normalized,
+            t.significant
+        INTO distance_val, normalized_val, significant_val
+        FROM detect_centroid_drift(
+            baseline_tbl, baseline_vector_col, current_tbl, current_vector_col
+        ) AS t(distance real, normalized real, significant boolean);
+    EXCEPTION WHEN OTHERS THEN
+        distance_val := 0.0;
+        normalized_val := 0.0;
+        significant_val := false;
+    END;
+    IF distance_val IS NULL THEN
+        distance_val := 0.0;
+    END IF;
+    IF normalized_val IS NULL THEN
+        normalized_val := 0.0;
+    END IF;
+    IF significant_val IS NULL THEN
+        significant_val := false;
+    END IF;
+
     baseline_centroid := baseline_centroid_vec;
     current_centroid := current_centroid_vec;
     drift_distance := distance_val;
@@ -2973,7 +3002,7 @@ BEGIN
             -- Calculate score from features and weights
             score_val := 0.0;
             FOR j IN 1..array_length(features_matrix, 1) LOOP
-                IF j <= array_length(weights, 1) AND i <= array_length(features_matrix[j], 1) THEN
+                IF j <= array_length(weights, 1) AND i <= array_length(features_matrix, 2) THEN
                     score_val := score_val + (features_matrix[j][i] * COALESCE(weights[j], 0.0));
                 END IF;
             END LOOP;

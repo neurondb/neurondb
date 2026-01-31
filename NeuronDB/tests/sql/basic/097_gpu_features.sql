@@ -207,10 +207,11 @@ BEGIN
         IF result_count = 0 THEN
             RAISE WARNING 'cluster_kmeans_gpu returned no results';
         END IF;
-    EXCEPTION WHEN undefined_function THEN
-        RAISE NOTICE 'cluster_kmeans_gpu not available, skipping';
-    EXCEPTION WHEN OTHERS THEN
-        RAISE NOTICE 'cluster_kmeans_gpu error: %', SQLERRM;
+    EXCEPTION
+        WHEN undefined_function THEN
+            RAISE NOTICE 'cluster_kmeans_gpu not available, skipping';
+        WHEN OTHERS THEN
+            RAISE NOTICE 'cluster_kmeans_gpu error: %', SQLERRM;
     END;
     
     -- Test neurondb_hnsw_search_gpu (may require index, so allow errors)
@@ -228,9 +229,23 @@ BEGIN
 END$$;
 
 -- ==== 7. GPU Function Edge Arguments: Wrong dimensions, Overflows, Limits ====
--- Wrong dimensions (input vector does not match table)
-SELECT vector_l2_distance_gpu('[1,2,3]', '[1,2,3,4]') AS l2_wrong_dim;
-SELECT vector_l2_distance_gpu('[1,2,3,4,5]', '[1,2,3,4]') AS l2_wrong_dim2;
+-- Wrong dimensions (input vector does not match table) - these should error
+DO $$
+BEGIN
+    BEGIN
+        PERFORM vector_l2_distance_gpu('[1,2,3]'::vector(3), '[1,2,3,4]'::vector(4));
+        RAISE WARNING 'vector_l2_distance_gpu should have raised error for dimension mismatch';
+    EXCEPTION WHEN OTHERS THEN
+        RAISE NOTICE 'vector_l2_distance_gpu correctly rejected dimension mismatch: %', SQLERRM;
+    END;
+    
+    BEGIN
+        PERFORM vector_l2_distance_gpu('[1,2,3,4,5]'::vector(5), '[1,2,3,4]'::vector(4));
+        RAISE WARNING 'vector_l2_distance_gpu should have raised error for dimension mismatch';
+    EXCEPTION WHEN OTHERS THEN
+        RAISE NOTICE 'vector_l2_distance_gpu correctly rejected dimension mismatch: %', SQLERRM;
+    END;
+END$$;
 
 -- Data overflow / tiny/large
 -- Validate that function handles overflow cases properly
@@ -268,9 +283,10 @@ END$$;
 SELECT * FROM neurondb_gpu_stats() AS stats_post_reset_2;
 
 -- ==== 9. Disable/re-enable GPU in all ways; info afterward ====
-SELECT neurondb_gpu_enable(false) AS gpu_disabled;
-SELECT * FROM neurondb_gpu_info() AS info_after_disable;
-SELECT neurondb_gpu_enable(true) AS gpu_reenabled;
+-- Note: neurondb_gpu_enable() takes no arguments - it's a toggle function
+SELECT neurondb_gpu_enable() AS gpu_toggle_1;
+SELECT * FROM neurondb_gpu_info() AS info_after_toggle;
+SELECT neurondb_gpu_enable() AS gpu_toggle_2;
 SELECT * FROM neurondb_gpu_info() AS info_after_reenable;
 
 -- ==== 10. Cleanup ====

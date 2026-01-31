@@ -52,8 +52,18 @@ FROM generate_series(1, 200);
 \echo 'Test 1: GPU-accelerated HNSW index build'
 \echo '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
 
--- Enable GPU for index build
-SET neurondb.compute_mode = '1';
+-- Enable GPU for index build (if available)
+-- Note: Setting compute_mode to '1' may cause issues in CPU-only environments
+-- Wrap in error handling
+DO $$
+BEGIN
+    BEGIN
+        SET LOCAL neurondb.compute_mode = 1;
+    EXCEPTION WHEN OTHERS THEN
+        RAISE NOTICE 'GPU mode not available, using CPU fallback: %', SQLERRM;
+        SET LOCAL neurondb.compute_mode = 0;
+    END;
+END$$;
 
 -- Create HNSW index (should use GPU-accelerated distance computation during build)
 CREATE INDEX gpu_hnsw_idx ON gpu_search_test USING hnsw (vec vector_l2_ops)

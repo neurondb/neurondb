@@ -5,6 +5,9 @@
 -- Uses real data from: ms_marco.data (for retrieval metrics)
 -- ====================================================================
 
+-- Ensure neurondb types/operators (including vector) are available
+CREATE EXTENSION IF NOT EXISTS neurondb;
+
 \echo '=== Using MS MARCO Dataset for Retrieval Metrics Tests ==='
 
 -- Create ground truth (synthetic, ms_marco.data may not exist)
