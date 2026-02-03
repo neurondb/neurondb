@@ -41,17 +41,17 @@ type ModelConfig struct {
 }
 
 type MemoryConfig struct {
-	Enabled         bool   `yaml:"enabled,omitempty" json:"enabled,omitempty"`
-	Hierarchical    bool   `yaml:"hierarchical,omitempty" json:"hierarchical,omitempty"`
-	RetentionDays   int    `yaml:"retention_days,omitempty" json:"retention_days,omitempty"`
-	VectorDimension int    `yaml:"vector_dimension,omitempty" json:"vector_dimension,omitempty"`
+	Enabled         bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
+	Hierarchical    bool `yaml:"hierarchical,omitempty" json:"hierarchical,omitempty"`
+	RetentionDays   int  `yaml:"retention_days,omitempty" json:"retention_days,omitempty"`
+	VectorDimension int  `yaml:"vector_dimension,omitempty" json:"vector_dimension,omitempty"`
 }
 
 type WorkflowConfig struct {
-	Name        string          `yaml:"name" json:"name"`
-	Description string          `yaml:"description,omitempty" json:"description,omitempty"`
-	Type        string          `yaml:"type" json:"type"`
-	Steps       []WorkflowStep  `yaml:"steps" json:"steps"`
+	Name        string            `yaml:"name" json:"name"`
+	Description string            `yaml:"description,omitempty" json:"description,omitempty"`
+	Type        string            `yaml:"type" json:"type"`
+	Steps       []WorkflowStep    `yaml:"steps" json:"steps"`
 	Triggers    []WorkflowTrigger `yaml:"triggers,omitempty" json:"triggers,omitempty"`
 }
 
@@ -71,10 +71,10 @@ type RetryConfig struct {
 }
 
 type WorkflowTrigger struct {
-	Type    string                 `yaml:"type" json:"type"`
-	Cron    string                 `yaml:"cron,omitempty" json:"cron,omitempty"`
-	Path    string                 `yaml:"path,omitempty" json:"path,omitempty"`
-	Config  map[string]interface{} `yaml:"config,omitempty" json:"config,omitempty"`
+	Type   string                 `yaml:"type" json:"type"`
+	Cron   string                 `yaml:"cron,omitempty" json:"cron,omitempty"`
+	Path   string                 `yaml:"path,omitempty" json:"path,omitempty"`
+	Config map[string]interface{} `yaml:"config,omitempty" json:"config,omitempty"`
 }
 
 func LoadAgentConfig(path string) (*AgentConfig, error) {
@@ -88,11 +88,50 @@ func LoadAgentConfig(path string) (*AgentConfig, error) {
 		return nil, fmt.Errorf("failed to parse YAML: %w", err)
 	}
 
-	if config.Name == "" {
-		return nil, fmt.Errorf("agent name is required")
+	if err := ValidateAgentConfig(&config); err != nil {
+		return nil, err
 	}
 
 	return &config, nil
+}
+
+/* ValidateAgentConfig validates agent configuration fields */
+func ValidateAgentConfig(c *AgentConfig) error {
+	if c.Name == "" {
+		return fmt.Errorf("agent name is required")
+	}
+
+	/* Model validation when specified */
+	if c.Model.Name != "" {
+		if c.Model.Temperature < 0 || c.Model.Temperature > 2 {
+			return fmt.Errorf("model temperature must be between 0 and 2, got %f", c.Model.Temperature)
+		}
+		if c.Model.MaxTokens < 0 {
+			return fmt.Errorf("model max_tokens must be non-negative, got %d", c.Model.MaxTokens)
+		}
+		if c.Model.TopP < 0 || c.Model.TopP > 1 {
+			return fmt.Errorf("model top_p must be between 0 and 1, got %f", c.Model.TopP)
+		}
+	}
+
+	/* Memory validation when enabled */
+	if c.Memory.Enabled {
+		if c.Memory.RetentionDays < 0 {
+			return fmt.Errorf("memory retention_days must be non-negative, got %d", c.Memory.RetentionDays)
+		}
+		if c.Memory.VectorDimension < 0 {
+			return fmt.Errorf("memory vector_dimension must be non-negative, got %d", c.Memory.VectorDimension)
+		}
+	}
+
+	/* Workflow validation when present */
+	if c.Workflow != nil {
+		if err := ValidateWorkflow(c.Workflow); err != nil {
+			return fmt.Errorf("workflow: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func LoadWorkflow(path string) (*WorkflowConfig, error) {
@@ -197,6 +236,3 @@ func GetWorkflowTemplates() []string {
 		"report-generator",
 	}
 }
-
-
-

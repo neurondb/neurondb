@@ -19,16 +19,17 @@ import (
 	"os"
 	"strings"
 
-	"github.com/spf13/cobra"
 	"github.com/neurondb/NeuronAgent/cli/pkg/client"
+	"github.com/neurondb/NeuronAgent/cli/pkg/config"
+	"github.com/spf13/cobra"
 )
 
 var (
-	testMessage    string
-	testWorkflow   bool
-	testDebug      bool
-	testDryRun     bool
-	testConfig     string
+	testMessage  string
+	testWorkflow bool
+	testDebug    bool
+	testDryRun   bool
+	testConfig   string
 )
 
 var testCmd = &cobra.Command{
@@ -73,18 +74,12 @@ func runTest(cmd *cobra.Command, args []string) error {
 
 func testConfigFile(configPath string) error {
 	fmt.Printf("🔍 Validating configuration: %s\n", configPath)
-	
-	/*
-	 * TODO: Implement comprehensive configuration file validation.
-	 * This should include:
-	 * 1. Parsing the configuration file (YAML/JSON).
-	 * 2. Validating required fields are present.
-	 * 3. Checking data types and value ranges.
-	 * 4. Verifying file paths and network endpoints are accessible.
-	 * 5. Returning detailed error messages for any validation failures.
-	 *
-	 * Current state: Placeholder, always returns success.
-	 */
+
+	_, err := config.LoadAgentConfig(configPath)
+	if err != nil {
+		return fmt.Errorf("validation failed: %w", err)
+	}
+
 	fmt.Println("✅ Configuration file is valid")
 	return nil
 }
@@ -128,7 +123,7 @@ func testInteractive(apiClient *client.Client, agentID string) error {
 	fmt.Printf("✅ Session created: %s\n\n", session.ID)
 
 	scanner := bufio.NewScanner(os.Stdin)
-	
+
 	for {
 		fmt.Print("You: ")
 		if !scanner.Scan() {
@@ -158,6 +153,3 @@ func testInteractive(apiClient *client.Client, agentID string) error {
 	fmt.Println("\n👋 Session ended")
 	return nil
 }
-
-
-

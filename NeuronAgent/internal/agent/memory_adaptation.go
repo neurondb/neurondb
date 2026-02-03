@@ -86,10 +86,10 @@ func (m *MemoryAdaptationManager) AnalyzeUsagePatterns(ctx context.Context, agen
 	ORDER BY retrieval_count DESC`, tableName)
 
 	type UsageRow struct {
-		MemoryID          uuid.UUID  `db:"memory_id"`
-		RetrievalCount    int        `db:"retrieval_count"`
-		LastRetrieved     *time.Time `db:"last_retrieved"`
-		AvgIntervalSeconds *float64  `db:"avg_interval_seconds"`
+		MemoryID           uuid.UUID  `db:"memory_id"`
+		RetrievalCount     int        `db:"retrieval_count"`
+		LastRetrieved      *time.Time `db:"last_retrieved"`
+		AvgIntervalSeconds *float64   `db:"avg_interval_seconds"`
 	}
 
 	var rows []UsageRow
@@ -128,7 +128,7 @@ func (m *MemoryAdaptationManager) determineTrend(ctx context.Context, memoryID u
 	/* Compare recent (last 7 days) vs older (7-30 days) access counts */
 	recentQuery := `SELECT COUNT(*) FROM neurondb_agent.memory_access_log
 		WHERE memory_id = $1 AND accessed_at > NOW() - INTERVAL '7 days'`
-	
+
 	olderQuery := `SELECT COUNT(*) FROM neurondb_agent.memory_access_log
 		WHERE memory_id = $1 AND accessed_at > NOW() - INTERVAL '30 days' AND accessed_at <= NOW() - INTERVAL '7 days'`
 
@@ -468,8 +468,6 @@ func (m *MemoryAdaptationManager) AdjustForgettingThreshold(ctx context.Context,
 		return math.Max(0.1, currentThreshold-0.1), nil
 	}
 	/* Default: no change */
-	return currentThreshold, nil
-
 	return currentThreshold, nil
 }
 
