@@ -80,13 +80,13 @@ type debuggingToolAdapter struct {
 	tool *debugging.DebugToolCallTool
 }
 
-func (a *debuggingToolAdapter) Name() string { return a.tool.Name() }
-func (a *debuggingToolAdapter) Description() string { return a.tool.Description() }
-func (a *debuggingToolAdapter) InputSchema() map[string]interface{} { return a.tool.InputSchema() }
+func (a *debuggingToolAdapter) Name() string                         { return a.tool.Name() }
+func (a *debuggingToolAdapter) Description() string                  { return a.tool.Description() }
+func (a *debuggingToolAdapter) InputSchema() map[string]interface{}  { return a.tool.InputSchema() }
 func (a *debuggingToolAdapter) OutputSchema() map[string]interface{} { return a.tool.OutputSchema() }
-func (a *debuggingToolAdapter) Version() string { return a.tool.Version() }
-func (a *debuggingToolAdapter) Deprecated() bool { return a.tool.Deprecated() }
-func (a *debuggingToolAdapter) Deprecation() *mcp.DeprecationInfo { return a.tool.Deprecation() }
+func (a *debuggingToolAdapter) Version() string                      { return a.tool.Version() }
+func (a *debuggingToolAdapter) Deprecated() bool                     { return a.tool.Deprecated() }
+func (a *debuggingToolAdapter) Deprecation() *mcp.DeprecationInfo    { return a.tool.Deprecation() }
 func (a *debuggingToolAdapter) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
 	result, err := a.tool.Execute(ctx, params)
 	if err != nil {
@@ -217,12 +217,14 @@ type debuggingQueryPlanAdapter struct {
 	tool *debugging.DebugQueryPlanTool
 }
 
-func (a *debuggingQueryPlanAdapter) Name() string { return a.tool.Name() }
-func (a *debuggingQueryPlanAdapter) Description() string { return a.tool.Description() }
+func (a *debuggingQueryPlanAdapter) Name() string                        { return a.tool.Name() }
+func (a *debuggingQueryPlanAdapter) Description() string                 { return a.tool.Description() }
 func (a *debuggingQueryPlanAdapter) InputSchema() map[string]interface{} { return a.tool.InputSchema() }
-func (a *debuggingQueryPlanAdapter) OutputSchema() map[string]interface{} { return a.tool.OutputSchema() }
-func (a *debuggingQueryPlanAdapter) Version() string { return a.tool.Version() }
-func (a *debuggingQueryPlanAdapter) Deprecated() bool { return a.tool.Deprecated() }
+func (a *debuggingQueryPlanAdapter) OutputSchema() map[string]interface{} {
+	return a.tool.OutputSchema()
+}
+func (a *debuggingQueryPlanAdapter) Version() string                   { return a.tool.Version() }
+func (a *debuggingQueryPlanAdapter) Deprecated() bool                  { return a.tool.Deprecated() }
 func (a *debuggingQueryPlanAdapter) Deprecation() *mcp.DeprecationInfo { return a.tool.Deprecation() }
 func (a *debuggingQueryPlanAdapter) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
 	result, err := a.tool.Execute(ctx, params)
@@ -237,13 +239,19 @@ type debuggingMonitorConnectionsAdapter struct {
 	tool *debugging.MonitorActiveConnectionsTool
 }
 
-func (a *debuggingMonitorConnectionsAdapter) Name() string { return a.tool.Name() }
+func (a *debuggingMonitorConnectionsAdapter) Name() string        { return a.tool.Name() }
 func (a *debuggingMonitorConnectionsAdapter) Description() string { return a.tool.Description() }
-func (a *debuggingMonitorConnectionsAdapter) InputSchema() map[string]interface{} { return a.tool.InputSchema() }
-func (a *debuggingMonitorConnectionsAdapter) OutputSchema() map[string]interface{} { return a.tool.OutputSchema() }
-func (a *debuggingMonitorConnectionsAdapter) Version() string { return a.tool.Version() }
+func (a *debuggingMonitorConnectionsAdapter) InputSchema() map[string]interface{} {
+	return a.tool.InputSchema()
+}
+func (a *debuggingMonitorConnectionsAdapter) OutputSchema() map[string]interface{} {
+	return a.tool.OutputSchema()
+}
+func (a *debuggingMonitorConnectionsAdapter) Version() string  { return a.tool.Version() }
 func (a *debuggingMonitorConnectionsAdapter) Deprecated() bool { return a.tool.Deprecated() }
-func (a *debuggingMonitorConnectionsAdapter) Deprecation() *mcp.DeprecationInfo { return a.tool.Deprecation() }
+func (a *debuggingMonitorConnectionsAdapter) Deprecation() *mcp.DeprecationInfo {
+	return a.tool.Deprecation()
+}
 func (a *debuggingMonitorConnectionsAdapter) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
 	result, err := a.tool.Execute(ctx, params)
 	if err != nil {
@@ -257,13 +265,19 @@ type debuggingMonitorPerformanceAdapter struct {
 	tool *debugging.MonitorQueryPerformanceTool
 }
 
-func (a *debuggingMonitorPerformanceAdapter) Name() string { return a.tool.Name() }
+func (a *debuggingMonitorPerformanceAdapter) Name() string        { return a.tool.Name() }
 func (a *debuggingMonitorPerformanceAdapter) Description() string { return a.tool.Description() }
-func (a *debuggingMonitorPerformanceAdapter) InputSchema() map[string]interface{} { return a.tool.InputSchema() }
-func (a *debuggingMonitorPerformanceAdapter) OutputSchema() map[string]interface{} { return a.tool.OutputSchema() }
-func (a *debuggingMonitorPerformanceAdapter) Version() string { return a.tool.Version() }
+func (a *debuggingMonitorPerformanceAdapter) InputSchema() map[string]interface{} {
+	return a.tool.InputSchema()
+}
+func (a *debuggingMonitorPerformanceAdapter) OutputSchema() map[string]interface{} {
+	return a.tool.OutputSchema()
+}
+func (a *debuggingMonitorPerformanceAdapter) Version() string  { return a.tool.Version() }
 func (a *debuggingMonitorPerformanceAdapter) Deprecated() bool { return a.tool.Deprecated() }
-func (a *debuggingMonitorPerformanceAdapter) Deprecation() *mcp.DeprecationInfo { return a.tool.Deprecation() }
+func (a *debuggingMonitorPerformanceAdapter) Deprecation() *mcp.DeprecationInfo {
+	return a.tool.Deprecation()
+}
 func (a *debuggingMonitorPerformanceAdapter) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
 	result, err := a.tool.Execute(ctx, params)
 	if err != nil {
@@ -277,13 +291,13 @@ type debuggingTraceAdapter struct {
 	tool *debugging.TraceRequestTool
 }
 
-func (a *debuggingTraceAdapter) Name() string { return a.tool.Name() }
-func (a *debuggingTraceAdapter) Description() string { return a.tool.Description() }
-func (a *debuggingTraceAdapter) InputSchema() map[string]interface{} { return a.tool.InputSchema() }
+func (a *debuggingTraceAdapter) Name() string                         { return a.tool.Name() }
+func (a *debuggingTraceAdapter) Description() string                  { return a.tool.Description() }
+func (a *debuggingTraceAdapter) InputSchema() map[string]interface{}  { return a.tool.InputSchema() }
 func (a *debuggingTraceAdapter) OutputSchema() map[string]interface{} { return a.tool.OutputSchema() }
-func (a *debuggingTraceAdapter) Version() string { return a.tool.Version() }
-func (a *debuggingTraceAdapter) Deprecated() bool { return a.tool.Deprecated() }
-func (a *debuggingTraceAdapter) Deprecation() *mcp.DeprecationInfo { return a.tool.Deprecation() }
+func (a *debuggingTraceAdapter) Version() string                      { return a.tool.Version() }
+func (a *debuggingTraceAdapter) Deprecated() bool                     { return a.tool.Deprecated() }
+func (a *debuggingTraceAdapter) Deprecation() *mcp.DeprecationInfo    { return a.tool.Deprecation() }
 func (a *debuggingTraceAdapter) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
 	result, err := a.tool.Execute(ctx, params)
 	if err != nil {
@@ -316,12 +330,16 @@ type compositionToolChainAdapter struct {
 	tool *composition.ToolChainTool
 }
 
-func (a *compositionToolChainAdapter) Name() string { return a.tool.Name() }
+func (a *compositionToolChainAdapter) Name() string        { return a.tool.Name() }
 func (a *compositionToolChainAdapter) Description() string { return a.tool.Description() }
-func (a *compositionToolChainAdapter) InputSchema() map[string]interface{} { return a.tool.InputSchema() }
-func (a *compositionToolChainAdapter) OutputSchema() map[string]interface{} { return a.tool.OutputSchema() }
-func (a *compositionToolChainAdapter) Version() string { return a.tool.Version() }
-func (a *compositionToolChainAdapter) Deprecated() bool { return a.tool.Deprecated() }
+func (a *compositionToolChainAdapter) InputSchema() map[string]interface{} {
+	return a.tool.InputSchema()
+}
+func (a *compositionToolChainAdapter) OutputSchema() map[string]interface{} {
+	return a.tool.OutputSchema()
+}
+func (a *compositionToolChainAdapter) Version() string                   { return a.tool.Version() }
+func (a *compositionToolChainAdapter) Deprecated() bool                  { return a.tool.Deprecated() }
 func (a *compositionToolChainAdapter) Deprecation() *mcp.DeprecationInfo { return a.tool.Deprecation() }
 func (a *compositionToolChainAdapter) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
 	result, err := a.tool.Execute(ctx, params)
@@ -336,13 +354,19 @@ type compositionToolParallelAdapter struct {
 	tool *composition.ToolParallelTool
 }
 
-func (a *compositionToolParallelAdapter) Name() string { return a.tool.Name() }
+func (a *compositionToolParallelAdapter) Name() string        { return a.tool.Name() }
 func (a *compositionToolParallelAdapter) Description() string { return a.tool.Description() }
-func (a *compositionToolParallelAdapter) InputSchema() map[string]interface{} { return a.tool.InputSchema() }
-func (a *compositionToolParallelAdapter) OutputSchema() map[string]interface{} { return a.tool.OutputSchema() }
-func (a *compositionToolParallelAdapter) Version() string { return a.tool.Version() }
+func (a *compositionToolParallelAdapter) InputSchema() map[string]interface{} {
+	return a.tool.InputSchema()
+}
+func (a *compositionToolParallelAdapter) OutputSchema() map[string]interface{} {
+	return a.tool.OutputSchema()
+}
+func (a *compositionToolParallelAdapter) Version() string  { return a.tool.Version() }
 func (a *compositionToolParallelAdapter) Deprecated() bool { return a.tool.Deprecated() }
-func (a *compositionToolParallelAdapter) Deprecation() *mcp.DeprecationInfo { return a.tool.Deprecation() }
+func (a *compositionToolParallelAdapter) Deprecation() *mcp.DeprecationInfo {
+	return a.tool.Deprecation()
+}
 func (a *compositionToolParallelAdapter) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
 	result, err := a.tool.Execute(ctx, params)
 	if err != nil {
@@ -356,13 +380,19 @@ type compositionToolConditionalAdapter struct {
 	tool *composition.ToolConditionalTool
 }
 
-func (a *compositionToolConditionalAdapter) Name() string { return a.tool.Name() }
+func (a *compositionToolConditionalAdapter) Name() string        { return a.tool.Name() }
 func (a *compositionToolConditionalAdapter) Description() string { return a.tool.Description() }
-func (a *compositionToolConditionalAdapter) InputSchema() map[string]interface{} { return a.tool.InputSchema() }
-func (a *compositionToolConditionalAdapter) OutputSchema() map[string]interface{} { return a.tool.OutputSchema() }
-func (a *compositionToolConditionalAdapter) Version() string { return a.tool.Version() }
+func (a *compositionToolConditionalAdapter) InputSchema() map[string]interface{} {
+	return a.tool.InputSchema()
+}
+func (a *compositionToolConditionalAdapter) OutputSchema() map[string]interface{} {
+	return a.tool.OutputSchema()
+}
+func (a *compositionToolConditionalAdapter) Version() string  { return a.tool.Version() }
 func (a *compositionToolConditionalAdapter) Deprecated() bool { return a.tool.Deprecated() }
-func (a *compositionToolConditionalAdapter) Deprecation() *mcp.DeprecationInfo { return a.tool.Deprecation() }
+func (a *compositionToolConditionalAdapter) Deprecation() *mcp.DeprecationInfo {
+	return a.tool.Deprecation()
+}
 func (a *compositionToolConditionalAdapter) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
 	result, err := a.tool.Execute(ctx, params)
 	if err != nil {
@@ -376,12 +406,16 @@ type compositionToolRetryAdapter struct {
 	tool *composition.ToolRetryTool
 }
 
-func (a *compositionToolRetryAdapter) Name() string { return a.tool.Name() }
+func (a *compositionToolRetryAdapter) Name() string        { return a.tool.Name() }
 func (a *compositionToolRetryAdapter) Description() string { return a.tool.Description() }
-func (a *compositionToolRetryAdapter) InputSchema() map[string]interface{} { return a.tool.InputSchema() }
-func (a *compositionToolRetryAdapter) OutputSchema() map[string]interface{} { return a.tool.OutputSchema() }
-func (a *compositionToolRetryAdapter) Version() string { return a.tool.Version() }
-func (a *compositionToolRetryAdapter) Deprecated() bool { return a.tool.Deprecated() }
+func (a *compositionToolRetryAdapter) InputSchema() map[string]interface{} {
+	return a.tool.InputSchema()
+}
+func (a *compositionToolRetryAdapter) OutputSchema() map[string]interface{} {
+	return a.tool.OutputSchema()
+}
+func (a *compositionToolRetryAdapter) Version() string                   { return a.tool.Version() }
+func (a *compositionToolRetryAdapter) Deprecated() bool                  { return a.tool.Deprecated() }
 func (a *compositionToolRetryAdapter) Deprecation() *mcp.DeprecationInfo { return a.tool.Deprecation() }
 func (a *compositionToolRetryAdapter) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
 	result, err := a.tool.Execute(ctx, params)
@@ -413,12 +447,14 @@ type workflowToolCreateAdapter struct {
 	tool *workflow.CreateWorkflowTool
 }
 
-func (a *workflowToolCreateAdapter) Name() string { return a.tool.Name() }
-func (a *workflowToolCreateAdapter) Description() string { return a.tool.Description() }
+func (a *workflowToolCreateAdapter) Name() string                        { return a.tool.Name() }
+func (a *workflowToolCreateAdapter) Description() string                 { return a.tool.Description() }
 func (a *workflowToolCreateAdapter) InputSchema() map[string]interface{} { return a.tool.InputSchema() }
-func (a *workflowToolCreateAdapter) OutputSchema() map[string]interface{} { return a.tool.OutputSchema() }
-func (a *workflowToolCreateAdapter) Version() string { return a.tool.Version() }
-func (a *workflowToolCreateAdapter) Deprecated() bool { return a.tool.Deprecated() }
+func (a *workflowToolCreateAdapter) OutputSchema() map[string]interface{} {
+	return a.tool.OutputSchema()
+}
+func (a *workflowToolCreateAdapter) Version() string                   { return a.tool.Version() }
+func (a *workflowToolCreateAdapter) Deprecated() bool                  { return a.tool.Deprecated() }
 func (a *workflowToolCreateAdapter) Deprecation() *mcp.DeprecationInfo { return a.tool.Deprecation() }
 func (a *workflowToolCreateAdapter) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
 	result, err := a.tool.Execute(ctx, params)
@@ -433,12 +469,16 @@ type workflowToolExecuteAdapter struct {
 	tool *workflow.ExecuteWorkflowTool
 }
 
-func (a *workflowToolExecuteAdapter) Name() string { return a.tool.Name() }
+func (a *workflowToolExecuteAdapter) Name() string        { return a.tool.Name() }
 func (a *workflowToolExecuteAdapter) Description() string { return a.tool.Description() }
-func (a *workflowToolExecuteAdapter) InputSchema() map[string]interface{} { return a.tool.InputSchema() }
-func (a *workflowToolExecuteAdapter) OutputSchema() map[string]interface{} { return a.tool.OutputSchema() }
-func (a *workflowToolExecuteAdapter) Version() string { return a.tool.Version() }
-func (a *workflowToolExecuteAdapter) Deprecated() bool { return a.tool.Deprecated() }
+func (a *workflowToolExecuteAdapter) InputSchema() map[string]interface{} {
+	return a.tool.InputSchema()
+}
+func (a *workflowToolExecuteAdapter) OutputSchema() map[string]interface{} {
+	return a.tool.OutputSchema()
+}
+func (a *workflowToolExecuteAdapter) Version() string                   { return a.tool.Version() }
+func (a *workflowToolExecuteAdapter) Deprecated() bool                  { return a.tool.Deprecated() }
 func (a *workflowToolExecuteAdapter) Deprecation() *mcp.DeprecationInfo { return a.tool.Deprecation() }
 func (a *workflowToolExecuteAdapter) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
 	result, err := a.tool.Execute(ctx, params)
@@ -453,12 +493,14 @@ type workflowToolStatusAdapter struct {
 	tool *workflow.WorkflowStatusTool
 }
 
-func (a *workflowToolStatusAdapter) Name() string { return a.tool.Name() }
-func (a *workflowToolStatusAdapter) Description() string { return a.tool.Description() }
+func (a *workflowToolStatusAdapter) Name() string                        { return a.tool.Name() }
+func (a *workflowToolStatusAdapter) Description() string                 { return a.tool.Description() }
 func (a *workflowToolStatusAdapter) InputSchema() map[string]interface{} { return a.tool.InputSchema() }
-func (a *workflowToolStatusAdapter) OutputSchema() map[string]interface{} { return a.tool.OutputSchema() }
-func (a *workflowToolStatusAdapter) Version() string { return a.tool.Version() }
-func (a *workflowToolStatusAdapter) Deprecated() bool { return a.tool.Deprecated() }
+func (a *workflowToolStatusAdapter) OutputSchema() map[string]interface{} {
+	return a.tool.OutputSchema()
+}
+func (a *workflowToolStatusAdapter) Version() string                   { return a.tool.Version() }
+func (a *workflowToolStatusAdapter) Deprecated() bool                  { return a.tool.Deprecated() }
 func (a *workflowToolStatusAdapter) Deprecation() *mcp.DeprecationInfo { return a.tool.Deprecation() }
 func (a *workflowToolStatusAdapter) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
 	result, err := a.tool.Execute(ctx, params)
@@ -473,13 +515,13 @@ type workflowToolListAdapter struct {
 	tool *workflow.ListWorkflowsTool
 }
 
-func (a *workflowToolListAdapter) Name() string { return a.tool.Name() }
-func (a *workflowToolListAdapter) Description() string { return a.tool.Description() }
-func (a *workflowToolListAdapter) InputSchema() map[string]interface{} { return a.tool.InputSchema() }
+func (a *workflowToolListAdapter) Name() string                         { return a.tool.Name() }
+func (a *workflowToolListAdapter) Description() string                  { return a.tool.Description() }
+func (a *workflowToolListAdapter) InputSchema() map[string]interface{}  { return a.tool.InputSchema() }
 func (a *workflowToolListAdapter) OutputSchema() map[string]interface{} { return a.tool.OutputSchema() }
-func (a *workflowToolListAdapter) Version() string { return a.tool.Version() }
-func (a *workflowToolListAdapter) Deprecated() bool { return a.tool.Deprecated() }
-func (a *workflowToolListAdapter) Deprecation() *mcp.DeprecationInfo { return a.tool.Deprecation() }
+func (a *workflowToolListAdapter) Version() string                      { return a.tool.Version() }
+func (a *workflowToolListAdapter) Deprecated() bool                     { return a.tool.Deprecated() }
+func (a *workflowToolListAdapter) Deprecation() *mcp.DeprecationInfo    { return a.tool.Deprecation() }
 func (a *workflowToolListAdapter) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
 	result, err := a.tool.Execute(ctx, params)
 	if err != nil {
@@ -697,7 +739,7 @@ func RegisterAllTools(registry *ToolRegistry, db *database.Database, logger *log
 	/* Workflow Orchestration tools */
 	workflowManager := workflow.NewManager()
 	workflowRegistryAdapter := &workflowRegistryAdapter{registry: registry}
-	workflowExecutor := workflow.NewExecutor(workflowManager, &workflow.ToolExecutorAdapter{Registry: workflowRegistryAdapter})
+	workflowExecutor := workflow.NewExecutor(workflowManager, &workflow.ToolExecutorAdapter{Registry: workflowRegistryAdapter}, logger)
 	registry.Register(&workflowToolCreateAdapter{tool: workflow.NewCreateWorkflowTool(workflowManager, logger)})
 	registry.Register(&workflowToolExecuteAdapter{tool: workflow.NewExecuteWorkflowTool(workflowManager, workflowExecutor, logger)})
 	registry.Register(&workflowToolStatusAdapter{tool: workflow.NewWorkflowStatusTool(workflowManager, logger)})

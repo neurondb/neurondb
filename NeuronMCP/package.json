@@ -23,7 +23,7 @@
   "author": "neurondb, Inc.",
   "license": "PostgreSQL",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^0.5.0",
+    "@modelcontextprotocol/sdk": "^1.25.3",
     "pg": "^8.11.3"
   },
   "devDependencies": {

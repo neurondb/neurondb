@@ -17,6 +17,8 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"github.com/neurondb/NeuronMCP/internal/logging"
 )
 
 /* ToolExecutor executes a tool within a workflow step */
@@ -26,15 +28,17 @@ type ToolExecutor interface {
 
 /* Executor executes workflow steps */
 type Executor struct {
-	manager     *Manager
+	manager      *Manager
 	toolExecutor ToolExecutor
+	logger       *logging.Logger
 }
 
 /* NewExecutor creates a new workflow executor */
-func NewExecutor(manager *Manager, toolExecutor ToolExecutor) *Executor {
+func NewExecutor(manager *Manager, toolExecutor ToolExecutor, logger *logging.Logger) *Executor {
 	return &Executor{
-		manager:     manager,
+		manager:      manager,
 		toolExecutor: toolExecutor,
+		logger:       logger,
 	}
 }
 
@@ -70,7 +74,7 @@ func (e *Executor) ExecuteWorkflow(ctx context.Context, executionID string) erro
 
 	/* Execute steps in order, respecting dependencies */
 	completedSteps := make(map[string]bool)
-	
+
 	for {
 		/* Find next step to execute */
 		nextStep := e.findNextStep(workflow.Steps, completedSteps, exec)
@@ -155,9 +159,10 @@ func (e *Executor) executeStep(ctx context.Context, executionID string, step Ste
 	/* Note: Condition evaluation is not yet implemented. Steps with conditions will always execute. */
 	/* Future implementation will support expressions like "variable == 'value'" or "status == 'success'" */
 	if step.Condition != nil && *step.Condition != "" {
-		/* Condition evaluation not implemented - proceed with execution */
-		/* In a full implementation, this would evaluate the condition against exec.Variables */
-		/* TODO: Add logger to Executor struct to enable warning logs */
+		if e.logger != nil {
+			e.logger.Warn("workflow step condition not yet implemented; step will execute regardless",
+				map[string]interface{}{"step_id": step.ID, "condition": *step.Condition})
+		}
 	}
 
 	/* Prepare arguments with variable substitution */
