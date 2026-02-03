@@ -1,9 +1,7 @@
 package mcp
 
 import (
-	"context"
 	"testing"
-	"time"
 )
 
 func TestMCPClient_NewClient(t *testing.T) {
@@ -99,10 +97,7 @@ func TestMCPClient_ListTools(t *testing.T) {
 	if err == nil {
 		defer client.Close()
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		_, err := client.ListTools(ctx)
+		_, err := client.ListTools()
 		// Should fail because echo is not an MCP server
 		if err == nil {
 			t.Error("Expected error when listing tools from non-MCP server")
@@ -122,20 +117,10 @@ func TestMCPClient_CallTool(t *testing.T) {
 	if err == nil {
 		defer client.Close()
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		_, err := client.CallTool(ctx, "test_tool", map[string]interface{}{})
+		_, err := client.CallTool("test_tool", map[string]interface{}{})
 		// Should fail because echo is not an MCP server
 		if err == nil {
 			t.Error("Expected error when calling tool on non-MCP server")
 		}
 	}
 }
-
-
-
-
-
-
-

@@ -337,10 +337,11 @@ export default function ModelsPage() {
 
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-[#c8c8c8] mb-2">
+                <label htmlFor="provider-select" className="block text-sm font-medium text-[#c8c8c8] mb-2">
                   Provider *
                 </label>
                 <select
+                  id="provider-select"
                   value={newProvider}
                   onChange={(e) => {
                     setNewProvider(e.target.value)
@@ -363,11 +364,12 @@ export default function ModelsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-[#c8c8c8] mb-2">
+                <label htmlFor="model-select" className="block text-sm font-medium text-[#c8c8c8] mb-2">
                   Model *
                 </label>
                 {newProvider === 'custom' ? (
                   <input
+                    id="model-select"
                     type="text"
                     value={newModelName}
                     onChange={(e) => setNewModelName(e.target.value)}
@@ -376,6 +378,7 @@ export default function ModelsPage() {
                   />
                 ) : (
                   <select
+                    id="model-select"
                     value={newModelName}
                     onChange={(e) => setNewModelName(e.target.value)}
                     className="input w-full"

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { ragAPI, type RAGPipeline } from '@/lib/api'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { Cog6ToothIcon, PlusIcon } from '@/components/Icons'
@@ -21,7 +21,7 @@ export default function PipelineManager({ profileId }: PipelineManagerProps) {
     chunk_overlap: 128,
   })
 
-  const loadPipelines = async () => {
+  const loadPipelines = useCallback(async () => {
     if (!profileId) return
     setLoading(true)
     setError('')
@@ -33,11 +33,11 @@ export default function PipelineManager({ profileId }: PipelineManagerProps) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [profileId])
 
   useEffect(() => {
     loadPipelines()
-  }, [profileId])
+  }, [loadPipelines])
 
   const handleCreatePipeline = async () => {
     if (!newPipeline.pipeline_name.trim()) {

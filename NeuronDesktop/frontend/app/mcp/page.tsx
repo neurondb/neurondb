@@ -1042,7 +1042,7 @@ function MCPPage() {
     }
     
     wsRef.current = ws
-  }, [selectedProfile, connecting, connected, logError, activeThreadId, addMessage])
+  }, [selectedProfile, connecting, connected, logError, activeThreadId, addMessage, threads])
 
   useEffect(() => {
     if (selectedModel) {

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"testing"
 	"time"
@@ -38,13 +39,13 @@ func TestDatasetHandlers_IngestDataset_Comprehensive(t *testing.T) {
 		{
 			name: "ingest from file",
 			request: map[string]interface{}{
-				"source_type":    "file",
-				"source_path":    "/tmp/test-data.csv",
-				"format":         "csv",
-				"table_name":     "test_table",
-				"auto_embed":     true,
+				"source_type":     "file",
+				"source_path":     "/tmp/test-data.csv",
+				"format":          "csv",
+				"table_name":      "test_table",
+				"auto_embed":      true,
 				"embedding_model": "text-embedding-3-small",
-				"create_index":   true,
+				"create_index":    true,
 			},
 			expectedStatus: http.StatusAccepted,
 			validateFunc: func(t *testing.T, resp *http.Response) {
@@ -63,11 +64,11 @@ func TestDatasetHandlers_IngestDataset_Comprehensive(t *testing.T) {
 		{
 			name: "ingest from URL",
 			request: map[string]interface{}{
-				"source_type":    "url",
-				"source_path":    "https://example.com/data.json",
-				"format":         "json",
-				"auto_embed":     false,
-				"create_index":   false,
+				"source_type":  "url",
+				"source_path":  "https://example.com/data.json",
+				"format":       "json",
+				"auto_embed":   false,
+				"create_index": false,
 			},
 			expectedStatus: http.StatusAccepted,
 			validateFunc: func(t *testing.T, resp *http.Response) {
@@ -80,32 +81,32 @@ func TestDatasetHandlers_IngestDataset_Comprehensive(t *testing.T) {
 		{
 			name: "ingest from S3",
 			request: map[string]interface{}{
-				"source_type":    "s3",
-				"source_path":    "s3://bucket/path/to/data.parquet",
-				"format":         "parquet",
-				"auto_embed":     true,
-				"create_index":   true,
+				"source_type":  "s3",
+				"source_path":  "s3://bucket/path/to/data.parquet",
+				"format":       "parquet",
+				"auto_embed":   true,
+				"create_index": true,
 			},
 			expectedStatus: http.StatusAccepted,
 		},
 		{
 			name: "ingest from GitHub",
 			request: map[string]interface{}{
-				"source_type":    "github",
-				"source_path":    "owner/repo/path/to/data.json",
-				"format":         "json",
-				"auto_embed":     true,
-				"create_index":   true,
+				"source_type":  "github",
+				"source_path":  "owner/repo/path/to/data.json",
+				"format":       "json",
+				"auto_embed":   true,
+				"create_index": true,
 			},
 			expectedStatus: http.StatusAccepted,
 		},
 		{
 			name: "ingest from HuggingFace",
 			request: map[string]interface{}{
-				"source_type":    "huggingface",
-				"source_path":    "dataset-name",
-				"auto_embed":     true,
-				"create_index":   true,
+				"source_type":  "huggingface",
+				"source_path":  "dataset-name",
+				"auto_embed":   true,
+				"create_index": true,
 			},
 			expectedStatus: http.StatusAccepted,
 		},
@@ -152,10 +153,10 @@ func TestDatasetHandlers_IngestDataset_Comprehensive(t *testing.T) {
 		{
 			name: "auto_embed without embedding_model",
 			request: map[string]interface{}{
-				"source_type":    "file",
-				"source_path":    "/tmp/test.csv",
-				"auto_embed":     true,
-				"create_index":   true,
+				"source_type":  "file",
+				"source_path":  "/tmp/test.csv",
+				"auto_embed":   true,
+				"create_index": true,
 			},
 			expectedStatus: http.StatusAccepted, // May use default model
 		},
@@ -440,4 +441,3 @@ func TestDatasetHandlers_ConcurrentIngestion(t *testing.T) {
 		}
 	}
 }
-

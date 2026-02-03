@@ -1,20 +1,21 @@
-package db
+package db_test
 
 import (
 	"context"
 	"testing"
 	"time"
 
-	"github.com/neurondb/NeuronDesktop/api/internal/testing"
+	"github.com/neurondb/NeuronDesktop/api/internal/db"
+	testutil "github.com/neurondb/NeuronDesktop/api/internal/testing"
 )
 
 func TestQueries_CreateUser(t *testing.T) {
-	tdb := testing.SetupTestDB(t)
+	tdb := testutil.SetupTestDB(t)
 	defer tdb.CleanupTestDB(t)
 
 	ctx := context.Background()
 
-	user := &User{
+	user := &db.User{
 		Username:     "testuser",
 		PasswordHash: "hashed_password",
 		IsAdmin:      false,
@@ -34,13 +35,13 @@ func TestQueries_CreateUser(t *testing.T) {
 }
 
 func TestQueries_GetUserByUsername(t *testing.T) {
-	tdb := testing.SetupTestDB(t)
+	tdb := testutil.SetupTestDB(t)
 	defer tdb.CleanupTestDB(t)
 
 	ctx := context.Background()
 
 	// Create a user
-	user, err := testing.CreateTestUser(ctx, tdb.Queries, "testuser", "password123")
+	user, err := testutil.CreateTestUser(ctx, tdb.Queries, "testuser", "password123")
 	if err != nil {
 		t.Fatalf("Failed to create test user: %v", err)
 	}
@@ -60,18 +61,18 @@ func TestQueries_GetUserByUsername(t *testing.T) {
 }
 
 func TestQueries_CreateProfile(t *testing.T) {
-	tdb := testing.SetupTestDB(t)
+	tdb := testutil.SetupTestDB(t)
 	defer tdb.CleanupTestDB(t)
 
 	ctx := context.Background()
 
 	// Create a user first
-	user, err := testing.CreateTestUser(ctx, tdb.Queries, "testuser", "password123")
+	user, err := testutil.CreateTestUser(ctx, tdb.Queries, "testuser", "password123")
 	if err != nil {
 		t.Fatalf("Failed to create test user: %v", err)
 	}
 
-	profile := &Profile{
+	profile := &db.Profile{
 		UserID:      user.ID,
 		Name:        "Test Profile",
 		NeuronDBDSN: "host=localhost port=5432 user=neurondb dbname=neurondb",
@@ -96,18 +97,18 @@ func TestQueries_CreateProfile(t *testing.T) {
 }
 
 func TestQueries_GetProfile(t *testing.T) {
-	tdb := testing.SetupTestDB(t)
+	tdb := testutil.SetupTestDB(t)
 	defer tdb.CleanupTestDB(t)
 
 	ctx := context.Background()
 
 	// Create a user and profile
-	user, err := testing.CreateTestUser(ctx, tdb.Queries, "testuser", "password123")
+	user, err := testutil.CreateTestUser(ctx, tdb.Queries, "testuser", "password123")
 	if err != nil {
 		t.Fatalf("Failed to create test user: %v", err)
 	}
 
-	profile, err := testing.CreateTestProfile(ctx, tdb.Queries, user.ID)
+	profile, err := testutil.CreateTestProfile(ctx, tdb.Queries, user.ID)
 	if err != nil {
 		t.Fatalf("Failed to create test profile: %v", err)
 	}
@@ -127,24 +128,24 @@ func TestQueries_GetProfile(t *testing.T) {
 }
 
 func TestQueries_ListProfiles(t *testing.T) {
-	tdb := testing.SetupTestDB(t)
+	tdb := testutil.SetupTestDB(t)
 	defer tdb.CleanupTestDB(t)
 
 	ctx := context.Background()
 
 	// Create a user
-	user, err := testing.CreateTestUser(ctx, tdb.Queries, "testuser", "password123")
+	user, err := testutil.CreateTestUser(ctx, tdb.Queries, "testuser", "password123")
 	if err != nil {
 		t.Fatalf("Failed to create test user: %v", err)
 	}
 
 	// Create multiple profiles
-	profile1, err := testing.CreateTestProfile(ctx, tdb.Queries, user.ID)
+	profile1, err := testutil.CreateTestProfile(ctx, tdb.Queries, user.ID)
 	if err != nil {
 		t.Fatalf("Failed to create test profile: %v", err)
 	}
 
-	profile2 := &Profile{
+	profile2 := &db.Profile{
 		UserID:      user.ID,
 		Name:        "Second Profile",
 		NeuronDBDSN: "host=localhost port=5432 user=neurondb dbname=neurondb",
@@ -187,18 +188,18 @@ func TestQueries_ListProfiles(t *testing.T) {
 }
 
 func TestQueries_UpdateProfile(t *testing.T) {
-	tdb := testing.SetupTestDB(t)
+	tdb := testutil.SetupTestDB(t)
 	defer tdb.CleanupTestDB(t)
 
 	ctx := context.Background()
 
 	// Create a user and profile
-	user, err := testing.CreateTestUser(ctx, tdb.Queries, "testuser", "password123")
+	user, err := testutil.CreateTestUser(ctx, tdb.Queries, "testuser", "password123")
 	if err != nil {
 		t.Fatalf("Failed to create test user: %v", err)
 	}
 
-	profile, err := testing.CreateTestProfile(ctx, tdb.Queries, user.ID)
+	profile, err := testutil.CreateTestProfile(ctx, tdb.Queries, user.ID)
 	if err != nil {
 		t.Fatalf("Failed to create test profile: %v", err)
 	}
@@ -224,18 +225,18 @@ func TestQueries_UpdateProfile(t *testing.T) {
 }
 
 func TestQueries_DeleteProfile(t *testing.T) {
-	tdb := testing.SetupTestDB(t)
+	tdb := testutil.SetupTestDB(t)
 	defer tdb.CleanupTestDB(t)
 
 	ctx := context.Background()
 
 	// Create a user and profile
-	user, err := testing.CreateTestUser(ctx, tdb.Queries, "testuser", "password123")
+	user, err := testutil.CreateTestUser(ctx, tdb.Queries, "testuser", "password123")
 	if err != nil {
 		t.Fatalf("Failed to create test user: %v", err)
 	}
 
-	profile, err := testing.CreateTestProfile(ctx, tdb.Queries, user.ID)
+	profile, err := testutil.CreateTestProfile(ctx, tdb.Queries, user.ID)
 	if err != nil {
 		t.Fatalf("Failed to create test profile: %v", err)
 	}
@@ -254,23 +255,23 @@ func TestQueries_DeleteProfile(t *testing.T) {
 }
 
 func TestQueries_CreateModelConfig(t *testing.T) {
-	tdb := testing.SetupTestDB(t)
+	tdb := testutil.SetupTestDB(t)
 	defer tdb.CleanupTestDB(t)
 
 	ctx := context.Background()
 
 	// Create a user and profile
-	user, err := testing.CreateTestUser(ctx, tdb.Queries, "testuser", "password123")
+	user, err := testutil.CreateTestUser(ctx, tdb.Queries, "testuser", "password123")
 	if err != nil {
 		t.Fatalf("Failed to create test user: %v", err)
 	}
 
-	profile, err := testing.CreateTestProfile(ctx, tdb.Queries, user.ID)
+	profile, err := testutil.CreateTestProfile(ctx, tdb.Queries, user.ID)
 	if err != nil {
 		t.Fatalf("Failed to create test profile: %v", err)
 	}
 
-	config := &ModelConfig{
+	config := &db.ModelConfig{
 		ProfileID:     profile.ID,
 		ModelProvider: "openai",
 		ModelName:     "gpt-4",
@@ -293,24 +294,24 @@ func TestQueries_CreateModelConfig(t *testing.T) {
 }
 
 func TestQueries_ListModelConfigs(t *testing.T) {
-	tdb := testing.SetupTestDB(t)
+	tdb := testutil.SetupTestDB(t)
 	defer tdb.CleanupTestDB(t)
 
 	ctx := context.Background()
 
 	// Create a user and profile
-	user, err := testing.CreateTestUser(ctx, tdb.Queries, "testuser", "password123")
+	user, err := testutil.CreateTestUser(ctx, tdb.Queries, "testuser", "password123")
 	if err != nil {
 		t.Fatalf("Failed to create test user: %v", err)
 	}
 
-	profile, err := testing.CreateTestProfile(ctx, tdb.Queries, user.ID)
+	profile, err := testutil.CreateTestProfile(ctx, tdb.Queries, user.ID)
 	if err != nil {
 		t.Fatalf("Failed to create test profile: %v", err)
 	}
 
 	// Create model configs
-	config1 := &ModelConfig{
+	config1 := &db.ModelConfig{
 		ProfileID:     profile.ID,
 		ModelProvider: "openai",
 		ModelName:     "gpt-4",
@@ -321,7 +322,7 @@ func TestQueries_ListModelConfigs(t *testing.T) {
 		t.Fatalf("Failed to create model config: %v", err)
 	}
 
-	config2 := &ModelConfig{
+	config2 := &db.ModelConfig{
 		ProfileID:     profile.ID,
 		ModelProvider: "anthropic",
 		ModelName:     "claude-3-opus",
@@ -342,10 +343,3 @@ func TestQueries_ListModelConfigs(t *testing.T) {
 		t.Errorf("Expected at least 2 model configs, got %d", len(configs))
 	}
 }
-
-
-
-
-
-
-

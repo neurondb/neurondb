@@ -13,8 +13,18 @@ tests/
 │   ├── ProfileSelector.test.tsx
 │   └── OnboardingWizard.test.tsx
 └── e2e/                        # End-to-end tests
-    ├── onboarding.spec.ts
-    └── models.spec.ts
+    ├── setup.spec.ts           # Factory/setup wizard flow
+    ├── auth.spec.ts            # Login, signup, redirect
+    ├── navigation.spec.ts      # Sidebar, TopMenu, Home links
+    ├── models.spec.ts          # Model management
+    ├── mcp.spec.ts             # MCP Console
+    ├── neurondb.spec.ts        # NeuronDB console
+    ├── agents.spec.ts          # Agents
+    ├── settings.spec.ts        # Settings
+    ├── dashboard.spec.ts       # Dashboard
+    ├── monitoring.spec.ts      # Monitoring
+    ├── logs.spec.ts            # Logs
+    └── command-palette.spec.ts # Command palette (Cmd+K)
 ```
 
 ## Running Tests
@@ -45,7 +55,7 @@ npm run test:e2e
 npm run test:e2e:ui
 
 # Run specific test file
-npm run test:e2e tests/e2e/onboarding.spec.ts
+npm run test:e2e tests/e2e/setup.spec.ts
 
 # Run in headed mode
 npm run test:e2e -- --headed

@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/neurondb/NeuronDesktop/api/internal/db"
 	testutil "github.com/neurondb/NeuronDesktop/api/internal/testing"
 )
 
@@ -777,4 +776,3 @@ func TestModelHandlers_ConcurrentAccess(t *testing.T) {
 		}
 	}
 }
-
