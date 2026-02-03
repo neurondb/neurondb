@@ -612,35 +612,18 @@ ivfbuild(Relation heap, Relation index, struct IndexInfo *indexInfo)
 	nlists = options ? options->nlists : IVF_DEFAULT_NLISTS;
 
 	/* Initialize metadata page on block 0 */
-	/* First, extend the index file if necessary - use P_NEW to ensure block 0 exists */
+	/* Use P_NEW with RBM_NORMAL to extend file and create block 0 */
 	metaBuffer = ReadBufferExtended(index, MAIN_FORKNUM, P_NEW, RBM_NORMAL, NULL);
 	if (!BufferIsValid(metaBuffer))
 	{
 		ereport(ERROR,
 				(errcode(ERRCODE_INTERNAL_ERROR),
-				 errmsg("neurondb: ReadBuffer failed")));
+				 errmsg("neurondb: ReadBuffer for block 0 failed")));
 	}
-	/* Check if we got block 0 or need to extend */
-	if (BufferGetBlockNumber(metaBuffer) != 0)
-	{
-		/* We got a block number > 0, release it and explicitly get block 0 */
-		UnlockReleaseBuffer(metaBuffer);
-		metaBuffer = ReadBufferExtended(index, MAIN_FORKNUM, 0, RBM_ZERO_AND_LOCK, NULL);
-		if (!BufferIsValid(metaBuffer))
-		{
-			ereport(ERROR,
-					(errcode(ERRCODE_INTERNAL_ERROR),
-					 errmsg("neurondb: ReadBuffer for block 0 failed")));
-		}
-	}
-	else
-	{
-		/* We got block 0, just lock it */
-		LockBuffer(metaBuffer, BUFFER_LOCK_EXCLUSIVE);
-	}
+	LockBuffer(metaBuffer, BUFFER_LOCK_EXCLUSIVE);
 	metaPage = BufferGetPage(metaBuffer);
-	if (PageIsNew(metaPage))
-		PageInit(metaPage, BufferGetPageSize(metaBuffer), sizeof(IvfMetaPageData));
+	/* Metadata goes in page contents, not special space */
+	PageInit(metaPage, BufferGetPageSize(metaBuffer), 0);
 	meta = (IvfMetaPage) PageGetContents(metaPage);
 	meta->magicNumber = IVF_MAGIC_NUMBER;
 	meta->version = IVF_VERSION;
@@ -667,8 +650,8 @@ ivfbuild(Relation heap, Relation index, struct IndexInfo *indexInfo)
 												  true, /* allow_sync */
 												  true, /* progress */
 												  ivfBuildCallback,
-												  (void *) &buildstate,
-												  NULL);
+											  (void *) &buildstate,
+											  NULL);
 
 	/* Allow nlists to be up to sampleCount, but warn if it's too high */
 	if (buildstate.sampleCount < nlists)
@@ -735,7 +718,7 @@ ivfbuild(Relation heap, Relation index, struct IndexInfo *indexInfo)
 	}
 
 	/* Step 3: Store centroids in dedicated page(s) */
-	centroidsBuf = ReadBuffer(index, P_NEW);
+	centroidsBuf = ReadBufferExtended(index, MAIN_FORKNUM, P_NEW, RBM_NORMAL, NULL);
 	if (!BufferIsValid(centroidsBuf))
 	{
 		kmeans_free(kmeans);
@@ -745,13 +728,17 @@ ivfbuild(Relation heap, Relation index, struct IndexInfo *indexInfo)
 	}
 	LockBuffer(centroidsBuf, BUFFER_LOCK_EXCLUSIVE);
 	centroidsPage = BufferGetPage(centroidsBuf);
+	centroidsBlock = BufferGetBlockNumber(centroidsBuf);
 	PageInit(centroidsPage,
 			 BufferGetPageSize(centroidsBuf),
-			 sizeof(IvfCentroidData));
-	centroidsBlock = BufferGetBlockNumber(centroidsBuf);
+			 0);
 
-	centroidSize = MAXALIGN(sizeof(IvfCentroidData) +
-							buildstate.dim * sizeof(float4));
+	/* Centroid size calculation must match IvfGetCentroidVector macro:
+	 * The macro uses: (char*)(centroid) + MAXALIGN(sizeof(IvfCentroidData))
+	 * So total size is: MAXALIGN(header) + vector_data
+	 */
+	centroidSize = MAXALIGN(sizeof(IvfCentroidData)) + 
+				   buildstate.dim * sizeof(float4);
 
 	for (i = 0; i < nlists; i++)
 	{
@@ -767,7 +754,7 @@ ivfbuild(Relation heap, Relation index, struct IndexInfo *indexInfo)
 					 errmsg("ivf: centroid %d is NULL", i)));
 		}
 
-		nalloc(centroid_raw, char, centroidSize);
+		centroid_raw = (char *) palloc0(centroidSize);
 		centroid = (IvfCentroidData *) centroid_raw;
 
 		centroid->listId = i;
@@ -775,7 +762,7 @@ ivfbuild(Relation heap, Relation index, struct IndexInfo *indexInfo)
 		centroid->memberCount = 0;
 		centroid->firstBlock = InvalidBlockNumber;
 
-		/* Copy centroid vector */
+		/* Copy centroid vector (vector data starts after aligned header) */
 		memcpy(IvfGetCentroidVector(centroid),
 			   kmeans->centroids[i],
 			   buildstate.dim * sizeof(float4));
@@ -787,6 +774,7 @@ ivfbuild(Relation heap, Relation index, struct IndexInfo *indexInfo)
 							 InvalidOffsetNumber,
 							 false,
 							 false);
+		
 		if (offnum == InvalidOffsetNumber)
 		{
 			/* Current page is full, allocate a new page */
@@ -794,7 +782,7 @@ ivfbuild(Relation heap, Relation index, struct IndexInfo *indexInfo)
 			UnlockReleaseBuffer(centroidsBuf);
 
 			/* Allocate new page for remaining centroids */
-			centroidsBuf = ReadBuffer(index, P_NEW);
+			centroidsBuf = ReadBufferExtended(index, MAIN_FORKNUM, P_NEW, RBM_NORMAL, NULL);
 			if (!BufferIsValid(centroidsBuf))
 			{
 				pfree(centroid_raw);
@@ -807,7 +795,7 @@ ivfbuild(Relation heap, Relation index, struct IndexInfo *indexInfo)
 			centroidsPage = BufferGetPage(centroidsBuf);
 			PageInit(centroidsPage,
 					 BufferGetPageSize(centroidsBuf),
-					 sizeof(IvfCentroidData));
+					 0);
 
 			/* Try again on the new page */
 			offnum = PageAddItem(centroidsPage,
@@ -889,7 +877,8 @@ ivfbuildempty(Relation index)
 	/* Get index options */
 	if (index->rd_options != NULL)
 	{
-		options = (IvfOptions *) index->rd_options;
+		/* rd_options is a varlena (bytea) containing IvfOptions in VARDATA */
+		options = (IvfOptions *) VARDATA(index->rd_options);
 		if (options != NULL)
 		{
 			nlists = (options->nlists > 0) ? options->nlists : IVF_DEFAULT_NLISTS;
@@ -909,7 +898,8 @@ ivfbuildempty(Relation index)
 
 	page = BufferGetPage(buf);
 	if (PageIsNew(page))
-		PageInit(page, BufferGetPageSize(buf), sizeof(IvfMetaPageData));
+		/* Metadata goes in page contents, not special space */
+		PageInit(page, BufferGetPageSize(buf), 0);
 
 	meta = (IvfMetaPage) PageGetContents(page);
 	memset(meta, 0, sizeof(IvfMetaPageData));

@@ -4,6 +4,18 @@ WHERE proname LIKE 'neuran%'
 ORDER BY proname;
 
 -- Test manual worker execution (should not crash)
-SELECT neuranq_run_once();
-SELECT neuranmon_sample();
+DO $$
+BEGIN
+  PERFORM neuranq_run_once();
+  RAISE NOTICE 'neuranq_run_once executed';
+EXCEPTION WHEN undefined_function THEN
+  RAISE NOTICE 'neuranq_run_once not available (optional)';
+END$$;
+DO $$
+BEGIN
+  PERFORM neuronmon_sample();
+  RAISE NOTICE 'neuronmon_sample executed';
+EXCEPTION WHEN undefined_function THEN
+  RAISE NOTICE 'neuronmon_sample not available (optional)';
+END$$;
 

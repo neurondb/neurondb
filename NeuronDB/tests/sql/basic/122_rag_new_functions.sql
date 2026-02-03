@@ -251,13 +251,13 @@ END $$;
 
 DO $$
 DECLARE
-	pipeline_id int;
+	v_pipeline_id int;
 	pipeline_name text := 'test_pipeline_' || extract(epoch from now())::text;
 	updated_config jsonb;
 	update_success boolean;
 BEGIN
 	-- Create a new pipeline
-	pipeline_id := neurondb.create_rag_pipeline(
+	v_pipeline_id := neurondb.create_rag_pipeline(
 		pipeline_name,
 		'default',  -- embedding_model
 		512,        -- chunk_size
@@ -265,16 +265,16 @@ BEGIN
 		'{"test": true}'::jsonb  -- configuration
 	);
 	
-	IF pipeline_id IS NULL THEN
+	IF v_pipeline_id IS NULL THEN
 		RAISE EXCEPTION 'Pipeline creation returned null ID';
 	END IF;
 	
-	RAISE NOTICE '✓ Pipeline created: ID = %, name = %', pipeline_id, pipeline_name;
+	RAISE NOTICE '✓ Pipeline created: ID = %, name = %', v_pipeline_id, pipeline_name;
 	
 	-- Verify pipeline exists
 	IF NOT EXISTS (
-		SELECT 1 FROM neurondb.rag_pipelines 
-		WHERE pipeline_id = pipeline_id
+		SELECT 1 FROM neurondb.rag_pipelines rp 
+		WHERE rp.pipeline_id = v_pipeline_id
 	) THEN
 		RAISE EXCEPTION 'Created pipeline not found in table';
 	END IF;
@@ -282,7 +282,7 @@ BEGIN
 	-- Update pipeline configuration
 	updated_config := '{"test": true, "updated": true, "rerank_enabled": true}'::jsonb;
 	update_success := neurondb.update_rag_pipeline(
-		pipeline_id,
+		v_pipeline_id,
 		updated_config
 	);
 	
@@ -291,14 +291,14 @@ BEGIN
 	END IF;
 	
 	-- Verify update
-	IF (SELECT configuration FROM neurondb.rag_pipelines WHERE pipeline_id = pipeline_id) != updated_config THEN
+	IF (SELECT rp.configuration FROM neurondb.rag_pipelines rp WHERE rp.pipeline_id = v_pipeline_id) != updated_config THEN
 		RAISE EXCEPTION 'Pipeline configuration was not updated correctly';
 	END IF;
 	
 	RAISE NOTICE '✓ Pipeline update successful';
 	
 	-- Clean up
-	DELETE FROM neurondb.rag_pipelines WHERE pipeline_id = pipeline_id;
+	DELETE FROM neurondb.rag_pipelines WHERE neurondb.rag_pipelines.pipeline_id = v_pipeline_id;
 	RAISE NOTICE '✓ Pipeline cleanup successful';
 END $$;
 
@@ -310,7 +310,7 @@ END $$;
 
 DO $$
 DECLARE
-	pipeline_id int;
+	v_pipeline_id int;
 	pipeline_name text := 'test_enhanced_pipeline_' || extract(epoch from now())::text;
 	has_rerank boolean;
 	has_hybrid boolean;
@@ -319,7 +319,7 @@ DECLARE
 	has_updated_at boolean;
 BEGIN
 	-- Create pipeline
-	pipeline_id := neurondb.create_rag_pipeline(
+	v_pipeline_id := neurondb.create_rag_pipeline(
 		pipeline_name,
 		'default',
 		512,
@@ -329,40 +329,40 @@ BEGIN
 	
 	-- Check if enhanced columns exist and have defaults
 	SELECT 
-		rerank_enabled IS NOT NULL,
-		hybrid_enabled IS NOT NULL,
-		evaluation_enabled IS NOT NULL,
-		llm_model IS NOT NULL,
-		updated_at IS NOT NULL
+		rp.rerank_enabled IS NOT NULL,
+		rp.hybrid_enabled IS NOT NULL,
+		rp.evaluation_enabled IS NOT NULL,
+		rp.llm_model IS NOT NULL,
+		rp.updated_at IS NOT NULL
 	INTO has_rerank, has_hybrid, has_evaluation, has_llm, has_updated_at
-	FROM neurondb.rag_pipelines
-	WHERE pipeline_id = pipeline_id;
+	FROM neurondb.rag_pipelines rp
+	WHERE rp.pipeline_id = v_pipeline_id;
 	
 	IF NOT (has_rerank AND has_hybrid AND has_evaluation AND has_llm AND has_updated_at) THEN
 		RAISE EXCEPTION 'Enhanced pipeline columns missing or null';
 	END IF;
 	
 	-- Verify default values
-	IF (SELECT rerank_enabled FROM neurondb.rag_pipelines WHERE pipeline_id = pipeline_id) != false THEN
+	IF (SELECT rp.rerank_enabled FROM neurondb.rag_pipelines rp WHERE rp.pipeline_id = v_pipeline_id) != false THEN
 		RAISE EXCEPTION 'rerank_enabled default should be false';
 	END IF;
 	
-	IF (SELECT hybrid_enabled FROM neurondb.rag_pipelines WHERE pipeline_id = pipeline_id) != false THEN
+	IF (SELECT rp.hybrid_enabled FROM neurondb.rag_pipelines rp WHERE rp.pipeline_id = v_pipeline_id) != false THEN
 		RAISE EXCEPTION 'hybrid_enabled default should be false';
 	END IF;
 	
-	IF (SELECT vector_weight FROM neurondb.rag_pipelines WHERE pipeline_id = pipeline_id) != 0.7 THEN
+	IF (SELECT rp.vector_weight FROM neurondb.rag_pipelines rp WHERE rp.pipeline_id = v_pipeline_id) != 0.7 THEN
 		RAISE EXCEPTION 'vector_weight default should be 0.7';
 	END IF;
 	
-	IF (SELECT llm_model FROM neurondb.rag_pipelines WHERE pipeline_id = pipeline_id) != 'gpt-3.5-turbo' THEN
+	IF (SELECT rp.llm_model FROM neurondb.rag_pipelines rp WHERE rp.pipeline_id = v_pipeline_id) != 'gpt-3.5-turbo' THEN
 		RAISE EXCEPTION 'llm_model default should be gpt-3.5-turbo';
 	END IF;
 	
 	RAISE NOTICE '✓ Enhanced pipeline columns verified with correct defaults';
 	
 	-- Clean up
-	DELETE FROM neurondb.rag_pipelines WHERE pipeline_id = pipeline_id;
+	DELETE FROM neurondb.rag_pipelines WHERE neurondb.rag_pipelines.pipeline_id = v_pipeline_id;
 END $$;
 
 -- Test 7: RAG Query (basic, without context generation)

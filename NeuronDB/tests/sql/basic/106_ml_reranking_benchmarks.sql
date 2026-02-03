@@ -69,16 +69,16 @@ BEGIN
         duration_ms := EXTRACT(EPOCH FROM (end_time - start_time)) * 1000;
         total_time := total_time + duration_ms;
         
-        RAISE NOTICE 'Cross-Encoder iteration %: %.2f ms', i, duration_ms;
+        RAISE NOTICE 'Cross-Encoder iteration %: % ms', i, round(duration_ms::numeric, 2);
     END LOOP;
     
     IF total_time <= 0 THEN
         RAISE EXCEPTION 'Cross-Encoder benchmark failed: total_time is %', total_time;
     END IF;
     
-    RAISE NOTICE 'Cross-Encoder average latency: %.2f ms', total_time / iterations;
-    RAISE NOTICE 'Cross-Encoder throughput: %.2f queries/sec', 
-        (iterations * 1000.0) / total_time;
+    RAISE NOTICE 'Cross-Encoder average latency: % ms', round((total_time / iterations)::numeric, 2);
+    RAISE NOTICE 'Cross-Encoder throughput: % queries/sec', 
+        round(((iterations * 1000.0) / total_time)::numeric, 2);
 END $$;
 
 \echo '=== Benchmark 2: LLM Reranking Performance ==='
@@ -129,16 +129,16 @@ BEGIN
         duration_ms := EXTRACT(EPOCH FROM (end_time - start_time)) * 1000;
         total_time := total_time + duration_ms;
         
-        RAISE NOTICE 'LLM Reranking iteration %: %.2f ms', i, duration_ms;
+        RAISE NOTICE 'LLM Reranking iteration %: % ms', i, round(duration_ms::numeric, 2);
     END LOOP;
     
     IF total_time <= 0 THEN
         RAISE EXCEPTION 'LLM Reranking benchmark failed: total_time is %', total_time;
     END IF;
     
-    RAISE NOTICE 'LLM Reranking average latency: %.2f ms', total_time / iterations;
-    RAISE NOTICE 'LLM Reranking throughput: %.2f queries/sec', 
-        (iterations * 1000.0) / total_time;
+    RAISE NOTICE 'LLM Reranking average latency: % ms', round((total_time / iterations)::numeric, 2);
+    RAISE NOTICE 'LLM Reranking throughput: % queries/sec', 
+        round(((iterations * 1000.0) / total_time)::numeric, 2);
 END $$;
 
 \echo '=== Benchmark 3: ColBERT Performance ==='
@@ -189,16 +189,16 @@ BEGIN
         duration_ms := EXTRACT(EPOCH FROM (end_time - start_time)) * 1000;
         total_time := total_time + duration_ms;
         
-        RAISE NOTICE 'ColBERT iteration %: %.2f ms', i, duration_ms;
+        RAISE NOTICE 'ColBERT iteration %: % ms', i, round(duration_ms::numeric, 2);
     END LOOP;
     
     IF total_time <= 0 THEN
         RAISE EXCEPTION 'ColBERT benchmark failed: total_time is %', total_time;
     END IF;
     
-    RAISE NOTICE 'ColBERT average latency: %.2f ms', total_time / iterations;
-    RAISE NOTICE 'ColBERT throughput: %.2f queries/sec', 
-        (iterations * 1000.0) / total_time;
+    RAISE NOTICE 'ColBERT average latency: % ms', round((total_time / iterations)::numeric, 2);
+    RAISE NOTICE 'ColBERT throughput: % queries/sec', 
+        round(((iterations * 1000.0) / total_time)::numeric, 2);
 END $$;
 
 \echo '=== Benchmark 4: MMR Performance ==='
@@ -229,9 +229,9 @@ BEGIN
         total_time := total_time + duration_ms;
     END LOOP;
     
-    RAISE NOTICE 'MMR average latency: %.2f ms', total_time / iterations;
-    RAISE NOTICE 'MMR throughput: %.2f queries/sec', 
-        (iterations * 1000.0) / total_time;
+    RAISE NOTICE 'MMR average latency: % ms', round((total_time / iterations)::numeric, 2);
+    RAISE NOTICE 'MMR throughput: % queries/sec', 
+        round(((iterations * 1000.0) / total_time)::numeric, 2);
 END $$;
 
 \echo '=== Benchmark 5: Scalability Test ==='
@@ -261,8 +261,8 @@ BEGIN
         end_time := clock_timestamp();
         duration_ms := EXTRACT(EPOCH FROM (end_time - start_time)) * 1000;
         
-        RAISE NOTICE 'Cross-Encoder with % candidates: %.2f ms (%.2f ms per candidate)',
-            size_val, duration_ms, duration_ms / size_val;
+        RAISE NOTICE 'Cross-Encoder with % candidates: % ms (% ms per candidate)',
+            size_val, round(duration_ms::numeric, 2), round((duration_ms / size_val)::numeric, 2);
     END LOOP;
 END $$;
 

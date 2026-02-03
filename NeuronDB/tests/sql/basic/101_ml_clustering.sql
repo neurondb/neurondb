@@ -5,6 +5,8 @@
 -- Uses real data from: sift1m.vectors (128-d vectors)
 -- ====================================================================
 
+CREATE EXTENSION IF NOT EXISTS neurondb;
+
 \echo '=== Using SIFT1M Dataset for Clustering Tests ==='
 
 -- Create test data with synthetic vectors (sift1m.vectors may not exist)

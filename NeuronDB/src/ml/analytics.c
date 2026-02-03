@@ -1566,102 +1566,119 @@ index_quality_metrics(PG_FUNCTION_ARGS)
 	oldctx = CurrentMemoryContext;
 	NDB_SPI_SESSION_BEGIN(spi_session, oldctx);
 
-	/* Query index statistics from pg_class and pg_stat_user_indexes */
+	PG_TRY();
 	{
-		StringInfoData sql;
-
-		initStringInfo(&sql);
-		appendStringInfo(&sql,
-						 "SELECT pg_relation_size(i.oid) as size, "
-						 "COALESCE(s.idx_scan, 0) as scans, "
-						 "COALESCE(s.idx_tup_read, 0) as tuples_read "
-						 "FROM pg_class c "
-						 "JOIN pg_index idx ON idx.indexrelid = c.oid "
-						 "JOIN pg_class i ON i.oid = idx.indexrelid "
-						 "LEFT JOIN pg_stat_user_indexes s ON s.indexrelid = i.oid "
-						 "WHERE c.relname = $1");
-		Oid			argtypes[1] = {TEXTOID};
-		Datum		values[1] = {PointerGetDatum(index_name)};
-		const char nulls[1] = {' '};
-
-		ret = ndb_spi_execute_with_args(spi_session, sql.data, 1, argtypes, values, nulls, true, 0);
-		if (ret == SPI_OK_SELECT && SPI_processed > 0)
+		/* Query index statistics from pg_class and pg_stat_user_indexes */
 		{
-			int64		scans = 0;
-			int64		tuples_read = 0;
-			bool		isnull;
-			Datum		datum;
+			StringInfoData sql;
 
-			/* Get index size (int8/bigint) */
-			datum = SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 1, &isnull);
-			if (!isnull)
-				index_size = DatumGetInt64(datum);
+			initStringInfo(&sql);
+			appendStringInfo(&sql,
+							 "SELECT pg_relation_size(i.oid) as size, "
+							 "COALESCE(s.idx_scan, 0) as scans, "
+							 "COALESCE(s.idx_tup_read, 0) as tuples_read "
+							 "FROM pg_class c "
+							 "JOIN pg_index idx ON idx.indexrelid = c.oid "
+							 "JOIN pg_class i ON i.oid = idx.indexrelid "
+							 "LEFT JOIN pg_stat_user_indexes s ON s.indexrelid = i.oid "
+							 "WHERE c.relname = $1");
+			Oid			argtypes[1] = {TEXTOID};
+			Datum		values[1] = {PointerGetDatum(index_name)};
+			const char nulls[1] = {' '};
 
-			/* Get scans (int8/bigint) */
-			datum = SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 2, &isnull);
-			if (!isnull)
-				scans = DatumGetInt64(datum);
+			ret = ndb_spi_execute_with_args(spi_session, sql.data, 1, argtypes, values, nulls, true, 0);
+			if (ret == SPI_OK_SELECT && SPI_processed > 0)
+			{
+				int64		scans = 0;
+				int64		tuples_read = 0;
+				bool		isnull;
+				Datum		datum;
 
-			/* Get tuples_read (int8/bigint) */
-			datum = SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 3, &isnull);
-			if (!isnull)
-				tuples_read = DatumGetInt64(datum);
+				/* Get index size (int8/bigint) */
+				datum = SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 1, &isnull);
+				if (!isnull)
+					index_size = DatumGetInt64(datum);
 
-			if (scans > 0)
-				vector_count = tuples_read / scans;
+				/* Get scans (int8/bigint) */
+				datum = SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 2, &isnull);
+				if (!isnull)
+					scans = DatumGetInt64(datum);
+
+				/* Get tuples_read (int8/bigint) */
+				datum = SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 3, &isnull);
+				if (!isnull)
+					tuples_read = DatumGetInt64(datum);
+
+				if (scans > 0)
+					vector_count = tuples_read / scans;
+			}
+			pfree(sql.data);
 		}
-		pfree(sql.data);
-	}
 
-	/* Query recall/precision from neurondb.query_metrics if available */
+		/*
+		 * Query recall from neurondb.query_metrics if available.
+		 *
+		 * Table schema (from extension SQL):
+		 * - query_timestamp timestamptz
+		 * - recall_at_k real
+		 *
+		 * Precision is not stored in this table, so return 0.0 for now.
+		 */
+		{
+			StringInfoData sql;
+
+			initStringInfo(&sql);
+			appendStringInfo(&sql,
+							 "SELECT "
+							 "AVG(recall_at_k)::float8 as avg_recall, "
+							 "0::float8 as avg_precision "
+							 "FROM neurondb.query_metrics "
+							 "WHERE index_name = $1 "
+							 "AND query_timestamp > NOW() - INTERVAL '24 hours'");
+			Oid			argtypes[1] = {TEXTOID};
+			Datum		values[1] = {PointerGetDatum(index_name)};
+			const char nulls[1] = {' '};
+
+			ret = ndb_spi_execute_with_args(spi_session, sql.data, 1, argtypes, values, nulls, true, 0);
+			if (ret == SPI_OK_SELECT && SPI_processed > 0)
+			{
+				bool		isnull;
+				Datum		datum;
+
+				/* Get avg_recall (float8) */
+				datum = SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 1, &isnull);
+				if (!isnull)
+					avg_recall = DatumGetFloat8(datum);
+
+				/* Get avg_precision (float8) */
+				datum = SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 2, &isnull);
+				if (!isnull)
+					avg_precision = DatumGetFloat8(datum);
+
+				if (avg_recall > 0 && avg_precision > 0)
+					f1_score = 2.0 * (avg_recall * avg_precision) / (avg_recall + avg_precision);
+			}
+			pfree(sql.data);
+		}
+
+		NDB_SPI_SESSION_END(spi_session);
+	}
+	PG_CATCH();
 	{
-		StringInfoData sql;
-
-		initStringInfo(&sql);
-		appendStringInfo(&sql,
-						 "SELECT AVG(recall) as avg_recall, AVG(precision) as avg_precision "
-						 "FROM neurondb.query_metrics "
-						 "WHERE index_name = $1 AND created_at > NOW() - INTERVAL '24 hours'");
-		Oid			argtypes[1] = {TEXTOID};
-		Datum		values[1] = {PointerGetDatum(index_name)};
-		const char nulls[1] = {' '};
-
-		ret = ndb_spi_execute_with_args(spi_session, sql.data, 1, argtypes, values, nulls, true, 0);
-		if (ret == SPI_OK_SELECT && SPI_processed > 0)
-		{
-			float8		recall_val = 0.0;
-			float8		precision_val = 0.0;
-			bool		isnull;
-			Datum		datum;
-
-			/* Get avg_recall (float8) */
-			datum = SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 1, &isnull);
-			if (!isnull)
-				recall_val = DatumGetFloat8(datum);
-			avg_recall = recall_val;
-
-			/* Get avg_precision (float8) */
-			datum = SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 2, &isnull);
-			if (!isnull)
-				precision_val = DatumGetFloat8(datum);
-			avg_precision = precision_val;
-
-			if (avg_recall > 0 && avg_precision > 0)
-				f1_score = 2.0 * (avg_recall * avg_precision) / (avg_recall + avg_precision);
-		}
-		pfree(sql.data);
+		/* Ensure SPI session always closes on error */
+		NDB_SPI_SESSION_END(spi_session);
+		PG_RE_THROW();
 	}
+	PG_END_TRY();
 
-	NDB_SPI_SESSION_END(spi_session);
-
-	/* Determine health status */
-	if (avg_recall >= 0.9 && avg_precision >= 0.9)
+	/* Determine health status (recall only for now) */
+	if (avg_recall >= 0.9)
 		strlcpy(health_status, "excellent", sizeof(health_status));
-	else if (avg_recall >= 0.8 && avg_precision >= 0.8)
+	else if (avg_recall >= 0.8)
 		strlcpy(health_status, "good", sizeof(health_status));
-	else if (avg_recall >= 0.7 && avg_precision >= 0.7)
+	else if (avg_recall >= 0.7)
 		strlcpy(health_status, "fair", sizeof(health_status));
-	else if (avg_recall > 0 || avg_precision > 0)
+	else if (avg_recall > 0)
 		strlcpy(health_status, "poor", sizeof(health_status));
 	else
 		strlcpy(health_status, "unknown", sizeof(health_status));
@@ -1670,11 +1687,11 @@ index_quality_metrics(PG_FUNCTION_ARGS)
 	initStringInfo(&json);
 	appendStringInfo(&json,
 					 "{\"index_name\": \"%s\", "
-					 "\"index_size_bytes\": %lld, "
+					 "\"index_size\": %lld, "
 					 "\"vector_count\": %lld, "
-					 "\"avg_recall\": %.4f, "
-					 "\"avg_precision\": %.4f, "
-					 "\"f1_score\": %.4f, "
+					 "\"recall\": %.4f, "
+					 "\"precision\": %.4f, "
+					 "\"f1\": %.4f, "
 					 "\"health_status\": \"%s\"}",
 					 idx_str,
 					 (long long) index_size,
@@ -1698,7 +1715,7 @@ index_quality_metrics(PG_FUNCTION_ARGS)
 			{
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-						 errmsg("vector_statistics: failed to parse JSON")));
+						 errmsg("index_quality_metrics: failed to parse JSON")));
 			}
 		}
 		PG_CATCH();

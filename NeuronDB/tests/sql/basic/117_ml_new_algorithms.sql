@@ -58,8 +58,13 @@ BEGIN
   END;
 END$$;
 
-COMMENT ON FUNCTION neurondb.detect_anomalies_ocsvm(text, text, double precision, double precision) IS
-'One-Class SVM anomaly detection. Returns boolean array indicating anomalies.';
+-- Comment only when function was created (optional; skip if MODULE_PATHNAME failed)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE n.nspname = 'neurondb' AND p.proname = 'detect_anomalies_ocsvm') THEN
+    EXECUTE 'COMMENT ON FUNCTION neurondb.detect_anomalies_ocsvm(text, text, double precision, double precision) IS ''One-Class SVM anomaly detection. Returns boolean array indicating anomalies.''';
+  END IF;
+END$$;
 
 -- ============================================================================
 -- REINFORCEMENT LEARNING FUNCTIONS

@@ -11,26 +11,12 @@
 \echo 'GPU Search: Comprehensive Tests'
 \echo '=========================================================================='
 
--- Skip this test if running in CPU compute mode
-DO $$
-DECLARE
-	compute_mode_val text;
-BEGIN
-	-- Check compute mode, default to '0' (CPU) if not set
-	BEGIN
-		compute_mode_val := current_setting('neurondb.compute_mode', true);
-	EXCEPTION WHEN OTHERS THEN
-		compute_mode_val := '0';  -- Default to CPU if setting doesn't exist
-	END;
-	
-	-- Skip test if in CPU mode - just print message and exit
-	IF compute_mode_val = '0' THEN
-		RAISE NOTICE 'Skipping GPU search test: running in CPU compute mode';
-		-- Don't execute any test logic
-		RETURN;
-	END IF;
-END$$;
-
+-- Skip this test if running in CPU compute mode (psql conditional so rest of file is not executed)
+SELECT CASE WHEN COALESCE(current_setting('neurondb.compute_mode', true), '0') = '0' THEN 1 ELSE 0 END AS skip_gpu
+\gset
+\if :skip_gpu
+\echo Skipping GPU search test: running in CPU compute mode
+\else
 -- Setup: Create test table
 \echo ''
 \echo 'Setup: Creating test table with vectors'
@@ -229,3 +215,4 @@ END$$;
 \echo '=========================================================================='
 \echo '✓ GPU Search: All tests complete'
 \echo '=========================================================================='
+\endif

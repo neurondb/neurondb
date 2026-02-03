@@ -1,6 +1,8 @@
 -- Detailed and all possible tests for data management functions
 -- Uses real data from: sift1m.vectors for realistic testing
 
+CREATE EXTENSION IF NOT EXISTS neurondb;
+
 -- 1. Create table with all columns and various settings
 DROP TABLE IF EXISTS test_vectors_dm CASCADE;
 CREATE TABLE test_vectors_dm (

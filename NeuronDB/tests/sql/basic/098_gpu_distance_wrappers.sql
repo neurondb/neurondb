@@ -1,4 +1,5 @@
 -- Extension created in 01_types_basic
+CREATE EXTENSION IF NOT EXISTS neurondb;
 
 -- Disable GPU acceleration for accurate baseline testing
 SET neurondb.compute_mode = 0;  -- 0=cpu, 1=gpu, 2=auto (integer, not string)

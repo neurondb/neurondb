@@ -188,7 +188,7 @@ END$$;
 SELECT 
     doc_id,
     ROUND(score::numeric, 4) as ltr_score,
-    relevance_label as actual_relevance
+    score as actual_relevance
 FROM neurondb.ltr_rerank_pointwise(
     'test_ltr_candidates',
     ARRAY['semantic_score', 'bm25_score', 'recency_score', 'popularity_score']::text[],

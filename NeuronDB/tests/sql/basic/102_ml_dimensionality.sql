@@ -5,6 +5,8 @@
 -- Uses real data from: deep1b.vectors (96-d vectors)
 -- ====================================================================
 
+CREATE EXTENSION IF NOT EXISTS neurondb;
+
 \echo '=== Using Deep1B Dataset for PCA Tests ==='
 
 -- Create test data with synthetic vectors (deep1b.vectors may not exist)
@@ -125,6 +127,7 @@ END$$;
 \echo '=== Testing PCA with Different Data Distributions ==='
 
 -- Create data with high variance in one dimension
+DROP TABLE IF EXISTS test_pca_skewed CASCADE;
 CREATE TABLE test_pca_skewed (
     id SERIAL PRIMARY KEY,
     vec vector(4)
@@ -157,6 +160,7 @@ END$$;
 \echo '=== Edge Cases and Error Handling ==='
 
 -- Test PCA with minimal data
+DROP TABLE IF EXISTS test_pca_minimal CASCADE;
 CREATE TABLE test_pca_minimal (
     id SERIAL PRIMARY KEY,
     vec vector(3)

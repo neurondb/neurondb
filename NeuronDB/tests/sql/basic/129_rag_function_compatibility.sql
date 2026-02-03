@@ -100,6 +100,8 @@ END $$;
 DO $$
 DECLARE
 	query_text text := 'What is PostgreSQL?';
+	text_result record;
+	regclass_result record;
 	text_result_count int := 0;
 	regclass_result_count int := 0;
 BEGIN
@@ -147,6 +149,8 @@ END $$;
 DO $$
 DECLARE
 	document_text text := 'This is a test document for ingestion compatibility testing.';
+	text_result record;
+	regclass_result record;
 	text_result_count int := 0;
 	regclass_result_count int := 0;
 BEGIN
@@ -247,18 +251,15 @@ DECLARE
 BEGIN
 	-- Test with schema-qualified regclass (pg_temp.rag_compat_test_documents)
 	-- Note: For temp tables, we use the table name directly as regclass resolves correctly
-	FOR result IN 
-		SELECT * FROM neurondb.rag_query(
-			query_text,
-			'rag_compat_test_documents'::regclass,
-			'embedding',
-			'content',
-			'default',
-			3
-		)
-	LOOP
-		result_count := result_count + 1;
-	END LOOP;
+	SELECT COUNT(*) INTO result_count
+	FROM neurondb.rag_query(
+		query_text,
+		'rag_compat_test_documents'::regclass,
+		'embedding',
+		'content',
+		'default',
+		3
+	);
 	
 	IF result_count = 0 THEN
 		RAISE EXCEPTION 'Schema-qualified regclass test returned no results';

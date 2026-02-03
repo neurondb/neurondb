@@ -3511,11 +3511,15 @@ CREATE FUNCTION neurondb.similarity_histogram(
 ) RETURNS TABLE(bin integer, bin_min real, bin_max real, count integer, frequency real)
 LANGUAGE plpgsql STABLE AS $$
 DECLARE
-    result_record record;
     min_val real;
     max_val real;
     mean_val real;
     stddev_val real;
+    p50_val real;
+    p90_val real;
+    p95_val real;
+    p99_val real;
+    samples_val bigint;
     bin_width real;
     bin_idx integer;
     bin_min_val real;
@@ -3524,19 +3528,16 @@ DECLARE
     pair_count bigint;
     total_pairs bigint;
 BEGIN
-    -- Call C function and parse RECORD: (min, max, mean, stddev, p50, p90, p95, p99, samples)
-    SELECT * INTO result_record FROM similarity_histogram(table_name, vector_column, 1000) 
+    -- Call C function and directly extract values into variables
+    SELECT t.min, t.max, t.mean, t.stddev, t.p50, t.p90, t.p95, t.p99, t.samples
+    INTO min_val, max_val, mean_val, stddev_val, p50_val, p90_val, p95_val, p99_val, samples_val
+    FROM similarity_histogram(table_name, vector_column, 1000) 
         AS t(min real, max real, mean real, stddev real, p50 real, p90 real, p95 real, p99 real, samples bigint);
-    
-    min_val := (result_record).min::real;
-    max_val := (result_record).max::real;
-    mean_val := (result_record).mean::real;
-    stddev_val := (result_record).stddev::real;
     
     -- Create bins from min to max
     IF max_val > min_val THEN
         bin_width := (max_val - min_val) / num_bins;
-        total_pairs := (result_record).samples::bigint;
+        total_pairs := samples_val;
         
         FOR bin_idx IN 1..num_bins LOOP
             bin_min_val := min_val + (bin_idx - 1) * bin_width;
@@ -9045,16 +9046,16 @@ BEGIN
 	-- Generate query embedding
 	query_embedding := neurondb.embed(model, query_text);
 	
-	-- Build context text from retrieved chunks directly
+	-- Build context text from retrieved chunks directly (ORDER BY uses subquery alias relevance_score)
 	EXECUTE format(
-		'SELECT string_agg(%I, E''\n\n'' ORDER BY (%I <=> $1)::float8 DESC)
+		'SELECT string_agg(%I, E''\n\n'' ORDER BY relevance_score DESC)
 		 FROM (
 			 SELECT %I, (%I <=> $1)::float8 as relevance_score
 			 FROM %I 
 			 ORDER BY %I <=> $1 
 			 LIMIT %s
 		 ) AS retrieved',
-		text_col, vector_col, text_col, vector_col, document_table, vector_col, top_k
+		text_col, text_col, vector_col, document_table, vector_col, top_k
 	) USING query_embedding INTO context_text;
 	
 	-- Add custom context if provided
@@ -9301,16 +9302,16 @@ BEGIN
 		text_col, vector_col, document_table, vector_col, top_k
 	);
 	
-	-- Build context from retrieved chunks
+	-- Build context from retrieved chunks (ORDER BY uses subquery alias relevance_score)
 	EXECUTE format(
-		'SELECT string_agg(%I, E''\n\n'' ORDER BY (%I <=> $1)::float8 DESC)
+		'SELECT string_agg(%I, E''\n\n'' ORDER BY relevance_score DESC)
 		 FROM (
 			 SELECT %I, (%I <=> $1)::float8 as relevance_score
 			 FROM %I 
 			 ORDER BY %I <=> $1 
 			 LIMIT %s
 		 ) AS retrieved',
-		text_col, vector_col, text_col, vector_col, document_table, vector_col, top_k
+		text_col, text_col, vector_col, document_table, vector_col, top_k
 	) USING query_embedding INTO context_text;
 	
 	-- Build conversation context from history
@@ -10296,16 +10297,16 @@ BEGIN
 	-- Step 5: Retrieve using rewritten query
 	query_embedding := neurondb.embed(embedding_model, rewritten_query_text);
 	
-	-- Build context from retrieved chunks
+	-- Build context from retrieved chunks (ORDER BY uses subquery alias relevance_score)
 	EXECUTE format(
-		'SELECT string_agg(%I, E''\n\n'' ORDER BY (%I <=> $1)::float8 DESC)
+		'SELECT string_agg(%I, E''\n\n'' ORDER BY relevance_score DESC)
 		 FROM (
 			 SELECT %I, (%I <=> $1)::float8 as relevance_score
 			 FROM %I 
 			 ORDER BY %I <=> $1 
 			 LIMIT %s
 		 ) AS retrieved',
-		text_col, vector_col, text_col, vector_col, document_table, vector_col, top_k
+		text_col, text_col, vector_col, document_table, vector_col, top_k
 	) USING query_embedding INTO context_text;
 	
 	-- Step 6: Generate answer with full context awareness
@@ -10454,16 +10455,16 @@ BEGIN
 		-- Execute module based on type
 		CASE module_type
 			WHEN 'retrieval', 'vector_retrieval' THEN
-				-- Vector retrieval module
+				-- Vector retrieval module (ORDER BY uses subquery alias relevance_score)
 				EXECUTE format(
-					'SELECT ARRAY_AGG(%I ORDER BY (%I <=> $1)::float8)
+					'SELECT ARRAY_AGG(%I ORDER BY relevance_score)
 					 FROM (
 						 SELECT %I, (%I <=> $1)::float8 as relevance_score
 						 FROM %I 
 						 ORDER BY %I <=> $1 
 						 LIMIT %s
 					 ) AS retrieved',
-					text_col, vector_col, text_col, vector_col, document_table, vector_col,
+					text_col, text_col, vector_col, document_table, vector_col,
 					COALESCE((module_params->>'top_k')::integer, 5)
 				) USING query_embedding INTO current_docs;
 				
@@ -10472,14 +10473,14 @@ BEGIN
 			WHEN 'hybrid_retrieval' THEN
 				-- Hybrid retrieval module (simplified - would use hybrid_search in production)
 				EXECUTE format(
-					'SELECT ARRAY_AGG(%I ORDER BY (%I <=> $1)::float8)
+					'SELECT ARRAY_AGG(%I ORDER BY relevance_score)
 					 FROM (
 						 SELECT %I, (%I <=> $1)::float8 as relevance_score
 						 FROM %I 
 						 ORDER BY %I <=> $1 
 						 LIMIT %s
 					 ) AS retrieved',
-					text_col, vector_col, text_col, vector_col, document_table, vector_col,
+					text_col, text_col, vector_col, document_table, vector_col,
 					COALESCE((module_params->>'top_k')::integer, 5)
 				) USING query_embedding INTO current_docs;
 				

@@ -1804,6 +1804,7 @@ hnswcostestimate(struct PlannerInfo *root,
 static bytea *
 hnswoptions(Datum reloptions, bool validate)
 {
+	bytea	   *result;
 	static const relopt_parse_elt tab[] = {
 		{"m", RELOPT_TYPE_INT, offsetof(HnswOptions, m)},
 		{"ef_construction", RELOPT_TYPE_INT, offsetof(HnswOptions, efConstruction)},
@@ -1815,10 +1816,104 @@ hnswoptions(Datum reloptions, bool validate)
 		ereport(ERROR,
 				(errcode(ERRCODE_INTERNAL_ERROR),
 				 errmsg("relopt_kind_hnsw not initialized")));
-	
-	return (bytea *) build_reloptions(reloptions, validate, relopt_kind_hnsw,
-									  sizeof(HnswOptions),
-									  tab, lengthof(tab));
+
+	result = (bytea *) build_reloptions(reloptions, validate, relopt_kind_hnsw,
+													 sizeof(HnswOptions),
+													 tab, lengthof(tab));
+
+	/* WORKAROUND: build_reloptions appears to match by position, not by name.
+	 * Manually parse reloptions array and correct the values. */
+	if (result != NULL && reloptions != (Datum) 0 && DatumGetPointer(reloptions))
+	{
+		ArrayType  *arr = DatumGetArrayTypeP(reloptions);
+
+		if (arr != NULL && ARR_NDIM(arr) == 1 && ARR_ELEMTYPE(arr) == TEXTOID)
+		{
+			Datum	   *elems = NULL;
+			bool	   *nulls = NULL;
+			int			nelems = 0;
+			int			parsed_m = 0;
+			int			parsed_ef_construction = 0;
+			int			parsed_ef_search = 0;
+			bool		found_m = false;
+			bool		found_ef_construction = false;
+			bool		found_ef_search = false;
+
+			deconstruct_array(arr, TEXTOID, -1, false, 'i', &elems, &nulls, &nelems);
+
+			for (int i = 0; i < nelems; i++)
+			{
+				if (!nulls[i] && elems[i] != (Datum) 0)
+				{
+					char	   *elem_str;
+					char	   *eq_pos;
+					int			param_value;
+
+					elem_str = text_to_cstring(DatumGetTextP(elems[i]));
+					eq_pos = strchr(elem_str, '=');
+
+					if (eq_pos != NULL)
+					{
+						*eq_pos = '\0';
+						param_value = atoi(eq_pos + 1);
+
+						if (strcmp(elem_str, "m") == 0)
+						{
+							parsed_m = param_value;
+							found_m = true;
+						}
+						else if (strcmp(elem_str, "ef_construction") == 0)
+						{
+							parsed_ef_construction = param_value;
+							found_ef_construction = true;
+						}
+						else if (strcmp(elem_str, "ef_search") == 0)
+						{
+							parsed_ef_search = param_value;
+							found_ef_search = true;
+						}
+					}
+					pfree(elem_str);
+				}
+			}
+
+			if (elems)
+				pfree(elems);
+			if (nulls)
+				pfree(nulls);
+
+			{
+				HnswOptions *opts = (HnswOptions *) VARDATA(result);
+
+				/* Overwrite with parsed values; use defaults for any not in the array
+				 * so we never leave swapped values from build_reloptions. */
+				opts->m = found_m ? parsed_m : HNSW_DEFAULT_M;
+				opts->efConstruction = found_ef_construction ? parsed_ef_construction : HNSW_DEFAULT_EF_CONSTRUCTION;
+				opts->ef_search = found_ef_search ? parsed_ef_search : HNSW_DEFAULT_EF_SEARCH;
+			}
+		}
+	}
+
+	/* Safety: clamp options to valid range so we never get node size overflow */
+	if (result != NULL)
+	{
+		HnswOptions *opts = (HnswOptions *) VARDATA(result);
+
+		if (opts->m < HNSW_MIN_M)
+			opts->m = HNSW_MIN_M;
+		else if (opts->m > HNSW_MAX_M)
+			opts->m = HNSW_MAX_M;
+		if (opts->efConstruction < HNSW_MIN_EF_CONSTRUCTION)
+			opts->efConstruction = HNSW_MIN_EF_CONSTRUCTION;
+		else if (opts->efConstruction > HNSW_MAX_EF_CONSTRUCTION)
+			opts->efConstruction = HNSW_MAX_EF_CONSTRUCTION;
+		if (opts->ef_search < HNSW_MIN_EF_SEARCH)
+			opts->ef_search = HNSW_MIN_EF_SEARCH;
+		else if (opts->ef_search > HNSW_MAX_EF_SEARCH)
+			opts->ef_search = HNSW_MAX_EF_SEARCH;
+	}
+
+	return (bytea *) result;
 }
 
 static bool
@@ -2261,11 +2356,10 @@ hnswLoadOptions(Relation index, HnswOptions *opts_out)
 {
 	HnswOptions *opts = NULL;
 
-	/* index->rd_options is already a processed bytea from build_reloptions (with validate=true)
-	 * We can access it directly - it's a varlena with vl_len_ header */
+	/* rd_options is a varlena (bytea) containing HnswOptions in VARDATA */
 	if (index->rd_options != NULL)
 	{
-		opts = (HnswOptions *) index->rd_options;
+		opts = (HnswOptions *) VARDATA(index->rd_options);
 		opts_out->m = opts->m;
 		opts_out->efConstruction = opts->efConstruction;
 		opts_out->ef_search = opts->ef_search;

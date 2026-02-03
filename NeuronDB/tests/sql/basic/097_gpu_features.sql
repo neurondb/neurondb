@@ -1,6 +1,8 @@
 -- GPU Features SQL Definitions
 -- Includes GPU-accelerated search functions with index parameter support
 
+CREATE EXTENSION IF NOT EXISTS neurondb;
+
 -- ==== GPU HNSW Search Function ====
 -- GPU-accelerated HNSW k-nearest neighbor search
 -- Note: Functions should already be created by extension, but create if missing
@@ -51,6 +53,10 @@ END$$;
 -- ==== ENVIRONMENT PREP: Ensure deterministic fallback ====
 SET neurondb.compute_mode = 0;  -- Guarantee CPU for baseline/consistency (0=cpu, 1=gpu, 2=auto)
 
+-- Skip entire GPU section if neurondb_gpu_info not available (e.g. CPU-only build)
+SELECT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'neurondb_gpu_info') AS gpu_ok
+\gset
+\if :gpu_ok
 -- ==== 1. GPU Info and Status Functions: all call scenarios ====
 -- Actual info/stats output is environment-dependent, so always run, don't just skip
 -- Info before anything
@@ -292,3 +298,4 @@ SELECT * FROM neurondb_gpu_info() AS info_after_reenable;
 -- ==== 10. Cleanup ====
 DROP TABLE IF EXISTS gpu_test_vectors CASCADE;
 
+\endif

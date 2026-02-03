@@ -8883,16 +8883,16 @@ BEGIN
 	-- Generate query embedding
 	query_embedding := neurondb.embed(model, query_text);
 	
-	-- Build context text from retrieved chunks directly
+	-- Build context text from retrieved chunks directly (ORDER BY uses subquery alias relevance_score)
 	EXECUTE format(
-		'SELECT string_agg(%I, E''\n\n'' ORDER BY (%I <=> $1)::float8 DESC)
+		'SELECT string_agg(%I, E''\n\n'' ORDER BY relevance_score DESC)
 		 FROM (
 			 SELECT %I, (%I <=> $1)::float8 as relevance_score
 			 FROM %I 
 			 ORDER BY %I <=> $1 
 			 LIMIT %s
 		 ) AS retrieved',
-		text_col, vector_col, text_col, vector_col, document_table, vector_col, top_k
+		text_col, text_col, vector_col, document_table, vector_col, top_k
 	) USING query_embedding INTO context_text;
 	
 	-- Add custom context if provided
@@ -9139,16 +9139,16 @@ BEGIN
 		text_col, vector_col, document_table, vector_col, top_k
 	);
 	
-	-- Build context from retrieved chunks
+	-- Build context from retrieved chunks (ORDER BY uses subquery alias relevance_score)
 	EXECUTE format(
-		'SELECT string_agg(%I, E''\n\n'' ORDER BY (%I <=> $1)::float8 DESC)
+		'SELECT string_agg(%I, E''\n\n'' ORDER BY relevance_score DESC)
 		 FROM (
 			 SELECT %I, (%I <=> $1)::float8 as relevance_score
 			 FROM %I 
 			 ORDER BY %I <=> $1 
 			 LIMIT %s
 		 ) AS retrieved',
-		text_col, vector_col, text_col, vector_col, document_table, vector_col, top_k
+		text_col, text_col, vector_col, document_table, vector_col, top_k
 	) USING query_embedding INTO context_text;
 	
 	-- Build conversation context from history
@@ -10134,16 +10134,16 @@ BEGIN
 	-- Step 5: Retrieve using rewritten query
 	query_embedding := neurondb.embed(embedding_model, rewritten_query_text);
 	
-	-- Build context from retrieved chunks
+	-- Build context from retrieved chunks (ORDER BY uses subquery alias relevance_score)
 	EXECUTE format(
-		'SELECT string_agg(%I, E''\n\n'' ORDER BY (%I <=> $1)::float8 DESC)
+		'SELECT string_agg(%I, E''\n\n'' ORDER BY relevance_score DESC)
 		 FROM (
 			 SELECT %I, (%I <=> $1)::float8 as relevance_score
 			 FROM %I 
 			 ORDER BY %I <=> $1 
 			 LIMIT %s
 		 ) AS retrieved',
-		text_col, vector_col, text_col, vector_col, document_table, vector_col, top_k
+		text_col, text_col, vector_col, document_table, vector_col, top_k
 	) USING query_embedding INTO context_text;
 	
 	-- Step 6: Generate answer with full context awareness
@@ -10292,16 +10292,16 @@ BEGIN
 		-- Execute module based on type
 		CASE module_type
 			WHEN 'retrieval', 'vector_retrieval' THEN
-				-- Vector retrieval module
+				-- Vector retrieval module (ORDER BY uses subquery alias relevance_score)
 				EXECUTE format(
-					'SELECT ARRAY_AGG(%I ORDER BY (%I <=> $1)::float8)
+					'SELECT ARRAY_AGG(%I ORDER BY relevance_score)
 					 FROM (
 						 SELECT %I, (%I <=> $1)::float8 as relevance_score
 						 FROM %I 
 						 ORDER BY %I <=> $1 
 						 LIMIT %s
 					 ) AS retrieved',
-					text_col, vector_col, text_col, vector_col, document_table, vector_col,
+					text_col, text_col, vector_col, document_table, vector_col,
 					COALESCE((module_params->>'top_k')::integer, 5)
 				) USING query_embedding INTO current_docs;
 				
@@ -10310,14 +10310,14 @@ BEGIN
 			WHEN 'hybrid_retrieval' THEN
 				-- Hybrid retrieval module (simplified - would use hybrid_search in production)
 				EXECUTE format(
-					'SELECT ARRAY_AGG(%I ORDER BY (%I <=> $1)::float8)
+					'SELECT ARRAY_AGG(%I ORDER BY relevance_score)
 					 FROM (
 						 SELECT %I, (%I <=> $1)::float8 as relevance_score
 						 FROM %I 
 						 ORDER BY %I <=> $1 
 						 LIMIT %s
 					 ) AS retrieved',
-					text_col, vector_col, text_col, vector_col, document_table, vector_col,
+					text_col, text_col, vector_col, document_table, vector_col,
 					COALESCE((module_params->>'top_k')::integer, 5)
 				) USING query_embedding INTO current_docs;
 				
@@ -10358,14 +10358,14 @@ BEGIN
 	ELSE
 		-- Fallback: retrieve basic documents
 		EXECUTE format(
-			'SELECT string_agg(%I, E''\n\n'' ORDER BY (%I <=> $1)::float8)
+			'SELECT string_agg(%I, E''\n\n'' ORDER BY relevance_score DESC)
 			 FROM (
 				 SELECT %I, (%I <=> $1)::float8 as relevance_score
 				 FROM %I 
 				 ORDER BY %I <=> $1 
 				 LIMIT 5
 			 ) AS retrieved',
-			text_col, vector_col, text_col, vector_col, document_table, vector_col
+			text_col, text_col, vector_col, document_table, vector_col
 		) USING query_embedding INTO context_text;
 	END IF;
 	
