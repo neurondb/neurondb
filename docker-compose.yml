@@ -49,8 +49,9 @@ services:
       POSTGRES_HOST_AUTH_METHOD: ${POSTGRES_HOST_AUTH_METHOD:-md5}
       NEURONDB_GPU_BACKEND_TYPE: ${NEURONDB_GPU_BACKEND_TYPE:-0}
       NEURONDB_COMPUTE_MODE: ${NEURONDB_COMPUTE_MODE:-0}
-      # HuggingFace API key for embeddings (can also be set via ALTER SYSTEM)
-      NEURONDB_LLM_API_KEY: ${NEURONDB_LLM_API_KEY:-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}
+      # HuggingFace API key for embeddings. Set NEURONDB_LLM_API_KEY in .env or environment.
+      # Do NOT commit real keys. Leave unset for dev without embeddings; production should set it.
+      NEURONDB_LLM_API_KEY: ${NEURONDB_LLM_API_KEY:-}
     ports:
       - ${POSTGRES_PORT:-5433}:5432
     volumes:
@@ -313,7 +314,7 @@ services:
     healthcheck:
       test:
         - CMD-SHELL
-        - nc -z localhost 8080 || exit 1
+        - wget --no-verbose --tries=1 --spider http://localhost:8080/health || nc -z localhost 8080 || exit 1
       interval: 30s
       timeout: 10s
       start_period: 40s

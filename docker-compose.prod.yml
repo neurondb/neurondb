@@ -16,8 +16,8 @@ services:
     volumes:
       - neurondb-data:/var/lib/postgresql/data
       - ./postgresql.conf:/etc/postgresql/postgresql.conf:ro
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+    # Do not expose PostgreSQL port on host in production; access via internal network only.
+    # Omit 'ports' so only other containers on neurondb-network can connect.
     networks:
       - neurondb-network
     healthcheck:

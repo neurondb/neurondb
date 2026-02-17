@@ -434,6 +434,8 @@ rbac:
 networkPolicy:
   enabled: false  # Enable for production security
   allowMonitoring: true  # Allow monitoring tools to scrape metrics
+  # Restrict DNS egress to this namespace (e.g. kube-system for CoreDNS). Empty = allow all namespaces (legacy).
+  dnsNamespace: "kube-system"
   monitoringNamespace: ""  # Namespace for monitoring (defaults to release namespace)
   monitoringLabels: {}  # Labels for monitoring pods (defaults to app: prometheus)
   ingressNamespace: ""  # Namespace for ingress controller (defaults to release namespace)

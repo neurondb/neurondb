@@ -64,12 +64,20 @@ spec:
       port: {{ .Values.monitoring.prometheus.postgresExporter.port | default 9187 }}
   {{- end }}
   egress:
-  # Allow DNS
-  - to:
-    - namespaceSelector: {}
-    ports:
+  # Allow DNS (restrict to dnsNamespace when set to avoid unrestricted DNS egress)
+  - ports:
     - protocol: UDP
       port: 53
+    - protocol: TCP
+      port: 53
+    to:
+    {{- if .Values.networkPolicy.dnsNamespace }}
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: {{ .Values.networkPolicy.dnsNamespace }}
+    {{- else }}
+    - namespaceSelector: {}
+    {{- end }}
   # Allow egress to monitoring endpoints if enabled
   {{- if .Values.networkPolicy.allowMonitoring }}
   - to:
@@ -151,12 +159,20 @@ spec:
       port: {{ .Values.neuronagent.service.port }}
   {{- end }}
   egress:
-  # Allow DNS
-  - to:
-    - namespaceSelector: {}
-    ports:
+  # Allow DNS (restrict to dnsNamespace when set)
+  - ports:
     - protocol: UDP
       port: 53
+    - protocol: TCP
+      port: 53
+    to:
+    {{- if .Values.networkPolicy.dnsNamespace }}
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: {{ .Values.networkPolicy.dnsNamespace }}
+    {{- else }}
+    - namespaceSelector: {}
+    {{- end }}
   # Allow egress to NeuronDB
   {{- if .Values.neurondb.enabled }}
   - to:
@@ -231,12 +247,20 @@ spec:
           {{- end }}
   {{- end }}
   egress:
-  # Allow DNS
-  - to:
-    - namespaceSelector: {}
-    ports:
+  # Allow DNS (restrict to dnsNamespace when set)
+  - ports:
     - protocol: UDP
       port: 53
+    - protocol: TCP
+      port: 53
+    to:
+    {{- if .Values.networkPolicy.dnsNamespace }}
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: {{ .Values.networkPolicy.dnsNamespace }}
+    {{- else }}
+    - namespaceSelector: {}
+    {{- end }}
   # Allow egress to NeuronDB
   {{- if .Values.neurondb.enabled }}
   - to:
@@ -335,12 +359,20 @@ spec:
       port: {{ .Values.neurondesktop.api.service.port }}
   {{- end }}
   egress:
-  # Allow DNS
-  - to:
-    - namespaceSelector: {}
-    ports:
+  # Allow DNS (restrict to dnsNamespace when set)
+  - ports:
     - protocol: UDP
       port: 53
+    - protocol: TCP
+      port: 53
+    to:
+    {{- if .Values.networkPolicy.dnsNamespace }}
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: {{ .Values.networkPolicy.dnsNamespace }}
+    {{- else }}
+    - namespaceSelector: {}
+    {{- end }}
   # Allow egress to NeuronDB
   {{- if .Values.neurondb.enabled }}
   - to:
@@ -430,12 +462,20 @@ spec:
       port: {{ .Values.neurondesktop.frontend.service.port }}
   {{- end }}
   egress:
-  # Allow DNS
-  - to:
-    - namespaceSelector: {}
-    ports:
+  # Allow DNS (restrict to dnsNamespace when set)
+  - ports:
     - protocol: UDP
       port: 53
+    - protocol: TCP
+      port: 53
+    to:
+    {{- if .Values.networkPolicy.dnsNamespace }}
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: {{ .Values.networkPolicy.dnsNamespace }}
+    {{- else }}
+    - namespaceSelector: {}
+    {{- end }}
   # Allow egress to NeuronDesktop API
   - to:
     - podSelector:
