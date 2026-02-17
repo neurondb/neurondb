@@ -619,15 +619,6 @@ auto_train(PG_FUNCTION_ARGS)
 			best_algorithm = algorithms[i];
 			best_model_id = scores[i].model_id;
 		}
-
-
-		/* Track best model - using default score of 0.5f */
-		if (scores[i].score > best_score)
-		{
-			best_score = scores[i].score;
-			best_algorithm = algorithms[i];
-			best_model_id = scores[i].model_id;
-		}
 	}
 
 	initStringInfo(&result);
@@ -798,20 +789,17 @@ optimize_hyperparameters(PG_FUNCTION_ARGS)
 					params_jsonb = DatumGetJsonbP(DirectFunctionCall1(jsonb_in,
 																	  CStringGetTextDatum(params_json.data)));
 
-					/* Train model with these hyperparameters */
+					/* Train model with these hyperparameters.
+					 * Use quote_literal_cstr/quote_identifier to prevent SQL injection. */
 					initStringInfo(&sql);
 					appendStringInfo(&sql,
 									 "SELECT neurondb.train("
-									 "'%s', "
-									 "'%s', "
-									 "'%s', "
-									 "'%s', "
-									 "%s::jsonb)::integer",
-									 algorithm_str,
-									 table_name_str,
-									 feature_col_str,
-									 label_col_str,
-									 params_json.data);
+									 "%s, %s, %s, %s, %s::jsonb)::integer",
+									 quote_literal_cstr(algorithm_str),
+									 quote_literal_cstr(table_name_str),
+									 quote_literal_cstr(feature_col_str),
+									 quote_literal_cstr(label_col_str),
+									 quote_literal_cstr(params_json.data));
 
 					ret = ndb_spi_execute_safe(sql.data, true, 1);
 					NDB_CHECK_SPI_TUPTABLE();
@@ -2122,7 +2110,7 @@ static bool
 automl_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **errstr)
 {
 	AutoMLGpuModelState *state = NULL;
-	int			selected_model_id = 1;
+	int			selected_model_id = 0;	/* Set from best candidate after training */
 	char		selected_algorithm[64] = "linear_regression";
 
 	Jsonb *best_hyperparameters = NULL;
@@ -2196,9 +2184,14 @@ automl_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **errstr)
 	{
 		const char *candidate_algorithms[4];
 		float		candidate_scores[4];
+		int32		candidate_model_ids[4];
 		int			n_candidates = 0;
 		int			best_idx = 0;
 		int			i;
+
+		for (i = 0; i < 4; i++)
+			candidate_model_ids[i] = 0;
+
 		int			train_size;
 		int			test_size;
 
@@ -2366,12 +2359,14 @@ automl_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **errstr)
 					 candidate_algorithms[i],
 					 train_err ? train_err : "unknown error");
 				candidate_scores[i] = -1.0f;	/* Mark as failed */
+				candidate_model_ids[i] = 0;
 				if (train_err)
 					nfree(train_err);
 				if (algo_hyperparams)
 					nfree(algo_hyperparams);
 				continue;
 			}
+			candidate_model_ids[i] = train_result.model_id;
 
 			/* Evaluate model if we have test data */
 			if (test_size > 0 && train_result.spec.model_data != NULL)
@@ -2484,6 +2479,7 @@ automl_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **errstr)
 		strncpy(selected_algorithm, candidate_algorithms[best_idx], sizeof(selected_algorithm) - 1);
 		selected_algorithm[sizeof(selected_algorithm) - 1] = '\0';
 		best_score_val = candidate_scores[best_idx] >= 0.0f ? candidate_scores[best_idx] : 0.5f;
+		selected_model_id = candidate_model_ids[best_idx] > 0 ? candidate_model_ids[best_idx] : 1;
 
 cleanup:
 		/* Cleanup train/test splits */

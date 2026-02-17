@@ -181,6 +181,15 @@ vector_in_internal(char *str, int *out_dim, bool check)
 
 		if (dim >= capacity)
 		{
+			/* Prevent integer overflow and enforce VECTOR_MAX_DIM */
+			if (capacity > VECTOR_MAX_DIM / 2)
+				ereport(ERROR,
+						(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+						 errmsg("vector dimension exceeds maximum %d", VECTOR_MAX_DIM)));
+			if ((size_t) capacity > SIZE_MAX / (2 * sizeof(float4)))
+				ereport(ERROR,
+						(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+						 errmsg("vector size would overflow")));
 			capacity *= 2;
 			data = (float4 *) repalloc(
 									   data, sizeof(float4) * capacity);

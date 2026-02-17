@@ -193,9 +193,12 @@ davies_bouldin_index(PG_FUNCTION_ARGS)
 				 errmsg("neurondb: davies_bouldin_index: no valid vectors found in table")));
 	}
 
-	/* Fetch cluster assignments */
+	/* Fetch cluster assignments. Use quote_identifier to prevent SQL injection. */
 	ndb_spi_stringinfo_init(spi_session, &sql);
-	appendStringInfo(&sql, "SELECT %s FROM %s LIMIT %d", cluster_str, tbl_str, 500000);
+	appendStringInfo(&sql, "SELECT %s FROM %s LIMIT %d",
+					quote_identifier(cluster_str),
+					quote_identifier(tbl_str),
+					500000);
 
 	ret = ndb_spi_execute(spi_session, sql.data, true, 0);
 	if (ret != SPI_OK_SELECT)

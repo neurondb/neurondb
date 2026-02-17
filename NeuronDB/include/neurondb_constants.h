@@ -230,6 +230,7 @@
 #define NDB_ALGO_TIMESERIES                 "timeseries"
 #define NDB_ALGO_TRANSFORMER_LLM            "transformer_llm"
 #define NDB_ALGO_CUSTOM_LLM                 "custom_llm"
+#define NDB_ALGO_TITANS_LLM                 "titans_llm"
 
 /* ----------
  * SQL Function Names

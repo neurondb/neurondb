@@ -1108,8 +1108,11 @@ compute_embedding_quality(PG_FUNCTION_ARGS)
 	NDB_SPI_SESSION_BEGIN(spi_session, oldcontext);
 
 	ndb_spi_stringinfo_init(spi_session, &sql);
-	/* Note: No ORDER BY clause - views don't have ctid, and ordering isn't required */
-	appendStringInfo(&sql, "SELECT %s FROM %s", cluster_col_str, tbl_str);
+	/* Note: No ORDER BY clause - views don't have ctid, and ordering isn't required.
+	 * Use quote_identifier to prevent SQL injection. */
+	appendStringInfo(&sql, "SELECT %s FROM %s",
+					quote_identifier(cluster_col_str),
+					quote_identifier(tbl_str));
 	ret = ndb_spi_execute(spi_session, sql.data, true, 0);
 
 	if (ret != SPI_OK_SELECT || (int) SPI_processed != nvec)

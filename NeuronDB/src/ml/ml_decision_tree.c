@@ -2017,12 +2017,10 @@ evaluate_decision_tree_by_model_id(PG_FUNCTION_ARGS)
 				dt_free_tree(model->root);
 			nfree(model);
 		}
-		nfree(tbl_str);
-		nfree(feat_str);
-		nfree(targ_str);
 		ndb_spi_stringinfo_free(spi_session, &query);
 		NDB_SPI_SESSION_END(spi_session);
 
+		/* Report error using tbl_str/feat_str/targ_str before freeing them */
 		if (total_rows == 0)
 		{
 			ereport(ERROR,
@@ -2040,6 +2038,9 @@ evaluate_decision_tree_by_model_id(PG_FUNCTION_ARGS)
 					 errhint("Ensure columns '%s' and '%s' are not NULL for evaluation rows",
 							 feat_str, targ_str)));
 		}
+		nfree(tbl_str);
+		nfree(feat_str);
+		nfree(targ_str);
 	}
 
 	if (SPI_tuptable != NULL && SPI_tuptable->tupdesc != NULL)

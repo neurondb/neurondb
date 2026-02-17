@@ -41,6 +41,7 @@
 #endif
 
 #include <stdint.h>
+#include <float.h>
 #include <unistd.h>				/* for getpid() */
 
 #ifdef NDB_GPU_CUDA

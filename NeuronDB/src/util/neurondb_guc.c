@@ -103,6 +103,10 @@ bool		neurondb_audit_ml_enabled = false;
 bool		neurondb_audit_rag_enabled = false;
 int			neurondb_audit_retention_days = 365;
 
+/* ML training/prediction limits (configurable) */
+int			neurondb_ml_max_samples = 200000;
+int			neurondb_ml_max_feature_elements = 100000;
+
 /* Replication GUCs */
 bool		neurondb_enable_replication = false;
 
@@ -825,6 +829,32 @@ neurondb_init_all_gucs(void)
 							 NULL,
 							 NULL,
 							 NULL);
+
+	DefineCustomIntVariable("neurondb.ml_max_samples",
+							"Maximum number of samples allowed for ML training",
+							"Training requests exceeding this limit will fail. Default is 200000.",
+							&neurondb_ml_max_samples,
+							200000,
+							100,
+							INT_MAX,
+							PGC_SUSET,
+							0,
+							NULL,
+							NULL,
+							NULL);
+
+	DefineCustomIntVariable("neurondb.ml_max_feature_elements",
+							"Maximum number of feature elements for prediction input",
+							"Prediction feature arrays exceeding this dimension will be rejected. Default is 100000.",
+							&neurondb_ml_max_feature_elements,
+							100000,
+							1,
+							INT_MAX,
+							PGC_SUSET,
+							0,
+							NULL,
+							NULL,
+							NULL);
 
 	DefineCustomBoolVariable("neurondb.automl.use_gpu",
 							 "Enable GPU acceleration for AutoML training",

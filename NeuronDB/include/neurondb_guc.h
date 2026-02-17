@@ -146,6 +146,8 @@ extern int	neurondb_llm_timeout_ms;
 extern int	neurondb_llm_cache_ttl;
 extern int	neurondb_llm_rate_limiter_qps;
 extern bool neurondb_llm_fail_open;
+extern int	neurondb_ml_max_samples;
+extern int	neurondb_ml_max_feature_elements;
 extern bool neurondb_automl_use_gpu;
 extern bool neurondb_vector_capsule_enabled;
 extern bool neurondb_rls_embeddings_enabled;

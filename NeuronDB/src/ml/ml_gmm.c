@@ -33,6 +33,7 @@
 #include "utils/memutils.h"
 #include "common/jsonapi.h"
 #include "vector/vector_types.h"
+#include "common/pg_prng.h"
 #include "neurondb_cuda_gmm.h"
 #include "ml_gpu_registry.h"
 
@@ -103,6 +104,11 @@ gaussian_pdf(const float *x, const double *mean, const double *variance, int dim
 
 	log_likelihood -= 0.5 * (dim * log(2.0 * M_PI) + log_det);
 
+	/* Clamp to avoid exp overflow and return 0 for -inf */
+	if (log_likelihood <= -700.0)
+		return 0.0;
+	if (log_likelihood >= 700.0)
+		return exp(700.0);
 	return exp(log_likelihood);
 }
 
@@ -219,23 +225,29 @@ cluster_gmm(PG_FUNCTION_ARGS)
 		nalloc(means_tmp, double *, num_components);
 		nalloc(variances_tmp, double *, num_components);
 
-		for (k = 0; k < num_components; k++)
 		{
+			pg_prng_state rng;
 
-			nalloc(means_row, double, dim);
-			nalloc(variances_row, double, dim);
-			means_tmp[k] = means_row;
-			variances_tmp[k] = variances_row;
+			pg_prng_seed(&rng, (uint64) nvec ^ (uint64) dim);
+			for (k = 0; k < num_components; k++)
+			{
+				nalloc(means_row, double, dim);
+				nalloc(variances_row, double, dim);
+				means_tmp[k] = means_row;
+				variances_tmp[k] = variances_row;
 
-			idx = rand() % nvec;
+				idx = (nvec > 1)
+					? (int) pg_prng_uint64_range_inclusive(&rng, 0, (uint64) (nvec - 1))
+					: 0;
 
-			for (d = 0; d < dim; d++)
-				means_tmp[k][d] = (double) data[idx][d];
+				for (d = 0; d < dim; d++)
+					means_tmp[k][d] = (double) data[idx][d];
 
-			for (d = 0; d < dim; d++)
-				variances_tmp[k][d] = 1.0;
+				for (d = 0; d < dim; d++)
+					variances_tmp[k][d] = 1.0;
 
-			mixing_coeffs_tmp[k] = 1.0 / num_components;
+				mixing_coeffs_tmp[k] = 1.0 / num_components;
+			}
 		}
 		model.mixing_coeffs = mixing_coeffs_tmp;
 		model.means = means_tmp;
@@ -642,22 +654,29 @@ train_gmm_model_id(PG_FUNCTION_ARGS)
 		nalloc(means_tmp, double *, num_components);
 		nalloc(variances_tmp, double *, num_components);
 
-		for (k = 0; k < num_components; k++)
 		{
+			pg_prng_state rng;
 			int			idx;
-			double *means_row = NULL;
-			double *variances_row = NULL;
 
-			nalloc(means_row, double, dim);
-			nalloc(variances_row, double, dim);
-			means_tmp[k] = means_row;
-			variances_tmp[k] = variances_row;
-			idx = rand() % nvec;
-			for (d = 0; d < dim; d++)
-				means_tmp[k][d] = (double) data[idx][d];
-			for (d = 0; d < dim; d++)
-				variances_tmp[k][d] = 1.0;
-			mixing_coeffs_tmp[k] = 1.0 / num_components;
+			pg_prng_seed(&rng, (uint64) nvec ^ (uint64) dim);
+			for (k = 0; k < num_components; k++)
+			{
+				double	   *means_row = NULL;
+				double	   *variances_row = NULL;
+
+				nalloc(means_row, double, dim);
+				nalloc(variances_row, double, dim);
+				means_tmp[k] = means_row;
+				variances_tmp[k] = variances_row;
+				idx = (nvec > 1)
+					? (int) pg_prng_uint64_range_inclusive(&rng, 0, (uint64) (nvec - 1))
+					: 0;
+				for (d = 0; d < dim; d++)
+					means_tmp[k][d] = (double) data[idx][d];
+				for (d = 0; d < dim; d++)
+					variances_tmp[k][d] = 1.0;
+				mixing_coeffs_tmp[k] = 1.0 / num_components;
+			}
 		}
 		model.mixing_coeffs = mixing_coeffs_tmp;
 		model.means = means_tmp;
@@ -698,6 +717,13 @@ train_gmm_model_id(PG_FUNCTION_ARGS)
 				for (k = 0; k < num_components; k++)
 					point_likelihood += model.mixing_coeffs[k] * gaussian_pdf(data[i], model.means[k], model.variances[k], dim);
 				log_likelihood += log(point_likelihood + GMM_MIN_PROB);
+			}
+			else
+			{
+				/* Normalize to uniform when sum is too small to avoid unnormalized responsibilities */
+				for (k = 0; k < num_components; k++)
+					responsibilities[i][k] = 1.0 / (double) num_components;
+				log_likelihood += log(1.0 / (double) num_components + GMM_MIN_PROB);
 			}
 		}
 

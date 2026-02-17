@@ -47,6 +47,7 @@ ndb_sql_get_load_dataset(const char *quoted_feat_col,
 	char	   *result = NULL;
 	StringInfoData buf;
 
+	/* Callers MUST pass quote_identifier() result to prevent SQL injection */
 	initStringInfo(&buf);
 	appendStringInfo(&buf, LINREG_SQL_LOAD_DATASET,
 					 quoted_feat_col,
@@ -68,6 +69,7 @@ ndb_sql_get_load_dataset_limited(const char *quoted_feat_col,
 	char	   *result = NULL;
 	StringInfoData buf;
 
+	/* Callers MUST pass quote_identifier() result to prevent SQL injection */
 	initStringInfo(&buf);
 	appendStringInfo(&buf, LINREG_SQL_LOAD_DATASET_LIMITED,
 					 quoted_feat_col,
@@ -93,6 +95,7 @@ ndb_sql_get_load_dataset_chunk(const char *quoted_feat_col,
 	char	   *result = NULL;
 	StringInfoData buf;
 
+	/* Callers MUST pass quote_identifier() result to prevent SQL injection */
 	initStringInfo(&buf);
 	appendStringInfo(&buf, LINREG_SQL_LOAD_DATASET_CHUNK,
 					 quoted_feat_col,
@@ -115,6 +118,7 @@ ndb_sql_get_check_dataset(const char *quoted_feat_col,
 	char	   *result = NULL;
 	StringInfoData buf;
 
+	/* Callers MUST pass quote_identifier() result to prevent SQL injection */
 	initStringInfo(&buf);
 	appendStringInfo(&buf, LINREG_SQL_CHECK_DATASET,
 					 quoted_feat_col,
@@ -131,12 +135,14 @@ ndb_sql_get_check_dataset(const char *quoted_feat_col,
 
 const char *
 ndb_sql_get_count_dataset(const char *quoted_feat_col,
-						  const char *quoted_target_col,
-						  const char *quoted_table)
+						 const char *quoted_target_col,
+						 const char *quoted_table)
 {
 	char	   *result = NULL;
 	StringInfoData buf;
 
+	/* Callers MUST pass quote_identifier() result to prevent SQL injection.
+	 * ORDER: FROM table WHERE feat_col AND target_col */
 	initStringInfo(&buf);
 	appendStringInfo(&buf, LINREG_SQL_COUNT_DATASET,
 					 quoted_table,
@@ -161,6 +167,7 @@ ndb_sql_get_eval_dataset(const char *quoted_feat_col,
 	char	   *result = NULL;
 	StringInfoData buf;
 
+	/* Callers MUST pass quote_identifier() result to prevent SQL injection */
 	initStringInfo(&buf);
 	appendStringInfo(&buf, LINREG_SQL_EVAL_DATASET,
 					 quoted_feat_col,

@@ -75,8 +75,12 @@ neurondb_fetch_vectors_from_table(const char *table,
 
 	max_vectors_limit = 500000;
 	initStringInfo(&sql);
-	/* Note: No ORDER BY clause - views don't have ctid, and ordering isn't required for training */
-	appendStringInfo(&sql, "SELECT %s FROM %s LIMIT %d", col, table, max_vectors_limit);
+	/* Note: No ORDER BY clause - views don't have ctid, and ordering isn't required for training.
+	 * Use quote_identifier to prevent SQL injection. */
+	appendStringInfo(&sql, "SELECT %s FROM %s LIMIT %d",
+					 quote_identifier(col),
+					 quote_identifier(table),
+					 max_vectors_limit);
 	oldcontext_spi = CurrentMemoryContext;
 
 	NDB_SPI_SESSION_BEGIN(spi_session, oldcontext_spi);

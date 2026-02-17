@@ -307,9 +307,11 @@ train_catboost_classifier(PG_FUNCTION_ARGS)
 	{
 		if (i > 0)
 			appendStringInfoChar(&sql, ',');
-		appendStringInfoString(&sql, features[i]);
+		appendStringInfoString(&sql, quote_identifier(features[i]));
 	}
-	appendStringInfo(&sql, ",%s FROM %s", label_col, table_name);
+	appendStringInfo(&sql, ",%s FROM %s",
+					quote_identifier(label_col),
+					quote_identifier(table_name));
 
 
 	per_query_ctx = AllocSetContextCreate(CurrentMemoryContext,
@@ -471,9 +473,11 @@ train_catboost_regressor(PG_FUNCTION_ARGS)
 	{
 		if (i > 0)
 			appendStringInfoChar(&sql, ',');
-		appendStringInfoString(&sql, features[i]);
+		appendStringInfoString(&sql, quote_identifier(features[i]));
 	}
-	appendStringInfo(&sql, ",%s FROM %s", target_col, table_name);
+	appendStringInfo(&sql, ",%s FROM %s",
+					quote_identifier(target_col),
+					quote_identifier(table_name));
 
 	per_query_ctx = AllocSetContextCreate(CurrentMemoryContext,
 										  "catboost_spi_ctx",

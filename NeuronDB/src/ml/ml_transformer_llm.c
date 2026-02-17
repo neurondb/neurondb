@@ -41,6 +41,7 @@
 
 PG_FUNCTION_INFO_V1(neurondb_train_transformer_llm);
 PG_FUNCTION_INFO_V1(neurondb_predict_transformer_llm);
+PG_FUNCTION_INFO_V1(neurondb_train_titans_llm);
 
 /* Helper function to parse int from JSONB */
 static void
@@ -826,6 +827,460 @@ neurondb_train_transformer_llm(PG_FUNCTION_ARGS)
 }
 
 /*
+ * neurondb_train_titans_llm
+ *    Train a Titans (Learning to Memorize at Test Time) LLM model
+ *
+ * Same signature as neurondb_train_transformer_llm.
+ * Hyperparameters: variant, memory_depth, chunk_size, n_persistent, window_size,
+ * plus d_model, nhead, num_layers, epochs, batch_size, learning_rate, etc.
+ */
+Datum
+neurondb_train_titans_llm(PG_FUNCTION_ARGS)
+{
+	text *project_name_text = PG_GETARG_TEXT_PP(0);
+	text *table_name_text = PG_GETARG_TEXT_PP(1);
+	text *target_column_text = PG_ARGISNULL(2) ? NULL : PG_GETARG_TEXT_PP(2);
+	ArrayType *feature_columns_array = PG_GETARG_ARRAYTYPE_P(3);
+	Jsonb *hyperparams = PG_ARGISNULL(4) ? NULL : PG_GETARG_JSONB_P(4);
+
+	char *project_name = NULL;
+	char *table_name = NULL;
+	char *target_column = NULL;
+	const char **feature_names = NULL;
+	int feature_name_count = 0;
+
+	MemoryContext oldcontext;
+	MemoryContext callcontext;
+	NdbSpiSession *spi_session = NULL;
+
+	int model_id = 0;
+	MLCatalogModelSpec spec;
+
+	int num_epochs = 5;
+	int batch_size = 4;
+	double learning_rate = 4e-4;
+	int d_model = 256;
+	int nhead = 4;
+	int num_layers = 4;
+	int max_seq_length = 512;
+	int vocab_size = 256;
+	int memory_depth = 2;
+	int chunk_size = 64;
+	int n_persistent = 16;
+	int window_size = 256;
+	char *variant_str = NULL;
+	char *output_dir = NULL;
+	char *corpus_file_path = NULL;
+	char *corpus_url = NULL;
+
+	project_name = text_to_cstring(project_name_text);
+	table_name = text_to_cstring(table_name_text);
+	if (target_column_text)
+		target_column = text_to_cstring(target_column_text);
+
+	oldcontext = CurrentMemoryContext;
+	callcontext = AllocSetContextCreate(oldcontext,
+									   "neurondb_train_titans_llm",
+									   ALLOCSET_DEFAULT_SIZES);
+	MemoryContextSwitchTo(callcontext);
+
+	NDB_SPI_SESSION_BEGIN(spi_session, oldcontext);
+
+	if (feature_columns_array != NULL)
+	{
+		int nelems = ArrayGetNItems(ARR_NDIM(feature_columns_array), ARR_DIMS(feature_columns_array));
+		if (nelems > 0)
+		{
+			Datum *elems;
+			bool *nulls;
+			int i;
+
+			deconstruct_array(feature_columns_array, TEXTOID, -1, false, 'i',
+							&elems, &nulls, &nelems);
+
+			nalloc(feature_names, const char *, nelems);
+			for (i = 0; i < nelems; i++)
+			{
+				if (!nulls[i])
+				{
+					text *elem_text = DatumGetTextP(elems[i]);
+					feature_names[feature_name_count++] = text_to_cstring(elem_text);
+				}
+			}
+		}
+	}
+
+	parse_hyperparam_int(hyperparams, "num_epochs", &num_epochs, 5);
+	parse_hyperparam_int(hyperparams, "batch_size", &batch_size, 4);
+	parse_hyperparam_float8(hyperparams, "learning_rate", &learning_rate, 4e-4);
+	parse_hyperparam_int(hyperparams, "d_model", &d_model, 256);
+	parse_hyperparam_int(hyperparams, "nhead", &nhead, 4);
+	parse_hyperparam_int(hyperparams, "num_layers", &num_layers, 4);
+	parse_hyperparam_int(hyperparams, "max_seq_length", &max_seq_length, 512);
+	parse_hyperparam_int(hyperparams, "vocab_size", &vocab_size, 256);
+	parse_hyperparam_int(hyperparams, "memory_depth", &memory_depth, 2);
+	parse_hyperparam_int(hyperparams, "chunk_size", &chunk_size, 64);
+	parse_hyperparam_int(hyperparams, "n_persistent", &n_persistent, 16);
+	parse_hyperparam_int(hyperparams, "window_size", &window_size, 256);
+	variant_str = parse_hyperparam_text(hyperparams, "variant", callcontext);
+	corpus_file_path = parse_hyperparam_text(hyperparams, "corpus_file", callcontext);
+	corpus_url = parse_hyperparam_text(hyperparams, "corpus_url", callcontext);
+
+	{
+		Jsonb *field = ndb_jsonb_object_field(hyperparams, "output_dir");
+		if (field != NULL)
+		{
+			JsonbIterator *it = NULL;
+			JsonbValue v;
+			JsonbIteratorToken r;
+
+			it = JsonbIteratorInit((JsonbContainer *) &field->root);
+			while ((r = JsonbIteratorNext(&it, &v, false)) != WJB_DONE)
+			{
+				if (r == WJB_VALUE && v.type == jbvString)
+				{
+					output_dir = pnstrdup(v.val.string.val, v.val.string.len);
+					break;
+				}
+			}
+		}
+	}
+
+	if (output_dir == NULL)
+		output_dir = psprintf("/tmp/neurondb_models/%s_%s_titans", project_name, table_name);
+
+	if (variant_str == NULL)
+		variant_str = pstrdup("mac");
+
+	ereport(INFO,
+			(errmsg("neurondb_train_titans_llm: starting training"),
+			 errdetail("project=%s, table=%s, variant=%s, epochs=%d",
+					   project_name, table_name, variant_str, num_epochs)));
+
+	/* Step 1: Load or generate corpus - same as transformer */
+	{
+		char *corpus_file = NULL;
+		FILE *corpus_fp = NULL;
+		int ret = 0;
+
+		corpus_file = psprintf("%s/corpus.txt", output_dir);
+		{
+			char *mkdir_cmd = psprintf("mkdir -p %s", output_dir);
+			ret = system(mkdir_cmd);
+			nfree(mkdir_cmd);
+		}
+
+		if (corpus_url != NULL)
+		{
+			char *download_cmd = psprintf("curl -s -L -o %s '%s'", corpus_file, corpus_url);
+			ret = system(download_cmd);
+			nfree(download_cmd);
+			if (ret != 0)
+			{
+				ndb_spi_session_end(&spi_session);
+				MemoryContextSwitchTo(oldcontext);
+				if (callcontext)
+					MemoryContextDelete(callcontext);
+				nfree(project_name);
+				nfree(table_name);
+				if (target_column)
+					nfree(target_column);
+				if (output_dir)
+					nfree(output_dir);
+				if (corpus_url)
+					nfree(corpus_url);
+				ereport(ERROR,
+						(errcode(ERRCODE_EXTERNAL_ROUTINE_EXCEPTION),
+						 errmsg("neurondb_train_titans_llm: failed to download corpus")));
+			}
+			nfree(corpus_url);
+		}
+		else if (corpus_file_path != NULL)
+		{
+			char *copy_cmd = psprintf("cp '%s' '%s'", corpus_file_path, corpus_file);
+			ret = system(copy_cmd);
+			nfree(copy_cmd);
+			if (ret != 0)
+			{
+				ndb_spi_session_end(&spi_session);
+				MemoryContextSwitchTo(oldcontext);
+				if (callcontext)
+					MemoryContextDelete(callcontext);
+				nfree(project_name);
+				nfree(table_name);
+				if (target_column)
+					nfree(target_column);
+				if (output_dir)
+					nfree(output_dir);
+				if (corpus_file_path)
+					nfree(corpus_file_path);
+				ereport(ERROR,
+						(errcode(ERRCODE_EXTERNAL_ROUTINE_EXCEPTION),
+						 errmsg("neurondb_train_titans_llm: failed to copy corpus")));
+			}
+			nfree(corpus_file_path);
+		}
+		else
+		{
+			/* Extract text from table - same as transformer */
+			StringInfoData corpus_sql;
+			ndb_spi_stringinfo_init(spi_session, &corpus_sql);
+			if (feature_name_count > 0 && feature_names != NULL && feature_names[0] != NULL)
+			{
+				const char *col_quoted = quote_identifier(feature_names[0]);
+				const char *table_quoted = quote_identifier(table_name);
+				appendStringInfo(&corpus_sql,
+								 "SELECT %s FROM %s WHERE %s IS NOT NULL",
+								 col_quoted, table_quoted, col_quoted);
+			}
+			else if (target_column != NULL)
+			{
+				const char *col_quoted = quote_identifier(target_column);
+				const char *table_quoted = quote_identifier(table_name);
+				appendStringInfo(&corpus_sql,
+								 "SELECT %s FROM %s WHERE %s IS NOT NULL",
+								 col_quoted, table_quoted, col_quoted);
+			}
+			else
+			{
+				const char *table_quoted = quote_identifier(table_name);
+				appendStringInfo(&corpus_sql, "SELECT * FROM %s LIMIT 1000", table_quoted);
+			}
+			ret = ndb_spi_execute(spi_session, corpus_sql.data, true, 0);
+			if (ret == SPI_OK_SELECT && SPI_processed > 0)
+			{
+				corpus_fp = fopen(corpus_file, "w");
+				if (corpus_fp != NULL)
+				{
+					int i;
+					if (SPI_tuptable != NULL && SPI_tuptable->vals != NULL && SPI_tuptable->tupdesc != NULL)
+					{
+						for (i = 0; i < SPI_processed && i < 5000; i++)
+						{
+							if (i < SPI_processed && SPI_tuptable->vals[i] != NULL)
+							{
+								bool isnull;
+								Datum text_datum = SPI_getbinval(SPI_tuptable->vals[i],
+																  SPI_tuptable->tupdesc, 1, &isnull);
+								if (!isnull)
+								{
+									text *text_val = DatumGetTextP(text_datum);
+									char *text_str = text_to_cstring(text_val);
+									fputs(text_str, corpus_fp);
+									fputs("\n", corpus_fp);
+									nfree(text_str);
+								}
+							}
+						}
+					}
+					fclose(corpus_fp);
+				}
+			}
+			ndb_spi_stringinfo_free(spi_session, &corpus_sql);
+		}
+		nfree(corpus_file);
+	}
+
+	/* Step 2: Call train_titans.py */
+	{
+		char *train_cmd = NULL;
+		char *script_path = NULL;
+		char *tools_dir = NULL;
+		char *titans_dir = NULL;
+		int ret;
+
+		titans_dir = getenv("NEURONDB_TITANS_DIR");
+		if (titans_dir != NULL)
+			script_path = psprintf("%s/train_titans.py", titans_dir);
+		else
+		{
+			tools_dir = getenv("NEURONDB_TOOLS_DIR");
+			if (tools_dir != NULL)
+				script_path = psprintf("%s/../examples/titans/train_titans.py", tools_dir);
+			else
+				script_path = pstrdup("/home/pge/pge/neurondb2/examples/titans/train_titans.py");
+		}
+
+		if (access(script_path, R_OK | X_OK) != 0)
+		{
+			int saved_errno = errno;
+			char *path_for_error = pstrdup(script_path);
+			nfree(script_path);
+			ndb_spi_session_end(&spi_session);
+			MemoryContextSwitchTo(oldcontext);
+			if (callcontext)
+				MemoryContextDelete(callcontext);
+			nfree(project_name);
+			nfree(table_name);
+			if (target_column)
+				nfree(target_column);
+			if (output_dir)
+				nfree(output_dir);
+			ereport(ERROR,
+					(errcode(ERRCODE_UNDEFINED_FILE),
+					 errmsg("neurondb_train_titans_llm: training script not found"),
+					 errdetail("script_path=%s, error=%s", path_for_error, strerror(saved_errno)),
+					 errhint("Set NEURONDB_TITANS_DIR or NEURONDB_TOOLS_DIR")));
+			nfree(path_for_error);
+		}
+
+		train_cmd = psprintf(
+			"cd $(dirname %s) && python3 train_titans.py "
+			"--corpus-file %s/corpus.txt "
+			"--output-dir %s "
+			"--epochs %d "
+			"--batch-size %d "
+			"--learning-rate %.6f "
+			"--d-model %d "
+			"--nhead %d "
+			"--num-layers %d "
+			"--max-seq-length %d "
+			"--vocab-size %d "
+			"--variant %s "
+			"--memory-depth %d "
+			"--chunk-size %d "
+			"--n-persistent %d "
+			"--window-size %d",
+			script_path, output_dir, output_dir, num_epochs, batch_size,
+			learning_rate, d_model, nhead, num_layers, max_seq_length, vocab_size,
+			variant_str, memory_depth, chunk_size, n_persistent, window_size);
+
+		ret = system(train_cmd);
+		nfree(train_cmd);
+		nfree(script_path);
+
+		if (ret != 0)
+		{
+			ndb_spi_session_end(&spi_session);
+			MemoryContextSwitchTo(oldcontext);
+			if (callcontext)
+				MemoryContextDelete(callcontext);
+			nfree(project_name);
+			nfree(table_name);
+			if (target_column)
+				nfree(target_column);
+			if (output_dir)
+				nfree(output_dir);
+			ereport(ERROR,
+					(errcode(ERRCODE_EXTERNAL_ROUTINE_EXCEPTION),
+					 errmsg("neurondb_train_titans_llm: training script failed"),
+					 errdetail("exit_code=%d", ret)));
+		}
+	}
+
+	/* Step 3: Load model file and register */
+	{
+		char *model_file = NULL;
+		FILE *fp = NULL;
+		bytea *model_data = NULL;
+		size_t file_size;
+
+		model_file = psprintf("%s/titans_model.pt", output_dir);
+		fp = fopen(model_file, "rb");
+		if (fp != NULL)
+		{
+			fseek(fp, 0, SEEK_END);
+			file_size = ftell(fp);
+			fseek(fp, 0, SEEK_SET);
+			if (file_size > 0)
+			{
+				char *buffer = NULL;
+				nalloc(buffer, char, file_size);
+				fread(buffer, 1, file_size, fp);
+				fclose(fp);
+				model_data = (bytea *) palloc(VARHDRSZ + file_size);
+				SET_VARSIZE(model_data, VARHDRSZ + file_size);
+				memcpy(VARDATA(model_data), buffer, file_size);
+				nfree(buffer);
+			}
+			else
+				fclose(fp);
+		}
+		nfree(model_file);
+
+		MemSet(&spec, 0, sizeof(MLCatalogModelSpec));
+		spec.algorithm = pstrdup("titans_llm");
+		spec.project_name = pstrdup(project_name);
+		spec.training_table = pstrdup(table_name);
+		if (target_column)
+			spec.training_column = pstrdup(target_column);
+		if (model_data != NULL)
+			spec.model_data = model_data;
+
+		{
+			JsonbParseState *state = NULL;
+			JsonbValue jkey, jval, *final_value = NULL;
+
+			(void) pushJsonbValue(&state, WJB_BEGIN_OBJECT, NULL);
+			jkey.type = jbvString;
+			jkey.val.string.val = "output_dir";
+			jkey.val.string.len = strlen("output_dir");
+			(void) pushJsonbValue(&state, WJB_KEY, &jkey);
+			jval.type = jbvString;
+			jval.val.string.val = output_dir;
+			jval.val.string.len = strlen(output_dir);
+			(void) pushJsonbValue(&state, WJB_VALUE, &jval);
+			final_value = pushJsonbValue(&state, WJB_END_OBJECT, NULL);
+			if (final_value != NULL)
+				spec.metrics = JsonbValueToJsonb(final_value);
+		}
+
+		model_id = ml_catalog_register_model(&spec);
+
+		if (model_id <= 0)
+		{
+			ndb_spi_session_end(&spi_session);
+			MemoryContextSwitchTo(oldcontext);
+			if (callcontext)
+				MemoryContextDelete(callcontext);
+			nfree(project_name);
+			nfree(table_name);
+			if (target_column)
+				nfree(target_column);
+			if (output_dir)
+				nfree(output_dir);
+			ereport(ERROR,
+					(errcode(ERRCODE_INTERNAL_ERROR),
+					 errmsg("neurondb_train_titans_llm: failed to register model"),
+					 errdetail("project=%s, table=%s", project_name, table_name)));
+		}
+	}
+
+	ereport(INFO,
+			(errmsg("neurondb_train_titans_llm: training completed"),
+			 errdetail("model_id=%d, project=%s", model_id, project_name)));
+
+	ndb_spi_session_end(&spi_session);
+	MemoryContextSwitchTo(oldcontext);
+	if (callcontext)
+		MemoryContextDelete(callcontext);
+	nfree(project_name);
+	nfree(table_name);
+	if (target_column)
+		nfree(target_column);
+	if (output_dir)
+		nfree(output_dir);
+	if (variant_str)
+		nfree(variant_str);
+	if (corpus_file_path)
+		nfree(corpus_file_path);
+	if (corpus_url)
+		nfree(corpus_url);
+	if (feature_names)
+	{
+		int i;
+		for (i = 0; i < feature_name_count; i++)
+		{
+			if (feature_names[i])
+				nfree((char *) feature_names[i]);
+		}
+		nfree(feature_names);
+	}
+
+	PG_RETURN_INT32(model_id);
+}
+
+/*
  * neurondb_predict_transformer_llm
  *    Predict using a trained transformer LLM model
  *
@@ -935,7 +1390,8 @@ neurondb_predict_transformer_llm(PG_FUNCTION_ARGS)
 	
 	/* Validate algorithm */
 	if (algorithm == NULL || (strcmp(algorithm, "transformer_llm") != 0 && 
-							  strcmp(algorithm, "custom_llm") != 0))
+							  strcmp(algorithm, "custom_llm") != 0 &&
+							  strcmp(algorithm, "titans_llm") != 0))
 	{
 		ndb_spi_stringinfo_free(spi_session, &sql);
 		ndb_spi_session_end(&spi_session);

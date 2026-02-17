@@ -166,7 +166,8 @@ typedef enum
 	ML_ALGO_TIMESERIES,
 	/* Language Models */
 	ML_ALGO_TRANSFORMER_LLM,
-	ML_ALGO_CUSTOM_LLM
+	ML_ALGO_CUSTOM_LLM,
+	ML_ALGO_TITANS_LLM
 }			MLAlgorithm;
 
 /* Forward declarations */
@@ -427,28 +428,61 @@ neurondb_load_training_data(NdbSpiSession *session,
 		*class_count_out = 0;
 
 	{
-		int			max_samples_limit = 200000;
-		char *target_copy = NULL;
+		int			max_samples_limit = neurondb_ml_max_samples;
+		char	   *target_copy = NULL;
 		const char *target_quoted_const;
-		char *target_quoted = NULL;
+		char	   *table_quoted;
+		StringInfoData quoted_features;
+		char	   *fcopy = NULL;
+		char	   *start = NULL;
+		char	   *p = NULL;
 
 		ndb_spi_stringinfo_init(session, &sql);
+
+		/* Quote each comma-separated identifier in feature_list_str */
+		initStringInfo(&quoted_features);
+		fcopy = pstrdup(feature_list_str);
+		for (start = fcopy; *start; start = p ? p + 1 : start + strlen(start))
+		{
+			p = strchr(start, ',');
+			if (p)
+				*p = '\0';
+			while (*start == ' ' || *start == '\t')
+				start++;
+			if (*start)
+			{
+				if (quoted_features.len > 0)
+					appendStringInfoChar(&quoted_features, ',');
+				appendStringInfoString(&quoted_features, quote_identifier(start));
+			}
+			if (!p)
+				break;
+			*p = ',';
+		}
+		pfree(fcopy);
+
+		/* Quote table name to prevent SQL injection (after feature list so buffer not overwritten) */
+		table_quoted = quote_identifier(table_name);
 
 		if (target_column)
 		{
 			target_copy = pstrdup(target_column);
 			target_quoted_const = quote_identifier(target_copy);
-			target_quoted = (char *) target_quoted_const;
 			appendStringInfo(&sql, "SELECT %s, %s FROM %s LIMIT %d",
-							 feature_list_str, target_quoted, table_name, max_samples_limit);
-			nfree(target_quoted);
+							 quoted_features.data,
+							 target_quoted_const,
+							 table_quoted,
+							 max_samples_limit);
 			nfree(target_copy);
 		}
 		else
 		{
 			appendStringInfo(&sql, "SELECT %s FROM %s LIMIT %d",
-							 feature_list_str, table_name, max_samples_limit);
+							 quoted_features.data,
+							 table_quoted,
+							 max_samples_limit);
 		}
+		pfree(quoted_features.data);
 	}
 
 	ereport(DEBUG2,
@@ -482,8 +516,14 @@ neurondb_load_training_data(NdbSpiSession *session,
 		return false;
 	}
 
-	if (n_samples >= 200000)
+	if (n_samples > neurondb_ml_max_samples)
 	{
+		ndb_spi_stringinfo_free(session, &sql);
+		ereport(ERROR,
+				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+				 errmsg("neurondb_load_training_data: sample count %d exceeds neurondb.ml_max_samples (%d)", n_samples, neurondb_ml_max_samples),
+				 errhint("Increase neurondb.ml_max_samples or reduce the training table size.")));
+		return false;
 	}
 
 	/*
@@ -627,6 +667,18 @@ neurondb_load_training_data(NdbSpiSession *session,
 		if (isnull_feat)
 		{
 			continue;
+		}
+
+		/* Bounds check: never write past allocated feature_matrix (n_samples * feature_dim) */
+		if (valid_samples >= n_samples)
+		{
+			nfree(feature_matrix);
+			nfree(label_vector);
+			ndb_spi_stringinfo_free(session, &sql);
+			ereport(ERROR,
+					(errcode(ERRCODE_INTERNAL_ERROR),
+					 errmsg("neurondb_load_training_data: valid_samples exceeded n_samples")));
+			return false;
 		}
 
 		if (feat_arr)
@@ -967,6 +1019,12 @@ neurondb_algorithm_from_string(const char *algorithm)
 		ereport(DEBUG2,
 				(errmsg("neurondb_algorithm_from_string: matched CUSTOM_LLM")));
 		return ML_ALGO_TRANSFORMER_LLM;  /* Use same implementation */
+	}
+	if (strcmp(algorithm, NDB_ALGO_TITANS_LLM) == 0)
+	{
+		ereport(DEBUG2,
+				(errmsg("neurondb_algorithm_from_string: matched TITANS_LLM")));
+		return ML_ALGO_TITANS_LLM;
 	}
 
 	ereport(DEBUG2,
@@ -1702,10 +1760,11 @@ neurondb_build_training_sql(MLAlgorithm algo, StringInfo sql, const char *table_
 			}
 
 		case ML_ALGO_TRANSFORMER_LLM:
+		case ML_ALGO_TITANS_LLM:
 			{
-				/* Transformer LLM requires special handling - call C function directly */
+				/* Transformer/Titans LLM requires special handling - call C function directly */
 				ereport(DEBUG2,
-						(errmsg("neurondb_build_training_sql: transformer_llm requires special handling"),
+						(errmsg("neurondb_build_training_sql: transformer_llm/titans_llm requires special handling"),
 						 errdetail("algo=%d, returning false", (int) algo)));
 				return false;
 			}
@@ -2008,6 +2067,7 @@ neurondb_train(PG_FUNCTION_ARGS)
 	char *algorithm = NULL;
 	char *table_name = NULL;
 	char *target_column = NULL;
+	char *tmp_target_lit = NULL;
 
 	char *default_project_name = NULL;	/* Pre-allocated "default"
 												 * string */
@@ -2079,7 +2139,10 @@ neurondb_train(PG_FUNCTION_ARGS)
 		strcmp(algorithm, NDB_ALGO_CATBOOST) != 0 &&
 		strcmp(algorithm, NDB_ALGO_LIGHTGBM) != 0 &&
 		strcmp(algorithm, NDB_ALGO_TIMESERIES) != 0 &&
-		strcmp(algorithm, "neural_network") != 0)
+		strcmp(algorithm, "neural_network") != 0 &&
+		strcmp(algorithm, NDB_ALGO_TRANSFORMER_LLM) != 0 &&
+		strcmp(algorithm, NDB_ALGO_CUSTOM_LLM) != 0 &&
+		strcmp(algorithm, NDB_ALGO_TITANS_LLM) != 0)
 	{
 		nfree(project_name);
 		nfree(algorithm);
@@ -2090,7 +2153,7 @@ neurondb_train(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg(NDB_ERR_PREFIX_TRAIN " unsupported algorithm '%s'", algorithm),
 				 errdetail("Supported algorithms: linear_regression, logistic_regression, svm, random_forest, knn, kmeans, dbscan, naive_bayes, decision_tree, gmm, xgboost, catboost, lightgbm, timeseries, neural_network"),
-				 errhint("Choose one of the supported algorithms.")));
+				 errhint("Choose one of the supported algorithms: linear_regression, logistic_regression, svm, random_forest, knn, kmeans, dbscan, naive_bayes, decision_tree, gmm, xgboost, catboost, lightgbm, timeseries, neural_network, transformer_llm, custom_llm, titans_llm")));
 	}
 
 
@@ -2125,9 +2188,15 @@ neurondb_train(PG_FUNCTION_ARGS)
 					 "updated_at = NOW() "
 					 "RETURNING project_id",
 					 project_name, algorithm, table_name,
-					 target_column ? psprintf("'%s'", target_column) : "NULL");
+					 target_column ? (tmp_target_lit = psprintf("'%s'", target_column)) : "NULL");
 
 	ret = ndb_spi_execute(spi_session, sql.data, false, 0);
+
+	if (tmp_target_lit != NULL)
+	{
+		pfree(tmp_target_lit);
+		tmp_target_lit = NULL;
+	}
 
 	if (ret != SPI_OK_INSERT_RETURNING)
 	{
@@ -2429,59 +2498,51 @@ neurondb_train(PG_FUNCTION_ARGS)
 	 * mode
 	 * GPU mode: require GPU, no fallback. AUTO mode: try GPU with fallback.
 	 */
-	if (data_loaded && !NDB_COMPUTE_MODE_IS_CPU() && 
+	if (data_loaded && !NDB_COMPUTE_MODE_IS_CPU() &&
 		(NDB_REQUIRE_GPU() || NDB_COMPUTE_MODE_IS_AUTO()))
 	{
-		if (NDB_COMPUTE_MODE_IS_CPU())
+		/*
+		 * Ensure hyperparams is always a valid Jsonb (even if empty) to
+		 * prevent JSON parsing errors in GPU code. This matches the
+		 * behavior in CPU training code (ml_linear_regression.c).
+		 */
+		Jsonb	   *gpu_hyperparams = NULL;
+		MemoryContext prev_gpu_context = MemoryContextSwitchTo(callcontext);
+
+		if (hyperparams != NULL)
 		{
-			elog(WARNING, "neurondb_train: CPU mode detected, skipping GPU training (defensive check)");
-			data_loaded = false;
-			gpu_train_result = false;
+			gpu_hyperparams = (Jsonb *) PG_DETOAST_DATUM_COPY(PointerGetDatum(hyperparams));
 		}
 		else
 		{
-			/*
-			 * Ensure hyperparams is always a valid Jsonb (even if empty) to
-			 * prevent JSON parsing errors in GPU code. This matches the
-			 * behavior in CPU training code (ml_linear_regression.c).
-			 */
-			Jsonb *gpu_hyperparams = NULL;
-			MemoryContext prev_gpu_context = MemoryContextSwitchTo(callcontext);
-			
-			if (hyperparams != NULL)
+			/* Create empty JSONB object like CPU training does */
+			PG_TRY();
 			{
-				gpu_hyperparams = (Jsonb *) PG_DETOAST_DATUM_COPY(PointerGetDatum(hyperparams));
-			}
-			else
-			{
-				/* Create empty JSONB object like CPU training does */
-				PG_TRY();
+				gpu_hyperparams = ndb_jsonb_in_cstring("{}");
+				if (gpu_hyperparams == NULL)
 				{
-					gpu_hyperparams = ndb_jsonb_in_cstring("{}");
-					if (gpu_hyperparams == NULL)
-					{
-						MemoryContextSwitchTo(prev_gpu_context);
-						ereport(ERROR,
-								(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-								 errmsg(NDB_ERR_PREFIX_TRAIN " failed to create empty hyperparams JSONB")));
-					}
-				}
-				PG_CATCH();
-				{
-					FlushErrorState();
 					MemoryContextSwitchTo(prev_gpu_context);
 					ereport(ERROR,
 							(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-							 errmsg(NDB_ERR_PREFIX_TRAIN " failed to parse empty hyperparams JSON: %m")));
+							 errmsg(NDB_ERR_PREFIX_TRAIN " failed to create empty hyperparams JSONB")));
 				}
-				PG_END_TRY();
 			}
-			
-			MemoryContextSwitchTo(prev_gpu_context);
+			PG_CATCH();
+			{
+				FlushErrorState();
+				MemoryContextSwitchTo(prev_gpu_context);
+				ereport(ERROR,
+						(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
+						 errmsg(NDB_ERR_PREFIX_TRAIN " failed to parse empty hyperparams JSON: %m")));
+			}
+			PG_END_TRY();
+		}
 
-			/*
-			 * Wrap GPU training call in PG_TRY to catch exceptions and
-			 * prevent JSON parsing errors
+		MemoryContextSwitchTo(prev_gpu_context);
+
+		/*
+		 * Wrap GPU training call in PG_TRY to catch exceptions and
+		 * prevent JSON parsing errors
 			 */
 			PG_TRY();
 			{
@@ -3220,6 +3281,16 @@ neurondb_train(PG_FUNCTION_ARGS)
 		}
 
 		ndb_gpu_free_train_result(&gpu_result);
+		if (gpu_errmsg_ptr)
+			nfree(gpu_errmsg_ptr);
+		if (safe_algorithm)
+			pfree(safe_algorithm);
+		if (safe_table_name)
+			pfree(safe_table_name);
+		if (safe_target_column)
+			pfree(safe_target_column);
+		if (safe_project_name)
+			pfree(safe_project_name);
 
 		/* Cleanup and return */
 		if (feature_list_str)
@@ -3254,7 +3325,6 @@ neurondb_train(PG_FUNCTION_ARGS)
 				 errdetail("model_id=%d, algorithm=%s, project=%s", model_id, algorithm ? algorithm : "unknown", project_name ? project_name : "unknown")));
 
 		PG_RETURN_INT32(model_id);
-		}
 	}
 	else
 	{
@@ -3264,12 +3334,8 @@ cpu_fallback_training:
 				 errdetail("algorithm=%s, gpu_train_result=%s", algorithm ? algorithm : "unknown", gpu_train_result ? "true" : "false")));
 
 		/* GPU training failed or not attempted - handle based on compute mode */
-
-		if (NDB_COMPUTE_MODE_IS_CPU())
-		{
-		}
 		/* GPU mode: error if GPU was required but not available */
-		else if (!NDB_COMPUTE_MODE_IS_CPU() && NDB_REQUIRE_GPU() && !metal_requested_fallback)
+		if (!NDB_COMPUTE_MODE_IS_CPU() && NDB_REQUIRE_GPU() && !metal_requested_fallback)
 		{
 			nfree(feature_list_str);
 			if (feature_names)
@@ -3550,7 +3616,16 @@ cpu_fallback_training:
 									 "COALESCE(" NDB_COL_METRICS ", '{}'::jsonb) || '{\"storage\":\"cpu\",\"training_backend\":0}'::jsonb "
 									 "WHERE " NDB_COL_MODEL_ID " = %d",
 									 model_id);
-					ndb_spi_execute(spi_session, sql.data, false, 0);
+					ret = ndb_spi_execute(spi_session, sql.data, false, 0);
+					if (ret != SPI_OK_UPDATE && ret != SPI_OK_UPDATE_RETURNING)
+					{
+						ndb_spi_stringinfo_free(spi_session, &sql);
+						ndb_spi_session_end(&spi_session);
+						neurondb_cleanup(oldcontext, callcontext);
+						ereport(ERROR,
+								(errcode(ERRCODE_INTERNAL_ERROR),
+								 errmsg(NDB_ERR_PREFIX_TRAIN " failed to update model metrics (SPI returned %d)", ret)));
+					}
 				}
 				else
 				{
@@ -3596,7 +3671,16 @@ cpu_fallback_training:
 												 "COALESCE(" NDB_COL_METRICS ", '{}'::jsonb) || '{\"storage\":\"cpu\",\"training_backend\":0}'::jsonb "
 												 "WHERE " NDB_COL_MODEL_ID " = %d",
 												 model_id);
-								ndb_spi_execute(spi_session, sql.data, false, 0);
+								ret = ndb_spi_execute(spi_session, sql.data, false, 0);
+								if (ret != SPI_OK_UPDATE && ret != SPI_OK_UPDATE_RETURNING)
+								{
+									ndb_spi_stringinfo_free(spi_session, &sql);
+									ndb_spi_session_end(&spi_session);
+									neurondb_cleanup(oldcontext, callcontext);
+									ereport(ERROR,
+											(errcode(ERRCODE_INTERNAL_ERROR),
+											 errmsg(NDB_ERR_PREFIX_TRAIN " failed to update model metrics (SPI returned %d)", ret)));
+								}
 							}
 							else
 							{
@@ -3687,7 +3771,9 @@ cpu_fallback_training:
 											 "COALESCE(" NDB_COL_METRICS ", '{}'::jsonb) || '{\"storage\":\"cpu\",\"training_backend\":0}'::jsonb "
 											 "WHERE " NDB_COL_MODEL_ID " = %d",
 											 model_id);
-							ndb_spi_execute(spi_session, sql.data, false, 0);
+							ret = ndb_spi_execute(spi_session, sql.data, false, 0);
+							if (ret != SPI_OK_UPDATE && ret != SPI_OK_UPDATE_RETURNING)
+								elog(WARNING, "neurondb:train: update model metrics returned %d", ret);
 						}
 						else
 						{
@@ -3708,7 +3794,9 @@ cpu_fallback_training:
 											 "COALESCE(" NDB_COL_METRICS ", '{}'::jsonb) || '{\"storage\":\"cpu\",\"training_backend\":0}'::jsonb "
 											 "WHERE " NDB_COL_MODEL_ID " = %d",
 											 model_id);
-							ndb_spi_execute(spi_session, sql.data, false, 0);
+							ret = ndb_spi_execute(spi_session, sql.data, false, 0);
+							if (ret != SPI_OK_UPDATE && ret != SPI_OK_UPDATE_RETURNING)
+								elog(WARNING, "neurondb:train: update model metrics (fallback) returned %d", ret);
 						}
 					}
 						else
@@ -3759,6 +3847,160 @@ cpu_fallback_training:
 						 errmsg(NDB_ERR_PREFIX_TRAIN " CPU training failed - both GPU and CPU training methods failed"),
 						 errdetail("Algorithm: %s, Project: %s, Table: %s, SPI return code: %d", algorithm, project_name, table_name, ret),
 						 errhint("GPU error: %s. Check that the training data is valid and the algorithm supports CPU training.", gpu_errmsg_ptr ? gpu_errmsg_ptr : "none")));
+			}
+		}
+		else if (algo_enum == ML_ALGO_TITANS_LLM)
+		{
+			/* Titans LLM - call special C function */
+			ereport(DEBUG1,
+					(errmsg("neurondb_train: calling titans_llm training function")));
+
+			/* Call neurondb_train_titans_llm C function */
+			{
+				List *funcname = NULL;
+				Oid			func_oid;
+				Oid			argtypes[5];
+				Datum		values[5];
+				FmgrInfo	flinfo;
+				Datum		result_datum;
+				text *inner_project_name_text = NULL;
+				text *inner_table_name_text = NULL;
+				text *target_col_text = NULL;
+				ArrayType *feature_cols_array = NULL;
+				Jsonb *hyperparams_copy = NULL;
+
+				/* Build arguments */
+				inner_project_name_text = cstring_to_text(project_name);
+				inner_table_name_text = cstring_to_text(table_name);
+				target_col_text = target_column ? cstring_to_text(target_column) : NULL;
+
+				/* Convert feature_names array to PostgreSQL array */
+				if (feature_names != NULL && feature_name_count > 0)
+				{
+					Datum *elems = NULL;
+					bool *nulls = NULL;
+					int i;
+
+					nalloc(elems, Datum, feature_name_count);
+					nalloc(nulls, bool, feature_name_count);
+
+					for (i = 0; i < feature_name_count; i++)
+					{
+						if (feature_names[i] != NULL)
+						{
+							elems[i] = PointerGetDatum(cstring_to_text(feature_names[i]));
+							nulls[i] = false;
+						}
+						else
+						{
+							elems[i] = (Datum) 0;
+							nulls[i] = true;
+						}
+					}
+
+					feature_cols_array = construct_array(elems, feature_name_count, TEXTOID, -1, false, 'i');
+
+					for (i = 0; i < feature_name_count; i++)
+					{
+						if (!nulls[i] && elems[i] != 0)
+							pfree(DatumGetPointer(elems[i]));
+					}
+					nfree(elems);
+					nfree(nulls);
+				}
+				else
+					feature_cols_array = construct_empty_array(TEXTOID);
+
+				if (hyperparams != NULL)
+					hyperparams_copy = (Jsonb *) PG_DETOAST_DATUM_COPY(PointerGetDatum(hyperparams));
+				else
+					hyperparams_copy = ndb_jsonb_in_cstring("{}");
+
+				funcname = list_make1(makeString("neurondb_train_titans_llm"));
+				argtypes[0] = TEXTOID;
+				argtypes[1] = TEXTOID;
+				argtypes[2] = TEXTOID;
+				argtypes[3] = get_array_type(TEXTOID);
+				argtypes[4] = JSONBOID;
+
+				func_oid = LookupFuncName(funcname, 5, argtypes, false);
+				list_free(funcname);
+
+				if (OidIsValid(func_oid))
+				{
+					fmgr_info(func_oid, &flinfo);
+					values[0] = PointerGetDatum(inner_project_name_text);
+					values[1] = PointerGetDatum(inner_table_name_text);
+					values[2] = target_col_text ? PointerGetDatum(target_col_text) : (Datum) 0;
+					values[3] = PointerGetDatum(feature_cols_array);
+					values[4] = PointerGetDatum(hyperparams_copy);
+
+					result_datum = FunctionCall5(&flinfo,
+											   values[0], values[1], values[2],
+											   values[3], values[4]);
+					model_id = DatumGetInt32(result_datum);
+
+					pfree(inner_project_name_text);
+					pfree(inner_table_name_text);
+					if (target_col_text)
+						pfree(target_col_text);
+					if (feature_cols_array)
+						pfree(feature_cols_array);
+					if (hyperparams_copy)
+						pfree(hyperparams_copy);
+
+					if (model_id > 0)
+					{
+						ndb_spi_stringinfo_free(spi_session, &sql);
+						ndb_spi_stringinfo_init(spi_session, &sql);
+						appendStringInfo(&sql,
+										 "UPDATE " NDB_FQ_ML_MODELS " SET " NDB_COL_METRICS " = "
+										 "COALESCE(" NDB_COL_METRICS ", '{}'::jsonb) || '{\"storage\":\"cpu\",\"training_backend\":0}'::jsonb "
+										 "WHERE " NDB_COL_MODEL_ID " = %d",
+										 model_id);
+						ret = ndb_spi_execute(spi_session, sql.data, false, 0);
+						if (ret != SPI_OK_UPDATE && ret != SPI_OK_UPDATE_RETURNING)
+						{
+							ndb_spi_stringinfo_free(spi_session, &sql);
+							ndb_spi_session_end(&spi_session);
+							neurondb_cleanup(oldcontext, callcontext);
+							ereport(ERROR,
+									(errcode(ERRCODE_INTERNAL_ERROR),
+									 errmsg(NDB_ERR_PREFIX_TRAIN " failed to update titans_llm model metrics (SPI returned %d)", ret)));
+						}
+					}
+					else
+					{
+						ndb_spi_stringinfo_free(spi_session, &sql);
+						ndb_spi_session_end(&spi_session);
+						neurondb_cleanup(oldcontext, callcontext);
+						ereport(ERROR,
+								(errcode(ERRCODE_INTERNAL_ERROR),
+								 errmsg(NDB_ERR_PREFIX_TRAIN " titans_llm training returned invalid model_id: %d", model_id),
+								 errdetail("Algorithm: %s, Project: %s, Table: %s", algorithm, project_name, table_name),
+								 errhint("Check training logs for details.")));
+					}
+				}
+				else
+				{
+					pfree(inner_project_name_text);
+					pfree(inner_table_name_text);
+					if (target_col_text)
+						pfree(target_col_text);
+					if (feature_cols_array)
+						pfree(feature_cols_array);
+					if (hyperparams_copy)
+						pfree(hyperparams_copy);
+					nfree(feature_list_str);
+					ndb_spi_stringinfo_free(spi_session, &sql);
+					ndb_spi_session_end(&spi_session);
+					neurondb_cleanup(oldcontext, callcontext);
+					ereport(ERROR,
+							(errcode(ERRCODE_UNDEFINED_FUNCTION),
+							 errmsg(NDB_ERR_PREFIX_TRAIN " titans_llm training function not found"),
+							 errdetail("Algorithm: %s, Project: %s, Table: %s", algorithm, project_name, table_name),
+							 errhint("The neurondb_train_titans_llm function must be implemented.")));
+				}
 			}
 		}
 		else if (algo_enum == ML_ALGO_TRANSFORMER_LLM)
@@ -3885,7 +4127,16 @@ cpu_fallback_training:
 										 "COALESCE(" NDB_COL_METRICS ", '{}'::jsonb) || '{\"storage\":\"cpu\",\"training_backend\":0}'::jsonb "
 										 "WHERE " NDB_COL_MODEL_ID " = %d",
 										 model_id);
-						ndb_spi_execute(spi_session, sql.data, false, 0);
+						ret = ndb_spi_execute(spi_session, sql.data, false, 0);
+						if (ret != SPI_OK_UPDATE && ret != SPI_OK_UPDATE_RETURNING)
+						{
+							ndb_spi_stringinfo_free(spi_session, &sql);
+							ndb_spi_session_end(&spi_session);
+							neurondb_cleanup(oldcontext, callcontext);
+							ereport(ERROR,
+									(errcode(ERRCODE_INTERNAL_ERROR),
+									 errmsg(NDB_ERR_PREFIX_TRAIN " failed to update transformer_llm model metrics (SPI returned %d)", ret)));
+						}
 					}
 					else
 					{
@@ -3959,34 +4210,8 @@ cpu_fallback_training:
 					 errdetail("Algorithm: %s, Project: %s, Table: %s, model_id: %d", algorithm, project_name, table_name, model_id),
 					 errhint("CPU training may have failed. Check logs for details.")));
 		}
-	/* End of AUTO mode CPU fallback block */
-}
-
-
-if (gpu_errmsg_ptr)
-	nfree(gpu_errmsg_ptr);
-
-if (safe_algorithm)
-	pfree(safe_algorithm);
-if (safe_table_name)
-	pfree(safe_table_name);
-if (safe_target_column)
-	pfree(safe_target_column);
-if (safe_project_name)
-	pfree(safe_project_name);
-
-ndb_spi_session_end(&spi_session);
-
-	/* Switch back to original context and cleanup callcontext */
-	MemoryContextSwitchTo(oldcontext);
-	neurondb_cleanup(oldcontext, callcontext);
-
-	ereport(DEBUG1,
-			(errmsg("neurondb_train: CPU training completed successfully"),
-			 errdetail("model_id=%d, algorithm=%s, project=%s", model_id, algorithm ? algorithm : "unknown", project_name ? project_name : "unknown")));
-
-	/* Return immediately after cleanup, just like GPU path */
-	PG_RETURN_INT32(model_id);
+		/* End of AUTO mode CPU fallback block */
+	}
 }
 
 /* ----------
@@ -4111,15 +4336,15 @@ neurondb_predict(PG_FUNCTION_ARGS)
 	}
 	dims = ARR_DIMS(features_array);
 	nelems = ArrayGetNItems(ndims, dims);
-	if (nelems <= 0 || nelems > 100000)
+	if (nelems <= 0 || nelems > neurondb_ml_max_feature_elements)
 	{
 		ndb_spi_session_end(&spi_session);
 		neurondb_cleanup(oldcontext, callcontext);
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-				 errmsg(NDB_ERR_PREFIX_PREDICT " invalid feature count %d (expected 1-100000)", nelems),
+				 errmsg(NDB_ERR_PREFIX_PREDICT " invalid feature count %d (expected 1-%d)", nelems, neurondb_ml_max_feature_elements),
 				 errdetail("Model ID: %d, Algorithm: '%s', Feature count: %d", model_id, algorithm, nelems),
-				 errhint("Provide a feature array with between 1 and 100000 elements matching the model's expected feature dimension.")));
+				 errhint("Provide a feature array with between 1 and %d elements matching the model's expected feature dimension.", neurondb_ml_max_feature_elements)));
 	}
 
 	/* Validate array element type */
@@ -4856,12 +5081,19 @@ neurondb_deploy(PG_FUNCTION_ARGS)
 	/* Use safe free/reinit to handle potential memory context changes */
 	ndb_spi_stringinfo_free(spi_session, &sql);
 	ndb_spi_stringinfo_init(spi_session, &sql);
-	appendStringInfo(&sql,
-					 "INSERT INTO " NDB_FQ_ML_DEPLOYMENTS " (" NDB_COL_MODEL_ID ", deployment_name, strategy, " NDB_COL_STATUS ", deployed_at) "
-					 "VALUES (%d, %s, %s, '" NDB_DEPLOYMENT_ACTIVE "', CURRENT_TIMESTAMP) RETURNING deployment_id",
-					 model_id,
-					 neurondb_quote_literal_cstr(psprintf("deploy_%d_%ld", model_id, (long) time(NULL))),
-					 neurondb_quote_literal_cstr(strategy));
+	{
+		char	   *deploy_name = psprintf("deploy_%d_%ld", model_id, (long) time(NULL));
+		char	   *deploy_name_quoted = neurondb_quote_literal_cstr(deploy_name);
+
+		appendStringInfo(&sql,
+						 "INSERT INTO " NDB_FQ_ML_DEPLOYMENTS " (" NDB_COL_MODEL_ID ", deployment_name, strategy, " NDB_COL_STATUS ", deployed_at) "
+						 "VALUES (%d, %s, %s, '" NDB_DEPLOYMENT_ACTIVE "', CURRENT_TIMESTAMP) RETURNING deployment_id",
+						 model_id,
+						 deploy_name_quoted,
+						 neurondb_quote_literal_cstr(strategy));
+		pfree(deploy_name);
+		pfree(deploy_name_quoted);
+	}
 
 	ret = ndb_spi_execute(spi_session, sql.data, false, 0);
 	NDB_CHECK_SPI_TUPTABLE();
@@ -5041,16 +5273,23 @@ neurondb_load_model(PG_FUNCTION_ARGS)
 	/* Use safe free/reinit to handle potential memory context changes */
 	ndb_spi_stringinfo_free(spi_session, &sql);
 	ndb_spi_stringinfo_init(spi_session, &sql);
-	appendStringInfo(&sql,
-					 "WITH next_version AS (SELECT COALESCE(MAX(" NDB_COL_VERSION "), 0) + 1 AS v FROM " NDB_FQ_ML_MODELS " WHERE " NDB_COL_PROJECT_ID " = %d) "
-					 "INSERT INTO " NDB_FQ_ML_MODELS " (" NDB_COL_PROJECT_ID ", " NDB_COL_VERSION ", " NDB_COL_MODEL_NAME ", " NDB_COL_ALGORITHM ", " NDB_COL_TRAINING_TABLE ", " NDB_COL_TRAINING_COLUMN ", " NDB_COL_STATUS ", metadata) "
-					 "SELECT %d, v, %s, %s, NULL, NULL, 'external', '{\"model_path\": %s, \"model_format\": %s}'::jsonb FROM next_version RETURNING model_id",
-					 project_id,
-					 project_id,
-					 neurondb_quote_literal_cstr(psprintf("%s_%ld", model_format, (long) time(NULL))),
-					 neurondb_quote_literal_cstr(model_format),
-					 neurondb_quote_literal_cstr(model_path),
-					 neurondb_quote_literal_cstr(model_format));
+	{
+		char	   *ext_name = psprintf("%s_%ld", model_format, (long) time(NULL));
+		char	   *ext_name_quoted = neurondb_quote_literal_cstr(ext_name);
+
+		appendStringInfo(&sql,
+						 "WITH next_version AS (SELECT COALESCE(MAX(" NDB_COL_VERSION "), 0) + 1 AS v FROM " NDB_FQ_ML_MODELS " WHERE " NDB_COL_PROJECT_ID " = %d) "
+						 "INSERT INTO " NDB_FQ_ML_MODELS " (" NDB_COL_PROJECT_ID ", " NDB_COL_VERSION ", " NDB_COL_MODEL_NAME ", " NDB_COL_ALGORITHM ", " NDB_COL_TRAINING_TABLE ", " NDB_COL_TRAINING_COLUMN ", " NDB_COL_STATUS ", metadata) "
+						 "SELECT %d, v, %s, %s, NULL, NULL, 'external', '{\"model_path\": %s, \"model_format\": %s}'::jsonb FROM next_version RETURNING model_id",
+						 project_id,
+						 project_id,
+						 ext_name_quoted,
+						 neurondb_quote_literal_cstr(model_format),
+						 neurondb_quote_literal_cstr(model_path),
+						 neurondb_quote_literal_cstr(model_format));
+		pfree(ext_name);
+		pfree(ext_name_quoted);
+	}
 
 	ret = ndb_spi_execute(spi_session, sql.data, false, 0);
 	NDB_CHECK_SPI_TUPTABLE();

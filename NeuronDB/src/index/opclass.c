@@ -323,8 +323,12 @@ vector_l2_equal(PG_FUNCTION_ARGS)
 	dist_a = (float4) sqrt(sum_a);
 	dist_b = (float4) sqrt(sum_b);
 
-	/* Use epsilon for float comparison */
-	PG_RETURN_BOOL(fabs(dist_a - dist_b) < 1e-6);
+	/* Use relative epsilon for float comparison to avoid scale-dependent failures */
+	{
+		double		scale = fabs(dist_a) + fabs(dist_b) + 1e-10;
+
+		PG_RETURN_BOOL(fabs(dist_a - dist_b) < 1e-6 * scale);
+	}
 }
 
 /*
@@ -706,15 +710,15 @@ vector_inner_product_less(PG_FUNCTION_ARGS)
 	query = PG_GETARG_VECTOR_P(2);
 	NDB_CHECK_VECTOR_VALID(query);
 	{
-		float4		inner_product_distance_simd(Vector *a, Vector *b);
+		float4		inner_product_simd(Vector *a, Vector *b);
 
 		if (a->dim != query->dim || b->dim != query->dim)
 			ereport(ERROR,
 					(errcode(ERRCODE_DATA_EXCEPTION),
 					 errmsg("neurondb: vector dimensions must match")));
 
-		dist_a = inner_product_distance_simd(a, query);
-		dist_b = inner_product_distance_simd(b, query);
+		dist_a = inner_product_simd(a, query);
+		dist_b = inner_product_simd(b, query);
 
 		PG_RETURN_BOOL(dist_a < dist_b);
 	}
@@ -748,15 +752,15 @@ vector_inner_product_less_equal(PG_FUNCTION_ARGS)
 	query = PG_GETARG_VECTOR_P(2);
 	NDB_CHECK_VECTOR_VALID(query);
 	{
-		float4		inner_product_distance_simd(Vector *a, Vector *b);
+		float4		inner_product_simd(Vector *a, Vector *b);
 
 		if (a->dim != query->dim || b->dim != query->dim)
 			ereport(ERROR,
 					(errcode(ERRCODE_DATA_EXCEPTION),
 					 errmsg("neurondb: vector dimensions must match")));
 
-		dist_a = inner_product_distance_simd(a, query);
-		dist_b = inner_product_distance_simd(b, query);
+		dist_a = inner_product_simd(a, query);
+		dist_b = inner_product_simd(b, query);
 
 		PG_RETURN_BOOL(dist_a <= dist_b);
 	}
@@ -790,15 +794,15 @@ vector_inner_product_greater(PG_FUNCTION_ARGS)
 	query = PG_GETARG_VECTOR_P(2);
 	NDB_CHECK_VECTOR_VALID(query);
 	{
-		float4		inner_product_distance_simd(Vector *a, Vector *b);
+		float4		inner_product_simd(Vector *a, Vector *b);
 
 		if (a->dim != query->dim || b->dim != query->dim)
 			ereport(ERROR,
 					(errcode(ERRCODE_DATA_EXCEPTION),
 					 errmsg("neurondb: vector dimensions must match")));
 
-		dist_a = inner_product_distance_simd(a, query);
-		dist_b = inner_product_distance_simd(b, query);
+		dist_a = inner_product_simd(a, query);
+		dist_b = inner_product_simd(b, query);
 
 		PG_RETURN_BOOL(dist_a > dist_b);
 	}
@@ -832,15 +836,15 @@ vector_inner_product_greater_equal(PG_FUNCTION_ARGS)
 	query = PG_GETARG_VECTOR_P(2);
 	NDB_CHECK_VECTOR_VALID(query);
 	{
-		float4		inner_product_distance_simd(Vector *a, Vector *b);
+		float4		inner_product_simd(Vector *a, Vector *b);
 
 		if (a->dim != query->dim || b->dim != query->dim)
 			ereport(ERROR,
 					(errcode(ERRCODE_DATA_EXCEPTION),
 					 errmsg("neurondb: vector dimensions must match")));
 
-		dist_a = inner_product_distance_simd(a, query);
-		dist_b = inner_product_distance_simd(b, query);
+		dist_a = inner_product_simd(a, query);
+		dist_b = inner_product_simd(b, query);
 
 		PG_RETURN_BOOL(dist_a >= dist_b);
 	}
@@ -880,13 +884,14 @@ neurondb_has_opclass(PG_FUNCTION_ARGS)
 				 errmsg("neurondb: neurondb_has_opclass: failed to begin SPI session")));
 	}
 
-	/* Query pg_opclass to check if operator class exists */
+	/* Query pg_opclass to check if operator class exists.
+	 * Use quote_literal to prevent SQL injection. */
 	initStringInfo(&query);
 	appendStringInfo(&query,
 					 "SELECT 1 FROM pg_opclass oc "
 					 "JOIN pg_namespace n ON oc.opcnamespace = n.oid "
-					 "WHERE oc.opcname = '%s' AND n.nspname = 'neurondb'",
-					 name);
+					 "WHERE oc.opcname = %s AND n.nspname = 'neurondb'",
+					 quote_literal_cstr(name));
 
 	ret = ndb_spi_execute(session, query.data, true, 0);
 	pfree(query.data);

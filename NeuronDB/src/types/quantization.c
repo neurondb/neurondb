@@ -25,6 +25,7 @@
 #include "utils/varbit.h"
 #include "lib/stringinfo.h"
 #include "libpq/pqformat.h"
+#include <float.h>
 #include <math.h>
 #include <string.h>
 #include <ctype.h>
@@ -64,9 +65,9 @@ quantize_vector_i8(Vector *v)
 	SET_VARSIZE(result, size);
 	result->dim = v->dim;
 
-	/* Compute scale */
-	if (max_abs == 0.0f)
-		return result;			/* All zeros - return zero vector */
+	/* Compute scale - guard against denormalized max_abs to avoid overflow */
+	if (max_abs <= 0.0f || max_abs < FLT_MIN)
+		return result;			/* All zeros or denormal - return zero vector */
 
 	scale = 127.0f / max_abs;
 
@@ -128,6 +129,10 @@ int8_to_vector(PG_FUNCTION_ARGS)
 				 errmsg("neurondb: int8_to_vector requires 1 argument")));
 
 	v8 = (VectorI8 *) PG_GETARG_POINTER(0);
+	if (v8 == NULL)
+		ereport(ERROR,
+				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
+				 errmsg("neurondb: int8_to_vector argument cannot be NULL")));
 	result = new_vector(v8->dim);
 	for (i = 0; i < v8->dim; i++)
 		result->data[i] = (float4) v8->data[i] / 127.0f;
@@ -270,7 +275,10 @@ float16_to_vector(PG_FUNCTION_ARGS)
 				 errmsg("neurondb: float16_to_vector requires 1 argument")));
 
 	vf16 = (VectorF16 *) PG_DETOAST_DATUM(PG_GETARG_DATUM(0));
-
+	if (vf16 == NULL)
+		ereport(ERROR,
+				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
+				 errmsg("neurondb: float16_to_vector argument cannot be NULL")));
 	result = new_vector(vf16->dim);
 	for (i = 0; i < vf16->dim; i++)
 		result->data[i] = fp16_to_float(vf16->data[i]);
@@ -368,7 +376,10 @@ binary_to_vector(PG_FUNCTION_ARGS)
 				 errmsg("neurondb: binary_to_vector requires 1 argument")));
 
 	vb = (VectorBinary *) PG_GETARG_POINTER(0);
-
+	if (vb == NULL)
+		ereport(ERROR,
+				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
+				 errmsg("neurondb: binary_to_vector argument cannot be NULL")));
 	result = new_vector(vb->dim);
 
 	for (i = 0; i < vb->dim; i++)
@@ -1273,9 +1284,9 @@ quantize_analyze_int4(PG_FUNCTION_ARGS)
 	/* Quantize the vector */
 	quantized = quantize_vector_int4(original);
 
-	if (max_abs == 0.0f)
+	if (max_abs <= 0.0f || max_abs < FLT_MIN)
 	{
-		/* All zeros - perfect quantization */
+		/* All zeros or denormal - perfect quantization */
 		initStringInfo(&json_buf);
 		appendStringInfo(&json_buf,
 						 "{\"mse\":0.0,\"mae\":0.0,\"max_error\":0.0,"
@@ -1299,7 +1310,8 @@ quantize_analyze_int4(PG_FUNCTION_ARGS)
 		uvalue = (quantized->data[byte_idx] >> bit_idx) & 0x0F;
 
 		/* Convert unsigned 4-bit to signed */
-		value = (uvalue < 8) ? ((int8) uvalue - 8) : ((int8) uvalue - 8);
+		/* 4-bit unsigned (0..15) to signed (-8..7): subtract 8 */
+		value = (int8) uvalue - 8;
 		dequantized->data[i] = ((float4) value) / scale;
 	}
 
@@ -1443,7 +1455,10 @@ uint8_to_vector(PG_FUNCTION_ARGS)
 				 errmsg("neurondb: uint8_to_vector requires 1 argument")));
 
 	vu8 = (VectorU8 *) PG_GETARG_POINTER(0);
-
+	if (vu8 == NULL)
+		ereport(ERROR,
+				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
+				 errmsg("neurondb: uint8_to_vector argument cannot be NULL")));
 	/* Note: This is approximate - exact restoration requires min/max */
 	result = new_vector(vu8->dim);
 	for (i = 0; i < vu8->dim; i++)
@@ -1539,6 +1554,11 @@ ternary_to_vector(PG_FUNCTION_ARGS)
 	int			bit_idx;
 	uint8		value;
 
+	if (vt == NULL)
+		ereport(ERROR,
+				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
+				 errmsg("neurondb: ternary_to_vector argument cannot be NULL")));
+
 	result = new_vector(vt->dim);
 
 	for (i = 0; i < vt->dim; i++)
@@ -1584,7 +1604,7 @@ quantize_vector_int4(Vector *v)
 			max_abs = abs_val;
 	}
 
-	if (max_abs == 0.0f)
+	if (max_abs <= 0.0f || max_abs < FLT_MIN)
 	{
 		nbytes = (v->dim + 1) / 2;	/* 2 values per byte */
 		size = offsetof(VectorI4, data) + nbytes;
@@ -1677,6 +1697,11 @@ int4_to_vector(PG_FUNCTION_ARGS)
 	uint8		uvalue;
 	int8		value;
 
+	if (vi4 == NULL)
+		ereport(ERROR,
+				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
+				 errmsg("neurondb: int4_to_vector argument cannot be NULL")));
+
 	result = new_vector(vi4->dim);
 
 	for (i = 0; i < vi4->dim; i++)
@@ -1686,7 +1711,8 @@ int4_to_vector(PG_FUNCTION_ARGS)
 		uvalue = (vi4->data[byte_idx] >> bit_idx) & 0x0F;
 
 		/* Convert unsigned 4-bit to signed (0-7 = -8 to -1, 8-15 = 0 to 7) */
-		value = (uvalue < 8) ? ((int8) uvalue - 8) : ((int8) uvalue - 8);
+		/* 4-bit unsigned (0..15) to signed (-8..7): subtract 8 */
+		value = (int8) uvalue - 8;
 
 		/* Approximate dequantization */
 		result->data[i] = ((float4) value) / 7.0f;
@@ -2292,12 +2318,19 @@ halfvec_l2_distance(PG_FUNCTION_ARGS)
 	{
 		float		va = fp16_to_float(a->data[i]);
 		float		vb = fp16_to_float(b->data[i]);
-		double		diff = (double) va - (double) vb;
 
-		sum += diff * diff;
+		if (isnan(va) || isinf(va) || isnan(vb) || isinf(vb))
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					 errmsg("cannot compute L2 distance with halfvec containing NaN or Infinity")));
+		sum += (double) (va - vb) * (double) (va - vb);
 	}
 
-	result = (float4) sqrt(sum);
+	result = (float4) sqrtf((float) sum);
+	if (isnan(result) || isinf(result))
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("halfvec L2 distance resulted in NaN or Infinity")));
 	PG_RETURN_FLOAT4(result);
 }
 
@@ -2348,7 +2381,17 @@ halfvec_cosine_distance(PG_FUNCTION_ARGS)
 	if (norm_a == 0.0 || norm_b == 0.0)
 		PG_RETURN_FLOAT4(1.0);
 
-	result = (float4) (1.0 - (dot / (sqrt(norm_a) * sqrt(norm_b))));
+	{
+		double		denom = sqrt(norm_a) * sqrt(norm_b);
+
+		if (isnan(denom) || isinf(denom) || denom == 0.0)
+			PG_RETURN_FLOAT4(1.0);
+		result = (float4) (1.0 - (dot / denom));
+	}
+	if (isnan(result) || isinf(result))
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("halfvec cosine distance resulted in NaN or Infinity")));
 	PG_RETURN_FLOAT4(result);
 }
 
