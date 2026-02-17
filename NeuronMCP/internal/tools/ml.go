@@ -46,7 +46,7 @@ func NewTrainModelTool(db *database.Database, logger *logging.Logger) *TrainMode
 				"properties": map[string]interface{}{
 					"algorithm": map[string]interface{}{
 						"type":        "string",
-						"enum":        []interface{}{"linear_regression", "ridge", "lasso", "logistic", "random_forest", "svm", "knn", "decision_tree", "naive_bayes"},
+						"enum":        []interface{}{"linear_regression", "ridge", "lasso", "logistic", "random_forest", "svm", "knn", "decision_tree", "naive_bayes", "titans_llm"},
 						"description": "ML algorithm to use",
 					},
 					"table": map[string]interface{}{
@@ -101,7 +101,7 @@ func (t *TrainModelTool) Execute(ctx context.Context, params map[string]interfac
 			"params":    params,
 		}), nil
 	}
-	if err := validation.ValidateIn(algorithm, "algorithm", "linear_regression", "ridge", "lasso", "logistic", "random_forest", "svm", "knn", "decision_tree", "naive_bayes"); err != nil {
+	if err := validation.ValidateIn(algorithm, "algorithm", "linear_regression", "ridge", "lasso", "logistic", "random_forest", "svm", "knn", "decision_tree", "naive_bayes", "titans_llm"); err != nil {
 		return Error(fmt.Sprintf("Invalid algorithm parameter: %v", err), "VALIDATION_ERROR", map[string]interface{}{
 			"parameter": "algorithm",
 			"error":     err.Error(),

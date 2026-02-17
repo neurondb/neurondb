@@ -245,9 +245,10 @@ func (t *ExecuteWorkflowTool) Execute(ctx context.Context, params map[string]int
 		return errorResult(fmt.Sprintf("failed to create execution: %v", err), "WORKFLOW_ERROR", nil), nil
 	}
 
-	/* Execute workflow in background */
+	/* Execute workflow in background; use request context for tracing, without cancel on request end */
+	runCtx := context.WithoutCancel(ctx)
 	go func() {
-		if err := t.executor.ExecuteWorkflow(context.Background(), executionID); err != nil {
+		if err := t.executor.ExecuteWorkflow(runCtx, executionID); err != nil {
 			if t.logger != nil {
 				t.logger.Error("Workflow execution failed", err, map[string]interface{}{
 					"execution_id": executionID,
