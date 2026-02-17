@@ -59,6 +59,10 @@ git commit -m "Your commit message"
 
 ## Code Standards
 
+### Pre-commit hooks
+
+Optional but recommended: install [pre-commit](https://pre-commit.com/) and run `pre-commit install`. The repo includes `.pre-commit-config.yaml` for trailing whitespace, YAML/JSON checks, golangci-lint (Go), and Prettier (JS/TS). Run `pre-commit run --all-files` before pushing.
+
 ### Code Style Enforcement
 
 All code must conform to the style guidelines enforced by automated tools. Code that doesn't pass style checks will be rejected.

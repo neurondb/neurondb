@@ -1,0 +1,12 @@
+# NeuronDB C/C++ formatting (clang-format)
+# Usage: clang-format -i src/**/*.c
+BasedOnStyle: LLVM
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 100
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortBlocksOnASingleLine: false
+BreakBeforeBraces: Attach
+SpaceAfterCStyleCast: false
+AlignAfterOpenBracket: Align
