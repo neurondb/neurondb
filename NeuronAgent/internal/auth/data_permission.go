@@ -25,6 +25,28 @@ import (
 	"github.com/neurondb/NeuronAgent/internal/db"
 )
 
+/* rowFilterSafe rejects rowFilter strings that could lead to SQL injection */
+func rowFilterSafe(rowFilter string) bool {
+	upper := strings.ToUpper(strings.TrimSpace(rowFilter))
+	if upper == "" {
+		return true
+	}
+	/* Reject comment and statement separators */
+	if strings.Contains(upper, ";") || strings.Contains(upper, "--") ||
+		strings.Contains(upper, "/*") || strings.Contains(upper, "*/") {
+		return false
+	}
+	/* Reject dangerous keywords that could modify the query */
+	dangerous := []string{"DROP", "DELETE", "UPDATE", "INSERT", "ALTER", "CREATE",
+		"TRUNCATE", "EXEC", "EXECUTE", "CALL", "GRANT", "REVOKE", "UNION", "INTO"}
+	for _, kw := range dangerous {
+		if strings.Contains(upper, kw) {
+			return false
+		}
+	}
+	return true
+}
+
 type DataPermissionChecker struct {
 	queries *db.Queries
 }
@@ -85,9 +107,14 @@ func (c *DataPermissionChecker) GetColumnMaskForTable(ctx context.Context, princ
 	return nil, nil
 }
 
-/* ApplyRowFilter applies a row filter to a SQL query */
+/* ApplyRowFilter applies a row filter to a SQL query.
+ * rowFilter is validated to prevent SQL injection; only safe expressions are applied. */
 func (c *DataPermissionChecker) ApplyRowFilter(query, rowFilter string) string {
 	if rowFilter == "" {
+		return query
+	}
+	if !rowFilterSafe(rowFilter) {
+		/* Refuse to apply potentially unsafe row filter */
 		return query
 	}
 

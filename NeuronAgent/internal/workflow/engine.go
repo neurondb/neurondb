@@ -20,7 +20,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -425,12 +427,56 @@ func (e *Engine) executeApprovalStep(ctx context.Context, workflowExecutionID uu
 	return hitlManager.ExecuteApprovalStep(ctx, workflowExecutionID, stepExecutionID, step, inputs)
 }
 
+/* isPrivateOrLoopbackIP returns true if the IP is loopback or private (SSRF risk) */
+func isPrivateOrLoopbackIP(ip net.IP) bool {
+	if ip == nil {
+		return true
+	}
+	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast()
+}
+
+/* validateURLSSRF checks that the URL uses http/https and does not resolve to private/loopback addresses */
+func validateURLSSRF(rawURL string) error {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return fmt.Errorf("invalid URL: %w", err)
+	}
+	scheme := strings.ToLower(parsed.Scheme)
+	if scheme != "http" && scheme != "https" {
+		return fmt.Errorf("URL scheme must be http or https (got %s)", parsed.Scheme)
+	}
+	if parsed.Host == "" {
+		return fmt.Errorf("URL has no host")
+	}
+	host, port, err := net.SplitHostPort(parsed.Host)
+	if err != nil {
+		host = parsed.Host
+		port = ""
+		_ = port
+	}
+	ips, err := net.LookupIP(host)
+	if err != nil {
+		return fmt.Errorf("cannot resolve host %s: %w", host, err)
+	}
+	for _, ip := range ips {
+		if isPrivateOrLoopbackIP(ip) {
+			return fmt.Errorf("URL must not target private or loopback address %s (SSRF protection)", ip)
+		}
+	}
+	return nil
+}
+
 /* executeHTTPStep executes an HTTP step */
 func (e *Engine) executeHTTPStep(ctx context.Context, step *db.WorkflowStep, inputs map[string]interface{}) (map[string]interface{}, error) {
 	/* Extract HTTP configuration from inputs */
-	url, ok := inputs["url"].(string)
+	urlStr, ok := inputs["url"].(string)
 	if !ok {
 		return nil, fmt.Errorf("url is required and must be a string")
+	}
+
+	/* SSRF protection: block private and loopback targets */
+	if err := validateURLSSRF(urlStr); err != nil {
+		return nil, fmt.Errorf("HTTP step URL validation failed: %w", err)
 	}
 
 	method := "GET"
@@ -472,7 +518,7 @@ func (e *Engine) executeHTTPStep(ctx context.Context, step *db.WorkflowStep, inp
 	}
 
 	/* Create HTTP request */
-	req, err := http.NewRequestWithContext(ctx, method, url, strings.NewReader(string(body)))
+	req, err := http.NewRequestWithContext(ctx, method, urlStr, strings.NewReader(string(body)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
 	}

@@ -23,6 +23,11 @@ import (
 	"github.com/neurondb/NeuronAgent/internal/metrics"
 )
 
+/* RateLimiterInterface is implemented by in-memory and Redis rate limiters */
+type RateLimiterInterface interface {
+	CheckLimit(keyID string, limitPerMin int) bool
+}
+
 type RateLimiter struct {
 	limits map[string]*rateLimit
 	mu     sync.RWMutex

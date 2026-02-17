@@ -45,6 +45,7 @@ import (
 	"github.com/neurondb/NeuronAgent/internal/distributed"
 	"github.com/neurondb/NeuronAgent/internal/events"
 	"github.com/neurondb/NeuronAgent/internal/cache"
+	"github.com/neurondb/NeuronAgent/internal/observability"
 	"github.com/neurondb/NeuronAgent/internal/utils"
 	"github.com/neurondb/NeuronAgent/pkg/neurondb"
 )
@@ -342,12 +343,24 @@ func main() {
 	specializationHandlers := api.NewSpecializationHandlers(queries)
 	keyManager := auth.NewAPIKeyManager(queries)
 	principalManager := auth.NewPrincipalManager(queries)
-	rateLimiter := auth.NewRateLimiter()
+	var rateLimiter auth.RateLimiterInterface = auth.NewRateLimiter()
+	if redisURL := os.Getenv("REDIS_URL"); redisURL != "" {
+		if rl, err := auth.NewRedisRateLimiter(redisURL); err != nil {
+			metrics.WarnWithContext(context.Background(), "Redis rate limiter disabled, using in-memory", map[string]interface{}{"error": err.Error()})
+		} else if rl != nil {
+			rateLimiter = rl
+			if closer, ok := rl.(interface{ Close() error }); ok {
+				defer closer.Close()
+			}
+		}
+	}
 
 	/* Setup router */
 	router := mux.NewRouter()
 	router.Use(api.RequestIDMiddleware)
-	router.Use(api.SecurityHeadersMiddleware) /* Security headers must be set early */
+	router.Use(observability.TracingMiddleware) /* OpenTelemetry HTTP tracing */
+	router.Use(api.SecurityHeadersMiddleware)   /* Security headers must be set early */
+	router.Use(api.RequestBodyLimitMiddleware(10 * 1024 * 1024)) /* 10MB max request body */
 	router.Use(api.CORSMiddleware(cfg))
 	router.Use(api.LoggingMiddleware)
 	router.Use(api.AuthMiddleware(keyManager, principalManager, rateLimiter))

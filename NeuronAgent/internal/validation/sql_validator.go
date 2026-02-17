@@ -22,6 +22,36 @@ import (
 	"strings"
 )
 
+/* stripSQLComments removes SQL comments to prevent bypass of keyword checks.
+ * Removes -- line comments and block (slash-star) comments. */
+func stripSQLComments(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	upper := strings.ToUpper(s)
+	i := 0
+	for i < len(s) {
+		if i+1 < len(s) && upper[i:i+2] == "--" {
+			for i < len(s) && s[i] != '\n' {
+				i++
+			}
+			continue
+		}
+		if i+1 < len(s) && upper[i:i+2] == "/*" {
+			i += 2
+			for i+1 < len(s) && upper[i:i+2] != "*/" {
+				i++
+			}
+			if i+1 < len(s) {
+				i += 2
+			}
+			continue
+		}
+		b.WriteByte(s[i])
+		i++
+	}
+	return b.String()
+}
+
 /* Pre-compiled regex patterns for dangerous SQL keywords */
 var (
 	/* Word boundary patterns for each dangerous keyword */
@@ -84,8 +114,10 @@ type ValidationResult struct {
  *   - ValidationResult with validation details
  */
 func ValidateSQLQuery(query string, allowedType AllowedQueryType) ValidationResult {
+	/* Strip comments to prevent bypass (e.g. SELECT plus comment then DROP) */
+	queryNoComments := stripSQLComments(query)
 	/* Normalize query */
-	queryUpper := strings.TrimSpace(strings.ToUpper(query))
+	queryUpper := strings.TrimSpace(strings.ToUpper(queryNoComments))
 	if queryUpper == "" {
 		return ValidationResult{
 			Valid: false,
@@ -136,7 +168,7 @@ func ValidateSQLQuery(query string, allowedType AllowedQueryType) ValidationResu
 		}
 	}
 
-	/* Check for dangerous keywords using pre-compiled regex patterns */
+	/* Check for dangerous keywords on comment-stripped query to prevent bypass */
 	var foundKeywords []string
 	for i, pattern := range dangerousKeywordPatterns {
 		if pattern.MatchString(queryUpper) {

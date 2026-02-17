@@ -20,6 +20,24 @@ import (
 	"github.com/neurondb/NeuronAgent/internal/db"
 )
 
+/* Max lengths for untrusted content in prompts to limit injection impact */
+const (
+	maxUserMessagePromptLen = 32 * 1024   /* 32KB */
+	maxMemoryChunkPromptLen = 4096       /* 4KB per chunk */
+	maxToolResultPromptLen  = 16 * 1024  /* 16KB per result */
+	maxConversationMsgLen   = 8192       /* 8KB per history message */
+)
+
+/* sanitizeForPrompt truncates and wraps untrusted content to reduce prompt injection risk */
+func sanitizeForPrompt(s string, maxLen int) string {
+	s = strings.TrimSpace(s)
+	if len(s) > maxLen {
+		s = s[:maxLen] + "\n[... truncated ...]"
+	}
+	/* Wrap in delimiters so model treats as data; newlines could be normalized */
+	return s
+}
+
 type PromptBuilder struct {
 	maxTokens int
 }
@@ -61,25 +79,28 @@ func (p *PromptBuilder) BuildWithPersonalization(agent *db.Agent, context *Conte
 		}
 	}
 
-	/* Memory chunks */
+	/* Memory chunks (sanitized) */
 	if len(context.MemoryChunks) > 0 {
 		parts = append(parts, "\n\n## Relevant Context:")
 		for i, chunk := range context.MemoryChunks {
-			parts = append(parts, fmt.Sprintf("\n[Context %d] %s", i+1, chunk.Content))
+			safe := sanitizeForPrompt(chunk.Content, maxMemoryChunkPromptLen)
+			parts = append(parts, fmt.Sprintf("\n[Context %d] %s", i+1, safe))
 		}
 	}
 
-	/* Conversation history */
+	/* Conversation history (sanitized) */
 	if len(context.Messages) > 0 {
 		parts = append(parts, "\n\n## Conversation History:")
 		for _, msg := range context.Messages {
 			role := strings.Title(msg.Role)
-			parts = append(parts, fmt.Sprintf("\n%s: %s", role, msg.Content))
+			safe := sanitizeForPrompt(msg.Content, maxConversationMsgLen)
+			parts = append(parts, fmt.Sprintf("\n%s: %s", role, safe))
 		}
 	}
 
-	/* Current user message */
-	parts = append(parts, fmt.Sprintf("\n\n## Current Request:\nUser: %s", userMessage))
+	/* Current user message (sanitized) */
+	safeUserMsg := sanitizeForPrompt(userMessage, maxUserMessagePromptLen)
+	parts = append(parts, fmt.Sprintf("\n\n## Current Request:\nUser: %s", safeUserMsg))
 	parts = append(parts, "\n\nAssistant:")
 
 	return strings.Join(parts, ""), nil
@@ -112,11 +133,12 @@ func (p *PromptBuilder) BuildWithToolResultsAndPersonalization(agent *db.Agent, 
 		}
 	}
 
-	/* Memory chunks */
+	/* Memory chunks (sanitized to reduce prompt injection risk) */
 	if len(context.MemoryChunks) > 0 {
 		parts = append(parts, "\n\n## Relevant Context:")
 		for i, chunk := range context.MemoryChunks {
-			parts = append(parts, fmt.Sprintf("\n[Context %d] %s", i+1, chunk.Content))
+			safe := sanitizeForPrompt(chunk.Content, maxMemoryChunkPromptLen)
+			parts = append(parts, fmt.Sprintf("\n[Context %d] %s", i+1, safe))
 		}
 	}
 
@@ -125,12 +147,14 @@ func (p *PromptBuilder) BuildWithToolResultsAndPersonalization(agent *db.Agent, 
 		parts = append(parts, "\n\n## Conversation History:")
 		for _, msg := range context.Messages {
 			role := strings.Title(msg.Role)
-			parts = append(parts, fmt.Sprintf("\n%s: %s", role, msg.Content))
+			safe := sanitizeForPrompt(msg.Content, maxConversationMsgLen)
+			parts = append(parts, fmt.Sprintf("\n%s: %s", role, safe))
 		}
 	}
 
-	/* Current user message */
-	parts = append(parts, fmt.Sprintf("\n\n## Current Request:\nUser: %s", userMessage))
+	/* Current user message (sanitized) */
+	safeUserMsg := sanitizeForPrompt(userMessage, maxUserMessagePromptLen)
+	parts = append(parts, fmt.Sprintf("\n\n## Current Request:\nUser: %s", safeUserMsg))
 
 	/* Add retrieval decision guidance if agentic retrieval is enabled */
 	if agent.Config != nil {
@@ -139,11 +163,14 @@ func (p *PromptBuilder) BuildWithToolResultsAndPersonalization(agent *db.Agent, 
 		}
 	}
 
-	/* Tool calls and results */
+	/* Tool calls and results (sanitize tool call display to limit prompt injection surface) */
 	if len(llmResponse.ToolCalls) > 0 {
 		parts = append(parts, "\n\n## Tool Calls:")
 		for _, call := range llmResponse.ToolCalls {
-			parts = append(parts, fmt.Sprintf("\nCalled: %s with args: %v", call.Name, call.Arguments))
+			safeName := sanitizeForPrompt(call.Name, 128)
+			argsStr := fmt.Sprintf("%v", call.Arguments)
+			safeArgs := sanitizeForPrompt(argsStr, maxToolResultPromptLen)
+			parts = append(parts, fmt.Sprintf("\nCalled: %s with args: %s", safeName, safeArgs))
 		}
 
 		parts = append(parts, "\n\n## Tool Results:")
@@ -151,7 +178,8 @@ func (p *PromptBuilder) BuildWithToolResultsAndPersonalization(agent *db.Agent, 
 			if result.Error != nil {
 				parts = append(parts, fmt.Sprintf("\nTool %s error: %v", result.ToolCallID, result.Error))
 			} else {
-				parts = append(parts, fmt.Sprintf("\nTool %s result: %s", result.ToolCallID, result.Content))
+				safeContent := sanitizeForPrompt(result.Content, maxToolResultPromptLen)
+				parts = append(parts, fmt.Sprintf("\nTool %s result: %s", result.ToolCallID, safeContent))
 			}
 		}
 	}

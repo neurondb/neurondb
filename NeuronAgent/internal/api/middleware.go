@@ -34,7 +34,7 @@ const apiKeyContextKey contextKey = "api_key"
 const principalContextKey contextKey = "principal"
 
 /* AuthMiddleware authenticates requests using API keys and resolves principals */
-func AuthMiddleware(keyManager *auth.APIKeyManager, principalManager *auth.PrincipalManager, rateLimiter *auth.RateLimiter) func(http.Handler) http.Handler {
+func AuthMiddleware(keyManager *auth.APIKeyManager, principalManager *auth.PrincipalManager, rateLimiter auth.RateLimiterInterface) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			/* Skip auth for health and metrics endpoints */
@@ -119,6 +119,30 @@ func AuthMiddleware(keyManager *auth.APIKeyManager, principalManager *auth.Princ
 				ctx = context.WithValue(ctx, principalContextKey, principal)
 			}
 			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+/* Default max request body size (10MB) to prevent DoS from large payloads */
+const defaultMaxRequestBodyBytes = 10 << 20
+
+/* RequestBodyLimitMiddleware limits request body size for all non-GET/HEAD requests */
+func RequestBodyLimitMiddleware(maxBytes int64) func(http.Handler) http.Handler {
+	if maxBytes <= 0 {
+		maxBytes = defaultMaxRequestBodyBytes
+	}
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Body == nil {
+				next.ServeHTTP(w, r)
+				return
+			}
+			if r.Method == http.MethodGet || r.Method == http.MethodHead {
+				next.ServeHTTP(w, r)
+				return
+			}
+			r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
+			next.ServeHTTP(w, r)
 		})
 	}
 }

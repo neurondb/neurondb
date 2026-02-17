@@ -20,9 +20,25 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/neurondb/NeuronAgent/internal/db"
 )
+
+/* shellMetacharacters - characters that could allow command injection if passed to a shell */
+const shellMetacharacters = ";|&$`\\<>()\n\r\t"
+
+func containsShellMetacharacter(s string) bool {
+	for _, r := range s {
+		if r > unicode.MaxASCII {
+			return true
+		}
+		if strings.ContainsRune(shellMetacharacters, r) {
+			return true
+		}
+	}
+	return false
+}
 
 type ShellTool struct {
 	allowedCommands []string /* Whitelist of allowed commands */
@@ -51,7 +67,13 @@ func (t *ShellTool) Execute(ctx context.Context, tool *db.Tool, args map[string]
 			tool.Name, len(args), argKeys)
 	}
 
-	/* Parse command */
+	/* Reject any command containing shell metacharacters to prevent injection */
+	if containsShellMetacharacter(command) {
+		return "", fmt.Errorf("shell tool execution failed: tool_name='%s', handler_type='shell', validation_error='command must not contain shell metacharacters (;|&$`\\\\<>() or newlines)'",
+			tool.Name)
+	}
+
+	/* Parse command - no shell is used; exec runs cmdName with args directly */
 	parts := strings.Fields(command)
 	if len(parts) == 0 {
 		return "", fmt.Errorf("shell tool execution failed: tool_name='%s', handler_type='shell', command='%s', command_length=%d, validation_error='empty command'",
@@ -60,7 +82,7 @@ func (t *ShellTool) Execute(ctx context.Context, tool *db.Tool, args map[string]
 
 	cmdName := parts[0]
 
-	/* Check if command is in allowlist */
+	/* Check if command is in allowlist (full first token must match) */
 	allowed := false
 	for _, allowedCmd := range t.allowedCommands {
 		if cmdName == allowedCmd {

@@ -20,11 +20,34 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
+	"time"
 
 	"github.com/neurondb/NeuronAgent/internal/db"
 	"github.com/neurondb/NeuronAgent/internal/metrics"
 	"github.com/neurondb/NeuronAgent/pkg/neurondb"
 )
+
+/* Default retry for LLM calls: max attempts and backoff */
+const (
+	llmRetryMaxAttempts = 3
+	llmRetryInitial     = 500 * time.Millisecond
+)
+
+/* isRetryableLLMError returns true if the error suggests retrying (e.g. timeout, rate limit, 5xx) */
+func isRetryableLLMError(err error) bool {
+	if err == nil {
+		return false
+	}
+	s := strings.ToLower(err.Error())
+	return strings.Contains(s, "timeout") ||
+		strings.Contains(s, "rate_limit") ||
+		strings.Contains(s, "connection refused") ||
+		strings.Contains(s, "temporary failure") ||
+		strings.Contains(s, "502") ||
+		strings.Contains(s, "503") ||
+		strings.Contains(s, "429")
+}
 
 type LLMClient struct {
 	llmClient   *neurondb.LLMClient
@@ -55,14 +78,43 @@ func (c *LLMClient) Generate(ctx context.Context, modelName string, prompt strin
 		llmConfig.TopP = &topP
 	}
 
-	result, err := c.llmClient.Generate(ctx, prompt, llmConfig)
+	var result *neurondb.LLMGenerateResult
+	var err error
+	backoff := llmRetryInitial
+	for attempt := 1; attempt <= llmRetryMaxAttempts; attempt++ {
+		result, err = c.llmClient.Generate(ctx, prompt, llmConfig)
+		if err == nil {
+			break
+		}
+		if !isRetryableLLMError(err) || attempt == llmRetryMaxAttempts {
+			break
+		}
+		metrics.WarnWithContext(ctx, "LLM call failed, retrying with backoff", map[string]interface{}{
+			"attempt": attempt,
+			"backoff": backoff.String(),
+			"error":   err.Error(),
+		})
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(backoff):
+			backoff *= 2
+			if backoff > 30*time.Second {
+				backoff = 30 * time.Second
+			}
+		}
+	}
 
 	/* Record metrics */
 	status := "success"
+	tokensUsed := int64(0)
+	if result != nil {
+		tokensUsed = int64(result.TokensUsed)
+	}
 	if err != nil {
 		status = "error"
 	}
-	metrics.RecordLLMCall(modelName, status, result.TokensUsed, 0) /* Completion tokens not available */
+	metrics.RecordLLMCall(modelName, status, int(tokensUsed), 0) /* Completion tokens not available */
 
 	if err != nil {
 		promptTokens := EstimateTokens(prompt)
