@@ -57,8 +57,12 @@ func (h *AuthHandlers) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(req.Password) < 6 {
-		WriteError(w, r, http.StatusBadRequest, fmt.Errorf("password must be at least 6 characters"), nil)
+	if len(req.Password) < 12 {
+		WriteError(w, r, http.StatusBadRequest, fmt.Errorf("password must be at least 12 characters"), nil)
+		return
+	}
+	if !utils.MeetsPasswordComplexity(req.Password) {
+		WriteError(w, r, http.StatusBadRequest, fmt.Errorf("password must contain at least one uppercase letter, one lowercase letter, one digit, and one special character"), nil)
 		return
 	}
 

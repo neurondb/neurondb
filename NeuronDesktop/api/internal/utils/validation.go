@@ -59,6 +59,24 @@ func ValidateProfile(name, dsn string, mcpConfig map[string]interface{}) []error
 	return errors
 }
 
+/* MeetsPasswordComplexity returns true if password has upper, lower, digit, and special character */
+func MeetsPasswordComplexity(password string) bool {
+	var hasUpper, hasLower, hasDigit, hasSpecial bool
+	for _, r := range password {
+		switch {
+		case unicode.IsUpper(r):
+			hasUpper = true
+		case unicode.IsLower(r):
+			hasLower = true
+		case unicode.IsNumber(r):
+			hasDigit = true
+		case unicode.IsPunct(r) || unicode.IsSymbol(r):
+			hasSpecial = true
+		}
+	}
+	return hasUpper && hasLower && hasDigit && hasSpecial
+}
+
 /* ValidateAPIKey validates an API key format */
 func ValidateAPIKey(key string) error {
 	if len(key) < 32 {
@@ -115,9 +133,40 @@ func ValidateSearchRequest(collection string, limit int, distanceType string) []
 	return errors
 }
 
-/* ValidateSQL validates SQL query for safety */
+/* stripSQLComments removes SQL comments to prevent bypass of keyword checks */
+func stripSQLComments(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	upper := strings.ToUpper(s)
+	i := 0
+	for i < len(s) {
+		if i+1 < len(s) && upper[i:i+2] == "--" {
+			for i < len(s) && s[i] != '\n' {
+				i++
+			}
+			continue
+		}
+		if i+1 < len(s) && upper[i:i+2] == "/*" {
+			i += 2
+			for i+1 < len(s) && upper[i:i+2] != "*/" {
+				i++
+			}
+			if i+1 < len(s) {
+				i += 2
+			}
+			continue
+		}
+		b.WriteByte(s[i])
+		i++
+	}
+	return b.String()
+}
+
+/* ValidateSQL validates SQL query for safety.
+ * Strips comments first to prevent bypass (e.g. SELECT plus comment plus DROP). */
 func ValidateSQL(query string) error {
-	queryUpper := strings.ToUpper(strings.TrimSpace(query))
+	noComments := stripSQLComments(query)
+	queryUpper := strings.ToUpper(strings.TrimSpace(noComments))
 
 	if !strings.HasPrefix(queryUpper, "SELECT") {
 		return &ValidationError{
@@ -126,17 +175,28 @@ func ValidateSQL(query string) error {
 		}
 	}
 
-	dangerous := []string{
-		"DROP", "TRUNCATE", "DELETE", "UPDATE", "INSERT",
-		"ALTER", "CREATE", "GRANT", "REVOKE", "EXECUTE",
-		"CALL", "COPY", "VACUUM", "ANALYZE",
+	/* Use word-boundary regex so "DROP" in "SELECT ... DROP ..." is caught even with comments stripped */
+	dangerousKeywords := []*regexp.Regexp{
+		regexp.MustCompile(`\bDROP\b`),
+		regexp.MustCompile(`\bTRUNCATE\b`),
+		regexp.MustCompile(`\bDELETE\b`),
+		regexp.MustCompile(`\bUPDATE\b`),
+		regexp.MustCompile(`\bINSERT\b`),
+		regexp.MustCompile(`\bALTER\b`),
+		regexp.MustCompile(`\bCREATE\b`),
+		regexp.MustCompile(`\bGRANT\b`),
+		regexp.MustCompile(`\bREVOKE\b`),
+		regexp.MustCompile(`\bEXECUTE\b`),
+		regexp.MustCompile(`\bCALL\b`),
+		regexp.MustCompile(`\bCOPY\b`),
+		regexp.MustCompile(`\bVACUUM\b`),
+		regexp.MustCompile(`\bANALYZE\b`),
 	}
-
-	for _, keyword := range dangerous {
-		if strings.Contains(queryUpper, " "+keyword+" ") || strings.Contains(queryUpper, "\n"+keyword+" ") {
+	for _, re := range dangerousKeywords {
+		if re.MatchString(queryUpper) {
 			return &ValidationError{
 				Field:   "query",
-				Message: fmt.Sprintf("dangerous SQL operation detected: %s", keyword),
+				Message: "dangerous SQL operation detected",
 			}
 		}
 	}
@@ -145,9 +205,9 @@ func ValidateSQL(query string) error {
 		";--", "';--", "'; DROP", "'; DELETE",
 		"UNION SELECT", "OR 1=1", "OR '1'='1",
 	}
-
+	queryUpperOrig := strings.ToUpper(query)
 	for _, pattern := range sqlInjectionPatterns {
-		if strings.Contains(strings.ToUpper(query), pattern) {
+		if strings.Contains(queryUpperOrig, pattern) {
 			return &ValidationError{
 				Field:   "query",
 				Message: "potentially malicious SQL pattern detected",

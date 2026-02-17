@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -238,6 +239,14 @@ func CSRFMiddleware() func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			/* Only check CSRF for state-changing methods */
 			if r.Method == "GET" || r.Method == "HEAD" || r.Method == "OPTIONS" {
+				next.ServeHTTP(w, r)
+				return
+			}
+			/* Exempt auth endpoints that run before session/CSRF token exists */
+			if strings.HasPrefix(r.URL.Path, "/api/v1/auth/login") ||
+				strings.HasPrefix(r.URL.Path, "/api/v1/auth/register") ||
+				strings.HasPrefix(r.URL.Path, "/api/v1/auth/oidc/") ||
+				strings.HasPrefix(r.URL.Path, "/api/v1/auth/refresh") {
 				next.ServeHTTP(w, r)
 				return
 			}

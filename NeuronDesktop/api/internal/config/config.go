@@ -398,8 +398,14 @@ func mergeConfig(fileCfg, envCfg *Config) *Config {
 	return &merged
 }
 
-/* DSN returns the database connection string */
+/* DSN returns the database connection string (do not log this; use SanitizedDSN for logs) */
 func (c *DatabaseConfig) DSN() string {
 	return fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 		c.Host, c.Port, c.User, c.Password, c.Name)
+}
+
+/* SanitizedDSN returns a DSN with password redacted for safe logging */
+func (c *DatabaseConfig) SanitizedDSN() string {
+	return fmt.Sprintf("host=%s port=%s user=%s password=*** dbname=%s sslmode=disable",
+		c.Host, c.Port, c.User, c.Name)
 }

@@ -121,6 +121,10 @@ func main() {
 			logger.Error("JWT_SECRET is required when using JWT authentication", fmt.Errorf("JWT_SECRET environment variable not set"), nil)
 			os.Exit(1)
 		}
+		if len(cfg.Auth.JWTSecret) < 32 {
+			logger.Error("JWT_SECRET must be at least 32 bytes for security", fmt.Errorf("JWT_SECRET length is %d", len(cfg.Auth.JWTSecret)), nil)
+			os.Exit(1)
+		}
 	}
 
 	sessionMgr := session.NewManager(
@@ -190,6 +194,7 @@ func main() {
 
 	router.Use(middleware.RequestIDMiddleware())
 	router.Use(middleware.RecoveryMiddleware(logger))
+	router.Use(middleware.SecurityHeadersMiddleware)
 	router.Use(middleware.PrometheusMetricsMiddleware)
 	router.Use(middleware.LoggingMiddleware(logger, queries))
 
@@ -281,6 +286,7 @@ func main() {
 	}
 
 	apiRouter.Use(middleware.RateLimitMiddleware(rateLimiter))
+	apiRouter.Use(middleware.CSRFMiddleware())
 
 	apiRouter.HandleFunc("/auth/me", authHandlers.GetCurrentUser).Methods("GET")
 
@@ -498,7 +504,8 @@ func main() {
 			}
 		}
 
-		if allowed && (!allowAll || origin != "") {
+		/* Do not set Allow-Credentials when Origin is * (forbidden by spec) */
+		if allowed && !allowAll && origin != "" {
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
 		}
 
