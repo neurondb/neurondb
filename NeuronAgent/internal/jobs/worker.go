@@ -70,14 +70,25 @@ func (w *Worker) work() {
 			if err != nil || job == nil {
 				continue
 			}
-
-			w.processJob(job)
+			w.processJob(w.ctx, job)
 		}
 	}
 }
 
-func (w *Worker) processJob(job *db.Job) {
-	result, err := w.processor.Process(w.ctx, job)
+func (w *Worker) processJob(ctx context.Context, job *db.Job) {
+	if ctx.Err() != nil {
+		/* Shutdown or cancellation: re-queue so another worker can pick it up */
+		_ = w.queue.UpdateJob(ctx, job.ID, "queued", nil, nil, job.RetryCount, nil)
+		return
+	}
+
+	/* Idempotency: skip if job was already completed (e.g. by another worker or retry) */
+	current, err := w.queue.GetJob(ctx, job.ID)
+	if err == nil && (current.Status == "done" || current.Status == "failed") {
+		return
+	}
+
+	result, err := w.processor.Process(ctx, job)
 
 	status := "done"
 	errorMsg := (*string)(nil)
@@ -87,7 +98,7 @@ func (w *Worker) processJob(job *db.Job) {
 	if err != nil {
 		/* Use error classification to determine if job should be retried */
 		shouldRetry := ShouldRetry(err, retryCount, job.MaxRetries)
-		
+
 		if !shouldRetry || retryCount >= job.MaxRetries {
 			/* Non-retryable error or max retries reached */
 			status = "failed"
@@ -119,7 +130,11 @@ func (w *Worker) processJob(job *db.Job) {
 		}
 	}
 
-	w.queue.UpdateJob(w.ctx, job.ID, status, result, errorMsg, retryCount, completedAtVal)
+	if ctx.Err() != nil {
+		_ = w.queue.UpdateJob(ctx, job.ID, "queued", nil, nil, job.RetryCount, nil)
+		return
+	}
+	w.queue.UpdateJob(ctx, job.ID, status, result, errorMsg, retryCount, completedAtVal)
 }
 
 func (w *Worker) Stop() {

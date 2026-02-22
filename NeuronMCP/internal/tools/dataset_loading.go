@@ -80,7 +80,7 @@ func NewDatasetLoadingTool(db *database.Database, logger *logging.Logger) *Datas
 					},
 					"text_columns": map[string]interface{}{
 						"type":        "array",
-						"items":        map[string]interface{}{"type": "string"},
+						"items":       map[string]interface{}{"type": "string"},
 						"description": "Optional list of column names to embed. If not provided, text columns are auto-detected",
 					},
 					"table_name": map[string]interface{}{
@@ -235,7 +235,7 @@ func (t *DatasetLoadingTool) Execute(ctx context.Context, params map[string]inte
 	if sourcePath == "" && datasetName != "" {
 		sourcePath = datasetName
 	}
-	
+
 	/* Validate source_path is required */
 	if err := validation.ValidateRequired(sourcePath, "source_path"); err != nil {
 		return Error(fmt.Sprintf("Invalid source_path parameter: %v", err), "VALIDATION_ERROR", map[string]interface{}{
@@ -243,7 +243,7 @@ func (t *DatasetLoadingTool) Execute(ctx context.Context, params map[string]inte
 			"params": params,
 		}), nil
 	}
-	
+
 	/* Validate source_path length */
 	if err := validation.ValidateMaxLength(sourcePath, "source_path", 2048); err != nil {
 		return Error(fmt.Sprintf("Invalid source_path parameter: %v", err), "VALIDATION_ERROR", map[string]interface{}{
@@ -418,7 +418,6 @@ func (t *DatasetLoadingTool) Execute(ctx context.Context, params map[string]inte
 		azureConnectionString, gcsCredentials, githubToken, query, transformations)
 }
 
-
 /* findDatasetLoaderScript finds the dataset loader Python script */
 func (t *DatasetLoadingTool) findDatasetLoaderScript() string {
 	/* Try to find neuronmcp_dataloader.py (consolidated), fallback to dataset_loader.py for backward compatibility */
@@ -445,7 +444,7 @@ func (t *DatasetLoadingTool) findDatasetLoaderScript() string {
 		if _, err := os.Stat(testPath); err == nil {
 			return testPath
 		}
-		
+
 		/* Fallback to old file */
 		testPath = filepath.Join(dir, "NeuronMCP", "internal", "tools", "dataset_loader.py")
 		if _, err := os.Stat(testPath); err == nil {
@@ -474,24 +473,24 @@ func (t *DatasetLoadingTool) validateScriptPath(scriptPath string) error {
 	if scriptPath == "" {
 		return fmt.Errorf("script path cannot be empty")
 	}
-	
+
 	/* Get absolute path */
 	absPath, err := filepath.Abs(scriptPath)
 	if err != nil {
 		return fmt.Errorf("failed to get absolute path: %w", err)
 	}
-	
+
 	/* Check for path traversal */
 	if strings.Contains(absPath, "..") {
 		return fmt.Errorf("script path contains path traversal")
 	}
-	
+
 	/* Whitelist: script must be in NeuronMCP/internal/tools/ or similar allowed locations */
 	allowedPatterns := []string{
 		"NeuronMCP/internal/tools/",
 		"internal/tools/",
 	}
-	
+
 	valid := false
 	for _, pattern := range allowedPatterns {
 		if strings.Contains(absPath, pattern) {
@@ -499,11 +498,11 @@ func (t *DatasetLoadingTool) validateScriptPath(scriptPath string) error {
 			break
 		}
 	}
-	
+
 	if !valid {
 		return fmt.Errorf("script path not in allowed directories: %s", absPath)
 	}
-	
+
 	return nil
 }
 
@@ -515,7 +514,7 @@ func (t *DatasetLoadingTool) sanitizeEnvironment(env []string) []string {
 		"HF_HOME=", "HF_DATASETS_CACHE=", "HOME=",
 		"PATH=", "PYTHONPATH=", "LD_LIBRARY_PATH=",
 	}
-	
+
 	for _, e := range env {
 		/* Only allow environment variables with safe prefixes */
 		allowed := false
@@ -534,7 +533,7 @@ func (t *DatasetLoadingTool) sanitizeEnvironment(env []string) []string {
 			continue
 		}
 	}
-	
+
 	return sanitized
 }
 
@@ -609,7 +608,7 @@ func (t *DatasetLoadingTool) loadDataset(ctx context.Context, sourceType, source
 	args := []string{scriptPath}
 	args = append(args, "--source-type", sourceType)
 	args = append(args, "--source-path", sourcePath)
-	
+
 	if sourceType == "huggingface" {
 		args = append(args, "--split", split)
 		if datasetConfig != "" {
@@ -688,26 +687,6 @@ func (t *DatasetLoadingTool) loadDataset(ctx context.Context, sourceType, source
 		args = append(args, "--excel-sheet", excelSheet)
 	}
 
-	/* Cloud credentials */
-	if awsAccessKey != "" {
-		args = append(args, "--aws-access-key", awsAccessKey)
-	}
-	if awsSecretKey != "" {
-		args = append(args, "--aws-secret-key", awsSecretKey)
-	}
-	if awsRegion != "" {
-		args = append(args, "--aws-region", awsRegion)
-	}
-	if azureConnectionString != "" {
-		args = append(args, "--azure-connection-string", azureConnectionString)
-	}
-	if gcsCredentials != "" {
-		args = append(args, "--gcs-credentials", gcsCredentials)
-	}
-	if githubToken != "" {
-		args = append(args, "--github-token", githubToken)
-	}
-
 	/* Database query */
 	if query != "" {
 		args = append(args, "--query", query)
@@ -731,7 +710,7 @@ func (t *DatasetLoadingTool) loadDataset(ctx context.Context, sourceType, source
 	env = append(env, fmt.Sprintf("PGPORT=%d", dbCfg.GetPort()))
 	env = append(env, fmt.Sprintf("PGUSER=%s", dbCfg.GetUser()))
 	env = append(env, fmt.Sprintf("PGDATABASE=%s", dbCfg.GetDatabase()))
-	
+
 	/* Set cache directory - use provided or default */
 	hfCacheDir := cacheDir
 	if hfCacheDir == "" {
@@ -742,6 +721,26 @@ func (t *DatasetLoadingTool) loadDataset(ctx context.Context, sourceType, source
 	env = append(env, "HOME=/tmp")
 	if pwd := dbCfg.Password; pwd != nil && *pwd != "" {
 		env = append(env, fmt.Sprintf("PGPASSWORD=%s", *pwd))
+	}
+
+	/* Cloud credentials via environment (not CLI) to avoid exposure in process list */
+	if awsAccessKey != "" {
+		env = append(env, fmt.Sprintf("AWS_ACCESS_KEY_ID=%s", awsAccessKey))
+	}
+	if awsSecretKey != "" {
+		env = append(env, fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", awsSecretKey))
+	}
+	if awsRegion != "" {
+		env = append(env, fmt.Sprintf("AWS_DEFAULT_REGION=%s", awsRegion))
+	}
+	if azureConnectionString != "" {
+		env = append(env, fmt.Sprintf("AZURE_STORAGE_CONNECTION_STRING=%s", azureConnectionString))
+	}
+	if gcsCredentials != "" {
+		env = append(env, fmt.Sprintf("GOOGLE_APPLICATION_CREDENTIALS=%s", gcsCredentials))
+	}
+	if githubToken != "" {
+		env = append(env, fmt.Sprintf("GITHUB_TOKEN=%s", githubToken))
 	}
 
 	/* Create context with explicit timeout (30 minutes for dataset loading) */
@@ -756,14 +755,14 @@ func (t *DatasetLoadingTool) loadDataset(ctx context.Context, sourceType, source
 
 	output, err := cmd.CombinedOutput()
 	outputStr := strings.TrimSpace(string(output))
-	
+
 	if err != nil {
 		/* Try to parse error JSON from Python script for better error messages */
 		var errorResult map[string]interface{}
 		lines := strings.Split(outputStr, "\n")
 		errorMessage := fmt.Sprintf("Failed to load dataset from %s '%s'", sourceType, sourcePath)
 		hint := ""
-		
+
 		/* Look for error JSON in output */
 		for i := len(lines) - 1; i >= 0; i-- {
 			line := strings.TrimSpace(lines[i])
@@ -796,14 +795,14 @@ func (t *DatasetLoadingTool) loadDataset(ctx context.Context, sourceType, source
 				}
 			}
 		}
-		
+
 		t.logger.Error("Dataset loading failed", err, map[string]interface{}{
-			"source_type": sourceType,
-			"source_path": sourcePath,
-			"output":      outputStr,
+			"source_type":  sourceType,
+			"source_path":  sourcePath,
+			"output":       outputStr,
 			"error_result": errorResult,
 		})
-		
+
 		/* Return user-friendly error message for Claude Desktop */
 		if hint != "" {
 			return Error(
@@ -818,7 +817,7 @@ func (t *DatasetLoadingTool) loadDataset(ctx context.Context, sourceType, source
 				},
 			), nil
 		}
-		
+
 		return Error(
 			errorMessage,
 			"EXECUTION_ERROR",
@@ -833,7 +832,7 @@ func (t *DatasetLoadingTool) loadDataset(ctx context.Context, sourceType, source
 
 	/* Parse JSON output - look for the final result */
 	lines := strings.Split(outputStr, "\n")
-	
+
 	var finalResult map[string]interface{}
 	var rowsLoaded int
 	var rowsEmbedded int
@@ -934,7 +933,7 @@ func (t *DatasetLoadingTool) loadGenericDatasetFallback(ctx context.Context, sou
 	if datasetConfig != "" {
 		configValue = fmt.Sprintf("'%s'", datasetConfig)
 	}
-	
+
 	pythonCode := fmt.Sprintf(`
 import os
 import sys
@@ -1114,21 +1113,16 @@ except Exception as e:
 	}
 
 	return Success(map[string]interface{}{
-		"source_type":   sourceType,
-		"source_path":   sourcePath,
-		"rows_loaded":   rowsLoaded,
-		"table":         tableName,
-		"status":        "completed",
-		"message":       fmt.Sprintf("Dataset '%s' loaded successfully into %s (using fallback method)", sourcePath, tableName),
-		"method":        "fallback",
+		"source_type": sourceType,
+		"source_path": sourcePath,
+		"rows_loaded": rowsLoaded,
+		"table":       tableName,
+		"status":      "completed",
+		"message":     fmt.Sprintf("Dataset '%s' loaded successfully into %s (using fallback method)", sourcePath, tableName),
+		"method":      "fallback",
 	}, map[string]interface{}{
 		"source_type": sourceType,
 		"source_path": sourcePath,
 		"method":      "fallback",
 	}), nil
 }
-
-
-
-
-

@@ -1,0 +1,12 @@
+# Olympus implementation - dependencies
+# PyTorch (install separately for your CUDA version if needed: pip install torch)
+torch>=2.0.0
+einops>=0.7.0
+datasets>=2.14.0
+transformers>=4.30.0
+tokenizers>=0.13.0
+tqdm>=4.65.0
+numpy>=1.24.0
+matplotlib>=3.7.0
+tensorboard>=2.12.0
+PyYAML>=6.0

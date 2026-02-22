@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/neurondb/NeuronAgent/internal/db"
+	"github.com/neurondb/NeuronAgent/internal/validation"
 )
 
 type HTTPTool struct {
@@ -48,6 +49,12 @@ func (t *HTTPTool) Execute(ctx context.Context, tool *db.Tool, args map[string]i
 		}
 		return "", fmt.Errorf("HTTP tool execution failed: tool_name='%s', handler_type='http', args_count=%d, arg_keys=[%v], validation_error='url parameter is required and must be a string'",
 			tool.Name, len(args), argKeys)
+	}
+
+	/* SSRF protection: scheme and private IP / DNS rebinding checks */
+	if err := validation.ValidateURLForSSRF(url, nil); err != nil {
+		return "", fmt.Errorf("HTTP tool execution failed: tool_name='%s', handler_type='http', url='%s', validation_error='%w'",
+			tool.Name, url, err)
 	}
 
 	/* Check allowlist if configured */
@@ -89,9 +96,16 @@ func (t *HTTPTool) Execute(ctx context.Context, tool *db.Tool, args map[string]i
 			tool.Name, method, url, headerCount, bodySize, t.client.Timeout, err)
 	}
 
-	/* Add headers */
+	/* Add headers (block Host and other sensitive headers to prevent injection) */
+	blockedHeaders := map[string]bool{
+		"host": true, "transfer-encoding": true, "connection": true,
+		"upgrade": true, "proxy-authorization": true, "te": true,
+	}
 	if headers, ok := args["headers"].(map[string]interface{}); ok {
 		for k, v := range headers {
+			if blockedHeaders[strings.ToLower(strings.TrimSpace(k))] {
+				continue
+			}
 			if str, ok := v.(string); ok {
 				req.Header.Set(k, str)
 			}

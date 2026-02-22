@@ -1,0 +1,20 @@
+# Reduce Docker build context
+.git
+.gitignore
+**/node_modules
+**/.next
+**/dist
+**/build
+**/bin
+**/*.log
+**/.env
+**/.env.*
+!**/.env.example
+**/coverage
+**/__pycache__
+**/.pytest_cache
+**/*.pyc
+.cursor
+*.md
+!NeuronDB/**/*.md
+!dockers/**/*.md

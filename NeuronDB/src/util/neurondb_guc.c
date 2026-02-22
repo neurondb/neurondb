@@ -97,6 +97,7 @@ bool		neurondb_automl_use_gpu = false;
 bool		neurondb_vector_capsule_enabled = false;
 
 /* Security and governance GUCs */
+bool		neurondb_confidential_compute = false;
 bool		neurondb_rls_embeddings_enabled = false;
 bool		neurondb_encryption_enabled = false;
 bool		neurondb_audit_ml_enabled = false;
@@ -872,6 +873,17 @@ neurondb_init_all_gucs(void)
 							 "Enable Row-Level Security for embeddings",
 							 "When enabled, RLS policies are enforced during vector index scans and ANN searches.",
 							 &neurondb_rls_embeddings_enabled,
+							 false,
+							 PGC_USERSET,
+							 0,
+							 NULL,
+							 NULL,
+							 NULL);
+
+	DefineCustomBoolVariable("neurondb.confidential_compute",
+							 "Enable confidential compute mode (e.g. SGX/SEV)",
+							 "When enabled, other functions may enforce encryption and audit logging.",
+							 &neurondb_confidential_compute,
 							 false,
 							 PGC_USERSET,
 							 0,

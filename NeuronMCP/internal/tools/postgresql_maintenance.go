@@ -20,6 +20,8 @@ package tools
 import (
 	"context"
 	"fmt"
+	"math"
+	"strings"
 
 	"github.com/neurondb/NeuronMCP/internal/database"
 	"github.com/neurondb/NeuronMCP/internal/logging"
@@ -60,9 +62,12 @@ func (t *PostgreSQLKillQueryTool) Execute(ctx context.Context, params map[string
 	if !ok {
 		return Error("pid parameter must be a number", "INVALID_PARAMETER", nil), nil
 	}
+	pidInt := int(pid)
+	if pid <= 0 || pid > float64(math.MaxInt32) {
+		return Error("pid must be a positive integer within valid range", "INVALID_PARAMETER", nil), nil
+	}
 
-	query := fmt.Sprintf("SELECT pg_terminate_backend(%d)", int(pid))
-	result, err := t.executor.ExecuteQueryOne(ctx, query, nil)
+	result, err := t.executor.ExecuteQueryOne(ctx, "SELECT pg_terminate_backend($1)", []interface{}{pidInt})
 	if err != nil {
 		return Error(
 			fmt.Sprintf("Kill query failed: %v", err),
@@ -76,9 +81,9 @@ func (t *PostgreSQLKillQueryTool) Execute(ctx context.Context, params map[string
 	})
 
 	return Success(map[string]interface{}{
-		"pid":      int(pid),
-		"killed":   result,
-		"method":   "pg_terminate_backend",
+		"pid":    int(pid),
+		"killed": result,
+		"method": "pg_terminate_backend",
 	}, map[string]interface{}{
 		"tool": "postgresql_kill_query",
 	}), nil
@@ -173,7 +178,9 @@ func (t *PostgreSQLMaintenanceWindowTool) Execute(ctx context.Context, params ma
 					next_run TIMESTAMP
 				)
 			`
-			_, _ = t.executor.ExecuteQuery(ctx, createTableQuery, nil)
+			if _, err := t.executor.ExecuteQuery(ctx, createTableQuery, nil); err != nil {
+				t.logger.Warn("Failed to create maintenance_windows table", map[string]interface{}{"error": err.Error()})
+			}
 		}
 	}
 
@@ -294,7 +301,9 @@ func (t *PostgreSQLMaintenanceWindowTool) Execute(ctx context.Context, params ma
 
 		/* Update status to running */
 		updateQuery := `UPDATE maintenance_windows SET status = 'running', last_run = NOW() WHERE window_id = $1`
-		_, _ = t.executor.ExecuteQuery(ctx, updateQuery, []interface{}{int(windowID)})
+		if _, err := t.executor.ExecuteQuery(ctx, updateQuery, []interface{}{int(windowID)}); err != nil {
+			t.logger.Warn("Failed to update maintenance window status to running", map[string]interface{}{"error": err.Error(), "window_id": windowID})
+		}
 
 		/* Execute operations */
 		operations := []string{}
@@ -306,20 +315,49 @@ func (t *PostgreSQLMaintenanceWindowTool) Execute(ctx context.Context, params ma
 			}
 		}
 
+		allowedPrefixes := []string{"VACUUM", "ANALYZE", "REINDEX", "CLUSTER", "CHECKPOINT"}
 		executed := []string{}
+		failed := []map[string]interface{}{}
 		for _, op := range operations {
-			/* Execute each operation */
-			executed = append(executed, op)
+			opUpper := strings.ToUpper(strings.TrimSpace(op))
+			allowed := false
+			for _, prefix := range allowedPrefixes {
+				if strings.HasPrefix(opUpper, prefix) {
+					allowed = true
+					break
+				}
+			}
+			if !allowed {
+				failed = append(failed, map[string]interface{}{
+					"operation": op,
+					"error":     "operation not in allowed maintenance commands",
+				})
+				t.logger.Warn("Maintenance operation rejected (not in allowlist)", map[string]interface{}{"operation": op, "window_id": windowID})
+				continue
+			}
+			_, err := t.executor.ExecuteQuery(ctx, op, nil)
+			if err != nil {
+				failed = append(failed, map[string]interface{}{
+					"operation": op,
+					"error":     err.Error(),
+				})
+				t.logger.Warn("Maintenance operation failed", map[string]interface{}{"operation": op, "error": err.Error(), "window_id": windowID})
+			} else {
+				executed = append(executed, op)
+			}
 		}
 
 		/* Update status to completed */
 		completeQuery := `UPDATE maintenance_windows SET status = 'completed' WHERE window_id = $1`
-		_, _ = t.executor.ExecuteQuery(ctx, completeQuery, []interface{}{int(windowID)})
+		if _, err := t.executor.ExecuteQuery(ctx, completeQuery, []interface{}{int(windowID)}); err != nil {
+			t.logger.Warn("Failed to update maintenance window status to completed", map[string]interface{}{"error": err.Error(), "window_id": windowID})
+		}
 
 		return Success(map[string]interface{}{
-			"window_id": int(windowID),
+			"window_id":           int(windowID),
 			"operations_executed": executed,
-			"status": "completed",
+			"operations_failed":   failed,
+			"status":              "completed",
 		}, map[string]interface{}{
 			"tool": "postgresql_maintenance_window",
 		}), nil
@@ -404,10 +442,10 @@ func (t *PostgreSQLFailoverTool) Execute(ctx context.Context, params map[string]
 		primaryCheck, _ := t.executor.ExecuteQueryOne(ctx, isPrimaryQuery, nil)
 
 		return Success(map[string]interface{}{
-			"replicas":        results,
-			"replica_count":   len(results),
-			"is_primary":      primaryCheck,
-			"failover_ready":  len(results) > 0,
+			"replicas":       results,
+			"replica_count":  len(results),
+			"is_primary":     primaryCheck,
+			"failover_ready": len(results) > 0,
 		}, map[string]interface{}{
 			"tool": "postgresql_failover",
 		}), nil
@@ -427,9 +465,9 @@ func (t *PostgreSQLFailoverTool) Execute(ctx context.Context, params map[string]
 		replicaCount, _ := t.executor.ExecuteQueryOne(ctx, replicationQuery, nil)
 
 		return Success(map[string]interface{}{
-			"is_primary":     primaryCheck,
-			"replica_count":  replicaCount,
-			"status":         "operational",
+			"is_primary":    primaryCheck,
+			"replica_count": replicaCount,
+			"status":        "operational",
 		}, map[string]interface{}{
 			"tool": "postgresql_failover",
 		}), nil
@@ -500,10 +538,10 @@ func (t *PostgreSQLFailoverTool) Execute(ctx context.Context, params map[string]
 		}
 
 		return Success(map[string]interface{}{
-			"target_replica":  replicaInfo,
-			"force":           force,
-			"instructions":    instructions,
-			"note":            "Actual failover must be performed on the replica server. This tool provides instructions and verification.",
+			"target_replica": replicaInfo,
+			"force":          force,
+			"instructions":   instructions,
+			"note":           "Actual failover must be performed on the replica server. This tool provides instructions and verification.",
 		}, map[string]interface{}{
 			"tool": "postgresql_failover",
 		}), nil
@@ -512,9 +550,3 @@ func (t *PostgreSQLFailoverTool) Execute(ctx context.Context, params map[string]
 		return Error(fmt.Sprintf("Invalid operation: %s", operation), "INVALID_PARAMETER", nil), nil
 	}
 }
-
-
-
-
-
-

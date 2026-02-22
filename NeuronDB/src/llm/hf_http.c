@@ -230,8 +230,16 @@ ndb_hf_vision_complete(const NdbLLMConfig *cfg,
 	
 	if (!ok)
 	{
+		if (resp && strlen(resp) > 200)
+			elog(WARNING,
+				 "neurondb: ndb_hf_vision_complete: could not parse generated_text (code=%d, response length=%zu, first 200 chars: %.200s)",
+				 code, strlen(resp), resp);
+		else
+			elog(WARNING,
+				 "neurondb: ndb_hf_vision_complete: could not parse generated_text (code=%d, raw response: %s)",
+				 code, resp ? resp : "(null)");
 	}
-	
+
 	out->json = resp;
 	out->http_status = code;
 	out->tokens_in = 0;

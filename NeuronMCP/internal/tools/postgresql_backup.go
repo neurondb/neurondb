@@ -30,6 +30,7 @@ import (
 
 	"github.com/neurondb/NeuronMCP/internal/database"
 	"github.com/neurondb/NeuronMCP/internal/logging"
+	"github.com/neurondb/NeuronMCP/internal/validation"
 )
 
 /* PostgreSQLBackupDatabaseTool backs up databases using pg_dump */
@@ -117,9 +118,19 @@ func (t *PostgreSQLBackupDatabaseTool) Execute(ctx context.Context, params map[s
 		return Error("output_file parameter is required", "INVALID_PARAMETER", nil), nil
 	}
 
+	if err := validation.ValidateSQLIdentifier(databaseName, "database_name"); err != nil {
+		return Error(fmt.Sprintf("Invalid database_name: %v", err), "VALIDATION_ERROR", nil), nil
+	}
+
+	cleanPath := filepath.Clean(outputFile)
+	if strings.Contains(cleanPath, "..") {
+		return Error("output_file must not contain path traversal", "VALIDATION_ERROR", nil), nil
+	}
+	outputFile = cleanPath
+
 	/* Get database connection info from executor */
 	/* Note: This is a simplified implementation. In production, you'd get connection details from the database instance */
-	
+
 	format, _ := params["format"].(string)
 	if format == "" {
 		format = "custom"
@@ -205,10 +216,10 @@ func (t *PostgreSQLBackupDatabaseTool) Execute(ctx context.Context, params map[s
 
 	/* Execute pg_dump */
 	cmd := exec.CommandContext(ctx, "pg_dump", args...)
-	
+
 	/* Set environment variables from database connection if available */
 	/* In production, you'd get these from the database connection */
-	
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return Error(
@@ -383,7 +394,7 @@ func (t *PostgreSQLRestoreDatabaseTool) Execute(ctx context.Context, params map[
 
 	/* Execute pg_restore */
 	cmd := exec.CommandContext(ctx, "pg_restore", args...)
-	
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return Error(
@@ -495,7 +506,7 @@ func (t *PostgreSQLBackupTableTool) Execute(ctx context.Context, params map[stri
 
 	/* Execute pg_dump */
 	cmd := exec.CommandContext(ctx, "pg_dump", args...)
-	
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return Error(
@@ -516,10 +527,10 @@ func (t *PostgreSQLBackupTableTool) Execute(ctx context.Context, params map[stri
 	}
 
 	t.logger.Info("Table backed up", map[string]interface{}{
-		"table_name": tableName,
-		"schema":     schema,
+		"table_name":  tableName,
+		"schema":      schema,
 		"output_file": outputFile,
-		"file_size":  fileSize,
+		"file_size":   fileSize,
 	})
 
 	return Success(map[string]interface{}{
@@ -596,9 +607,9 @@ func (t *PostgreSQLListBackupsTool) Execute(ctx context.Context, params map[stri
 		}
 
 		backups = append(backups, map[string]interface{}{
-			"file_name":    filepath.Base(file),
-			"file_path":    file,
-			"size_bytes":   fileInfo.Size(),
+			"file_name":     filepath.Base(file),
+			"file_path":     file,
+			"size_bytes":    fileInfo.Size(),
 			"modified_time": fileInfo.ModTime().Format(time.RFC3339),
 		})
 	}
@@ -666,7 +677,7 @@ func (t *PostgreSQLVerifyBackupTool) Execute(ctx context.Context, params map[str
 	/* Try to list contents using pg_restore --list */
 	cmd := exec.CommandContext(ctx, "pg_restore", "--list", backupFile)
 	output, err := cmd.CombinedOutput()
-	
+
 	isValid := err == nil
 	errorMsg := ""
 	if err != nil {
@@ -836,4 +847,3 @@ func (t *PostgreSQLBackupScheduleTool) Execute(ctx context.Context, params map[s
 		"tool": "postgresql_backup_schedule",
 	}), nil
 }
-

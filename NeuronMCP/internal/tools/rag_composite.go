@@ -23,6 +23,7 @@ import (
 
 	"github.com/neurondb/NeuronMCP/internal/database"
 	"github.com/neurondb/NeuronMCP/internal/logging"
+	"github.com/neurondb/NeuronMCP/internal/validation"
 )
 
 /* IngestDocumentsTool provides a composite tool for ingesting documents */
@@ -70,7 +71,7 @@ func NewIngestDocumentsTool(db *database.Database, logger *logging.Logger) *Inge
 						"description": "Embedding model to use (optional, uses default if not specified)",
 					},
 				},
-				"required": []interface{}{"collection", "source"},
+				"required":             []interface{}{"collection", "source"},
 				"additionalProperties": false,
 			},
 		),
@@ -91,6 +92,10 @@ func (t *IngestDocumentsTool) Execute(ctx context.Context, params map[string]int
 	}
 
 	collection, _ := params["collection"].(string)
+	if err := validation.ValidateTableName(collection); err != nil {
+		return Error(fmt.Sprintf("Invalid collection name: %v", err), "VALIDATION_ERROR", nil), nil
+	}
+	escapedCollection := validation.EscapeSQLIdentifier(collection)
 	source, _ := params["source"].(string)
 	chunkSize := 500
 	if cs, ok := params["chunk_size"].(float64); ok {
@@ -139,9 +144,9 @@ func (t *IngestDocumentsTool) Execute(ctx context.Context, params map[string]int
 		embedResult, err := t.executor.ExecuteQueryOne(ctx, embedQuery, embedParams)
 		if err != nil {
 			t.logger.Error(fmt.Sprintf("Failed to generate embedding for chunk %d", i), err, map[string]interface{}{
-				"chunk_index": i,
+				"chunk_index":       i,
 				"chunk_text_length": len(chunkText),
-				"model": embeddingModel,
+				"model":             embeddingModel,
 			})
 			continue
 		}
@@ -165,19 +170,19 @@ func (t *IngestDocumentsTool) Execute(ctx context.Context, params map[string]int
 			embeddingStr = "[" + strings.Join(parts, ",") + "]"
 		} else {
 			t.logger.Warn(fmt.Sprintf("Invalid embedding format for chunk %d: expected string or array, got %T", i, embedResult["embedding"]), map[string]interface{}{
-				"chunk_index": i,
+				"chunk_index":    i,
 				"embedding_type": fmt.Sprintf("%T", embedResult["embedding"]),
 			})
 			continue
 		}
 
 		/* Insert into collection (simplified - assumes table has text and embedding columns) */
-		insertQuery := fmt.Sprintf("INSERT INTO %s (text, embedding) VALUES ($1, $2::vector)", collection)
+		insertQuery := fmt.Sprintf("INSERT INTO %s (text, embedding) VALUES ($1, $2::vector)", escapedCollection)
 		_, err = t.executor.ExecuteQueryOne(ctx, insertQuery, []interface{}{chunkText, embeddingStr})
 		if err != nil {
 			t.logger.Error(fmt.Sprintf("Failed to insert chunk %d", i), err, map[string]interface{}{
 				"chunk_index": i,
-				"collection": collection,
+				"collection":  collection,
 			})
 			continue
 		}
@@ -230,7 +235,7 @@ func NewAnswerWithCitationsTool(db *database.Database, logger *logging.Logger) *
 						"description": "Number of context chunks to retrieve",
 					},
 				},
-				"required": []interface{}{"collection", "query"},
+				"required":             []interface{}{"collection", "query"},
 				"additionalProperties": false,
 			},
 		),
@@ -268,7 +273,7 @@ func (t *AnswerWithCitationsTool) Execute(ctx context.Context, params map[string
 	if err != nil {
 		return Error(fmt.Sprintf("Failed to generate query embedding: %v", err), "EMBEDDING_ERROR", map[string]interface{}{
 			"query_length": len(query),
-			"error": err.Error(),
+			"error":        err.Error(),
 		}), nil
 	}
 
@@ -291,7 +296,7 @@ func (t *AnswerWithCitationsTool) Execute(ctx context.Context, params map[string
 		embeddingStr = "[" + strings.Join(parts, ",") + "]"
 	} else {
 		return Error("Invalid embedding result format: expected string or array", "EMBEDDING_ERROR", map[string]interface{}{
-			"query_length": len(query),
+			"query_length":   len(query),
 			"embedding_type": fmt.Sprintf("%T", embedResult["embedding"]),
 		}), nil
 	}
@@ -377,7 +382,7 @@ func NewRAGEvaluateTool(db *database.Database, logger *logging.Logger) *RAGEvalu
 						"description": "Evaluation type (basic, advanced)",
 					},
 				},
-				"required": []interface{}{"query", "answer", "context_chunks"},
+				"required":             []interface{}{"query", "answer", "context_chunks"},
 				"additionalProperties": false,
 			},
 		),
@@ -418,10 +423,10 @@ func (t *RAGEvaluateTool) Execute(ctx context.Context, params map[string]interfa
 	result, err := t.executor.ExecuteQueryOne(ctx, evalQuery, []interface{}{query, answer, contextChunks, evaluationType})
 	if err != nil {
 		return Error(fmt.Sprintf("RAG evaluation failed: %v", err), "EVALUATION_ERROR", map[string]interface{}{
-			"query_length":      len(query),
-			"answer_length":     len(answer),
+			"query_length":         len(query),
+			"answer_length":        len(answer),
 			"context_chunks_count": len(contextChunks),
-			"error":             err.Error(),
+			"error":                err.Error(),
 		}), nil
 	}
 
@@ -488,7 +493,7 @@ func NewRAGChatTool(db *database.Database, logger *logging.Logger) *RAGChatTool 
 						"description": "LLM model for answer generation",
 					},
 				},
-				"required": []interface{}{"query", "document_table"},
+				"required":             []interface{}{"query", "document_table"},
 				"additionalProperties": false,
 			},
 		),
@@ -614,7 +619,7 @@ func NewRAGHybridTool(db *database.Database, logger *logging.Logger) *RAGHybridT
 						"description": "Weight for vector search (0-1)",
 					},
 				},
-				"required": []interface{}{"query", "document_table"},
+				"required":             []interface{}{"query", "document_table"},
 				"additionalProperties": false,
 			},
 		),
@@ -767,7 +772,7 @@ func NewRAGRerankTool(db *database.Database, logger *logging.Logger) *RAGRerankT
 						"description": "Reranking model",
 					},
 				},
-				"required": []interface{}{"query", "document_table"},
+				"required":             []interface{}{"query", "document_table"},
 				"additionalProperties": false,
 			},
 		),
@@ -951,7 +956,7 @@ func NewRAGGraphTool(db *database.Database, logger *logging.Logger) *RAGGraphToo
 						"description": "Custom context parameters",
 					},
 				},
-				"required": []interface{}{"query", "document_table"},
+				"required":             []interface{}{"query", "document_table"},
 				"additionalProperties": false,
 			},
 		),
@@ -1104,7 +1109,7 @@ func NewRAGHyDETool(db *database.Database, logger *logging.Logger) *RAGHyDETool 
 						"description": "Custom context parameters (system_prompt, llm_params, etc.)",
 					},
 				},
-				"required": []interface{}{"query", "document_table"},
+				"required":             []interface{}{"query", "document_table"},
 				"additionalProperties": false,
 			},
 		),
@@ -1253,7 +1258,7 @@ func NewRAGCorrectiveTool(db *database.Database, logger *logging.Logger) *RAGCor
 						"description": "Custom context parameters",
 					},
 				},
-				"required": []interface{}{"query", "document_table"},
+				"required":             []interface{}{"query", "document_table"},
 				"additionalProperties": false,
 			},
 		),
@@ -1409,7 +1414,7 @@ func NewRAGAgenticTool(db *database.Database, logger *logging.Logger) *RAGAgenti
 						"description": "Custom context parameters",
 					},
 				},
-				"required": []interface{}{"query", "document_table"},
+				"required":             []interface{}{"query", "document_table"},
 				"additionalProperties": false,
 			},
 		),
@@ -1566,7 +1571,7 @@ func NewRAGContextualTool(db *database.Database, logger *logging.Logger) *RAGCon
 						"description": "Custom context parameters",
 					},
 				},
-				"required": []interface{}{"query", "document_table"},
+				"required":             []interface{}{"query", "document_table"},
 				"additionalProperties": false,
 			},
 		),
@@ -1716,7 +1721,7 @@ func NewRAGModularTool(db *database.Database, logger *logging.Logger) *RAGModula
 						"description": "Custom context parameters",
 					},
 				},
-				"required": []interface{}{"query", "document_table", "module_config"},
+				"required":             []interface{}{"query", "document_table", "module_config"},
 				"additionalProperties": false,
 			},
 		),
@@ -1800,4 +1805,3 @@ func (t *RAGModularTool) Execute(ctx context.Context, params map[string]interfac
 		"method":  "modular",
 	}, nil), nil
 }
-

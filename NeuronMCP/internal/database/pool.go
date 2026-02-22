@@ -24,16 +24,20 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+/* defaultHealthCheckInterval is the interval between pool health checks */
+const defaultHealthCheckInterval = 30 * time.Second
+
 /* PoolManager manages connection pool with dynamic sizing */
 type PoolManager struct {
-	pool         *pgxpool.Pool
-	mu           sync.RWMutex
-	minConns     int32
-	maxConns     int32
-	targetConns  int32
+	pool                *pgxpool.Pool
+	mu                  sync.RWMutex
+	minConns            int32
+	maxConns            int32
+	targetConns         int32
 	healthCheckInterval time.Duration
 	lastHealthCheck     time.Time
 	healthStatus        string
+	stopCh              chan struct{}
 }
 
 /* NewPoolManager creates a new pool manager */
@@ -43,8 +47,9 @@ func NewPoolManager(pool *pgxpool.Pool, minConns, maxConns int32) *PoolManager {
 		minConns:            minConns,
 		maxConns:            maxConns,
 		targetConns:         (minConns + maxConns) / 2,
-		healthCheckInterval: 30 * time.Second,
+		healthCheckInterval: defaultHealthCheckInterval,
 		healthStatus:        "unknown",
+		stopCh:              make(chan struct{}),
 	}
 
 	/* Start health check goroutine */
@@ -53,13 +58,23 @@ func NewPoolManager(pool *pgxpool.Pool, minConns, maxConns int32) *PoolManager {
 	return pm
 }
 
+/* Close stops the health check goroutine */
+func (pm *PoolManager) Close() {
+	close(pm.stopCh)
+}
+
 /* healthCheckLoop periodically checks pool health */
 func (pm *PoolManager) healthCheckLoop() {
 	ticker := time.NewTicker(pm.healthCheckInterval)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		pm.performHealthCheck()
+	for {
+		select {
+		case <-ticker.C:
+			pm.performHealthCheck()
+		case <-pm.stopCh:
+			return
+		}
 	}
 }
 
@@ -131,15 +146,15 @@ func (pm *PoolManager) GetHealthStatus() map[string]interface{} {
 	}
 
 	return map[string]interface{}{
-		"status":              pm.healthStatus,
-		"total_connections":   stats.TotalConns(),
+		"status":               pm.healthStatus,
+		"total_connections":    stats.TotalConns(),
 		"acquired_connections": stats.AcquiredConns(),
-		"idle_connections":    stats.IdleConns(),
-		"max_connections":     pm.maxConns,
-		"min_connections":     pm.minConns,
-		"target_connections":  pm.targetConns,
-		"utilization":         utilization,
-		"last_health_check":   pm.lastHealthCheck,
+		"idle_connections":     stats.IdleConns(),
+		"max_connections":      pm.maxConns,
+		"min_connections":      pm.minConns,
+		"target_connections":   pm.targetConns,
+		"utilization":          utilization,
+		"last_health_check":    pm.lastHealthCheck,
 	}
 }
 

@@ -1111,6 +1111,7 @@ hierarchical_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **err
 																	 NumericGetDatum(v.val.numeric)));
 				else if (strcmp(key, "linkage") == 0 && v.type == jbvString)
 					strncpy(linkage, v.val.string.val, sizeof(linkage) - 1);
+					linkage[sizeof(linkage) - 1] = '\0';
 				nfree(key);
 			}
 		}
@@ -1290,6 +1291,7 @@ hierarchical_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **err
 	state->dim = dim;
 	state->n_samples = nvec;
 	strncpy(state->linkage, linkage, sizeof(state->linkage) - 1);
+	state->linkage[sizeof(state->linkage) - 1] = '\0';
 
 	if (model->backend_state != NULL)
 		nfree(model->backend_state);
@@ -1551,6 +1553,7 @@ hierarchical_gpu_deserialize(MLGpuModel *model, const bytea * payload,
 	state->dim = dim;
 	state->n_samples = 0;
 	strncpy(state->linkage, linkage, sizeof(state->linkage) - 1);
+	state->linkage[sizeof(state->linkage) - 1] = '\0';
 
 	if (metadata != NULL)
 	{

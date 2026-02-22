@@ -50,7 +50,7 @@ func NewMemoryConflictResolver(db *db.DB, queries *db.Queries, llm *LLMClient, e
 type ConflictResolutionStrategy string
 
 const (
-	ResolutionStrategyTimestamp ConflictResolutionStrategy = "timestamp" /* Prefer newer */
+	ResolutionStrategyTimestamp  ConflictResolutionStrategy = "timestamp"  /* Prefer newer */
 	ResolutionStrategyConfidence ConflictResolutionStrategy = "confidence" /* Prefer higher confidence */
 	ResolutionStrategySource     ConflictResolutionStrategy = "source"     /* Prefer verified sources */
 	ResolutionStrategyLLM        ConflictResolutionStrategy = "llm"        /* Use LLM to decide */
@@ -59,13 +59,13 @@ const (
 
 /* Conflict represents a detected conflict */
 type Conflict struct {
-	ConflictID    uuid.UUID
-	MemoryIDs     []uuid.UUID
-	Tier          string
-	ConflictType  string
-	Description   string
-	Resolved      bool
-	Resolution    string
+	ConflictID   uuid.UUID
+	MemoryIDs    []uuid.UUID
+	Tier         string
+	ConflictType string
+	Description  string
+	Resolved     bool
+	Resolution   string
 }
 
 /* DetectConflicts finds conflicting memories */
@@ -142,8 +142,8 @@ func (r *MemoryConflictResolver) detectSemanticConflicts(ctx context.Context, ag
 		if comparisonCount >= maxComparisons {
 			/* Log that we're limiting comparisons */
 			metrics.WarnWithContext(ctx, "Conflict detection limited comparisons", map[string]interface{}{
-				"agent_id":         agentID.String(),
-				"total_memories": len(memories),
+				"agent_id":        agentID.String(),
+				"total_memories":  len(memories),
 				"max_comparisons": maxComparisons,
 			})
 			break
@@ -382,7 +382,6 @@ func (r *MemoryConflictResolver) resolveByTimestamp(ctx context.Context, conflic
 		}
 	}
 
-	/* Mark conflict as resolved */
 	return r.markConflictResolved(ctx, conflict.ConflictID, "timestamp", keepID.String())
 }
 
@@ -484,7 +483,7 @@ Which one is more accurate and should be kept? Respond with "1" or "2".`, memori
 
 	response, err := r.llm.Generate(ctx, "gpt-4", prompt, llmConfig)
 	if err != nil {
-		return err
+		return fmt.Errorf("llm conflict resolution: %w", err)
 	}
 
 	/* Parse response */
@@ -544,7 +543,7 @@ func (r *MemoryConflictResolver) resolveByMerge(ctx context.Context, conflict Co
 	/* Keep first memory, update with merged content */
 	keepID := conflict.MemoryIDs[0]
 	if err := r.updateMemoryContent(ctx, keepID, conflict.Tier, mergedContent); err != nil {
-		return err
+		return fmt.Errorf("resolveByMerge update memory: %w", err)
 	}
 
 	/* Delete other memories */
@@ -577,24 +576,24 @@ func (r *MemoryConflictResolver) isSameTopic(content1, content2 string) bool {
 	/* Simple heuristic: check for common words (excluding stop words) */
 	words1 := extractWords(content1)
 	words2 := extractWords(content2)
-	
+
 	common := 0
 	for w1 := range words1 {
 		if words2[w1] {
 			common++
 		}
 	}
-	
+
 	/* If more than 2 common words, likely same topic */
 	return common > 2
 }
 
 func containsWord(text, word string) bool {
 	/* Simple word boundary check */
-	return len(text) >= len(word) && 
-		(text == word || 
-		 text[:len(word)] == word && (len(text) == len(word) || text[len(word)] == ' ') ||
-		 text[len(text)-len(word):] == word && (len(text) == len(word) || text[len(text)-len(word)-1] == ' '))
+	return len(text) >= len(word) &&
+		(text == word ||
+			text[:len(word)] == word && (len(text) == len(word) || text[len(word)] == ' ') ||
+			text[len(text)-len(word):] == word && (len(text) == len(word) || text[len(text)-len(word)-1] == ' '))
 }
 
 func extractWords(text string) map[string]bool {
@@ -748,7 +747,10 @@ func (r *MemoryConflictResolver) updateMemoryContent(ctx context.Context, memory
 		SET content = $1, embedding = $2::neurondb_vector, updated_at = NOW()
 		WHERE id = $3`, tableName)
 	_, err = r.db.DB.ExecContext(ctx, query, content, embedding, memoryID)
-	return err
+	if err != nil {
+		return fmt.Errorf("update memory content: %w", err)
+	}
+	return nil
 }
 
 func (r *MemoryConflictResolver) deleteMemory(ctx context.Context, memoryID uuid.UUID, tier string) error {
@@ -766,7 +768,10 @@ func (r *MemoryConflictResolver) deleteMemory(ctx context.Context, memoryID uuid
 
 	query := fmt.Sprintf(`DELETE FROM neurondb_agent.%s WHERE id = $1`, tableName)
 	_, err := r.db.DB.ExecContext(ctx, query, memoryID)
-	return err
+	if err != nil {
+		return fmt.Errorf("delete memory %s: %w", memoryID, err)
+	}
+	return nil
 }
 
 func (r *MemoryConflictResolver) storeConflict(ctx context.Context, agentID uuid.UUID, conflict Conflict) {
@@ -785,5 +790,8 @@ func (r *MemoryConflictResolver) markConflictResolved(ctx context.Context, confl
 		WHERE conflict_id = $3`
 
 	_, err := r.db.DB.ExecContext(ctx, query, resolution, keptMemoryID, conflictID)
-	return err
+	if err != nil {
+		return fmt.Errorf("mark conflict resolved: %w", err)
+	}
+	return nil
 }

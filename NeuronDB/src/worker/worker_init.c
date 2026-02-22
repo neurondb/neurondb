@@ -24,6 +24,7 @@
 #include "utils/guc.h"
 #include "access/reloptions.h"
 #include "libpq/pqsignal.h"
+#include "neurondb_replication.h"
 #include <signal.h>
 
 #include "neurondb_onnx.h"
@@ -37,6 +38,7 @@
 
 int			relopt_kind_hnsw;
 int			relopt_kind_ivf;
+int			relopt_kind_pq;
 
 extern void neuranq_main(Datum main_arg);
 extern Size neuranq_shmem_size(void);
@@ -90,8 +92,9 @@ _PG_init(void)
 
 	relopt_kind_hnsw = add_reloption_kind();
 	relopt_kind_ivf = add_reloption_kind();
-	elog(LOG, "neurondb: registered reloption kinds (HNSW=%d, IVF=%d)",
-		 relopt_kind_hnsw, relopt_kind_ivf);
+	relopt_kind_pq = add_reloption_kind();
+	elog(LOG, "neurondb: registered reloption kinds (HNSW=%d, IVF=%d, PQ=%d)",
+		 relopt_kind_hnsw, relopt_kind_ivf, relopt_kind_pq);
 
 	/* Register all HNSW options - PostgreSQL requires registration for recognition */
 	add_int_reloption(relopt_kind_hnsw, "m",
@@ -110,6 +113,19 @@ _PG_init(void)
 	add_int_reloption(relopt_kind_ivf, "probes",
 					  "Number of lists to probe",
 					  10, 1, 1000, AccessExclusiveLock);
+
+	add_int_reloption(relopt_kind_pq, "m",
+					  "Number of PQ subspaces",
+					  8, 1, 32, AccessExclusiveLock);
+	add_int_reloption(relopt_kind_pq, "ks",
+					  "Codebook size per subspace",
+					  256, 16, 65536, AccessExclusiveLock);
+	add_int_reloption(relopt_kind_pq, "rerank_k",
+					  "Number of candidates for reranking",
+					  100, 1, 10000, AccessExclusiveLock);
+
+	/* Register custom WAL resource manager for index replication */
+	neurondb_replication_register_rmgr();
 
 	/* Initialize all GUC variables (centralized) */
 	neurondb_init_all_gucs();

@@ -16,6 +16,7 @@ package tools
 import (
 	"context"
 	"fmt"
+	"regexp"
 
 	"github.com/neurondb/NeuronMCP/internal/database"
 	"github.com/neurondb/NeuronMCP/internal/logging"
@@ -42,9 +43,9 @@ func NewPredictBatchTool(db *database.Database, logger *logging.Logger) *Predict
 						"description": "The ID of the trained model",
 					},
 					"features_array": map[string]interface{}{
-						"type":        "array",
+						"type": "array",
 						"items": map[string]interface{}{
-							"type": "array",
+							"type":  "array",
 							"items": map[string]interface{}{"type": "number"},
 						},
 						"description": "Array of feature vectors for batch prediction",
@@ -73,10 +74,10 @@ func (t *PredictBatchTool) Execute(ctx context.Context, params map[string]interf
 	modelID, ok := params["model_id"].(float64)
 	if !ok {
 		return Error(fmt.Sprintf("model_id parameter must be a number for neurondb_neurondb_predict_batch tool: received type %T, value=%v", params["model_id"], params["model_id"]), "VALIDATION_ERROR", map[string]interface{}{
-			"parameter":     "model_id",
-			"received_type": fmt.Sprintf("%T", params["model_id"]),
+			"parameter":      "model_id",
+			"received_type":  fmt.Sprintf("%T", params["model_id"]),
 			"received_value": params["model_id"],
-			"params":        params,
+			"params":         params,
 		}), nil
 	}
 
@@ -101,46 +102,46 @@ func (t *PredictBatchTool) Execute(ctx context.Context, params map[string]interf
 
 	if len(featuresArray) == 0 {
 		return Error(fmt.Sprintf("features_array cannot be empty for neurondb_predict_batch tool: model_id=%d, features_count=0", modelIDInt), "VALIDATION_ERROR", map[string]interface{}{
-			"parameter":     "features_array",
-			"model_id":      modelIDInt,
+			"parameter":      "features_array",
+			"model_id":       modelIDInt,
 			"features_count": 0,
-			"params":        params,
+			"params":         params,
 		}), nil
 	}
 
 	if len(featuresArray) > 1000 {
 		return Error(fmt.Sprintf("features_array exceeds maximum size of 1000 for neurondb_predict_batch tool: model_id=%d, features_count=%d", modelIDInt, len(featuresArray)), "VALIDATION_ERROR", map[string]interface{}{
-			"parameter":     "features_array",
-			"model_id":      modelIDInt,
+			"parameter":      "features_array",
+			"model_id":       modelIDInt,
 			"features_count": len(featuresArray),
-			"max_count":     1000,
-			"params":        params,
+			"max_count":      1000,
+			"params":         params,
 		}), nil
 	}
 
-  /* Convert features_array to vector array format for PostgreSQL */
-  /* Format: ARRAY['[1,2,3]'::vector, '[4,5,6]'::vector] */
+	/* Convert features_array to vector array format for PostgreSQL */
+	/* Format: ARRAY['[1,2,3]'::vector, '[4,5,6]'::vector] */
 	var vectorStrings []string
 	for i, features := range featuresArray {
 		featureVec, ok := features.([]interface{})
 		if !ok {
 			return Error(fmt.Sprintf("features_array element at index %d must be an array for neurondb_predict_batch tool: model_id=%d, features_count=%d, element_type=%T", i, modelIDInt, len(featuresArray), features), "VALIDATION_ERROR", map[string]interface{}{
-				"parameter":     "features_array",
-				"model_id":      modelIDInt,
+				"parameter":      "features_array",
+				"model_id":       modelIDInt,
 				"features_count": len(featuresArray),
-				"invalid_index": i,
-				"received_type": fmt.Sprintf("%T", features),
-				"params":        params,
+				"invalid_index":  i,
+				"received_type":  fmt.Sprintf("%T", features),
+				"params":         params,
 			}), nil
 		}
 
 		if len(featureVec) == 0 {
 			return Error(fmt.Sprintf("features_array element at index %d cannot be empty for neurondb_predict_batch tool: model_id=%d, features_count=%d", i, modelIDInt, len(featuresArray)), "VALIDATION_ERROR", map[string]interface{}{
-				"parameter":     "features_array",
-				"model_id":      modelIDInt,
+				"parameter":      "features_array",
+				"model_id":       modelIDInt,
 				"features_count": len(featuresArray),
-				"empty_index":   i,
-				"params":        params,
+				"empty_index":    i,
+				"params":         params,
 			}), nil
 		}
 
@@ -148,8 +149,8 @@ func (t *PredictBatchTool) Execute(ctx context.Context, params map[string]interf
 		vectorStrings = append(vectorStrings, vectorStr)
 	}
 
-  /* Build query: SELECT neurondb.predict_batch(model_id, ARRAY[vector1, vector2, ...]::vector[]) */
-  /* Need to build array of vectors properly */
+	/* Build query: SELECT neurondb.predict_batch(model_id, ARRAY[vector1, vector2, ...]::vector[]) */
+	/* Need to build array of vectors properly */
 	if len(vectorStrings) == 0 {
 		return Error(fmt.Sprintf("No valid vectors in features_array for neurondb_predict_batch tool: model_id=%d", modelIDInt), "VALIDATION_ERROR", map[string]interface{}{
 			"model_id": modelIDInt,
@@ -157,12 +158,20 @@ func (t *PredictBatchTool) Execute(ctx context.Context, params map[string]interf
 		}), nil
 	}
 
-  /* Build array literal: ARRAY['[1,2,3]'::vector, '[4,5,6]'::vector]::vector[] */
+	/* Validate vector format (numbers, commas, spaces, optional scientific notation) */
+	vectorRegex := regexp.MustCompile(`^\[[\d.,\s\-eE+]+\]$`)
+	for _, vecStr := range vectorStrings {
+		if !vectorRegex.MatchString(vecStr) {
+			return Error("Invalid vector format in features_array", "VALIDATION_ERROR", nil), nil
+		}
+	}
+
+	/* Build array literal: ARRAY['[1,2,3]'::vector, '[4,5,6]'::vector]::vector[] */
 	var arrayParts []string
 	for _, vecStr := range vectorStrings {
 		arrayParts = append(arrayParts, fmt.Sprintf("'%s'::vector", vecStr))
 	}
-	
+
 	arrayLiteral := "ARRAY[" + arrayParts[0]
 	for i := 1; i < len(arrayParts); i++ {
 		arrayLiteral += ", " + arrayParts[i]
@@ -183,8 +192,8 @@ func (t *PredictBatchTool) Execute(ctx context.Context, params map[string]interf
 	}
 
 	return Success(result, map[string]interface{}{
-		"model_id":       modelIDInt,
-		"features_count": len(featuresArray),
+		"model_id":          modelIDInt,
+		"features_count":    len(featuresArray),
 		"predictions_count": len(featuresArray),
 	}), nil
 }
@@ -241,10 +250,10 @@ func (t *ExportModelTool) Execute(ctx context.Context, params map[string]interfa
 	modelID, ok := params["model_id"].(float64)
 	if !ok {
 		return Error(fmt.Sprintf("model_id parameter must be a number for neurondb_export_model tool: received type %T, value=%v", params["model_id"], params["model_id"]), "VALIDATION_ERROR", map[string]interface{}{
-			"parameter":     "model_id",
-			"received_type": fmt.Sprintf("%T", params["model_id"]),
+			"parameter":      "model_id",
+			"received_type":  fmt.Sprintf("%T", params["model_id"]),
 			"received_value": params["model_id"],
-			"params":        params,
+			"params":         params,
 		}), nil
 	}
 
@@ -265,11 +274,11 @@ func (t *ExportModelTool) Execute(ctx context.Context, params map[string]interfa
 	validFormats := map[string]bool{"onnx": true, "pmml": true, "json": true}
 	if !validFormats[format] {
 		return Error(fmt.Sprintf("invalid format '%s' for neurondb_export_model tool: model_id=%d, valid formats are: onnx, pmml, json", format, modelIDInt), "VALIDATION_ERROR", map[string]interface{}{
-			"parameter":    "format",
-			"model_id":     modelIDInt,
-			"format":       format,
+			"parameter":     "format",
+			"model_id":      modelIDInt,
+			"format":        format,
 			"valid_formats": []string{"onnx", "pmml", "json"},
-			"params":       params,
+			"params":        params,
 		}), nil
 	}
 
@@ -326,5 +335,3 @@ func formatVectorArray(vectorStrings []string) string {
 	}
 	return fmt.Sprintf("%s", parts[0])
 }
-
-

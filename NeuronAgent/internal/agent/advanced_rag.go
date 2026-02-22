@@ -24,6 +24,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/neurondb/NeuronAgent/internal/db"
+	"github.com/neurondb/NeuronAgent/internal/validation"
 	"github.com/neurondb/NeuronAgent/pkg/neurondb"
 )
 
@@ -102,11 +103,19 @@ func (r *AdvancedRAG) MultiVectorRAG(ctx context.Context, query, tableName strin
 	/* Search across multiple embedding columns */
 	var allResults []map[string]interface{}
 
+	qTable, err := validation.QuoteIdentifier(tableName)
+	if err != nil {
+		return nil, fmt.Errorf("multi-vector RAG failed: invalid table name: %w", err)
+	}
 	for _, col := range embeddingCols {
+		qCol, err := validation.QuoteIdentifier(col)
+		if err != nil {
+			return nil, fmt.Errorf("multi-vector RAG failed: invalid column name %q: %w", col, err)
+		}
 		query := fmt.Sprintf(`SELECT id, content, metadata, 1 - (%s <=> $1::vector) AS similarity
 			FROM %s
 			ORDER BY %s <=> $1::vector
-			LIMIT $2`, col, tableName, col)
+			LIMIT $2`, qCol, qTable, qCol)
 
 		type ResultRow struct {
 			ID         int64                  `db:"id"`
@@ -158,10 +167,18 @@ func (r *AdvancedRAG) RerankedRAG(ctx context.Context, query, tableName, vectorC
 		return nil, fmt.Errorf("reranked RAG failed: embedding_error=true, error=%w", err)
 	}
 
+	qTable, err := validation.QuoteIdentifier(tableName)
+	if err != nil {
+		return nil, fmt.Errorf("reranked RAG failed: invalid table name: %w", err)
+	}
+	qCol, err := validation.QuoteIdentifier(vectorCol)
+	if err != nil {
+		return nil, fmt.Errorf("reranked RAG failed: invalid vector column: %w", err)
+	}
 	initialQuery := fmt.Sprintf(`SELECT id, content, metadata
 		FROM %s
 		ORDER BY %s <=> $1::vector
-		LIMIT $2`, tableName, vectorCol)
+		LIMIT $2`, qTable, qCol)
 
 	type InitialRow struct {
 		ID       int64                  `db:"id"`
@@ -223,12 +240,24 @@ func (r *AdvancedRAG) TemporalRAG(ctx context.Context, query, tableName, vectorC
 	}
 
 	/* Search with temporal weighting */
+	qTable, err := validation.QuoteIdentifier(tableName)
+	if err != nil {
+		return nil, fmt.Errorf("temporal RAG failed: invalid table name: %w", err)
+	}
+	qVectorCol, err := validation.QuoteIdentifier(vectorCol)
+	if err != nil {
+		return nil, fmt.Errorf("temporal RAG failed: invalid vector column: %w", err)
+	}
+	qTimestampCol, err := validation.QuoteIdentifier(timestampCol)
+	if err != nil {
+		return nil, fmt.Errorf("temporal RAG failed: invalid timestamp column: %w", err)
+	}
 	querySQL := fmt.Sprintf(`SELECT id, content, metadata, created_at,
 		(1 - (%s <=> $1::vector)) * (1 - $2) + 
 		(EXP(-EXTRACT(EPOCH FROM (NOW() - %s)) / 86400.0) / 7.0) * $2 AS combined_score
 		FROM %s
 		ORDER BY combined_score DESC
-		LIMIT $3`, vectorCol, timestampCol, tableName)
+		LIMIT $3`, qVectorCol, qTimestampCol, qTable)
 
 	type TemporalRow struct {
 		ID            int64                  `db:"id"`
@@ -273,9 +302,21 @@ func (r *AdvancedRAG) FacetedRAG(ctx context.Context, query, tableName, vectorCo
 	}
 
 	/* Build category filter */
+	qTable, err := validation.QuoteIdentifier(tableName)
+	if err != nil {
+		return nil, fmt.Errorf("faceted RAG failed: invalid table name: %w", err)
+	}
+	qVectorCol, err := validation.QuoteIdentifier(vectorCol)
+	if err != nil {
+		return nil, fmt.Errorf("faceted RAG failed: invalid vector column: %w", err)
+	}
+	qCategoryCol, err := validation.QuoteIdentifier(categoryCol)
+	if err != nil {
+		return nil, fmt.Errorf("faceted RAG failed: invalid category column: %w", err)
+	}
 	categoryFilter := ""
 	if len(categories) > 0 {
-		categoryFilter = fmt.Sprintf("AND %s = ANY($3::text[])", categoryCol)
+		categoryFilter = fmt.Sprintf("AND %s = ANY($3::text[])", qCategoryCol)
 	}
 
 	/* Search with category filter */
@@ -284,7 +325,7 @@ func (r *AdvancedRAG) FacetedRAG(ctx context.Context, query, tableName, vectorCo
 		FROM %s
 		WHERE agent_id = $2 %s
 		ORDER BY %s <=> $1::vector
-		LIMIT $4`, categoryCol, vectorCol, tableName, categoryFilter, vectorCol)
+		LIMIT $4`, qCategoryCol, qVectorCol, qTable, categoryFilter, qVectorCol)
 
 	type FacetedRow struct {
 		ID         int64                  `db:"id"`
@@ -418,6 +459,61 @@ Provide a clear, concise answer based only on the context provided.`, query, con
 	}
 
 	return response.Content, nil
+}
+
+/* VectorRetrieveDocuments retrieves documents by vector similarity only (no answer generation). Used by modular RAG. */
+func (r *AdvancedRAG) VectorRetrieveDocuments(ctx context.Context, query, tableName, vectorCol, textCol string, topK int) ([]string, error) {
+	embedModel := "all-MiniLM-L6-v2"
+	queryEmbedding, err := r.embed.Embed(ctx, query, embedModel)
+	if err != nil {
+		return nil, fmt.Errorf("vector retrieve: embed failed: %w", err)
+	}
+	contexts, err := r.ragClient.RetrieveContext(ctx, queryEmbedding, tableName, vectorCol, topK)
+	if err != nil {
+		return nil, fmt.Errorf("vector retrieve: %w", err)
+	}
+	documents := make([]string, len(contexts))
+	for i, c := range contexts {
+		documents[i] = c.Content
+	}
+	return documents, nil
+}
+
+/* HybridRetrieveDocuments retrieves documents via hybrid search only (no answer generation). Used by modular RAG. */
+func (r *AdvancedRAG) HybridRetrieveDocuments(ctx context.Context, query, tableName, vectorCol, textCol string, limit int, vectorWeight float64) ([]string, error) {
+	queryEmbedding, err := r.embed.Embed(ctx, query, "all-MiniLM-L6-v2")
+	if err != nil {
+		return nil, fmt.Errorf("hybrid retrieve: embed failed: %w", err)
+	}
+	params := map[string]interface{}{
+		"vector_weight": vectorWeight,
+		"text_weight":   1.0 - vectorWeight,
+	}
+	results, err := r.hybridClient.HybridSearch(ctx, query, queryEmbedding, tableName, vectorCol, textCol, limit, params)
+	if err != nil {
+		return nil, fmt.Errorf("hybrid retrieve: %w", err)
+	}
+	documents := make([]string, len(results))
+	for i, res := range results {
+		documents[i] = res.Content
+	}
+	return documents, nil
+}
+
+/* RerankDocuments reranks documents using the configured reranker. Used by modular RAG. */
+func (r *AdvancedRAG) RerankDocuments(ctx context.Context, query string, documents []string, model string, topK int) ([]string, error) {
+	if len(documents) == 0 {
+		return documents, nil
+	}
+	results, err := r.ragClient.RerankResults(ctx, query, documents, model, topK)
+	if err != nil {
+		return nil, fmt.Errorf("rerank: %w", err)
+	}
+	out := make([]string, len(results))
+	for i, res := range results {
+		out[i] = res.Document
+	}
+	return out, nil
 }
 
 func (r *AdvancedRAG) deduplicateAndRank(results []map[string]interface{}, limit int) []string {
@@ -739,11 +835,19 @@ Generate %d hypothetical documents, one per line, each starting with "DOC: "`, n
 	}
 
 	/* Step 3: Perform dual-path retrieval */
+	qTable, err := validation.QuoteIdentifier(tableName)
+	if err != nil {
+		return nil, fmt.Errorf("HyDE RAG failed: invalid table name: %w", err)
+	}
+	qVectorCol, err := validation.QuoteIdentifier(vectorCol)
+	if err != nil {
+		return nil, fmt.Errorf("HyDE RAG failed: invalid vector column: %w", err)
+	}
 	/* Retrieve using original query */
 	originalQuery := fmt.Sprintf(`SELECT id, content, metadata, 1 - (%s <=> $1::vector) AS similarity
 		FROM %s
 		ORDER BY %s <=> $1::vector
-		LIMIT $2`, vectorCol, tableName, vectorCol)
+		LIMIT $2`, qVectorCol, qTable, qVectorCol)
 
 	type OriginalRow struct {
 		ID         int64                  `db:"id"`
@@ -785,7 +889,7 @@ Generate %d hypothetical documents, one per line, each starting with "DOC: "`, n
 		hypoQuery := fmt.Sprintf(`SELECT id, content, metadata, (1 - (%s <=> $1::vector)) * $3 AS similarity
 			FROM %s
 			ORDER BY %s <=> $1::vector
-			LIMIT $2`, vectorCol, tableName, vectorCol)
+			LIMIT $2`, qVectorCol, qTable, qVectorCol)
 
 		var hypoRows []OriginalRow
 		err = r.db.DB.SelectContext(ctx, &hypoRows, hypoQuery, hypoEmbedding, limit, hypotheticalWeight)
@@ -872,11 +976,27 @@ func (r *AdvancedRAG) GraphRAG(ctx context.Context, query, tableName, vectorCol,
 	}
 
 	/* Step 2: Initial retrieval to find entities */
+	qTable, err := validation.QuoteIdentifier(tableName)
+	if err != nil {
+		return nil, fmt.Errorf("graph RAG failed: invalid table name: %w", err)
+	}
+	qVectorCol, err := validation.QuoteIdentifier(vectorCol)
+	if err != nil {
+		return nil, fmt.Errorf("graph RAG failed: invalid vector column: %w", err)
+	}
+	qEntityCol, err := validation.QuoteIdentifier(entityCol)
+	if err != nil {
+		return nil, fmt.Errorf("graph RAG failed: invalid entity column: %w", err)
+	}
+	qRelationCol, err := validation.QuoteIdentifier(relationCol)
+	if err != nil {
+		return nil, fmt.Errorf("graph RAG failed: invalid relation column: %w", err)
+	}
 	initialQuery := fmt.Sprintf(`SELECT id, content, metadata, %s as entities, %s as relations, 1 - (%s <=> $1::vector) AS similarity
 		FROM %s
 		WHERE %s IS NOT NULL OR %s IS NOT NULL
 		ORDER BY %s <=> $1::vector
-		LIMIT $2`, entityCol, relationCol, vectorCol, tableName, entityCol, relationCol, vectorCol)
+		LIMIT $2`, qEntityCol, qRelationCol, qVectorCol, qTable, qEntityCol, qRelationCol, qVectorCol)
 
 	type GraphRow struct {
 		ID         int64                  `db:"id"`
@@ -932,7 +1052,7 @@ func (r *AdvancedRAG) GraphRAG(ctx context.Context, query, tableName, vectorCol,
 			FROM %s
 			WHERE %s::text LIKE $2 OR %s::text LIKE $2
 			ORDER BY %s <=> $1::vector
-			LIMIT $3`, entityCol, relationCol, vectorCol, tableName, entityCol, relationCol, vectorCol)
+			LIMIT $3`, qEntityCol, qRelationCol, qVectorCol, qTable, qEntityCol, qRelationCol, qVectorCol)
 
 		var relatedRows []GraphRow
 		entityPattern := "%" + currentEntity + "%"
@@ -1061,8 +1181,25 @@ func (r *AdvancedRAG) extractRelations(relations interface{}) []string {
 	return result
 }
 
+/* quoteRAGIdentifiers returns quoted table and vector column identifiers for safe SQL building */
+func quoteRAGIdentifiers(tableName, vectorCol string) (qTable, qVectorCol string, err error) {
+	qTable, err = validation.QuoteIdentifier(tableName)
+	if err != nil {
+		return "", "", fmt.Errorf("invalid table name: %w", err)
+	}
+	qVectorCol, err = validation.QuoteIdentifier(vectorCol)
+	if err != nil {
+		return "", "", fmt.Errorf("invalid vector column: %w", err)
+	}
+	return qTable, qVectorCol, nil
+}
+
 /* CorrectiveRAG performs RAG with iterative self-correction */
 func (r *AdvancedRAG) CorrectiveRAG(ctx context.Context, query, tableName, vectorCol, textCol string, limit int, maxIterations int, qualityThreshold float64) (*RAGResult, error) {
+	qTable, qVectorCol, err := quoteRAGIdentifiers(tableName, vectorCol)
+	if err != nil {
+		return nil, fmt.Errorf("corrective RAG failed: %w", err)
+	}
 	iterationCount := 0
 	currentK := limit
 	qualityScore := 0.0
@@ -1083,7 +1220,7 @@ func (r *AdvancedRAG) CorrectiveRAG(ctx context.Context, query, tableName, vecto
 		retrieveQuery := fmt.Sprintf(`SELECT id, content, metadata, 1 - (%s <=> $1::vector) AS similarity
 			FROM %s
 			ORDER BY %s <=> $1::vector
-			LIMIT $2`, vectorCol, tableName, vectorCol)
+			LIMIT $2`, qVectorCol, qTable, qVectorCol)
 
 		type RetrieveRow struct {
 			ID         int64                  `db:"id"`
@@ -1147,7 +1284,7 @@ func (r *AdvancedRAG) CorrectiveRAG(ctx context.Context, query, tableName, vecto
 		retrieveQuery := fmt.Sprintf(`SELECT content
 			FROM %s
 			ORDER BY %s <=> $1::vector
-			LIMIT $2`, tableName, vectorCol)
+			LIMIT $2`, qTable, qVectorCol)
 
 		var rows []struct {
 			Content string `db:"content"`
@@ -1240,6 +1377,10 @@ Generate 2-4 steps maximum.`, query)
 	tokensUsed := 0
 	evidenceScore := 0.0
 
+	qTable, qVectorCol, err := quoteRAGIdentifiers(tableName, vectorCol)
+	if err != nil {
+		return nil, fmt.Errorf("agentic RAG failed: %w", err)
+	}
 	for i, step := range planSteps {
 		if i >= maxSteps {
 			break
@@ -1256,7 +1397,7 @@ Generate 2-4 steps maximum.`, query)
 		retrieveQuery := fmt.Sprintf(`SELECT id, content, metadata, 1 - (%s <=> $1::vector) AS similarity
 			FROM %s
 			ORDER BY %s <=> $1::vector
-			LIMIT $2`, vectorCol, tableName, vectorCol)
+			LIMIT $2`, qVectorCol, qTable, qVectorCol)
 
 		type StepRow struct {
 			ID         int64                  `db:"id"`
@@ -1501,10 +1642,14 @@ Respond with JSON: {"strategy": "semantic|hybrid|keyword", "weight": 0.0-1.0, "r
 		return nil, fmt.Errorf("contextual RAG failed: embedding_error=true, error=%w", err)
 	}
 
+	qTable, qVectorCol, err := quoteRAGIdentifiers(tableName, vectorCol)
+	if err != nil {
+		return nil, fmt.Errorf("contextual RAG failed: %w", err)
+	}
 	retrieveQuery := fmt.Sprintf(`SELECT id, content, metadata, 1 - (%s <=> $1::vector) AS similarity
 		FROM %s
 		ORDER BY %s <=> $1::vector
-		LIMIT $2`, vectorCol, tableName, vectorCol)
+		LIMIT $2`, qVectorCol, qTable, qVectorCol)
 
 	type ContextualRow struct {
 		ID         int64                  `db:"id"`

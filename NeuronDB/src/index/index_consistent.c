@@ -19,6 +19,7 @@
 #include "neurondb_compat.h"
 #include "neurondb_index.h"
 #include "fmgr.h"
+#include "catalog/pg_type.h"
 #include "utils/builtins.h"
 #include "utils/snapmgr.h"
 #include "executor/spi.h"
@@ -39,6 +40,8 @@ static bool index_exists(const char *table, const char *col);
 static void build_hnsw_index(const char *table, const char *col, uint32 seed);
 static char *get_index_table(const char *table, const char *col, uint32 seed);
 static Oid get_relid_from_name(const char *relname);
+static void resolve_index_to_table_col(const char *index_name, MemoryContext ctx,
+									   char **out_table, char **out_column);
 
 /*
  * Create consistent query HNSW index with deterministic properties.
@@ -87,16 +90,84 @@ consistent_index_create(PG_FUNCTION_ARGS)
 }
 
 /*
+ * Resolve index name to (table name, column name) via catalog.
+ * If index_name is not a valid index OID, use it as table name and "embedding" as column.
+ */
+static void
+resolve_index_to_table_col(const char *index_name, MemoryContext ctx,
+						   char **out_table, char **out_column)
+{
+	Oid			index_oid;
+	NdbSpiSession *session = NULL;
+	StringInfoData sql;
+	Oid			argtypes[1];
+	Datum		values[1];
+	char		nulls[1] = {' '};
+	int			ret;
+	MemoryContext old = MemoryContextSwitchTo(ctx);
+
+	*out_table = NULL;
+	*out_column = NULL;
+	index_oid = DatumGetObjectId(DirectFunctionCall1(to_regclass, CStringGetTextDatum(index_name)));
+	if (!OidIsValid(index_oid))
+	{
+		*out_table = pstrdup(index_name);
+		*out_column = pstrdup("embedding");
+		MemoryContextSwitchTo(old);
+		return;
+	}
+	argtypes[0] = OIDOID;
+	values[0] = ObjectIdGetDatum(index_oid);
+	session = ndb_spi_session_begin(ctx, false);
+	if (session == NULL)
+	{
+		*out_table = pstrdup(index_name);
+		*out_column = pstrdup("embedding");
+		MemoryContextSwitchTo(old);
+		return;
+	}
+	ndb_spi_stringinfo_init(session, &sql);
+	appendStringInfo(&sql,
+					 "SELECT (SELECT (n.nspname || '.' || t.relname) FROM pg_class t JOIN pg_namespace n ON n.oid = t.relnamespace WHERE t.oid = i.indrelid), (SELECT a.attname FROM pg_attribute a WHERE a.attrelid = i.indrelid AND a.attnum = (i.indkey)[1] AND a.attnum > 0 AND NOT a.attisdropped) FROM pg_index i WHERE i.indexrelid = $1");
+	ret = ndb_spi_execute_with_args(session, sql.data, 1, argtypes, values, nulls, true, 1);
+	ndb_spi_stringinfo_free(session, &sql);
+	if (ret == SPI_OK_SELECT && SPI_processed > 0)
+	{
+		HeapTuple	tup = SPI_tuptable->vals[0];
+		TupleDesc	td = SPI_tuptable->tupdesc;
+		bool		n1 = false;
+		bool		n2 = false;
+		Datum		d1 = SPI_getbinval(tup, td, 1, &n1);
+		Datum		d2 = SPI_getbinval(tup, td, 2, &n2);
+
+		if (!n1 && !n2)
+		{
+			*out_table = pstrdup(TextDatumGetCString(d1));
+			*out_column = pstrdup(TextDatumGetCString(d2));
+		}
+		ndb_spi_session_end(&session);
+		MemoryContextSwitchTo(old);
+		return;
+	}
+	ndb_spi_session_end(&session);
+	*out_table = pstrdup(index_name);
+	*out_column = pstrdup("embedding");
+	MemoryContextSwitchTo(old);
+}
+
+/*
  * Consistent kNN search with snapshot pinning and deterministic tie-breaking.
  * Returns a setof (id BIGINT, dist DOUBLE PRECISION) rows for accurate top-k.
+ * Table and column are derived from index_name via catalog or fallback.
  */
 PG_FUNCTION_INFO_V1(consistent_knn_search);
 Datum
 consistent_knn_search(PG_FUNCTION_ARGS)
 {
-	Vector	   *query = PG_GETARG_VECTOR_P(0);
-	int32		k = PG_GETARG_INT32(1);
-	int64		snapshot_xmin = PG_GETARG_INT64(2);
+	text	   *index_name = PG_GETARG_TEXT_PP(0);
+	Vector	   *query = PG_GETARG_VECTOR_P(1);
+	int32		k = PG_GETARG_INT32(2);
+	text	   *consistency_level = PG_GETARG_TEXT_PP(3);
 	FuncCallContext *funcctx = NULL;
 	TupleDesc	tupdesc;
 	Datum		values[2];
@@ -104,11 +175,15 @@ consistent_knn_search(PG_FUNCTION_ARGS)
 	HeapTuple	tuple;
 	int			call_cntr;
 	int			max_calls;
-	char *vector_str = NULL;
-	char		sql[2048];
+	char	   *vector_str = NULL;
+	char	   *table_str = NULL;
+	char	   *col_str = NULL;
+	const char *quoted_table = NULL;
+	const char *quoted_col = NULL;
+	StringInfoData sql;
 	int			ret;
 
-	(void) snapshot_xmin;		/* Reserved for future use */
+	(void) consistency_level;		/* Reserved for future use */
 
 	NDB_CHECK_VECTOR_VALID(query);
 
@@ -123,6 +198,12 @@ consistent_knn_search(PG_FUNCTION_ARGS)
 		oldcontext =
 			MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
 
+		/* Resolve index name to table and column (with quoting) */
+		resolve_index_to_table_col(text_to_cstring(index_name),
+								   funcctx->multi_call_memory_ctx,
+								   &table_str, &col_str);
+		quoted_table = quote_identifier(table_str);
+		quoted_col = quote_identifier(col_str);
 
 		/* Convert query vector to string for SQL embedding */
 		vector_str = vector_to_sql_literal(query);
@@ -144,23 +225,16 @@ consistent_knn_search(PG_FUNCTION_ARGS)
 		}
 
 		/*
-		 * Use index-backed search: this must reference the correct index
-		 * table in a complete implementation. This is a placeholder for
-		 * future implementation that will dynamically determine the index
-		 * table. For now, assumes "my_vectors(id, embedding)" exists.
-		 *
+		 * Use parameterized query with quoted table and column from catalog.
 		 * Deterministic ordering: ORDER BY dist ASC, ctid ASC, id ASC
 		 */
-		snprintf(sql,
-				 sizeof(sql),
-				 "SELECT id, l2_distance(embedding, %s) AS dist "
-				 "FROM my_vectors "
-				 "ORDER BY dist ASC, ctid ASC, id ASC "
-				 "LIMIT %d",
-				 vector_str,
-				 k);
+		ndb_spi_stringinfo_init(session, &sql);
+		appendStringInfo(&sql,
+						 "SELECT id, l2_distance(%s, %s) AS dist FROM %s ORDER BY dist ASC, ctid ASC, id ASC LIMIT %d",
+						 quoted_col, vector_str, quoted_table, k);
 
-		ret = ndb_spi_execute(session, sql, true, k);
+		ret = ndb_spi_execute(session, sql.data, true, k);
+		ndb_spi_stringinfo_free(session, &sql);
 		if (ret != SPI_OK_SELECT)
 		{
 			ndb_spi_session_end(&session);

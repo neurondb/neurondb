@@ -144,7 +144,10 @@ func validateType(value interface{}, expectedType string) error {
 		if actualType != reflect.Int && actualType != reflect.Int64 && actualType != reflect.Int32 {
 			/* Also accept float64 if it's a whole number */
 			if actualType == reflect.Float64 {
-				floatVal := value.(float64)
+				floatVal, ok := value.(float64)
+				if !ok {
+					return fmt.Errorf("expected integer, got non-float64")
+				}
 				if floatVal != math.Trunc(floatVal) {
 					return fmt.Errorf("expected integer, got float64 with decimal part")
 				}

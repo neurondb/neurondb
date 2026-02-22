@@ -19,11 +19,15 @@ package jobs
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/neurondb/NeuronAgent/internal/db"
 	"github.com/neurondb/NeuronAgent/internal/metrics"
 )
+
+const maxJobPayloadSize = 512 * 1024 // 512 KiB
 
 type Queue struct {
 	queries *db.Queries
@@ -35,6 +39,16 @@ func NewQueue(queries *db.Queries) *Queue {
 
 /* Enqueue adds a job to the queue */
 func (q *Queue) Enqueue(ctx context.Context, jobType string, agentID, sessionID *uuid.UUID, payload map[string]interface{}, priority int) (*db.Job, error) {
+	if payload != nil {
+		payloadBytes, err := json.Marshal(payload)
+		if err != nil {
+			return nil, fmt.Errorf("job enqueue failed: invalid_payload=true, error=%w", err)
+		}
+		if len(payloadBytes) > maxJobPayloadSize {
+			return nil, fmt.Errorf("job enqueue failed: payload_too_large=true, size=%d, max=%d", len(payloadBytes), maxJobPayloadSize)
+		}
+	}
+
 	job := &db.Job{
 		Type:       jobType,
 		Status:     "queued",
@@ -55,6 +69,11 @@ func (q *Queue) Enqueue(ctx context.Context, jobType string, agentID, sessionID 
 /* ClaimJob claims the next available job using SKIP LOCKED */
 func (q *Queue) ClaimJob(ctx context.Context) (*db.Job, error) {
 	return q.queries.ClaimJob(ctx)
+}
+
+/* GetJob returns a job by ID (for idempotency checks) */
+func (q *Queue) GetJob(ctx context.Context, id int64) (*db.Job, error) {
+	return q.queries.GetJob(ctx, id)
 }
 
 /* UpdateJob updates a job's status and result */

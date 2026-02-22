@@ -14,9 +14,11 @@
 package validation
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 )
 
 /* ValidateRequired checks if a string is non-empty */
@@ -53,6 +55,25 @@ func ReadAndValidateBody(r *http.Request, maxSize int64) ([]byte, error) {
 	}
 
 	return bodyBytes, nil
+}
+
+/* DecodeJSONBody reads request body with size limit, checks Content-Type, and decodes into dst */
+func DecodeJSONBody(r *http.Request, maxBytes int64, dst interface{}) error {
+	ct := r.Header.Get("Content-Type")
+	if ct != "" && !strings.Contains(strings.ToLower(ct), "application/json") {
+		return fmt.Errorf("Content-Type must be application/json, got %s", ct)
+	}
+	body, err := ReadAndValidateBody(r, maxBytes)
+	if err != nil {
+		return err
+	}
+	if len(body) == 0 {
+		return fmt.Errorf("request body is empty")
+	}
+	if err := json.Unmarshal(body, dst); err != nil {
+		return fmt.Errorf("invalid JSON: %w", err)
+	}
+	return nil
 }
 
 /* ValidateLimit validates limit parameter for pagination */

@@ -117,3 +117,12 @@ func (l *Logger) Error(message string, err error, fields map[string]interface{})
 	}
 	l.log("error", message, fields)
 }
+
+/* Close releases file handles when logging to a file. Call on shutdown for clean exit.
+ * No-op when output is stdout or stderr. */
+func (l *Logger) Close() error {
+	if l.output != nil && l.output != os.Stdout && l.output != os.Stderr {
+		return l.output.Close()
+	}
+	return nil
+}

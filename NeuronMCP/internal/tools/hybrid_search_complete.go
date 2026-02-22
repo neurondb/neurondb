@@ -16,6 +16,7 @@ package tools
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/neurondb/NeuronMCP/internal/database"
@@ -39,9 +40,9 @@ func NewReciprocalRankFusionTool(db *database.Database, logger *logging.Logger) 
 				"type": "object",
 				"properties": map[string]interface{}{
 					"rankings": map[string]interface{}{
-						"type":        "array",
+						"type": "array",
 						"items": map[string]interface{}{
-							"type": "array",
+							"type":  "array",
 							"items": map[string]interface{}{"type": "number"},
 						},
 						"description": "Array of ranking arrays",
@@ -80,7 +81,7 @@ func (t *ReciprocalRankFusionTool) Execute(ctx context.Context, params map[strin
 		return Error("rankings cannot be empty", "VALIDATION_ERROR", nil), nil
 	}
 
-  /* Format rankings array for PostgreSQL */
+	/* Format rankings array for PostgreSQL */
 	var rankingStrs []string
 	for _, ranking := range rankings {
 		if arr, ok := ranking.([]interface{}); ok {
@@ -219,9 +220,9 @@ func NewMultiVectorSearchTool(db *database.Database, logger *logging.Logger) *Mu
 						"description": "Table name",
 					},
 					"query_vectors": map[string]interface{}{
-						"type":        "array",
+						"type": "array",
 						"items": map[string]interface{}{
-							"type": "array",
+							"type":  "array",
 							"items": map[string]interface{}{"type": "number"},
 						},
 						"description": "Array of query vectors",
@@ -273,11 +274,15 @@ func (t *MultiVectorSearchTool) Execute(ctx context.Context, params map[string]i
 		return Error("table and query_vectors are required", "VALIDATION_ERROR", nil), nil
 	}
 
-  /* Format vectors array */
+	/* Validate vector format and build array */
+	vectorRegex := regexp.MustCompile(`^\[[\d.,\s\-eE+]+\]$`)
 	var vecStrs []string
 	for _, vec := range queryVectors {
 		if arr, ok := vec.([]interface{}); ok {
 			vecStr := formatVectorFromInterface(arr)
+			if !vectorRegex.MatchString(vecStr) {
+				return Error("Invalid vector format in query_vectors", "VALIDATION_ERROR", nil), nil
+			}
 			vecStrs = append(vecStrs, vecStr+"::vector")
 		}
 	}
@@ -577,12 +582,3 @@ func (t *DiverseVectorSearchTool) Execute(ctx context.Context, params map[string
 		"count": len(results),
 	}), nil
 }
-
-
-
-
-
-
-
-
-

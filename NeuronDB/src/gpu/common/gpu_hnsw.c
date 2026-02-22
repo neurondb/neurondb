@@ -15,6 +15,7 @@
  */
 
 #include "postgres.h"
+#include <float.h>
 #include "neurondb_gpu_backend.h"
 #include "neurondb_gpu.h"
 #include "neurondb_constants.h"

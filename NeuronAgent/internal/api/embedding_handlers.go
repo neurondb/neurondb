@@ -18,9 +18,11 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/neurondb/NeuronAgent/internal/auth"
+	"github.com/neurondb/NeuronAgent/internal/validation"
 	"github.com/neurondb/NeuronAgent/pkg/neurondb"
 )
 
@@ -66,8 +68,8 @@ type EmbeddingBatchResponse struct {
 /* Embedding Models Response */
 
 type EmbeddingModelsResponse struct {
-	Models  []string               `json:"models"`
-	Default string                 `json:"default"`
+	Models   []string               `json:"models"`
+	Default  string                 `json:"default"`
 	Metadata map[string]interface{} `json:"metadata,omitempty"`
 }
 
@@ -149,16 +151,22 @@ func (h *EmbeddingHandlers) BatchGenerateEmbeddings(w http.ResponseWriter, r *ht
 		return
 	}
 
-	/* Parse request */
+	/* Parse request with body size limit (1MB) and Content-Type check */
+	const maxEmbeddingBodySize = 1024 * 1024
 	var req EmbeddingBatchRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := validation.DecodeJSONBody(r, maxEmbeddingBodySize, &req); err != nil {
 		respondError(w, NewErrorWithContext(http.StatusBadRequest, "batch embedding generation failed: request parsing error", err, requestID, endpoint, method, "embedding", "", nil))
 		return
 	}
 
-	/* Validate request */
+	/* Validate request and enforce batch size limit to prevent resource exhaustion */
+	const maxBatchSize = 100
 	if len(req.Texts) == 0 {
 		respondError(w, NewErrorWithContext(http.StatusBadRequest, "batch embedding generation failed: texts array is required and cannot be empty", nil, requestID, endpoint, method, "embedding", "", nil))
+		return
+	}
+	if len(req.Texts) > maxBatchSize {
+		respondError(w, NewErrorWithContext(http.StatusBadRequest, fmt.Sprintf("batch embedding generation failed: texts count %d exceeds maximum %d", len(req.Texts), maxBatchSize), nil, requestID, endpoint, method, "embedding", "", nil))
 		return
 	}
 

@@ -123,8 +123,7 @@ def create_test_data(client):
     print("Creating test data...")
     print("="*60)
     
-    # We'll use psql directly for data creation
-    # This is just a placeholder - actual data creation will be done via SQL
+    # Test data is created via SQL or fixtures before running; no in-script creation.
     pass
 
 def main():

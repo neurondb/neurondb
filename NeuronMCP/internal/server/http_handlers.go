@@ -24,6 +24,19 @@ import (
 	"github.com/neurondb/NeuronMCP/internal/middleware"
 )
 
+/* marshalOrError marshals v to JSON; on failure returns nil and an MCP error response */
+func marshalOrError(v interface{}, what string) ([]byte, *middleware.MCPResponse) {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return nil, &middleware.MCPResponse{
+			Content:  []middleware.ContentBlock{{Type: "text", Text: fmt.Sprintf("internal error: failed to marshal %s", what)}},
+			IsError:  true,
+			Metadata: map[string]interface{}{"error_code": "SERIALIZATION_ERROR"},
+		}
+	}
+	return data, nil
+}
+
 /* getHTTPMetadataFromContext retrieves HTTP metadata from context if available */
 func getHTTPMetadataFromContext(ctx context.Context) map[string]interface{} {
 	if md := ctx.Value(contextkeys.HTTPMetadataKey{}); md != nil {
@@ -149,10 +162,10 @@ func (s *Server) HandleHTTPRequest(ctx context.Context, mcpReq *middleware.MCPRe
 
 /* handleHTTPInitialize handles initialize requests */
 func (s *Server) handleHTTPInitialize(ctx context.Context, mcpReq *middleware.MCPRequest) (*middleware.MCPResponse, error) {
-	/* Convert params to JSON */
-	paramsJSON, _ := json.Marshal(mcpReq.Params)
-	
-	/* Call MCP server's initialize handler */
+	paramsJSON, errResp := marshalOrError(mcpReq.Params, "parameters")
+	if errResp != nil {
+		return errResp, nil
+	}
 	result, err := s.mcpServer.HandleInitialize(ctx, paramsJSON)
 	if err != nil {
 		return &middleware.MCPResponse{
@@ -162,9 +175,10 @@ func (s *Server) handleHTTPInitialize(ctx context.Context, mcpReq *middleware.MC
 			IsError: true,
 		}, nil
 	}
-
-	/* Convert result to MCP response */
-	resultJSON, _ := json.Marshal(result)
+	resultJSON, errResp := marshalOrError(result, "result")
+	if errResp != nil {
+		return errResp, nil
+	}
 	return &middleware.MCPResponse{
 		Content: []middleware.ContentBlock{
 			{Type: "text", Text: string(resultJSON)},
@@ -177,8 +191,10 @@ func (s *Server) handleHTTPInitialize(ctx context.Context, mcpReq *middleware.MC
 
 /* handleHTTPListTools handles tools/list requests */
 func (s *Server) handleHTTPListTools(ctx context.Context, mcpReq *middleware.MCPRequest) (*middleware.MCPResponse, error) {
-	/* Convert params to JSON and call handler (doesn't execute middleware internally) */
-	paramsJSON, _ := json.Marshal(mcpReq.Params)
+	paramsJSON, errResp := marshalOrError(mcpReq.Params, "parameters")
+	if errResp != nil {
+		return errResp, nil
+	}
 	result, err := s.handleListTools(ctx, paramsJSON)
 	if err != nil {
 		return &middleware.MCPResponse{
@@ -188,9 +204,10 @@ func (s *Server) handleHTTPListTools(ctx context.Context, mcpReq *middleware.MCP
 			IsError: true,
 		}, nil
 	}
-
-	/* Convert result to MCP response */
-	resultJSON, _ := json.Marshal(result)
+	resultJSON, errResp := marshalOrError(result, "result")
+	if errResp != nil {
+		return errResp, nil
+	}
 	return &middleware.MCPResponse{
 		Content: []middleware.ContentBlock{
 			{Type: "text", Text: string(resultJSON)},
@@ -229,7 +246,7 @@ func (s *Server) handleHTTPCallTool(ctx context.Context, mcpReq *middleware.MCPR
 			},
 		}, nil
 	}
-	
+
 	/* Call handler which already executes middleware internally */
 	result, err := s.handleCallTool(ctx, paramsJSON)
 	if err != nil {
@@ -275,7 +292,10 @@ func (s *Server) handleHTTPCallTool(ctx context.Context, mcpReq *middleware.MCPR
 
 /* handleHTTPSearchTools handles tools/search requests */
 func (s *Server) handleHTTPSearchTools(ctx context.Context, mcpReq *middleware.MCPRequest) (*middleware.MCPResponse, error) {
-	paramsJSON, _ := json.Marshal(mcpReq.Params)
+	paramsJSON, errResp := marshalOrError(mcpReq.Params, "parameters")
+	if errResp != nil {
+		return errResp, nil
+	}
 	result, err := s.handleSearchTools(ctx, paramsJSON)
 	if err != nil {
 		return &middleware.MCPResponse{
@@ -285,8 +305,10 @@ func (s *Server) handleHTTPSearchTools(ctx context.Context, mcpReq *middleware.M
 			IsError: true,
 		}, nil
 	}
-
-	resultJSON, _ := json.Marshal(result)
+	resultJSON, errResp := marshalOrError(result, "result")
+	if errResp != nil {
+		return errResp, nil
+	}
 	return &middleware.MCPResponse{
 		Content: []middleware.ContentBlock{
 			{Type: "text", Text: string(resultJSON)},
@@ -354,7 +376,10 @@ func (s *Server) handleHTTPCallBatch(ctx context.Context, mcpReq *middleware.MCP
 
 /* handleHTTPListResources handles resources/list requests */
 func (s *Server) handleHTTPListResources(ctx context.Context, mcpReq *middleware.MCPRequest) (*middleware.MCPResponse, error) {
-	paramsJSON, _ := json.Marshal(mcpReq.Params)
+	paramsJSON, errResp := marshalOrError(mcpReq.Params, "parameters")
+	if errResp != nil {
+		return errResp, nil
+	}
 	result, err := s.handleListResources(ctx, paramsJSON)
 	if err != nil {
 		return &middleware.MCPResponse{
@@ -364,8 +389,10 @@ func (s *Server) handleHTTPListResources(ctx context.Context, mcpReq *middleware
 			IsError: true,
 		}, nil
 	}
-
-	resultJSON, _ := json.Marshal(result)
+	resultJSON, errResp := marshalOrError(result, "result")
+	if errResp != nil {
+		return errResp, nil
+	}
 	return &middleware.MCPResponse{
 		Content: []middleware.ContentBlock{
 			{Type: "text", Text: string(resultJSON)},
@@ -378,7 +405,10 @@ func (s *Server) handleHTTPListResources(ctx context.Context, mcpReq *middleware
 
 /* handleHTTPReadResource handles resources/read requests */
 func (s *Server) handleHTTPReadResource(ctx context.Context, mcpReq *middleware.MCPRequest) (*middleware.MCPResponse, error) {
-	paramsJSON, _ := json.Marshal(mcpReq.Params)
+	paramsJSON, errResp := marshalOrError(mcpReq.Params, "parameters")
+	if errResp != nil {
+		return errResp, nil
+	}
 	result, err := s.handleReadResource(ctx, paramsJSON)
 	if err != nil {
 		return &middleware.MCPResponse{
@@ -388,8 +418,10 @@ func (s *Server) handleHTTPReadResource(ctx context.Context, mcpReq *middleware.
 			IsError: true,
 		}, nil
 	}
-
-	resultJSON, _ := json.Marshal(result)
+	resultJSON, errResp := marshalOrError(result, "result")
+	if errResp != nil {
+		return errResp, nil
+	}
 	return &middleware.MCPResponse{
 		Content: []middleware.ContentBlock{
 			{Type: "text", Text: string(resultJSON)},
@@ -402,7 +434,10 @@ func (s *Server) handleHTTPReadResource(ctx context.Context, mcpReq *middleware.
 
 /* handleHTTPListPrompts handles prompts/list requests */
 func (s *Server) handleHTTPListPrompts(ctx context.Context, mcpReq *middleware.MCPRequest) (*middleware.MCPResponse, error) {
-	paramsJSON, _ := json.Marshal(mcpReq.Params)
+	paramsJSON, errResp := marshalOrError(mcpReq.Params, "parameters")
+	if errResp != nil {
+		return errResp, nil
+	}
 	result, err := s.handleListPrompts(ctx, paramsJSON)
 	if err != nil {
 		return &middleware.MCPResponse{
@@ -412,8 +447,10 @@ func (s *Server) handleHTTPListPrompts(ctx context.Context, mcpReq *middleware.M
 			IsError: true,
 		}, nil
 	}
-
-	resultJSON, _ := json.Marshal(result)
+	resultJSON, errResp := marshalOrError(result, "result")
+	if errResp != nil {
+		return errResp, nil
+	}
 	return &middleware.MCPResponse{
 		Content: []middleware.ContentBlock{
 			{Type: "text", Text: string(resultJSON)},
@@ -426,7 +463,10 @@ func (s *Server) handleHTTPListPrompts(ctx context.Context, mcpReq *middleware.M
 
 /* handleHTTPGetPrompt handles prompts/get requests */
 func (s *Server) handleHTTPGetPrompt(ctx context.Context, mcpReq *middleware.MCPRequest) (*middleware.MCPResponse, error) {
-	paramsJSON, _ := json.Marshal(mcpReq.Params)
+	paramsJSON, errResp := marshalOrError(mcpReq.Params, "parameters")
+	if errResp != nil {
+		return errResp, nil
+	}
 	result, err := s.handleGetPrompt(ctx, paramsJSON)
 	if err != nil {
 		return &middleware.MCPResponse{
@@ -436,8 +476,10 @@ func (s *Server) handleHTTPGetPrompt(ctx context.Context, mcpReq *middleware.MCP
 			IsError: true,
 		}, nil
 	}
-
-	resultJSON, _ := json.Marshal(result)
+	resultJSON, errResp := marshalOrError(result, "result")
+	if errResp != nil {
+		return errResp, nil
+	}
 	return &middleware.MCPResponse{
 		Content: []middleware.ContentBlock{
 			{Type: "text", Text: string(resultJSON)},
@@ -450,7 +492,10 @@ func (s *Server) handleHTTPGetPrompt(ctx context.Context, mcpReq *middleware.MCP
 
 /* handleHTTPComplete handles completion/complete requests */
 func (s *Server) handleHTTPComplete(ctx context.Context, mcpReq *middleware.MCPRequest) (*middleware.MCPResponse, error) {
-	paramsJSON, _ := json.Marshal(mcpReq.Params)
+	paramsJSON, errResp := marshalOrError(mcpReq.Params, "parameters")
+	if errResp != nil {
+		return errResp, nil
+	}
 	result, err := s.handleComplete(ctx, paramsJSON)
 	if err != nil {
 		return &middleware.MCPResponse{
@@ -460,8 +505,10 @@ func (s *Server) handleHTTPComplete(ctx context.Context, mcpReq *middleware.MCPR
 			IsError: true,
 		}, nil
 	}
-
-	resultJSON, _ := json.Marshal(result)
+	resultJSON, errResp := marshalOrError(result, "result")
+	if errResp != nil {
+		return errResp, nil
+	}
 	return &middleware.MCPResponse{
 		Content: []middleware.ContentBlock{
 			{Type: "text", Text: string(resultJSON)},
@@ -474,7 +521,10 @@ func (s *Server) handleHTTPComplete(ctx context.Context, mcpReq *middleware.MCPR
 
 /* handleHTTPCreateMessage handles sampling/createMessage requests */
 func (s *Server) handleHTTPCreateMessage(ctx context.Context, mcpReq *middleware.MCPRequest) (*middleware.MCPResponse, error) {
-	paramsJSON, _ := json.Marshal(mcpReq.Params)
+	paramsJSON, errResp := marshalOrError(mcpReq.Params, "parameters")
+	if errResp != nil {
+		return errResp, nil
+	}
 	result, err := s.handleCreateMessage(ctx, paramsJSON)
 	if err != nil {
 		return &middleware.MCPResponse{
@@ -484,8 +534,10 @@ func (s *Server) handleHTTPCreateMessage(ctx context.Context, mcpReq *middleware
 			IsError: true,
 		}, nil
 	}
-
-	resultJSON, _ := json.Marshal(result)
+	resultJSON, errResp := marshalOrError(result, "result")
+	if errResp != nil {
+		return errResp, nil
+	}
 	return &middleware.MCPResponse{
 		Content: []middleware.ContentBlock{
 			{Type: "text", Text: string(resultJSON)},
@@ -498,7 +550,10 @@ func (s *Server) handleHTTPCreateMessage(ctx context.Context, mcpReq *middleware
 
 /* handleHTTPGetProgress handles progress/get requests */
 func (s *Server) handleHTTPGetProgress(ctx context.Context, mcpReq *middleware.MCPRequest) (*middleware.MCPResponse, error) {
-	paramsJSON, _ := json.Marshal(mcpReq.Params)
+	paramsJSON, errResp := marshalOrError(mcpReq.Params, "parameters")
+	if errResp != nil {
+		return errResp, nil
+	}
 	result, err := s.handleGetProgress(ctx, paramsJSON)
 	if err != nil {
 		return &middleware.MCPResponse{
@@ -508,8 +563,10 @@ func (s *Server) handleHTTPGetProgress(ctx context.Context, mcpReq *middleware.M
 			IsError: true,
 		}, nil
 	}
-
-	resultJSON, _ := json.Marshal(result)
+	resultJSON, errResp := marshalOrError(result, "result")
+	if errResp != nil {
+		return errResp, nil
+	}
 	return &middleware.MCPResponse{
 		Content: []middleware.ContentBlock{
 			{Type: "text", Text: string(resultJSON)},
@@ -522,7 +579,10 @@ func (s *Server) handleHTTPGetProgress(ctx context.Context, mcpReq *middleware.M
 
 /* handleHTTPHealthCheck handles health/check requests */
 func (s *Server) handleHTTPHealthCheck(ctx context.Context, mcpReq *middleware.MCPRequest) (*middleware.MCPResponse, error) {
-	paramsJSON, _ := json.Marshal(mcpReq.Params)
+	paramsJSON, errResp := marshalOrError(mcpReq.Params, "parameters")
+	if errResp != nil {
+		return errResp, nil
+	}
 	result, err := s.handleHealthCheck(ctx, paramsJSON)
 	if err != nil {
 		return &middleware.MCPResponse{
@@ -532,8 +592,10 @@ func (s *Server) handleHTTPHealthCheck(ctx context.Context, mcpReq *middleware.M
 			IsError: true,
 		}, nil
 	}
-
-	resultJSON, _ := json.Marshal(result)
+	resultJSON, errResp := marshalOrError(result, "result")
+	if errResp != nil {
+		return errResp, nil
+	}
 	return &middleware.MCPResponse{
 		Content: []middleware.ContentBlock{
 			{Type: "text", Text: string(resultJSON)},
@@ -543,4 +605,3 @@ func (s *Server) handleHTTPHealthCheck(ctx context.Context, mcpReq *middleware.M
 		},
 	}, nil
 }
-

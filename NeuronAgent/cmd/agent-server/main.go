@@ -23,30 +23,30 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 	"github.com/neurondb/NeuronAgent/internal/agent"
 	"github.com/neurondb/NeuronAgent/internal/api"
 	"github.com/neurondb/NeuronAgent/internal/auth"
 	"github.com/neurondb/NeuronAgent/internal/browser"
+	"github.com/neurondb/NeuronAgent/internal/cache"
 	"github.com/neurondb/NeuronAgent/internal/collaboration"
 	"github.com/neurondb/NeuronAgent/internal/config"
 	"github.com/neurondb/NeuronAgent/internal/db"
-	"github.com/neurondb/NeuronAgent/internal/jobs"
+	"github.com/neurondb/NeuronAgent/internal/distributed"
 	"github.com/neurondb/NeuronAgent/internal/eval"
+	"github.com/neurondb/NeuronAgent/internal/events"
+	"github.com/neurondb/NeuronAgent/internal/jobs"
 	"github.com/neurondb/NeuronAgent/internal/metrics"
 	"github.com/neurondb/NeuronAgent/internal/multimodal"
 	"github.com/neurondb/NeuronAgent/internal/notifications"
+	"github.com/neurondb/NeuronAgent/internal/observability"
 	"github.com/neurondb/NeuronAgent/internal/replay"
 	"github.com/neurondb/NeuronAgent/internal/session"
 	"github.com/neurondb/NeuronAgent/internal/tools"
-	"github.com/neurondb/NeuronAgent/internal/workflow"
-	"github.com/neurondb/NeuronAgent/internal/worker"
-	"github.com/neurondb/NeuronAgent/internal/distributed"
-	"github.com/neurondb/NeuronAgent/internal/events"
-	"github.com/neurondb/NeuronAgent/internal/cache"
-	"github.com/neurondb/NeuronAgent/internal/observability"
 	"github.com/neurondb/NeuronAgent/internal/utils"
+	"github.com/neurondb/NeuronAgent/internal/worker"
+	"github.com/neurondb/NeuronAgent/internal/workflow"
 	"github.com/neurondb/NeuronAgent/pkg/neurondb"
 )
 
@@ -125,7 +125,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "FATAL: Database password is required. Set DB_PASSWORD environment variable or configure in config file.\n")
 		os.Exit(1)
 	}
-	
+
 	/* Warn if using default password in production */
 	env := os.Getenv("ENV")
 	if (env == "production" || env == "prod") && cfg.Database.Password == "postgres" {
@@ -146,7 +146,7 @@ func main() {
 		cfg.Database.Database,
 		"neurondb_agent,public",
 	)
-	
+
 	/* Create masked connection string for logging (password replaced with ***) */
 	maskedConnStr := utils.BuildMaskedConnectionString(
 		cfg.Database.Host,
@@ -231,7 +231,7 @@ func main() {
 	webSearchTool := tools.NewWebSearchTool()
 	retrievalTool := tools.NewRetrievalTool(retrievalAdapter, knowledgeRouter, webSearchTool, httpTool)
 	toolRegistry.RegisterHandler("retrieval", retrievalTool)
-	
+
 	/* Also update MemoryTool with management capabilities if available */
 	if memoryTool := toolRegistry.GetHandler("memory"); memoryTool != nil {
 		if mt, ok := memoryTool.(*tools.MemoryTool); ok {
@@ -358,8 +358,8 @@ func main() {
 	/* Setup router */
 	router := mux.NewRouter()
 	router.Use(api.RequestIDMiddleware)
-	router.Use(observability.TracingMiddleware) /* OpenTelemetry HTTP tracing */
-	router.Use(api.SecurityHeadersMiddleware)   /* Security headers must be set early */
+	router.Use(observability.TracingMiddleware)                  /* OpenTelemetry HTTP tracing */
+	router.Use(api.SecurityHeadersMiddleware)                    /* Security headers must be set early */
 	router.Use(api.RequestBodyLimitMiddleware(10 * 1024 * 1024)) /* 10MB max request body */
 	router.Use(api.CORSMiddleware(cfg))
 	router.Use(api.LoggingMiddleware)
@@ -703,8 +703,8 @@ func main() {
 		}
 	}()
 
-	/* Wait for interrupt signal */
-	quit := make(chan os.Signal, 1)
+	/* Wait for interrupt signal (buffer 2 so multiple signals don't block) */
+	quit := make(chan os.Signal, 2)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 

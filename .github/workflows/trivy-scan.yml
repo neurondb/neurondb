@@ -32,7 +32,7 @@ jobs:
 
       - name: Run Trivy vulnerability scanner
         id: trivy-scan
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@v0.34.0
         with:
           image-ref: ghcr.io/neurondb/${{ matrix.image.name }}:${{ matrix.image.tag }}
           format: 'sarif'
@@ -55,7 +55,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run Trivy filesystem scan on Helm chart
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@v0.34.0
         with:
           scan-type: 'fs'
           scan-ref: 'helm/neurondb'

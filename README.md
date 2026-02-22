@@ -52,6 +52,8 @@
 > New here? Start with [`Docs/getting-started/simple-start.md`](Docs/getting-started/simple-start.md) or jump to [`QUICKSTART.md`](QUICKSTART.md).
 > 
 > **Developer Tools**: Try the [quickstart data pack](examples/quickstart/), [SQL recipe library](Docs/getting-started/recipes/), and [CLI helpers](scripts/neurondb-cli.sh) for faster development!
+>
+> **Full platform:** For neurondb + neurondb-cloud + neurondb-hub on one host, see [Ecosystem Overview](Docs/ecosystem/README.md) and `scripts/deploy-all.sh`.
 
 ## Hello NeuronDB (60 seconds)
 

@@ -7831,7 +7831,9 @@ LANGUAGE sql STABLE AS $$
 		('lasso', 'regression', true, 'L1 regularized regression', '{"lambda": 1.0}'::jsonb),
 		('elastic_net', 'regression', true, 'L1+L2 regression', '{"alpha": 1.0, "l1_ratio": 0.5}'::jsonb),
 		('isolation_forest', 'outlier_detection', false, 'Anomaly detection', '{"n_trees": 100}'::jsonb),
-		('zscore', 'outlier_detection', false, 'Statistical outliers', '{"threshold": 3.0}'::jsonb)
+		('zscore', 'outlier_detection', false, 'Statistical outliers', '{"threshold": 3.0}'::jsonb),
+		('transformer_llm', 'llm', true, 'Custom transformer LLM', '{"epochs": 5, "d_model": 256}'::jsonb),
+		('titans_llm', 'llm', true, 'Titans LLM - Learning to Memorize at Test Time', '{"variant": "mac", "memory_depth": 2, "epochs": 5}'::jsonb)
 	) AS t(algorithm, category, supervised, description, example_params);
 $$;
 COMMENT ON FUNCTION neurondb.list_algorithms IS 'List all supported ML algorithms with examples';

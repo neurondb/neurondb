@@ -198,6 +198,10 @@ COPY NeuronMCP/neuron-mcp.sql /docker-entrypoint-initdb.d/neurondb_mcp/neuron-mc
 # Copy NeuronAgent migration files for auto-setup
 COPY NeuronAgent/sql/ /docker-entrypoint-initdb.d/neurondb_agent/
 
+# Copy Titans LLM training scripts (used when NEURONDB_TITANS_DIR=/app/examples/titans)
+RUN mkdir -p /app/examples
+COPY examples/titans /app/examples/titans
+
 # Volume declaration removed - let base postgres image handle it
 # docker-compose.yml mounts the volume at the correct path for each PG version
 

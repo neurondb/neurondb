@@ -217,6 +217,7 @@ ndb_cuda_catboost_train(const float *features,
 			depth = 6;
 			learning_rate = 0.03f;
 			strncpy(loss_function, "RMSE", sizeof(loss_function) - 1);
+			loss_function[sizeof(loss_function) - 1] = '\0';
 		}
 		PG_END_TRY();
 	}

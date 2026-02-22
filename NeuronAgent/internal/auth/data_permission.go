@@ -25,12 +25,19 @@ import (
 	"github.com/neurondb/NeuronAgent/internal/db"
 )
 
-/* rowFilterSafe rejects rowFilter strings that could lead to SQL injection */
+/* rowFilterSafe rejects rowFilter strings that could lead to SQL injection.
+ * For full safety, use ApplyRowFilterWithParam so values are passed as bound parameters. */
 func rowFilterSafe(rowFilter string) bool {
-	upper := strings.ToUpper(strings.TrimSpace(rowFilter))
-	if upper == "" {
+	trimmed := strings.TrimSpace(rowFilter)
+	if trimmed == "" {
 		return true
 	}
+	/* Reject value concatenation and escape characters */
+	if strings.Contains(trimmed, "'") || strings.Contains(trimmed, "`") ||
+		strings.Contains(trimmed, "\\") || strings.Contains(trimmed, "\"") {
+		return false
+	}
+	upper := strings.ToUpper(trimmed)
 	/* Reject comment and statement separators */
 	if strings.Contains(upper, ";") || strings.Contains(upper, "--") ||
 		strings.Contains(upper, "/*") || strings.Contains(upper, "*/") {
@@ -38,7 +45,7 @@ func rowFilterSafe(rowFilter string) bool {
 	}
 	/* Reject dangerous keywords that could modify the query */
 	dangerous := []string{"DROP", "DELETE", "UPDATE", "INSERT", "ALTER", "CREATE",
-		"TRUNCATE", "EXEC", "EXECUTE", "CALL", "GRANT", "REVOKE", "UNION", "INTO"}
+		"TRUNCATE", "EXEC", "EXECUTE", "CALL", "GRANT", "REVOKE", "UNION", "INTO", "SELECT"}
 	for _, kw := range dangerous {
 		if strings.Contains(upper, kw) {
 			return false

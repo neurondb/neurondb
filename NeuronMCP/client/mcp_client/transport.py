@@ -186,7 +186,6 @@ class StdioTransport:
         Returns:
             JSON-RPC request (notification) or None if no notification available
         """
-        # For simplicity, we'll handle notifications in the main loop
-        # This is a placeholder for future async support
+        # Notifications are handled in the main receive loop; no separate read.
         return None
 

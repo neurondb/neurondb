@@ -320,7 +320,7 @@ func (h *ProfileHandlers) ExportProfile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	/* Create export data (exclude sensitive fields or use placeholders) */
+	/* Create export data (exclude sensitive fields or use redacted values) */
 	exportData := map[string]interface{}{
 		"version":    "1.0",
 		"type":       "profile",

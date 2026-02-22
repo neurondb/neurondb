@@ -24,6 +24,7 @@ import (
 
 	"github.com/neurondb/NeuronMCP/internal/database"
 	"github.com/neurondb/NeuronMCP/internal/logging"
+	"github.com/neurondb/NeuronMCP/internal/validation"
 )
 
 /* PostgreSQLQueryOptimizerTool analyzes and suggests query optimizations */
@@ -109,9 +110,9 @@ func (t *PostgreSQLQueryOptimizerTool) analyzePlan(planJSON, query string) []map
 	/* Check for sequential scans */
 	if strings.Contains(strings.ToLower(planJSON), "seq scan") {
 		suggestions = append(suggestions, map[string]interface{}{
-			"type":        "index",
-			"severity":    "high",
-			"message":     "Query uses sequential scan - consider adding an index",
+			"type":           "index",
+			"severity":       "high",
+			"message":        "Query uses sequential scan - consider adding an index",
 			"recommendation": "Create indexes on columns used in WHERE clauses",
 		})
 	}
@@ -119,9 +120,9 @@ func (t *PostgreSQLQueryOptimizerTool) analyzePlan(planJSON, query string) []map
 	/* Check for missing indexes */
 	if strings.Contains(strings.ToLower(query), "where") && !strings.Contains(strings.ToLower(planJSON), "index") {
 		suggestions = append(suggestions, map[string]interface{}{
-			"type":        "index",
-			"severity":    "medium",
-			"message":     "No index used in WHERE clause",
+			"type":           "index",
+			"severity":       "medium",
+			"message":        "No index used in WHERE clause",
 			"recommendation": "Add indexes on filtered columns",
 		})
 	}
@@ -129,9 +130,9 @@ func (t *PostgreSQLQueryOptimizerTool) analyzePlan(planJSON, query string) []map
 	/* Check for full table scans */
 	if strings.Contains(strings.ToLower(planJSON), "seq scan") && !strings.Contains(strings.ToLower(planJSON), "limit") {
 		suggestions = append(suggestions, map[string]interface{}{
-			"type":        "performance",
-			"severity":    "high",
-			"message":     "Full table scan detected",
+			"type":           "performance",
+			"severity":       "high",
+			"message":        "Full table scan detected",
 			"recommendation": "Add WHERE clause or LIMIT to reduce scanned rows",
 		})
 	}
@@ -139,9 +140,9 @@ func (t *PostgreSQLQueryOptimizerTool) analyzePlan(planJSON, query string) []map
 	/* Check for cartesian products */
 	if strings.Contains(strings.ToLower(query), "join") && !strings.Contains(strings.ToLower(query), "on") {
 		suggestions = append(suggestions, map[string]interface{}{
-			"type":        "syntax",
-			"severity":    "critical",
-			"message":     "Potential cartesian product - missing JOIN condition",
+			"type":           "syntax",
+			"severity":       "critical",
+			"message":        "Potential cartesian product - missing JOIN condition",
 			"recommendation": "Add explicit JOIN conditions",
 		})
 	}
@@ -149,9 +150,9 @@ func (t *PostgreSQLQueryOptimizerTool) analyzePlan(planJSON, query string) []map
 	/* Check for N+1 query patterns */
 	if strings.Count(strings.ToLower(query), "select") > 1 {
 		suggestions = append(suggestions, map[string]interface{}{
-			"type":        "pattern",
-			"severity":    "medium",
-			"message":     "Multiple SELECT statements detected",
+			"type":           "pattern",
+			"severity":       "medium",
+			"message":        "Multiple SELECT statements detected",
 			"recommendation": "Consider using JOINs or CTEs to combine queries",
 		})
 	}
@@ -280,9 +281,9 @@ func (t *PostgreSQLPerformanceInsightsTool) Execute(ctx context.Context, params 
 	}
 
 	return Success(map[string]interface{}{
-		"scope":     scope,
-		"time_range": timeRange,
-		"insights":  insights,
+		"scope":           scope,
+		"time_range":      timeRange,
+		"insights":        insights,
 		"recommendations": t.generateRecommendations(insights),
 	}, nil), nil
 }
@@ -304,10 +305,10 @@ func (t *PostgreSQLPerformanceInsightsTool) analyzeDatabase(ctx context.Context,
 	if err != nil {
 		/* Return default insights if pg_stat_statements not available */
 		return map[string]interface{}{
-			"total_queries":       0,
-			"avg_execution_time":  0,
+			"total_queries":      0,
+			"avg_execution_time": 0,
 			"max_execution_time": 0,
-			"slow_queries":        0,
+			"slow_queries":       0,
 			"cache_hit_ratio":    0.95,
 			"index_usage":        0.85,
 		}
@@ -442,9 +443,9 @@ func (t *PostgreSQLPerformanceInsightsTool) generateRecommendations(insights map
 	if ratio, ok := insights["cache_hit_ratio"].(float64); ok {
 		if ratio < 0.9 {
 			recommendations = append(recommendations, map[string]interface{}{
-				"type":        "cache",
-				"severity":    "medium",
-				"message":     fmt.Sprintf("Cache hit ratio is low: %.2f%%", ratio*100),
+				"type":           "cache",
+				"severity":       "medium",
+				"message":        fmt.Sprintf("Cache hit ratio is low: %.2f%%", ratio*100),
 				"recommendation": "Increase shared_buffers or optimize queries",
 			})
 		}
@@ -454,9 +455,9 @@ func (t *PostgreSQLPerformanceInsightsTool) generateRecommendations(insights map
 	if ratio, ok := insights["dead_tuple_ratio"].(float64); ok {
 		if ratio > 0.2 {
 			recommendations = append(recommendations, map[string]interface{}{
-				"type":        "maintenance",
-				"severity":    "high",
-				"message":     fmt.Sprintf("High dead tuple ratio: %.2f%%", ratio*100),
+				"type":           "maintenance",
+				"severity":       "high",
+				"message":        fmt.Sprintf("High dead tuple ratio: %.2f%%", ratio*100),
 				"recommendation": "Run VACUUM to reclaim space",
 			})
 		}
@@ -466,9 +467,9 @@ func (t *PostgreSQLPerformanceInsightsTool) generateRecommendations(insights map
 	if slow, ok := insights["slow_queries"].(int64); ok {
 		if slow > 100 {
 			recommendations = append(recommendations, map[string]interface{}{
-				"type":        "performance",
-				"severity":    "high",
-				"message":     fmt.Sprintf("High number of slow queries: %d", slow),
+				"type":           "performance",
+				"severity":       "high",
+				"message":        fmt.Sprintf("High number of slow queries: %d", slow),
 				"recommendation": "Review and optimize slow queries",
 			})
 		}
@@ -551,9 +552,9 @@ func (t *PostgreSQLIndexAdvisorTool) Execute(ctx context.Context, params map[str
 	existingIndexes := t.getExistingIndexes(ctx, tableName)
 
 	return Success(map[string]interface{}{
-		"table_name":       tableName,
-		"recommendations":  recommendations,
-		"existing_indexes": existingIndexes,
+		"table_name":        tableName,
+		"recommendations":   recommendations,
+		"existing_indexes":  existingIndexes,
 		"create_statements": t.generateCreateStatements(recommendations, tableName, existingIndexes),
 	}, nil), nil
 }
@@ -590,10 +591,10 @@ func (t *PostgreSQLIndexAdvisorTool) analyzeWorkload(ctx context.Context, tableN
 			columns := t.extractWhereColumns(queryText)
 			for _, col := range columns {
 				recommendations = append(recommendations, map[string]interface{}{
-					"column":      col,
-					"reason":      "Frequently used in WHERE clause",
-					"priority":    "high",
-					"impact":      getFloat(totalTime, 0),
+					"column":   col,
+					"reason":   "Frequently used in WHERE clause",
+					"priority": "high",
+					"impact":   getFloat(totalTime, 0),
 				})
 			}
 		}
@@ -690,8 +691,10 @@ func (t *PostgreSQLIndexAdvisorTool) generateCreateStatements(recommendations []
 		}
 
 		if !indexExists {
-			indexName := fmt.Sprintf("idx_%s_%s", tableName, column)
-			stmt := fmt.Sprintf("CREATE INDEX %s ON %s (%s);", indexName, tableName, column)
+			escapedTable := validation.EscapeSQLIdentifier(tableName)
+			escapedColumn := validation.EscapeSQLIdentifier(column)
+			escapedIndex := validation.EscapeSQLIdentifier(fmt.Sprintf("idx_%s_%s", tableName, column))
+			stmt := fmt.Sprintf("CREATE INDEX %s ON %s (%s);", escapedIndex, escapedTable, escapedColumn)
 			statements = append(statements, stmt)
 			seenColumns[column] = true
 		}
@@ -699,4 +702,3 @@ func (t *PostgreSQLIndexAdvisorTool) generateCreateStatements(recommendations []
 
 	return statements
 }
-

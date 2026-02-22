@@ -710,8 +710,9 @@ func (t *BrowserTool) saveBrowserSnapshot(ctx context.Context, sessionID string,
 }
 
 func (t *BrowserTool) isURLAllowed(url string) bool {
+	/* Deny all when no allowlist is configured (secure default) */
 	if len(t.allowedURLs) == 0 {
-		return true
+		return false
 	}
 
 	if t.allowedURLs[url] {

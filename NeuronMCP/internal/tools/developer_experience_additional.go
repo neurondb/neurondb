@@ -26,6 +26,7 @@ import (
 
 	"github.com/neurondb/NeuronMCP/internal/database"
 	"github.com/neurondb/NeuronMCP/internal/logging"
+	"github.com/neurondb/NeuronMCP/internal/validation"
 )
 
 /* TestDataGeneratorTool generates realistic test data */
@@ -99,10 +100,10 @@ func (t *TestDataGeneratorTool) Execute(ctx context.Context, params map[string]i
 	insertStatements := t.generateInsertStatements(table, schema, int(rowCount))
 
 	return Success(map[string]interface{}{
-		"table":            table,
-		"row_count":        int(rowCount),
+		"table":             table,
+		"row_count":         int(rowCount),
 		"insert_statements": insertStatements,
-		"preview":          insertStatements[:min(5, len(insertStatements))],
+		"preview":           insertStatements[:min(5, len(insertStatements))],
 	}, nil), nil
 }
 
@@ -135,10 +136,10 @@ func (t *TestDataGeneratorTool) getTableSchema(ctx context.Context, table string
 		}
 
 		schema = append(schema, map[string]interface{}{
-			"name":       columnName,
-			"data_type":  dataType,
-			"nullable":   isNullable == "YES",
-			"default":    getString(columnDefault, ""),
+			"name":      columnName,
+			"data_type": dataType,
+			"nullable":  isNullable == "YES",
+			"default":   getString(columnDefault, ""),
 		})
 	}
 
@@ -149,12 +150,15 @@ func (t *TestDataGeneratorTool) getTableSchema(ctx context.Context, table string
 func (t *TestDataGeneratorTool) generateInsertStatements(table string, schema []map[string]interface{}, rowCount int) []string {
 	statements := []string{}
 
-	/* Get column names */
+	escapedTable := validation.EscapeSQLIdentifier(table)
+
+	/* Get column names and escape them */
 	columns := []string{}
 	for _, col := range schema {
-		columns = append(columns, col["name"].(string))
+		if name, ok := col["name"].(string); ok {
+			columns = append(columns, validation.EscapeSQLIdentifier(name))
+		}
 	}
-
 	columnsStr := strings.Join(columns, ", ")
 
 	for i := 0; i < rowCount; i++ {
@@ -165,7 +169,7 @@ func (t *TestDataGeneratorTool) generateInsertStatements(table string, schema []
 		}
 
 		valuesStr := strings.Join(values, ", ")
-		stmt := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s);", table, columnsStr, valuesStr)
+		stmt := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s);", escapedTable, columnsStr, valuesStr)
 		statements = append(statements, stmt)
 	}
 
@@ -260,7 +264,7 @@ func (t *SchemaVisualizerTool) Execute(ctx context.Context, params map[string]in
 		"schema_name":   schemaName,
 		"format":        format,
 		"visualization": visualization,
-		"schema":       schema,
+		"schema":        schema,
 	}, nil), nil
 }
 
@@ -567,8 +571,8 @@ func (t *SchemaDocumentationTool) Execute(ctx context.Context, params map[string
 	documentation := t.generateDocumentation(schema, format)
 
 	return Success(map[string]interface{}{
-		"schema_name":  schemaName,
-		"format":       format,
+		"schema_name":   schemaName,
+		"format":        format,
 		"documentation": documentation,
 	}, nil), nil
 }
@@ -731,7 +735,3 @@ func (t *MigrationGeneratorTool) Execute(ctx context.Context, params map[string]
 
 	return migrationTool.Execute(ctx, migrationParams)
 }
-
-
-
-

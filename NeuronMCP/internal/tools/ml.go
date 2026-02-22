@@ -46,7 +46,7 @@ func NewTrainModelTool(db *database.Database, logger *logging.Logger) *TrainMode
 				"properties": map[string]interface{}{
 					"algorithm": map[string]interface{}{
 						"type":        "string",
-						"enum":        []interface{}{"linear_regression", "ridge", "lasso", "logistic", "random_forest", "svm", "knn", "decision_tree", "naive_bayes", "titans_llm"},
+						"enum":        []interface{}{"linear_regression", "ridge", "lasso", "logistic", "random_forest", "svm", "knn", "decision_tree", "naive_bayes", "transformer_llm", "titans_llm"},
 						"description": "ML algorithm to use",
 					},
 					"table": map[string]interface{}{
@@ -101,7 +101,7 @@ func (t *TrainModelTool) Execute(ctx context.Context, params map[string]interfac
 			"params":    params,
 		}), nil
 	}
-	if err := validation.ValidateIn(algorithm, "algorithm", "linear_regression", "ridge", "lasso", "logistic", "random_forest", "svm", "knn", "decision_tree", "naive_bayes", "titans_llm"); err != nil {
+	if err := validation.ValidateIn(algorithm, "algorithm", "linear_regression", "ridge", "lasso", "logistic", "random_forest", "svm", "knn", "decision_tree", "naive_bayes", "transformer_llm", "titans_llm"); err != nil {
 		return Error(fmt.Sprintf("Invalid algorithm parameter: %v", err), "VALIDATION_ERROR", map[string]interface{}{
 			"parameter": "algorithm",
 			"error":     err.Error(),
@@ -133,12 +133,12 @@ func (t *TrainModelTool) Execute(ctx context.Context, params map[string]interfac
 	/* Validate label column (SQL identifier) */
 	if err := validation.ValidateSQLIdentifierRequired(labelCol, "label_col"); err != nil {
 		return Error(fmt.Sprintf("Invalid label_col parameter: %v", err), "VALIDATION_ERROR", map[string]interface{}{
-			"parameter":  "label_col",
-			"algorithm": algorithm,
-			"table":      table,
+			"parameter":   "label_col",
+			"algorithm":   algorithm,
+			"table":       table,
 			"feature_col": featureCol,
-			"error":      err.Error(),
-			"params":     params,
+			"error":       err.Error(),
+			"params":      params,
 		}), nil
 	}
 
@@ -151,17 +151,17 @@ func (t *TrainModelTool) Execute(ctx context.Context, params map[string]interfac
 		}
 		t.logger.Info("Using ML defaults from database", map[string]interface{}{
 			"algorithm": algorithm,
-			"defaults": defaultParams,
+			"defaults":  defaultParams,
 		})
 	}
-	
+
 	/* Override with provided parameters */
 	if p, ok := params["params"].(map[string]interface{}); ok && len(p) > 0 {
 		for k, v := range p {
 			defaultParams[k] = v
 		}
 	}
-	
+
 	paramsJSON := "{}"
 	if len(defaultParams) > 0 {
 		paramsBytes, err := json.Marshal(defaultParams)
@@ -183,13 +183,13 @@ func (t *TrainModelTool) Execute(ctx context.Context, params map[string]interfac
 	if err != nil {
 		t.logger.Error("Model training failed", err, params)
 		return Error(fmt.Sprintf("Model training execution failed: algorithm='%s', project='%s', table='%s', feature_col='%s', label_col='%s', params=%s, error=%v", algorithm, project, table, featureCol, labelCol, paramsJSON, err), "TRAINING_ERROR", map[string]interface{}{
-			"algorithm":  algorithm,
-			"project":    project,
-			"table":      table,
+			"algorithm":   algorithm,
+			"project":     project,
+			"table":       table,
 			"feature_col": featureCol,
-			"label_col":  labelCol,
-			"params":     paramsJSON,
-			"error":      err.Error(),
+			"label_col":   labelCol,
+			"params":      paramsJSON,
+			"error":       err.Error(),
 		}), nil
 	}
 
@@ -246,10 +246,10 @@ func (t *PredictTool) Execute(ctx context.Context, params map[string]interface{}
 	modelID, ok := params["model_id"].(float64)
 	if !ok {
 		return Error(fmt.Sprintf("model_id parameter must be a number for neurondb_predict tool: received type %T, value=%v", params["model_id"], params["model_id"]), "VALIDATION_ERROR", map[string]interface{}{
-			"parameter": "model_id",
-			"received_type": fmt.Sprintf("%T", params["model_id"]),
+			"parameter":      "model_id",
+			"received_type":  fmt.Sprintf("%T", params["model_id"]),
 			"received_value": params["model_id"],
-			"params": params,
+			"params":         params,
 		}), nil
 	}
 
@@ -274,10 +274,10 @@ func (t *PredictTool) Execute(ctx context.Context, params map[string]interface{}
 
 	if len(features) == 0 {
 		return Error(fmt.Sprintf("features array cannot be empty for neurondb_predict tool: model_id=%d, features_count=0", modelIDInt), "VALIDATION_ERROR", map[string]interface{}{
-			"parameter":    "features",
-			"model_id":     modelIDInt,
+			"parameter":      "features",
+			"model_id":       modelIDInt,
 			"features_count": 0,
-			"params":       params,
+			"params":         params,
 		}), nil
 	}
 
@@ -288,9 +288,9 @@ func (t *PredictTool) Execute(ctx context.Context, params map[string]interface{}
 	if err != nil {
 		t.logger.Error("Prediction failed", err, params)
 		return Error(fmt.Sprintf("Prediction execution failed: model_id=%d, features_dimension=%d, error=%v", modelIDInt, len(features), err), "PREDICTION_ERROR", map[string]interface{}{
-			"model_id":          modelIDInt,
+			"model_id":           modelIDInt,
 			"features_dimension": len(features),
-			"error":             err.Error(),
+			"error":              err.Error(),
 		}), nil
 	}
 
@@ -383,11 +383,11 @@ func (t *EvaluateModelTool) Execute(ctx context.Context, params map[string]inter
 
 	if labelCol == "" {
 		return Error(fmt.Sprintf("label_col parameter is required and cannot be empty for neurondb_evaluate_model tool: model_id=%d, test_table='%s', feature_col='%s'", modelIDInt, testTable, featureCol), "VALIDATION_ERROR", map[string]interface{}{
-			"parameter":  "label_col",
-			"model_id":   modelIDInt,
-			"test_table": testTable,
+			"parameter":   "label_col",
+			"model_id":    modelIDInt,
+			"test_table":  testTable,
 			"feature_col": featureCol,
-			"params":     params,
+			"params":      params,
 		}), nil
 	}
 
@@ -398,19 +398,19 @@ func (t *EvaluateModelTool) Execute(ctx context.Context, params map[string]inter
 	if err != nil {
 		t.logger.Error("Model evaluation failed", err, params)
 		return Error(fmt.Sprintf("Model evaluation execution failed: model_id=%d, test_table='%s', feature_col='%s', label_col='%s', error=%v", modelIDInt, testTable, featureCol, labelCol, err), "EVALUATION_ERROR", map[string]interface{}{
-			"model_id":   modelIDInt,
-			"test_table": testTable,
+			"model_id":    modelIDInt,
+			"test_table":  testTable,
 			"feature_col": featureCol,
-			"label_col":  labelCol,
-			"error":      err.Error(),
+			"label_col":   labelCol,
+			"error":       err.Error(),
 		}), nil
 	}
 
 	return Success(result, map[string]interface{}{
-		"model_id":   modelIDInt,
-		"test_table": testTable,
+		"model_id":    modelIDInt,
+		"test_table":  testTable,
 		"feature_col": featureCol,
-		"label_col":  labelCol,
+		"label_col":   labelCol,
 	}), nil
 }
 
@@ -658,4 +658,3 @@ func formatVectorFromInterface(vec []interface{}) string {
 	}
 	return "[" + strings.Join(parts, ",") + "]"
 }
-

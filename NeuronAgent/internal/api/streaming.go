@@ -17,12 +17,14 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 
 	"github.com/google/uuid"
 	"github.com/neurondb/NeuronAgent/internal/agent"
+	"github.com/neurondb/NeuronAgent/internal/metrics"
 )
 
 /* StreamResponse streams agent responses chunk by chunk */
@@ -93,9 +95,9 @@ func StreamResponse(w http.ResponseWriter, r *http.Request, runtime *agent.Runti
 func sendSSE(w http.ResponseWriter, flusher http.Flusher, event string, data interface{}) {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
+		metrics.WarnWithContext(context.Background(), "SSE marshal failed", map[string]interface{}{"event": event, "error": err.Error()})
 		return
 	}
-
 	fmt.Fprintf(w, "event: %s\n", event)
 	fmt.Fprintf(w, "data: %s\n\n", jsonData)
 	flusher.Flush()

@@ -15,11 +15,18 @@ import (
 /* DatasetHandlers handles dataset ingestion and management */
 type DatasetHandlers struct {
 	queries *db.Queries
+	store   IngestJobStore
 }
 
-/* NewDatasetHandlers creates new dataset handlers */
-func NewDatasetHandlers(queries *db.Queries) *DatasetHandlers {
-	return &DatasetHandlers{queries: queries}
+/* defaultIngestStore is used when no store is provided so GetIngestStatus/ListIngestJobs work */
+var defaultIngestStore = NewMemoryIngestStore()
+
+/* NewDatasetHandlers creates new dataset handlers. If store is nil, a default in-memory store is used. */
+func NewDatasetHandlers(queries *db.Queries, store IngestJobStore) *DatasetHandlers {
+	if store == nil {
+		store = defaultIngestStore
+	}
+	return &DatasetHandlers{queries: queries, store: store}
 }
 
 /* IngestRequest represents a dataset ingestion request */
@@ -75,14 +82,12 @@ func (h *DatasetHandlers) IngestDataset(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Generate job ID
-	jobID := fmt.Sprintf("ingest_%d", time.Now().Unix())
+	jobID := fmt.Sprintf("ingest_%d", time.Now().UnixNano())
+	h.store.SetQueued(profileID, jobID, req.TableName)
 
-	// Start ingestion asynchronously (in production, use a job queue)
 	go func() {
 		ctx := context.Background()
-		
-		// Use MCP load_dataset tool via SQL
+		h.store.SetRunning(profileID, jobID)
 		query := fmt.Sprintf(`
 			SELECT neurondb_mcp_tool_call(
 				'load_dataset',
@@ -97,7 +102,7 @@ func (h *DatasetHandlers) IngestDataset(w http.ResponseWriter, r *http.Request) 
 					'create_indexes', %s
 				)
 			)
-		`, 
+		`,
 			quoteSQLString(req.SourceType),
 			quoteSQLString(req.SourcePath),
 			quoteSQLString(req.Format),
@@ -107,12 +112,16 @@ func (h *DatasetHandlers) IngestDataset(w http.ResponseWriter, r *http.Request) 
 			quoteSQLString(req.EmbeddingModel),
 			fmt.Sprintf("%t", req.CreateIndex),
 		)
-
-		_, err := client.ExecuteSQLFull(ctx, query)
+		result, err := client.ExecuteSQLFull(ctx, query)
 		if err != nil {
-			// Log error (in production, update job status)
-			fmt.Printf("Ingestion failed for job %s: %v\n", jobID, err)
+			h.store.SetFailed(profileID, jobID, err)
+			return
 		}
+		var rowsIngested int64
+		if res, ok := result.([]map[string]interface{}); ok {
+			rowsIngested = int64(len(res))
+		}
+		h.store.SetCompleted(profileID, jobID, rowsIngested)
 	}()
 
 	response := IngestResponse{
@@ -125,31 +134,49 @@ func (h *DatasetHandlers) IngestDataset(w http.ResponseWriter, r *http.Request) 
 	WriteSuccess(w, response, http.StatusAccepted)
 }
 
-/* GetIngestStatus gets the status of an ingestion job */
+/* GetIngestStatus gets the status of an ingestion job from the store */
 func (h *DatasetHandlers) GetIngestStatus(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	_ = vars["profile_id"] // profileID for future use
+	profileID := vars["profile_id"]
 	jobID := vars["job_id"]
 
-	// In production, query job status from database
-	// For now, return a placeholder
-	response := map[string]interface{}{
-		"job_id":  jobID,
-		"status":  "completed",
-		"progress": 100,
+	j, ok := h.store.Get(profileID, jobID)
+	if !ok {
+		WriteError(w, r, http.StatusNotFound, fmt.Errorf("job not found: %s", jobID), nil)
+		return
 	}
-
+	response := map[string]interface{}{
+		"job_id":         j.JobID,
+		"status":         j.Status,
+		"progress":       j.Progress,
+		"rows_ingested":  j.RowsIngested,
+		"table_name":     j.TableName,
+		"error":          j.Error,
+		"created_at":    j.CreatedAt,
+		"updated_at":    j.UpdatedAt,
+	}
 	WriteSuccess(w, response, http.StatusOK)
 }
 
-/* ListIngestJobs lists all ingestion jobs */
+/* ListIngestJobs lists all ingestion jobs for the profile from the store */
 func (h *DatasetHandlers) ListIngestJobs(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	_ = vars["profile_id"] // profileID for future use
+	profileID := vars["profile_id"]
 
-	// In production, query jobs from database
-	// For now, return empty list
-	WriteSuccess(w, []interface{}{}, http.StatusOK)
+	jobs := h.store.List(profileID)
+	out := make([]map[string]interface{}, 0, len(jobs))
+	for _, j := range jobs {
+		out = append(out, map[string]interface{}{
+			"job_id":        j.JobID,
+			"status":       j.Status,
+			"progress":     j.Progress,
+			"rows_ingested": j.RowsIngested,
+			"table_name":   j.TableName,
+			"created_at":   j.CreatedAt,
+			"updated_at":   j.UpdatedAt,
+		})
+	}
+	WriteSuccess(w, out, http.StatusOK)
 }
 
 func quoteSQLString(s string) string {

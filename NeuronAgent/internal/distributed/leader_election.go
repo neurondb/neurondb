@@ -17,7 +17,7 @@ package distributed
 
 import (
 	"context"
-	"hash/crc32"
+	"hash/fnv"
 	"sync"
 	"time"
 
@@ -27,18 +27,20 @@ import (
 
 /* LeaderElection manages leader election */
 type LeaderElection struct {
-	nodeID    string
-	queries   *db.Queries
-	isLeader  bool
-	mu        sync.RWMutex
-	stopChan  chan struct{}
-	lockID    int64
+	nodeID   string
+	queries  *db.Queries
+	isLeader bool
+	mu       sync.RWMutex
+	stopChan chan struct{}
+	lockID   int64
 }
 
 /* NewLeaderElection creates a new leader election instance */
 func NewLeaderElection(nodeID string, queries *db.Queries) *LeaderElection {
-	/* Use node ID hash as lock ID */
-	lockID := int64(crc32.ChecksumIEEE([]byte(nodeID)) % 1000000)
+	/* Use full 64-bit hash of node ID to avoid lock ID collisions between nodes */
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(nodeID))
+	lockID := int64(h.Sum64())
 	return &LeaderElection{
 		nodeID:   nodeID,
 		queries:  queries,
@@ -57,7 +59,7 @@ func (le *LeaderElection) Start(ctx context.Context) error {
 /* Stop stops the leader election process */
 func (le *LeaderElection) Stop(ctx context.Context) {
 	close(le.stopChan)
-	
+
 	/* Release lock if we're the leader */
 	le.mu.Lock()
 	if le.isLeader {
@@ -113,7 +115,7 @@ func (le *LeaderElection) tryAcquireLeadership(ctx context.Context) {
 func (le *LeaderElection) acquireLock(ctx context.Context) bool {
 	/* Use PostgreSQL advisory lock */
 	query := `SELECT pg_try_advisory_lock($1)`
-	
+
 	var acquired bool
 	err := le.queries.DB.GetContext(ctx, &acquired, query, le.lockID)
 	if err != nil {
@@ -127,31 +129,19 @@ func (le *LeaderElection) acquireLock(ctx context.Context) bool {
 	return acquired
 }
 
-/* verifyLock verifies we still hold the lock */
+/* verifyLock verifies we still hold the lock by checking pg_locks for our session only.
+ * We do not use pg_try_advisory_lock here because in PostgreSQL, if the current session
+ * already holds the lock, pg_try_advisory_lock returns true again, which would incorrectly
+ * make us think we lost the lock and release it (split-brain). */
 func (le *LeaderElection) verifyLock(ctx context.Context) bool {
-	query := `SELECT pg_try_advisory_lock($1)`
-	
-	var acquired bool
-	err := le.queries.DB.GetContext(ctx, &acquired, query, le.lockID)
+	/* Check if this session holds the advisory lock (objid = lockID, granted, our pid) */
+	query := `SELECT COUNT(*) > 0 FROM pg_locks WHERE locktype = 'advisory' AND objid = $1 AND granted = true AND pid = pg_backend_pid()`
+	var stillHolding bool
+	err := le.queries.DB.GetContext(ctx, &stillHolding, query, le.lockID)
 	if err != nil {
 		return false
 	}
-
-	/* If we got the lock, we didn't have it before, so release it */
-	if acquired {
-		le.releaseLock(ctx)
-		return false
-	}
-
-	/* Check if we hold the lock */
-	query = `SELECT COUNT(*) FROM pg_locks WHERE locktype = 'advisory' AND objid = $1 AND granted = true`
-	var count int
-	err = le.queries.DB.GetContext(ctx, &count, query, le.lockID)
-	if err != nil {
-		return false
-	}
-
-	return count > 0
+	return stillHolding
 }
 
 /* releaseLock releases the advisory lock */
@@ -172,4 +162,3 @@ func (le *LeaderElection) IsLeader() bool {
 	defer le.mu.RUnlock()
 	return le.isLeader
 }
-

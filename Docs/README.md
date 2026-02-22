@@ -2,6 +2,10 @@
 
 Welcome to the NeuronDB documentation. This is the main entry point for all documentation in the NeuronDB ecosystem.
 
+## Full platform (neurondb + neurondb-cloud + neurondb-hub)
+
+To deploy the **full platform** (core neurondb plus neurondb-cloud and neurondb-hub) on one host, use the unified deploy script and place the three repos as siblings. See **[Ecosystem Overview](ecosystem/README.md)** for product roles and **[Full platform deploy](ecosystem/README.md#full-platform-all-three)** for `./scripts/deploy-all.sh` usage.
+
 ## Quick Navigation
 
 <details>
@@ -13,6 +17,7 @@ Welcome to the NeuronDB documentation. This is the main entry point for all docu
 | **[Quick Start Guide](../../QUICKSTART.md)** | Get all services running quickly | 5-10 min | ⭐ Easy |
 | **[Architecture Overview](getting-started/architecture.md)** | Understand the system architecture | 15 min | ⭐⭐ Medium |
 | **[Installation Guide](getting-started/installation.md)** | Installation instructions | 30+ min | ⭐⭐ Medium |
+| **[Ecosystem Overview](ecosystem/README.md)** | neurondb vs cloud vs hub; full-platform deploy | 5 min | ⭐ Easy |
 
 </details>
 

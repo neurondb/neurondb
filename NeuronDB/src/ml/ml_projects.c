@@ -870,12 +870,6 @@ evaluate_kmeans_project_by_model_id(PG_FUNCTION_ARGS)
 
 	model_id = PG_GETARG_INT32(0);
 
-	/*
-	 * Suppress unused variable warning - placeholder for future
-	 * implementation
-	 */
-	(void) model_id;
-
 	if (PG_ARGISNULL(1) || PG_ARGISNULL(2))
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),

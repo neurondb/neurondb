@@ -84,6 +84,14 @@ func (t *MultimodalEmbedTool) Execute(ctx context.Context, params map[string]int
 		model = val
 	}
 
+	allowedModels := map[string]bool{
+		"clip": true, "imagebind": true, "openai": true,
+		"sentence-transformers": true, "e5": true, "bge": true,
+	}
+	if !allowedModels[model] {
+		return Error(fmt.Sprintf("Unsupported model: %s", model), "INVALID_PARAMETER", nil), nil
+	}
+
 	/* Use NeuronDB multi-modal embedding functions */
 	var query string
 	switch contentType {
@@ -470,9 +478,9 @@ func (t *AudioEmbedTool) Execute(ctx context.Context, params map[string]interfac
 	result, err := t.executor.ExecuteQueryOne(ctx, query, []interface{}{audioFile})
 	if err != nil {
 		return Success(map[string]interface{}{
-			"audio_file": audioFile,
-			"model":      model,
-			"note":       "Use neurondb.imagebind_embed() for audio embeddings",
+			"audio_file":  audioFile,
+			"model":       model,
+			"note":        "Use neurondb.imagebind_embed() for audio embeddings",
 			"sql_example": query,
 		}, map[string]interface{}{
 			"tool": "audio_embed",
@@ -483,9 +491,3 @@ func (t *AudioEmbedTool) Execute(ctx context.Context, params map[string]interfac
 		"tool": "audio_embed",
 	}), nil
 }
-
-
-
-
-
-

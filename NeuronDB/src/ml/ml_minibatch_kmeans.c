@@ -454,13 +454,6 @@ predict_minibatch_kmeans(PG_FUNCTION_ARGS)
 	int			cluster_id = -1;
 	int			n_elems;
 
-	/*
-	 * Suppress unused variable warnings - placeholders for future
-	 * implementation
-	 */
-	(void) model_id;
-	(void) features_array;
-
 	/* Extract features from array */
 	{
 		Oid			elmtype = ARR_ELEMTYPE(features_array);

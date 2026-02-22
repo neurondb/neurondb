@@ -36,12 +36,12 @@ const (
 
 	getAgentByIDQuery = `SELECT * FROM neurondb_agent.agents WHERE id = $1`
 
-	listAgentsQuery = `SELECT * FROM neurondb_agent.agents ORDER BY created_at DESC`
+	listAgentsQuery = `SELECT * FROM neurondb_agent.agents ORDER BY created_at DESC LIMIT 1000`
 
 	listAgentsWithFilterQuery = `
 		SELECT * FROM neurondb_agent.agents 
 		WHERE ($1::text IS NULL OR name ILIKE $1 OR description ILIKE $1)
-		ORDER BY created_at DESC`
+		ORDER BY created_at DESC LIMIT 1000`
 
 	updateAgentQuery = `
 		UPDATE neurondb_agent.agents 

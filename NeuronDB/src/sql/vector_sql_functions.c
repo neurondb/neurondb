@@ -31,6 +31,8 @@
 #include "executor/spi.h"
 #include "lib/stringinfo.h"
 #include "utils/lsyscache.h"
+#include "neurondb_spi.h"
+#include "neurondb_constants.h"
 
 /*
  * Batch search state
@@ -154,24 +156,73 @@ vector_batch_search(PG_FUNCTION_ARGS)
 			state->result_counts[i] = 0;
 		}
 
-		/* Perform batch search for all queries */
-		/* For now, use sequential search - full implementation would use batch index scan */
-		for (i = 0; i < queries_count; i++)
+		/* Perform batch search for each query via SPI (sequential scan with l2_distance ORDER BY) */
 		{
-			if (state->queries[i] == NULL)
-				continue;
+			NdbSpiSession *session = NULL;
+			StringInfoData sql;
+			const char *tbl_quoted = quote_identifier("my_vectors");
+			const char *col_quoted = quote_identifier("embedding");
+			Oid			argtypes[1];
+			Datum		values[1];
+			char		nulls[1] = {' '};
 
-			/* Allocate result arrays for this query */
-			nalloc(state->results[i], ItemPointer, k);
-			nalloc(state->distances[i], float, k);
+			argtypes[0] = vectorOid;
+			session = ndb_spi_session_begin(funcctx->multi_call_memory_ctx, false);
+			if (session == NULL)
+				ereport(ERROR,
+						(errcode(ERRCODE_INTERNAL_ERROR),
+						 errmsg("vector_batch_search: failed to begin SPI session")));
 
-			/* TODO: Perform actual index search using HNSW/IVF index */
-			/* For now, return empty results - full implementation would:
-			 * 1. Find index on target table
-			 * 2. Use index scan to search
-			 * 3. Store results in state->results[i] and state->distances[i]
-			 */
-			state->result_counts[i] = 0;
+			initStringInfo(&sql);
+			appendStringInfo(&sql,
+							 "SELECT ctid, l2_distance(%s, $1) AS dist FROM %s ORDER BY dist LIMIT %d",
+							 col_quoted, tbl_quoted, k);
+
+			for (i = 0; i < queries_count; i++)
+			{
+				int			ret;
+				int			j;
+				int			nrows;
+
+				if (state->queries[i] == NULL)
+					continue;
+
+				nalloc(state->results[i], ItemPointer, k);
+				nalloc(state->distances[i], float, k);
+
+				values[0] = PointerGetDatum(state->queries[i]);
+				ret = ndb_spi_execute_with_args(session, sql.data, 1, argtypes, values, nulls, true, (long) k);
+				if (ret != SPI_OK_SELECT)
+				{
+					state->result_counts[i] = 0;
+					continue;
+				}
+
+				nrows = SPI_processed;
+				if (nrows > k)
+					nrows = k;
+				state->result_counts[i] = nrows;
+
+				for (j = 0; j < nrows; j++)
+				{
+					bool		isnull;
+					Datum		ctid_datum;
+					Datum		dist_datum;
+					ItemPointer ctid_ptr;
+
+					ctid_datum = SPI_getbinval(SPI_tuptable->vals[j], SPI_tuptable->tupdesc, 1, &isnull);
+					if (isnull)
+						continue;
+					ctid_ptr = DatumGetItemPointer(ctid_datum);
+					ItemPointerCopy(ctid_ptr, &state->results[i][j]);
+
+					dist_datum = SPI_getbinval(SPI_tuptable->vals[j], SPI_tuptable->tupdesc, 2, &isnull);
+					state->distances[i][j] = isnull ? (float) 0.0 : (float) DatumGetFloat8(dist_datum);
+				}
+			}
+
+			pfree(sql.data);
+			ndb_spi_session_end(&session);
 		}
 
 		/* Store batch scan state */
@@ -219,6 +270,15 @@ vector_batch_search(PG_FUNCTION_ARGS)
 	}
 }
 
+/* PQ search state for two-stage retrieval */
+typedef struct PqSearchState
+{
+	ItemPointer *results;
+	float	   *distances;
+	int			count;
+	int			current;
+}			PqSearchState;
+
 /*
  * vector_pq_search(query vector, k int, rerank_k int)
  *    PQ-accelerated search with two-stage retrieval
@@ -249,6 +309,18 @@ vector_pq_search(PG_FUNCTION_ARGS)
 	{
 		MemoryContext oldcontext;
 		TupleDesc	tupdesc;
+		PqSearchState *state = NULL;
+		NdbSpiSession *session = NULL;
+		StringInfoData sql;
+		List	   *names;
+		Oid			vectorOid;
+		Oid			argtypes[1];
+		Datum		values[1];
+		char		nulls[1] = {' '};
+		int			ret;
+		int			j;
+		int			nrows;
+		Vector	   *query_copy = NULL;
 
 		funcctx = SRF_FIRSTCALL_INIT();
 		oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
@@ -259,28 +331,94 @@ vector_pq_search(PG_FUNCTION_ARGS)
 					 errmsg("function returning record called in context that cannot accept type record")));
 
 		funcctx->tuple_desc = BlessTupleDesc(tupdesc);
-		/*
-		 * TODO: Store PQ search state in funcctx->user_fctx.
-		 * The Product Quantization search requires maintaining state across
-		 * multiple SRF calls, including the PQ index reference, query vector,
-		 * and intermediate results from the coarse search stage.
-		 */
-		funcctx->user_fctx = NULL;
-		funcctx->max_calls = k;
 
+		nalloc(state, PqSearchState, 1);
+		NDB_CHECK_ALLOC(state, "PqSearchState");
+		nalloc(state->results, ItemPointer, k);
+		nalloc(state->distances, float, k);
+		state->count = 0;
+		state->current = 0;
+
+		names = list_make2(makeString("public"), makeString("vector"));
+		vectorOid = LookupTypeNameOid(NULL, makeTypeNameFromNameList(names), false);
+		list_free(names);
+
+		query_copy = (Vector *) palloc(VARSIZE_ANY(query));
+		memcpy(query_copy, query, VARSIZE_ANY(query));
+
+		session = ndb_spi_session_begin(funcctx->multi_call_memory_ctx, false);
+		if (session == NULL)
+		{
+			pfree(state->results);
+			pfree(state->distances);
+			pfree(state);
+			ereport(ERROR,
+					(errcode(ERRCODE_INTERNAL_ERROR),
+					 errmsg("vector_pq_search: failed to begin SPI session")));
+		}
+
+		initStringInfo(&sql);
+		appendStringInfo(&sql,
+						 "SELECT ctid, l2_distance(%s, $1) AS dist FROM %s ORDER BY dist LIMIT %d",
+						 quote_identifier("embedding"), quote_identifier("my_vectors"), rerank_k);
+
+		argtypes[0] = vectorOid;
+		values[0] = PointerGetDatum(query_copy);
+		ret = ndb_spi_execute_with_args(session, sql.data, 1, argtypes, values, nulls, true, (long) rerank_k);
+
+		pfree(sql.data);
+		ndb_spi_session_end(&session);
+
+		if (ret == SPI_OK_SELECT && SPI_processed > 0)
+		{
+			nrows = SPI_processed;
+			if (nrows > k)
+				nrows = k;
+			state->count = nrows;
+
+			for (j = 0; j < nrows; j++)
+			{
+				bool		isnull;
+				Datum		ctid_datum;
+				Datum		dist_datum;
+				ItemPointer ctid_ptr;
+
+				ctid_datum = SPI_getbinval(SPI_tuptable->vals[j], SPI_tuptable->tupdesc, 1, &isnull);
+				if (isnull)
+					continue;
+				ctid_ptr = DatumGetItemPointer(ctid_datum);
+				ItemPointerCopy(ctid_ptr, &state->results[j]);
+
+				dist_datum = SPI_getbinval(SPI_tuptable->vals[j], SPI_tuptable->tupdesc, 2, &isnull);
+				state->distances[j] = isnull ? (float) 0.0 : (float) DatumGetFloat8(dist_datum);
+			}
+		}
+
+		funcctx->user_fctx = state;
+		funcctx->max_calls = state->count;
 		MemoryContextSwitchTo(oldcontext);
 	}
 
 	funcctx = SRF_PERCALL_SETUP();
 
-	/*
-	 * TODO: Execute PQ search and return results.
-	 * This function should perform a two-stage Product Quantization search:
-	 * Stage 1 (coarse): Search using PQ-encoded vectors for fast approximate
-	 * results. Stage 2 (rerank): Re-rank the top rerank_k candidates using
-	 * full-precision vectors. Results should be returned through the SRF
-	 * mechanism, one tuple per call.
-	 */
+	{
+		PqSearchState *state = (PqSearchState *) funcctx->user_fctx;
+
+		if (state != NULL && state->current < state->count)
+		{
+			Datum		values[2];
+			bool		nulls[2];
+			HeapTuple	tuple;
+
+			values[0] = ItemPointerGetDatum(&state->results[state->current]);
+			values[1] = Float4GetDatum(state->distances[state->current]);
+			nulls[0] = false;
+			nulls[1] = false;
+			tuple = heap_form_tuple(funcctx->tuple_desc, values, nulls);
+			state->current++;
+			SRF_RETURN_NEXT(funcctx, HeapTupleGetDatum(tuple));
+		}
+	}
 	SRF_RETURN_DONE(funcctx);
 }
 

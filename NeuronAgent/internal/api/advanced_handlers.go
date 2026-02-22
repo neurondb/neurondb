@@ -31,9 +31,12 @@ import (
 
 /* CloneAgent clones an agent */
 func (h *Handlers) CloneAgent(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
 	requestID := GetRequestID(r.Context())
-
+	if _, err := MustGetPrincipalFromContext(r.Context()); err != nil {
+		respondError(w, NewErrorWithContext(http.StatusUnauthorized, "authorization required", err, requestID, r.URL.Path, r.Method, "agent", "", nil))
+		return
+	}
+	vars := mux.Vars(r)
 	if err := validation.ValidateUUIDRequired(vars["id"], "agent_id"); err != nil {
 		respondError(w, NewErrorWithContext(http.StatusBadRequest, "invalid agent ID", err, requestID, r.URL.Path, r.Method, "agent", "", nil))
 		return
@@ -296,6 +299,11 @@ func (h *Handlers) GetAgentCosts(w http.ResponseWriter, r *http.Request) {
 
 /* CreateTool creates a custom tool */
 func (h *Handlers) CreateTool(w http.ResponseWriter, r *http.Request) {
+	if _, err := MustGetPrincipalFromContext(r.Context()); err != nil {
+		requestID := GetRequestID(r.Context())
+		respondError(w, NewErrorWithContext(http.StatusUnauthorized, "authorization required", err, requestID, r.URL.Path, r.Method, "tool", "", nil))
+		return
+	}
 	var req struct {
 		Name          string                 `json:"name"`
 		Description   string                 `json:"description"`
@@ -353,6 +361,11 @@ func (h *Handlers) CreateTool(w http.ResponseWriter, r *http.Request) {
 
 /* ListTools lists all tools */
 func (h *Handlers) ListTools(w http.ResponseWriter, r *http.Request) {
+	if _, err := MustGetPrincipalFromContext(r.Context()); err != nil {
+		requestID := GetRequestID(r.Context())
+		respondError(w, NewErrorWithContext(http.StatusUnauthorized, "authorization required", err, requestID, r.URL.Path, r.Method, "tool", "", nil))
+		return
+	}
 	var tools []db.Tool
 	var err error
 
@@ -728,12 +741,12 @@ func (h *Handlers) ConsolidateMemory(w http.ResponseWriter, r *http.Request) {
 
 	duration := time.Since(start)
 	respondJSON(w, http.StatusOK, map[string]interface{}{
-		"agent_id":            agentID.String(),
-		"tier":                req.Tier,
+		"agent_id":             agentID.String(),
+		"tier":                 req.Tier,
 		"similarity_threshold": req.SimilarityThreshold,
-		"consolidated_count":  consolidated,
-		"status":              "completed",
-		"duration_ms":         duration.Milliseconds(),
-		"completed_at":        time.Now().UTC(),
+		"consolidated_count":   consolidated,
+		"status":               "completed",
+		"duration_ms":          duration.Milliseconds(),
+		"completed_at":         time.Now().UTC(),
 	})
 }

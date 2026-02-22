@@ -150,6 +150,7 @@ extern int	neurondb_ml_max_samples;
 extern int	neurondb_ml_max_feature_elements;
 extern bool neurondb_automl_use_gpu;
 extern bool neurondb_vector_capsule_enabled;
+extern bool neurondb_confidential_compute;
 extern bool neurondb_rls_embeddings_enabled;
 extern bool neurondb_encryption_enabled;
 extern bool neurondb_audit_ml_enabled;

@@ -18,6 +18,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/neurondb/NeuronAgent/internal/db"
@@ -92,6 +93,10 @@ func (m *APIKeyManager) ValidateAPIKey(ctx context.Context, key string) (*db.API
 			"key_prefix": prefix,
 		})
 		return nil, fmt.Errorf("invalid API key: key verification failed")
+	}
+	/* Reject expired keys (deleted keys are not in DB; expiry is enforced here) */
+	if apiKey.ExpiresAt != nil && apiKey.ExpiresAt.Before(time.Now()) {
+		return nil, fmt.Errorf("API key expired")
 	}
 	metrics.DebugWithContext(ctx, "API key verification succeeded", map[string]interface{}{
 		"key_prefix": prefix,

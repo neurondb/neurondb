@@ -37,6 +37,8 @@ type TTLCache struct {
 	mu         sync.RWMutex
 	defaultTTL time.Duration
 	maxSize    int
+	done       chan struct{}
+	stopOnce   sync.Once
 }
 
 /* CacheItem represents a cached item */
@@ -62,10 +64,22 @@ func NewTTLCache(defaultTTL time.Duration, maxSize int) *TTLCache {
 		items:      make(map[string]*CacheItem),
 		defaultTTL: defaultTTL,
 		maxSize:    maxSize,
+		done:       make(chan struct{}),
 	}
-	/* Start cleanup goroutine */
 	go cache.cleanup()
 	return cache
+}
+
+/* Stop stops the cleanup goroutine so the cache can be shut down without leaking */
+func (c *TTLCache) Stop() {
+	c.stopOnce.Do(func() { close(c.done) })
+}
+
+/* Close stops the cache manager and all its cleanup goroutines */
+func (cm *CacheManager) Close() {
+	cm.responses.Stop()
+	cm.embeddings.Stop()
+	cm.toolResults.Stop()
 }
 
 /* Get retrieves a value from cache */
@@ -156,20 +170,24 @@ func (c *TTLCache) evictLRU() {
 	}
 }
 
-/* cleanup periodically removes expired items */
+/* cleanup periodically removes expired items; exits when Stop() is called */
 func (c *TTLCache) cleanup() {
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
-
-	for range ticker.C {
-		c.mu.Lock()
-		now := time.Now()
-		for key, item := range c.items {
-			if now.After(item.ExpiresAt) {
-				delete(c.items, key)
+	for {
+		select {
+		case <-c.done:
+			return
+		case <-ticker.C:
+			c.mu.Lock()
+			now := time.Now()
+			for key, item := range c.items {
+				if now.After(item.ExpiresAt) {
+					delete(c.items, key)
+				}
 			}
+			c.mu.Unlock()
 		}
-		c.mu.Unlock()
 	}
 }
 

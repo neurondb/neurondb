@@ -1,28 +1,29 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, act } from '@testing-library/react'
 import ProfileSelector from '@/components/ProfileSelector'
 
 describe('ProfileSelector', () => {
   const mockProfiles = [
-    { id: '1', name: 'Profile 1', is_default: true },
-    { id: '2', name: 'Profile 2', is_default: false },
+    { id: '1', name: 'Profile 1', is_default: true, neurondb_dsn: 'postgres://u@host1/db', created_at: '2024-01-01T00:00:00Z' },
+    { id: '2', name: 'Profile 2', is_default: false, neurondb_dsn: 'postgres://u@host2/db', created_at: '2024-01-01T00:00:00Z' },
   ]
 
-  it('renders profile options', () => {
+  it('renders selected profile and shows options when opened', async () => {
     render(
       <ProfileSelector
         profiles={mockProfiles}
         selectedProfile="1"
-        onSelect={vi.fn()}
+        onSelect={jest.fn()}
       />
     )
-
     expect(screen.getByText('Profile 1')).toBeInTheDocument()
+    await act(async () => {
+      screen.getByRole('button', { name: /Profile 1/i }).click()
+    })
     expect(screen.getByText('Profile 2')).toBeInTheDocument()
   })
 
-  it('calls onSelect when profile changes', () => {
-    const onSelect = vi.fn()
+  it('calls onSelect when profile changes', async () => {
+    const onSelect = jest.fn()
     render(
       <ProfileSelector
         profiles={mockProfiles}
@@ -30,24 +31,24 @@ describe('ProfileSelector', () => {
         onSelect={onSelect}
       />
     )
-
-    const select = screen.getByRole('combobox')
-    select.value = '2'
-    select.dispatchEvent(new Event('change'))
-
+    await act(async () => {
+      screen.getByRole('button', { name: /Profile 1/i }).click()
+    })
+    await act(async () => {
+      screen.getByText('Profile 2').click()
+    })
     expect(onSelect).toHaveBeenCalledWith('2')
   })
 
-  it('shows default indicator', () => {
+  it('shows selected profile name in button', () => {
     render(
       <ProfileSelector
         profiles={mockProfiles}
         selectedProfile="1"
-        onSelect={vi.fn()}
+        onSelect={jest.fn()}
       />
     )
-
-    expect(screen.getByText(/Profile 1.*Default/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Profile 1/i })).toBeInTheDocument()
   })
 })
 

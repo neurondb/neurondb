@@ -39,27 +39,27 @@ import (
 
 /* Coordinator manages distributed agent execution */
 type Coordinator struct {
-	nodeID        string
-	queries       *db.Queries
-	runtime       *agent.Runtime
-	ring          *ConsistentHashRing
+	nodeID         string
+	queries        *db.Queries
+	runtime        *agent.Runtime
+	ring           *ConsistentHashRing
 	leaderElection *LeaderElection
-	memoryPubSub  *MemoryPubSub
-	mu            sync.RWMutex
-	nodes         map[string]*Node
-	enabled       bool
-	config        *config.DistributedConfig
-	httpClient    *http.Client
+	memoryPubSub   *MemoryPubSub
+	mu             sync.RWMutex
+	nodes          map[string]*Node
+	enabled        bool
+	config         *config.DistributedConfig
+	httpClient     *http.Client
 }
 
 /* Node represents a cluster node */
 type Node struct {
-	ID        string
-	Address   string
-	Port      int
-	Status    NodeStatus
-	LastSeen  time.Time
-	Load      float64
+	ID           string
+	Address      string
+	Port         int
+	Status       NodeStatus
+	LastSeen     time.Time
+	Load         float64
 	Capabilities []string
 }
 
@@ -74,9 +74,9 @@ const (
 
 /* ConsistentHashRing provides consistent hashing for session affinity */
 type ConsistentHashRing struct {
-	nodes   []string
+	nodes    []string
 	replicas int
-	mu      sync.RWMutex
+	mu       sync.RWMutex
 }
 
 /* NewCoordinator creates a new distributed coordinator */
@@ -91,15 +91,15 @@ func NewCoordinator(nodeID string, queries *db.Queries, runtime *agent.Runtime, 
 	}
 
 	return &Coordinator{
-		nodeID:        nodeID,
-		queries:       queries,
-		runtime:       runtime,
-		ring:          NewConsistentHashRing(150), // 150 virtual nodes per physical node
+		nodeID:         nodeID,
+		queries:        queries,
+		runtime:        runtime,
+		ring:           NewConsistentHashRing(150), // 150 virtual nodes per physical node
 		leaderElection: NewLeaderElection(nodeID, queries),
 		memoryPubSub:   NewMemoryPubSub(queries),
-		nodes:         make(map[string]*Node),
-		enabled:       false,
-		config:        cfg,
+		nodes:          make(map[string]*Node),
+		enabled:        false,
+		config:         cfg,
 		httpClient: &http.Client{
 			Timeout: cfg.RPCTimeout,
 		},
@@ -166,7 +166,10 @@ func (c *Coordinator) ExecuteAgent(ctx context.Context, sessionID uuid.UUID, use
 
 	/* Determine target node using consistent hashing */
 	targetNodeID := c.ring.GetNode(sessionID.String())
-	
+	if targetNodeID == "" {
+		/* Empty ring (e.g. during update) - execute locally */
+		return c.runtime.Execute(ctx, sessionID, userMessage)
+	}
 	if targetNodeID == c.nodeID {
 		/* Execute locally */
 		return c.runtime.Execute(ctx, sessionID, userMessage)
@@ -197,7 +200,7 @@ func (c *Coordinator) executeRemote(ctx context.Context, nodeID string, sessionI
 		protocol = "https"
 	}
 	url := fmt.Sprintf("%s://%s:%d/api/v1/sessions/%s/messages", protocol, node.Address, node.Port, sessionID.String())
-	
+
 	requestBody := map[string]interface{}{
 		"content": userMessage,
 	}
@@ -217,14 +220,12 @@ func (c *Coordinator) executeRemote(ctx context.Context, nodeID string, sessionI
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	
-	/* Add RPC authentication */
+
+	/* RPC authentication is required in production */
 	if c.config.RPCAPIKey != "" {
-		/* Use API key authentication */
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.config.RPCAPIKey))
 		req.Header.Set("X-RPC-Node-ID", c.nodeID)
 	} else if c.config.RPCSecret != "" {
-		/* Use shared secret authentication with HMAC */
 		timestamp := fmt.Sprintf("%d", time.Now().Unix())
 		mac := hmac.New(sha256.New, []byte(c.config.RPCSecret))
 		mac.Write(jsonBody)
@@ -235,11 +236,8 @@ func (c *Coordinator) executeRemote(ctx context.Context, nodeID string, sessionI
 		req.Header.Set("X-RPC-Node-ID", c.nodeID)
 		req.Header.Set("X-RPC-Timestamp", timestamp)
 	} else {
-		/* No authentication configured - warn but allow for backward compatibility */
-		metrics.WarnWithContext(ctx, "RPC call without authentication (security risk)", map[string]interface{}{
-			"node_id":    nodeID,
-			"session_id": sessionID.String(),
-		})
+		/* Reject unauthenticated RPC to prevent security risk */
+		return nil, fmt.Errorf("RPC authentication required: set RPC_API_KEY or RPC_SECRET for distributed mode")
 	}
 
 	/* Execute HTTP request with retry logic */
@@ -378,11 +376,11 @@ func (c *Coordinator) registerNode(ctx context.Context) error {
 	/* Add to local nodes map */
 	c.mu.Lock()
 	c.nodes[c.nodeID] = &Node{
-		ID:          c.nodeID,
-		Address:     address,
-		Port:        port,
-		Status:      NodeStatusHealthy,
-		LastSeen:    time.Now(),
+		ID:           c.nodeID,
+		Address:      address,
+		Port:         port,
+		Status:       NodeStatusHealthy,
+		LastSeen:     time.Now(),
 		Capabilities: []string{"agent_execution", "memory", "tools"},
 	}
 	c.mu.Unlock()
@@ -413,12 +411,12 @@ func (c *Coordinator) updateNodeList(ctx context.Context) {
 		ORDER BY node_id`
 
 	type NodeRow struct {
-		NodeID      string    `db:"node_id"`
-		Address     string    `db:"address"`
-		Port        int       `db:"port"`
-		Status      string    `db:"status"`
-		LastSeen    time.Time `db:"last_seen"`
-		Capabilities []string `db:"capabilities"`
+		NodeID       string    `db:"node_id"`
+		Address      string    `db:"address"`
+		Port         int       `db:"port"`
+		Status       string    `db:"status"`
+		LastSeen     time.Time `db:"last_seen"`
+		Capabilities []string  `db:"capabilities"`
 	}
 
 	var rows []NodeRow
@@ -433,34 +431,34 @@ func (c *Coordinator) updateNodeList(ctx context.Context) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	/* Update ring */
-	c.ring.Clear()
+	/* Build new node list and map atomically to avoid empty ring window */
+	newNodes := make(map[string]*Node)
+	var healthyIDs []string
 	for _, row := range rows {
-		if row.Status == string(NodeStatusHealthy) {
-			c.ring.AddNode(row.NodeID)
-			c.nodes[row.NodeID] = &Node{
-				ID:          row.NodeID,
-				Address:     row.Address,
-				Port:        row.Port,
-				Status:      NodeStatus(row.Status),
-				LastSeen:    row.LastSeen,
-				Capabilities: row.Capabilities,
-			}
+		if row.Status != string(NodeStatusHealthy) {
+			continue
 		}
-	}
-
-	/* Remove stale nodes */
-	for nodeID, node := range c.nodes {
-		if time.Since(node.LastSeen) > 30*time.Second {
-			delete(c.nodes, nodeID)
+		if time.Since(row.LastSeen) > 30*time.Second {
+			continue /* Skip stale nodes */
 		}
+		newNodes[row.NodeID] = &Node{
+			ID:           row.NodeID,
+			Address:      row.Address,
+			Port:         row.Port,
+			Status:       NodeStatus(row.Status),
+			LastSeen:     row.LastSeen,
+			Capabilities: row.Capabilities,
+		}
+		healthyIDs = append(healthyIDs, row.NodeID)
 	}
+	c.ring.ReplaceNodes(healthyIDs)
+	c.nodes = newNodes
 }
 
 /* NewConsistentHashRing creates a new consistent hash ring */
 func NewConsistentHashRing(replicas int) *ConsistentHashRing {
 	return &ConsistentHashRing{
-		nodes:   make([]string, 0),
+		nodes:    make([]string, 0),
 		replicas: replicas,
 	}
 }
@@ -500,6 +498,14 @@ func (r *ConsistentHashRing) Clear() {
 	r.nodes = make([]string, 0)
 }
 
+/* ReplaceNodes atomically replaces all nodes in the ring (avoids empty ring window during update) */
+func (r *ConsistentHashRing) ReplaceNodes(nodeIDs []string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.nodes = make([]string, len(nodeIDs))
+	copy(r.nodes, nodeIDs)
+}
+
 /* GetNode returns the node responsible for a given key */
 func (r *ConsistentHashRing) GetNode(key string) string {
 	r.mu.RLock()
@@ -521,4 +527,3 @@ func (c *Coordinator) IsEnabled() bool {
 	defer c.mu.RUnlock()
 	return c.enabled
 }
-

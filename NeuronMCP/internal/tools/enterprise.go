@@ -121,7 +121,12 @@ func (t *MultiTenantManagementTool) createTenant(ctx context.Context, params map
 				status VARCHAR(50) NOT NULL DEFAULT 'active'
 			)
 		`
-		_, _ = t.db.Query(ctx, createTable, nil)
+		if _, err := t.db.Query(ctx, createTable, nil); err != nil {
+			t.logger.Warn("Failed to ensure table exists", map[string]interface{}{
+				"table": "neurondb.tenants",
+				"error": err.Error(),
+			})
+		}
 		_, err = t.db.Query(ctx, query, []interface{}{tenantID, tenantName, string(configJSON)})
 		if err != nil {
 			return Error(fmt.Sprintf("Failed to create tenant: %v", err), "CREATE_ERROR", nil), nil
@@ -385,7 +390,12 @@ func (t *DataGovernanceTool) classifyData(ctx context.Context, params map[string
 				PRIMARY KEY (table_name, column_name)
 			)
 		`
-		_, _ = t.db.Query(ctx, createTable, nil)
+		if _, err := t.db.Query(ctx, createTable, nil); err != nil {
+			t.logger.Warn("Failed to ensure table exists", map[string]interface{}{
+				"table": "neurondb.data_classifications",
+				"error": err.Error(),
+			})
+		}
 		_, err = t.db.Query(ctx, query, []interface{}{table, column, classification})
 		if err != nil {
 			return Error(fmt.Sprintf("Failed to classify data: %v", err), "CLASSIFY_ERROR", nil), nil
@@ -450,7 +460,12 @@ func (t *DataGovernanceTool) tagData(ctx context.Context, params map[string]inte
 				updated_at TIMESTAMP
 			)
 		`
-		_, _ = t.db.Query(ctx, createTable, nil)
+		if _, err := t.db.Query(ctx, createTable, nil); err != nil {
+			t.logger.Warn("Failed to ensure table exists", map[string]interface{}{
+				"table": "neurondb.data_tags",
+				"error": err.Error(),
+			})
+		}
 		_, err = t.db.Query(ctx, query, []interface{}{table, string(tagsJSON)})
 		if err != nil {
 			return Error(fmt.Sprintf("Failed to tag data: %v", err), "TAG_ERROR", nil), nil
@@ -458,8 +473,8 @@ func (t *DataGovernanceTool) tagData(ctx context.Context, params map[string]inte
 	}
 
 	return Success(map[string]interface{}{
-		"table":  table,
-		"tags":   tags,
+		"table":   table,
+		"tags":    tags,
 		"message": "Data tagged successfully",
 	}, nil), nil
 }
@@ -518,4 +533,3 @@ func (t *DataGovernanceTool) applyPolicy(ctx context.Context, params map[string]
 		"message": "Policy applied successfully",
 	}, nil), nil
 }
-

@@ -301,17 +301,14 @@ func (d *MemoryCorruptionDetector) RepairCorruptedMemory(ctx context.Context, is
 	}
 }
 
+// allowedMemoryTables is the allowlist for table names used in raw SQL (injection-safe).
+var allowedMemoryTables = map[string]string{"stm": "memory_stm", "mtm": "memory_mtm", "lpm": "memory_lpm"}
+
 /* repairEmptyEmbedding regenerates embedding for memory */
+
 func (d *MemoryCorruptionDetector) repairEmptyEmbedding(ctx context.Context, issue CorruptionIssue) error {
-	var tableName string
-	switch issue.Tier {
-	case "stm":
-		tableName = "memory_stm"
-	case "mtm":
-		tableName = "memory_mtm"
-	case "lpm":
-		tableName = "memory_lpm"
-	default:
+	tableName, ok := allowedMemoryTables[issue.Tier]
+	if !ok {
 		return fmt.Errorf("invalid tier: %s", issue.Tier)
 	}
 
@@ -320,20 +317,18 @@ func (d *MemoryCorruptionDetector) repairEmptyEmbedding(ctx context.Context, iss
 	var content string
 	err := d.db.DB.GetContext(ctx, &content, query, issue.MemoryID)
 	if err != nil {
-		return err
+		return fmt.Errorf("get memory content for repair: %w", err)
 	}
 
-	/* Generate new embedding */
 	embedding, err := d.embed.Embed(ctx, content, "all-MiniLM-L6-v2")
 	if err != nil {
-		return err
+		return fmt.Errorf("embed for repair: %w", err)
 	}
 
-	/* Update embedding */
 	updateQuery := fmt.Sprintf(`UPDATE neurondb_agent.%s SET embedding = $1::neurondb_vector, updated_at = NOW() WHERE id = $2`, tableName)
 	_, err = d.db.DB.ExecContext(ctx, updateQuery, embedding, issue.MemoryID)
 	if err != nil {
-		return err
+		return fmt.Errorf("update embedding repair: %w", err)
 	}
 
 	/* Log repair */
@@ -360,7 +355,7 @@ func (d *MemoryCorruptionDetector) repairInvalidMetadata(ctx context.Context, is
 	updateQuery := fmt.Sprintf(`UPDATE neurondb_agent.%s SET metadata = '{}'::jsonb, updated_at = NOW() WHERE id = $1`, tableName)
 	_, err := d.db.DB.ExecContext(ctx, updateQuery, issue.MemoryID)
 	if err != nil {
-		return err
+		return fmt.Errorf("repair invalid metadata: %w", err)
 	}
 
 	d.logCorruptionEvent(ctx, issue.MemoryID, issue.Tier, "repaired", issue.IssueType)
@@ -387,7 +382,7 @@ func (d *MemoryCorruptionDetector) repairImportanceScore(ctx context.Context, is
 		WHERE id = $1`, tableName)
 	_, err := d.db.DB.ExecContext(ctx, updateQuery, issue.MemoryID)
 	if err != nil {
-		return err
+		return fmt.Errorf("repair importance score: %w", err)
 	}
 
 	d.logCorruptionEvent(ctx, issue.MemoryID, issue.Tier, "repaired", issue.IssueType)

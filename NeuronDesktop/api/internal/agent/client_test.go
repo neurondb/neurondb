@@ -53,9 +53,18 @@ func TestAgentClient_ListAgents(t *testing.T) {
 }
 
 func TestAgentClient_ListModels(t *testing.T) {
-	// Note: ListModels is not implemented in the agent client
-	// This test is a placeholder for when it's implemented
-	t.Skip("ListModels not implemented in agent client")
+	endpoint := getTestAgentEndpoint()
+	client := NewClient(endpoint, "")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	models, err := client.ListModels(ctx)
+	if err != nil {
+		t.Skipf("ListModels failed (agent may not be running): %v", err)
+	}
+	if models == nil {
+		t.Fatal("ListModels must not return nil")
+	}
+	_ = models
 }
 
 func TestAgentClient_CreateSession(t *testing.T) {

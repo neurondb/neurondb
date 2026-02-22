@@ -1,0 +1,13 @@
+apiVersion: v2
+name: neurondb-hub
+description: Helm chart for NeuronDB Hub (agent builder, playground, embeddable widget)
+type: application
+version: 1.0.0-devel
+appVersion: "1.0.0-devel"
+keywords:
+  - neurondb
+  - agent-builder
+  - hub
+maintainers:
+  - name: NeuronDB Team
+    email: support@neurondb.ai

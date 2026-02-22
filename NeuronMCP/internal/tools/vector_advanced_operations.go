@@ -22,6 +22,7 @@ import (
 
 	"github.com/neurondb/NeuronMCP/internal/database"
 	"github.com/neurondb/NeuronMCP/internal/logging"
+	"github.com/neurondb/NeuronMCP/internal/validation"
 )
 
 /* VectorAggregateTool performs vector aggregation operations */
@@ -179,6 +180,15 @@ func (t *VectorNormalizeBatchTool) Execute(ctx context.Context, params map[strin
 		return Error("vector_column parameter is required", "INVALID_PARAMETER", nil), nil
 	}
 
+	if err := validation.ValidateTableName(table); err != nil {
+		return Error(fmt.Sprintf("Invalid table: %v", err), "VALIDATION_ERROR", nil), nil
+	}
+	if err := validation.ValidateColumnName(vectorColumn); err != nil {
+		return Error(fmt.Sprintf("Invalid vector_column: %v", err), "VALIDATION_ERROR", nil), nil
+	}
+	escapedTable := validation.EscapeSQLIdentifier(table)
+	escapedVecCol := validation.EscapeSQLIdentifier(vectorColumn)
+
 	targetColumn, _ := params["target_column"].(string)
 	inPlace := false
 	if val, ok := params["in_place"].(bool); ok {
@@ -198,7 +208,7 @@ func (t *VectorNormalizeBatchTool) Execute(ctx context.Context, params map[strin
 			UPDATE %s
 			SET %s = vector_normalize(%s)
 			WHERE %s IS NOT NULL
-		`, table, vectorColumn, vectorColumn, vectorColumn)
+		`, escapedTable, escapedVecCol, escapedVecCol, escapedVecCol)
 
 		_, err := t.executor.ExecuteQuery(ctx, query, nil)
 		if err != nil {
@@ -210,15 +220,15 @@ func (t *VectorNormalizeBatchTool) Execute(ctx context.Context, params map[strin
 		}
 
 		/* Get count of updated rows */
-		countQuery := fmt.Sprintf("SELECT COUNT(*) AS count FROM %s WHERE %s IS NOT NULL", table, vectorColumn)
+		countQuery := fmt.Sprintf("SELECT COUNT(*) AS count FROM %s WHERE %s IS NOT NULL", escapedTable, escapedVecCol)
 		countResult, _ := t.executor.ExecuteQueryOne(ctx, countQuery, nil)
 
 		return Success(map[string]interface{}{
-			"operation":    "normalize_batch",
-			"table":        table,
+			"operation":     "normalize_batch",
+			"table":         table,
 			"vector_column": vectorColumn,
-			"in_place":     true,
-			"rows_updated": countResult,
+			"in_place":      true,
+			"rows_updated":  countResult,
 		}, map[string]interface{}{
 			"tool": "vector_normalize_batch",
 		}), nil
@@ -228,14 +238,14 @@ func (t *VectorNormalizeBatchTool) Execute(ctx context.Context, params map[strin
 	if targetColumn == "" {
 		targetColumn = vectorColumn + "_normalized"
 	}
+	if err := validation.ValidateColumnName(targetColumn); err != nil {
+		return Error(fmt.Sprintf("Invalid target_column: %v", err), "VALIDATION_ERROR", nil), nil
+	}
+	escapedTargetCol := validation.EscapeSQLIdentifier(targetColumn)
 
 	/* Check if target column exists, if not create it */
-	checkQuery := fmt.Sprintf(`
-		SELECT column_name 
-		FROM information_schema.columns 
-		WHERE table_name = '%s' AND column_name = '%s'
-	`, table, targetColumn)
-	checkResult, _ := t.executor.ExecuteQueryOne(ctx, checkQuery, nil)
+	checkQuery := `SELECT column_name FROM information_schema.columns WHERE table_name = $1 AND column_name = $2`
+	checkResult, _ := t.executor.ExecuteQueryOne(ctx, checkQuery, []interface{}{table, targetColumn})
 
 	if checkResult == nil || len(checkResult) == 0 {
 		/* Get vector dimension from first row */
@@ -244,7 +254,7 @@ func (t *VectorNormalizeBatchTool) Execute(ctx context.Context, params map[strin
 			FROM %s 
 			WHERE %s IS NOT NULL 
 			LIMIT 1
-		`, vectorColumn, table, vectorColumn)
+		`, escapedVecCol, escapedTable, escapedVecCol)
 		dimResult, err := t.executor.ExecuteQueryOne(ctx, dimQuery, nil)
 		if err != nil {
 			return Error("Failed to determine vector dimensions", "QUERY_ERROR", map[string]interface{}{"error": err.Error()}), nil
@@ -262,7 +272,7 @@ func (t *VectorNormalizeBatchTool) Execute(ctx context.Context, params map[strin
 		}
 
 		/* Add column */
-		addColQuery := fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s vector(%d)", table, targetColumn, dims)
+		addColQuery := fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s vector(%d)", escapedTable, escapedTargetCol, dims)
 		_, err = t.executor.ExecuteQuery(ctx, addColQuery, nil)
 		if err != nil {
 			return Error(
@@ -278,7 +288,7 @@ func (t *VectorNormalizeBatchTool) Execute(ctx context.Context, params map[strin
 		UPDATE %s
 		SET %s = vector_normalize(%s)
 		WHERE %s IS NOT NULL
-	`, table, targetColumn, vectorColumn, vectorColumn)
+	`, escapedTable, escapedTargetCol, escapedVecCol, escapedVecCol)
 
 	_, err := t.executor.ExecuteQuery(ctx, updateQuery, nil)
 	if err != nil {
@@ -289,7 +299,7 @@ func (t *VectorNormalizeBatchTool) Execute(ctx context.Context, params map[strin
 		), nil
 	}
 
-	countQuery := fmt.Sprintf("SELECT COUNT(*) AS count FROM %s WHERE %s IS NOT NULL", table, targetColumn)
+	countQuery := fmt.Sprintf("SELECT COUNT(*) AS count FROM %s WHERE %s IS NOT NULL", escapedTable, escapedTargetCol)
 	countResult, _ := t.executor.ExecuteQueryOne(ctx, countQuery, nil)
 
 	return Success(map[string]interface{}{
@@ -423,8 +433,8 @@ func (t *VectorSimilarityMatrixTool) Execute(ctx context.Context, params map[str
 
 	return Success(map[string]interface{}{
 		"similarity_matrix": results,
-		"count":            len(results),
-		"distance_metric":  distanceMetric,
+		"count":             len(results),
+		"distance_metric":   distanceMetric,
 	}, map[string]interface{}{
 		"tool": "vector_similarity_matrix",
 	}), nil
@@ -564,8 +574,8 @@ func (t *VectorBatchDistanceTool) Execute(ctx context.Context, params map[string
 	}
 
 	return Success(map[string]interface{}{
-		"results":        results,
-		"count":          len(results),
+		"results":         results,
+		"count":           len(results),
 		"distance_metric": distanceMetric,
 	}, map[string]interface{}{
 		"tool": "vector_batch_distance",
@@ -682,9 +692,3 @@ func (t *VectorIndexStatisticsTool) Execute(ctx context.Context, params map[stri
 		"tool": "vector_index_statistics",
 	}), nil
 }
-
-
-
-
-
-

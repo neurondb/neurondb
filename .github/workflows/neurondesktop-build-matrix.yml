@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go_version: ["1.21", "1.22", "1.23", "1.24"]
+        go_version: ["1.21", "1.22", "1.23"]
 
     steps:
       - name: Checkout repository
@@ -93,7 +93,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.23'
 
       - name: Run golangci-lint on backend
         uses: golangci/golangci-lint-action@v4
@@ -132,6 +132,6 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "All NeuronDesktop builds completed." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- Backend: Go 1.21-1.24" >> $GITHUB_STEP_SUMMARY
+          echo "- Backend: Go 1.21-1.23" >> $GITHUB_STEP_SUMMARY
           echo "- Frontend: Node 18-22" >> $GITHUB_STEP_SUMMARY
 

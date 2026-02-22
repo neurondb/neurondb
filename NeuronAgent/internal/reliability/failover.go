@@ -28,13 +28,13 @@ import (
 
 /* FailoverManager manages failover for high availability */
 type FailoverManager struct {
-	queries      *db.Queries
-	primaryNode  string
-	replicaNodes []string
-	currentNode  string
+	queries       *db.Queries
+	primaryNode   string
+	replicaNodes  []string
+	currentNode   string
 	healthChecker *HealthChecker
-	mu           sync.RWMutex
-	enabled      bool
+	mu            sync.RWMutex
+	enabled       bool
 }
 
 /* HealthChecker checks health of nodes */
@@ -73,8 +73,8 @@ func (fm *FailoverManager) Enable(ctx context.Context) error {
 	go fm.healthCheckLoop(ctx)
 
 	metrics.InfoWithContext(ctx, "Failover enabled", map[string]interface{}{
-		"current_node": fm.currentNode,
-		"primary_node": fm.primaryNode,
+		"current_node":  fm.currentNode,
+		"primary_node":  fm.primaryNode,
 		"replica_count": len(fm.replicaNodes),
 	})
 
@@ -164,40 +164,84 @@ func (fm *FailoverManager) triggerFailover(ctx context.Context, failedNode strin
 	defer fm.mu.Unlock()
 
 	if fm.primaryNode != failedNode {
-		/* Not the primary, no failover needed */
 		return
 	}
 
-	/* Find healthy replica */
+	/* Verify old primary is actually down before any promotion (avoid split-brain) */
+	stillHealthy, verifyErr := fm.healthChecker.CheckHealth(ctx, failedNode)
+	if verifyErr == nil && stillHealthy {
+		metrics.InfoWithContext(ctx, "Failover skipped: primary recovered", map[string]interface{}{
+			"node_id": failedNode,
+		})
+		return
+	}
+
+	/* Quorum: require majority of replicas healthy before promoting */
+	nReplicas := len(fm.replicaNodes)
+	if nReplicas == 0 {
+		metrics.ErrorWithContext(ctx, "Failover failed: no replicas", fmt.Errorf("no replica nodes"), map[string]interface{}{
+			"failed_node": failedNode,
+		})
+		return
+	}
+	var healthyCount int
 	for _, replica := range fm.replicaNodes {
 		healthy, err := fm.healthChecker.CheckHealth(ctx, replica)
 		if err == nil && healthy {
-			/* Promote replica to primary */
-			query := `UPDATE neurondb_agent.cluster_nodes
-				SET role = 'primary', updated_at = NOW()
-				WHERE node_id = $1`
-			_, err := fm.queries.DB.ExecContext(ctx, query, replica)
-			if err != nil {
-				metrics.WarnWithContext(ctx, "Failed to promote replica to primary", map[string]interface{}{
-					"replica_id": replica,
-					"error":      err.Error(),
-				})
-				continue
-			}
+			healthyCount++
+		}
+	}
+	quorum := (nReplicas / 2) + 1
+	if healthyCount < quorum {
+		metrics.ErrorWithContext(ctx, "Failover failed: quorum not met", fmt.Errorf("healthy replicas %d < quorum %d", healthyCount, quorum), map[string]interface{}{
+			"failed_node":   failedNode,
+			"healthy_count": healthyCount,
+			"quorum":        quorum,
+			"replica_count": nReplicas,
+		})
+		return
+	}
 
-			/* Demote old primary */
-			query = `UPDATE neurondb_agent.cluster_nodes
-				SET role = 'replica', status = 'unhealthy', updated_at = NOW()
-				WHERE node_id = $1`
-			fm.queries.DB.ExecContext(ctx, query, failedNode)
-
-			fm.primaryNode = replica
-			metrics.InfoWithContext(ctx, "Failover completed", map[string]interface{}{
-				"old_primary": failedNode,
-				"new_primary": replica,
+	/* Find first healthy replica and promote */
+	for _, replica := range fm.replicaNodes {
+		healthy, err := fm.healthChecker.CheckHealth(ctx, replica)
+		if err != nil || !healthy {
+			continue
+		}
+		query := `UPDATE neurondb_agent.cluster_nodes
+			SET role = 'primary', updated_at = NOW()
+			WHERE node_id = $1`
+		_, err = fm.queries.DB.ExecContext(ctx, query, replica)
+		if err != nil {
+			metrics.WarnWithContext(ctx, "Failed to promote replica to primary", map[string]interface{}{
+				"replica_id": replica,
+				"error":      err.Error(),
 			})
+			continue
+		}
+
+		/* Re-verify old primary is still down before demotion; if it recovered, abort and rollback */
+		primaryRecovered, _ := fm.healthChecker.CheckHealth(ctx, failedNode)
+		if primaryRecovered {
+			metrics.WarnWithContext(ctx, "Failover aborted: primary came back before demotion", map[string]interface{}{
+				"node_id": failedNode,
+			})
+			rollbackQuery := `UPDATE neurondb_agent.cluster_nodes SET role = 'replica', updated_at = NOW() WHERE node_id = $1`
+			_, _ = fm.queries.DB.ExecContext(ctx, rollbackQuery, replica)
 			return
 		}
+
+		demoteQuery := `UPDATE neurondb_agent.cluster_nodes
+			SET role = 'replica', status = 'unhealthy', updated_at = NOW()
+			WHERE node_id = $1`
+		_, _ = fm.queries.DB.ExecContext(ctx, demoteQuery, failedNode)
+
+		fm.primaryNode = replica
+		metrics.InfoWithContext(ctx, "Failover completed", map[string]interface{}{
+			"old_primary": failedNode,
+			"new_primary": replica,
+		})
+		return
 	}
 
 	metrics.ErrorWithContext(ctx, "Failover failed: no healthy replicas", fmt.Errorf("no healthy replicas available"), map[string]interface{}{
@@ -236,7 +280,3 @@ func (hc *HealthChecker) CheckHealth(ctx context.Context, nodeID string) (bool, 
 
 	return row.Status == "healthy", nil
 }
-
-
-
-

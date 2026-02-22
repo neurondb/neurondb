@@ -100,6 +100,14 @@ func (t *ShellTool) Execute(ctx context.Context, tool *db.Tool, args map[string]
 			tool.Name, commandPreview, len(command), cmdName, t.allowedCommands)
 	}
 
+	/* Reject shell metacharacters in each argument (defense in depth) */
+	for i, arg := range parts[1:] {
+		if containsShellMetacharacter(arg) {
+			return "", fmt.Errorf("shell tool execution failed: tool_name='%s', handler_type='shell', validation_error='argument %d contains disallowed characters'",
+				tool.Name, i+1)
+		}
+	}
+
 	/* Create context with timeout */
 	ctx, cancel := context.WithTimeout(ctx, t.timeout)
 	defer cancel()

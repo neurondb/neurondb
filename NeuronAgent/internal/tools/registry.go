@@ -59,6 +59,9 @@ const (
 	principalContextKey contextKey = "principal"
 )
 
+/* Max concurrent audit log goroutines to prevent unbounded growth */
+const auditLogConcurrency = 10
+
 /* Registry manages tool registration and execution */
 type Registry struct {
 	queries     *db.Queries
@@ -66,6 +69,7 @@ type Registry struct {
 	handlers    map[string]ToolHandler
 	auditLogger *auth.AuditLogger
 	browserTool *BrowserTool
+	auditSem    chan struct{} /* limits concurrent audit goroutines */
 	mu          sync.RWMutex
 }
 
@@ -76,6 +80,7 @@ func NewRegistry(queries *db.Queries, database *db.DB) *Registry {
 		db:          database,
 		handlers:    make(map[string]ToolHandler),
 		auditLogger: auth.NewAuditLogger(queries),
+		auditSem:    make(chan struct{}, auditLogConcurrency),
 	}
 
 	/* Register built-in handlers */
@@ -130,7 +135,7 @@ func NewRegistryWithAllFeatures(queries *db.Queries, database *db.DB, vfs interf
 
 	/* Register web search tool */
 	registry.RegisterHandler("web_search", NewWebSearchTool())
-	
+
 	/* Note: RetrievalTool requires runtime components (memory, router, etc.) */
 	/* It should be registered separately with proper initialization */
 	/* For now, it can be registered with nil interfaces and will return errors when used */
@@ -280,15 +285,20 @@ func (r *Registry) ExecuteTool(ctx context.Context, tool *db.Tool, args map[stri
 		outputs["success"] = false
 	}
 
-	/* Log audit trail (async, don't block on errors) */
+	/* Log audit trail (async, bounded concurrency via semaphore) */
 	go func() {
-		/* Recover from any panics in background goroutine */
 		defer func() {
 			if r := recover(); r != nil {
 				/* Log panic but don't crash the application */
-				/* Note: metrics package may not be available in this context */
 			}
 		}()
+		select {
+		case r.auditSem <- struct{}{}:
+			defer func() { <-r.auditSem }()
+		default:
+			/* Semaphore full - skip this audit to avoid unbounded goroutines */
+			return
+		}
 
 		bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()

@@ -23,6 +23,9 @@ import (
 	"github.com/neurondb/NeuronMCP/pkg/mcp"
 )
 
+/* maxWorkflowDuration caps how long a background workflow can run */
+const maxWorkflowDuration = 1 * time.Hour
+
 /* WorkflowManagerTool provides workflow management */
 type WorkflowManagerTool struct {
 	manager *Manager
@@ -40,8 +43,8 @@ func NewWorkflowManagerTool(manager *Manager, logger *logging.Logger) *WorkflowM
 /* CreateWorkflowTool creates a workflow */
 type CreateWorkflowTool struct {
 	baseTool *BaseToolWrapper
-	manager *Manager
-	logger  *logging.Logger
+	manager  *Manager
+	logger   *logging.Logger
 }
 
 /* NewCreateWorkflowTool creates a new create workflow tool */
@@ -245,9 +248,10 @@ func (t *ExecuteWorkflowTool) Execute(ctx context.Context, params map[string]int
 		return errorResult(fmt.Sprintf("failed to create execution: %v", err), "WORKFLOW_ERROR", nil), nil
 	}
 
-	/* Execute workflow in background; use request context for tracing, without cancel on request end */
-	runCtx := context.WithoutCancel(ctx)
+	/* Execute workflow in background with max duration so it cannot run indefinitely */
+	runCtx, runCancel := context.WithTimeout(context.WithoutCancel(ctx), maxWorkflowDuration)
 	go func() {
+		defer runCancel()
 		if err := t.executor.ExecuteWorkflow(runCtx, executionID); err != nil {
 			if t.logger != nil {
 				t.logger.Error("Workflow execution failed", err, map[string]interface{}{
@@ -260,16 +264,16 @@ func (t *ExecuteWorkflowTool) Execute(ctx context.Context, params map[string]int
 
 	return successResult(map[string]interface{}{
 		"execution_id": executionID,
-		"workflow_id": workflowID,
-		"status":      "running",
+		"workflow_id":  workflowID,
+		"status":       "running",
 	}), nil
 }
 
 /* WorkflowStatusTool checks workflow execution status */
 type WorkflowStatusTool struct {
 	baseTool *BaseToolWrapper
-	manager *Manager
-	logger  *logging.Logger
+	manager  *Manager
+	logger   *logging.Logger
 }
 
 /* NewWorkflowStatusTool creates a new workflow status tool */
@@ -340,8 +344,8 @@ func (t *WorkflowStatusTool) Execute(ctx context.Context, params map[string]inte
 /* ListWorkflowsTool lists all workflows */
 type ListWorkflowsTool struct {
 	baseTool *BaseToolWrapper
-	manager *Manager
-	logger  *logging.Logger
+	manager  *Manager
+	logger   *logging.Logger
 }
 
 /* NewListWorkflowsTool creates a new list workflows tool */

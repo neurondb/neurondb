@@ -1,0 +1,2 @@
+# Place TLS cert.pem and key.pem here for HTTPS.
+# Ensure nginx.conf 443 server block is enabled.

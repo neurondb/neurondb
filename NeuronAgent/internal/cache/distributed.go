@@ -31,10 +31,11 @@ import (
 /* DistributedCache provides distributed caching */
 type DistributedCache struct {
 	l1Cache    CacheManagerInterface // In-memory cache interface
-	pgCache    *PostgreSQLCache     // PostgreSQL cache with LISTEN/NOTIFY
+	pgCache    *PostgreSQLCache      // PostgreSQL cache with LISTEN/NOTIFY
 	dbCache    *DBCache              // PostgreSQL persistent cache
 	enabled    bool
 	mu         sync.RWMutex
+	enableOnce sync.Once
 	listeners  map[string]chan struct{} // Key invalidation listeners
 }
 
@@ -71,29 +72,29 @@ func NewDistributedCache(queries *db.Queries, l1Cache CacheManagerInterface) *Di
 	}
 }
 
-/* Enable enables distributed caching */
+/* Enable enables distributed caching (idempotent; only runs once) */
 func (dc *DistributedCache) Enable(ctx context.Context) error {
-	dc.mu.Lock()
-	defer dc.mu.Unlock()
-
-	if dc.enabled {
-		return nil
-	}
-
-	/* Enable PostgreSQL cache with LISTEN/NOTIFY */
-	if err := dc.pgCache.Enable(ctx); err != nil {
-		return fmt.Errorf("distributed cache enable failed: pg_cache_error=true, error=%w", err)
-	}
-
-	/* Start listening for cache invalidation notifications */
-	go dc.startInvalidationListener(ctx)
-
-	dc.enabled = true
-	metrics.InfoWithContext(ctx, "Distributed cache enabled", map[string]interface{}{
-		"cache_type": "postgresql_listen_notify",
+	var enableErr error
+	dc.enableOnce.Do(func() {
+		dc.mu.Lock()
+		if dc.enabled {
+			dc.mu.Unlock()
+			return
+		}
+		enableErr = dc.pgCache.Enable(ctx)
+		if enableErr != nil {
+			enableErr = fmt.Errorf("distributed cache enable failed: pg_cache_error=true, error=%w", enableErr)
+			dc.mu.Unlock()
+			return
+		}
+		go dc.startInvalidationListener(ctx)
+		dc.enabled = true
+		dc.mu.Unlock()
+		metrics.InfoWithContext(ctx, "Distributed cache enabled", map[string]interface{}{
+			"cache_type": "postgresql_listen_notify",
+		})
 	})
-
-	return nil
+	return enableErr
 }
 
 /* startInvalidationListener listens for cache invalidation notifications */
@@ -459,4 +460,3 @@ func (dbc *DBCache) Delete(ctx context.Context, key string) error {
 	_, err := dbc.queries.DB.ExecContext(ctx, query, key)
 	return err
 }
-

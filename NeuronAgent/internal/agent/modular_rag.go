@@ -241,6 +241,14 @@ type ModularRAGResult struct {
 	Metadata  map[string]interface{}
 }
 
+/* modularRAGBackend is the interface used by modules to perform retrieval/rerank/generation. *AdvancedRAG implements it. */
+type modularRAGBackend interface {
+	VectorRetrieveDocuments(ctx context.Context, query, tableName, vectorCol, textCol string, topK int) ([]string, error)
+	HybridRetrieveDocuments(ctx context.Context, query, tableName, vectorCol, textCol string, limit int, vectorWeight float64) ([]string, error)
+	RerankDocuments(ctx context.Context, query string, documents []string, model string, topK int) ([]string, error)
+	generateAnswer(ctx context.Context, query string, contexts []string) (string, error)
+}
+
 /* Built-in module implementations */
 
 /* VectorRetrievalModule implements vector-based retrieval */
@@ -269,7 +277,20 @@ func (m *VectorRetrievalModule) Type() ModuleType {
 }
 
 func (m *VectorRetrievalModule) Execute(ctx context.Context, input ModuleInput) (ModuleOutput, error) {
-	/* This is a placeholder - actual implementation would use AdvancedRAG */
+	backend, _ := input.Context["_rag_backend"].(modularRAGBackend)
+	tableName, _ := input.Context["table_name"].(string)
+	vectorCol, _ := input.Context["vector_col"].(string)
+	textCol, _ := input.Context["text_col"].(string)
+	if backend != nil && tableName != "" && vectorCol != "" {
+		docs, err := backend.VectorRetrieveDocuments(ctx, input.Query, tableName, vectorCol, textCol, m.topK)
+		if err != nil {
+			return ModuleOutput{}, err
+		}
+		return ModuleOutput{
+			Documents: docs,
+			Metadata:  map[string]interface{}{"module": m.name},
+		}, nil
+	}
 	return ModuleOutput{
 		Documents: []string{},
 		Metadata:  map[string]interface{}{"module": m.name},
@@ -320,7 +341,20 @@ func (m *HybridRetrievalModule) Type() ModuleType {
 }
 
 func (m *HybridRetrievalModule) Execute(ctx context.Context, input ModuleInput) (ModuleOutput, error) {
-	/* Placeholder implementation */
+	backend, _ := input.Context["_rag_backend"].(modularRAGBackend)
+	tableName, _ := input.Context["table_name"].(string)
+	vectorCol, _ := input.Context["vector_col"].(string)
+	textCol, _ := input.Context["text_col"].(string)
+	if backend != nil && tableName != "" && vectorCol != "" {
+		docs, err := backend.HybridRetrieveDocuments(ctx, input.Query, tableName, vectorCol, textCol, m.topK, m.vectorWeight)
+		if err != nil {
+			return ModuleOutput{}, err
+		}
+		return ModuleOutput{
+			Documents: docs,
+			Metadata:  map[string]interface{}{"module": m.name},
+		}, nil
+	}
 	return ModuleOutput{
 		Documents: []string{},
 		Metadata:  map[string]interface{}{"module": m.name},
@@ -368,7 +402,17 @@ func (m *RerankingModule) Type() ModuleType {
 }
 
 func (m *RerankingModule) Execute(ctx context.Context, input ModuleInput) (ModuleOutput, error) {
-	/* Placeholder implementation */
+	backend, _ := input.Context["_rag_backend"].(modularRAGBackend)
+	if backend != nil && len(input.Documents) > 0 {
+		docs, err := backend.RerankDocuments(ctx, input.Query, input.Documents, m.model, m.topK)
+		if err != nil {
+			return ModuleOutput{}, err
+		}
+		return ModuleOutput{
+			Documents: docs,
+			Metadata:  map[string]interface{}{"module": m.name},
+		}, nil
+	}
 	documents := input.Documents
 	if len(documents) > m.topK {
 		documents = documents[:m.topK]
@@ -415,9 +459,19 @@ func (m *GenerationModule) Type() ModuleType {
 }
 
 func (m *GenerationModule) Execute(ctx context.Context, input ModuleInput) (ModuleOutput, error) {
-	/* Placeholder implementation */
+	backend, _ := input.Context["_rag_backend"].(modularRAGBackend)
+	if backend != nil {
+		answer, err := backend.generateAnswer(ctx, input.Query, input.Documents)
+		if err != nil {
+			return ModuleOutput{}, err
+		}
+		return ModuleOutput{
+			Documents: input.Documents,
+			Metadata:  map[string]interface{}{"module": m.name, "answer": answer},
+		}, nil
+	}
 	return ModuleOutput{
-		Documents: []string{},
+		Documents: input.Documents,
 		Metadata:  map[string]interface{}{"module": m.name, "answer": "Generated answer"},
 	}, nil
 }
@@ -459,7 +513,6 @@ func (m *FilterModule) Type() ModuleType {
 }
 
 func (m *FilterModule) Execute(ctx context.Context, input ModuleInput) (ModuleOutput, error) {
-	/* Placeholder implementation */
 	documents := input.Documents
 	if len(documents) > m.maxDocs {
 		documents = documents[:m.maxDocs]
@@ -502,11 +555,12 @@ func (r *AdvancedRAG) ModularRAG(ctx context.Context, query, tableName, vectorCo
 		return nil, fmt.Errorf("modular RAG failed: pipeline_creation_error=true, error=%w", err)
 	}
 	
-	/* Execute pipeline */
+	/* Execute pipeline with backend so modules can perform real retrieval/rerank/generation */
 	initialContext := map[string]interface{}{
-		"table_name":  tableName,
-		"vector_col":  vectorCol,
-		"text_col":    textCol,
+		"table_name":   tableName,
+		"vector_col":   vectorCol,
+		"text_col":     textCol,
+		"_rag_backend": r,
 	}
 	
 	result, err := pipeline.Execute(ctx, query, initialContext)

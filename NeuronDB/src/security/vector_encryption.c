@@ -21,11 +21,13 @@
 #include "utils/builtins.h"
 #include "utils/bytea.h"
 #include "utils/memutils.h"
+#include "utils/guc.h"
 #include "neurondb_safe_memory.h"
 #include "neurondb_macros.h"
 #include "neurondb_validation.h"
 
 #include <openssl/evp.h>
+#include <stdlib.h>
 #include <openssl/rand.h>
 #include <openssl/err.h>
 #include <string.h>
@@ -129,14 +131,16 @@ encrypt_vector(PG_FUNCTION_ARGS)
 	SET_VARSIZE(result, result_size);
 
 	encrypted = (EncryptedVector *) VARDATA(result);
-	/*
-	 * TODO: Get tenant_id from execution context.
-	 * The tenant identifier should be retrieved from the current execution
-	 * context (e.g., via a GUC variable or session variable) to support
-	 * multi-tenant encryption. This requires integration with the multi-tenant
-	 * system to properly isolate encrypted vectors by tenant.
-	 */
-	encrypted->tenant_id = 0;
+	{
+		const char *tenant_str = GetConfigOption("neurondb.tenant_id", true, true);
+		long		tid;
+
+		if (tenant_str != NULL && *tenant_str != '\0' &&
+			(tid = strtol(tenant_str, NULL, 10)) >= 0 && tid <= (long) UINT32_MAX)
+			encrypted->tenant_id = (uint32) tid;
+		else
+			encrypted->tenant_id = 0;
+	}
 	encrypted->dim = input->dim;
 
 	/* Generate random IV */

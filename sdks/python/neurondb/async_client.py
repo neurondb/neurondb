@@ -54,10 +54,10 @@ class AsyncNeuronDBClient:
         Returns:
             List of search results
         """
-        # Implementation would use async PostgreSQL driver
-        # For now, return placeholder
-        await asyncio.sleep(0)  # Placeholder for async operation
-        return []
+        raise NotImplementedError(
+            "Async vector search requires an async PostgreSQL driver (e.g. asyncpg). "
+            "Use the sync NeuronDB client or implement async driver integration."
+        )
     
     async def insert_vectors(
         self,
@@ -74,8 +74,10 @@ class AsyncNeuronDBClient:
         Returns:
             Number of inserted vectors
         """
-        await asyncio.sleep(0)  # Placeholder
-        return len(vectors)
+        raise NotImplementedError(
+            "Async vector insert requires an async PostgreSQL driver. "
+            "Use the sync client or implement async driver integration."
+        )
     
     async def create_index(
         self,
@@ -96,8 +98,10 @@ class AsyncNeuronDBClient:
         Returns:
             True if successful
         """
-        await asyncio.sleep(0)  # Placeholder
-        return True
+        raise NotImplementedError(
+            "Async index creation requires an async PostgreSQL driver. "
+            "Use the sync client or implement async driver integration."
+        )
 
 
 

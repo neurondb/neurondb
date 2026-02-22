@@ -14,6 +14,9 @@
 #include "postgres.h"
 #include "utils/rel.h"
 
+/* Register custom WAL resource manager (call from _PG_init) */
+extern void neurondb_replication_register_rmgr(void);
+
 /* Replication hooks for index modifications */
 extern void neurondb_hnsw_replication_hook(Relation index, BlockNumber blkno, bool is_insert);
 extern void neurondb_ivf_replication_hook(Relation index, BlockNumber blkno, bool is_insert);

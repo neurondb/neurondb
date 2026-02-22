@@ -628,6 +628,7 @@ lightgbm_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **errstr)
 																				   NumericGetDatum(v.val.numeric)));
 					else if (strcmp(key, "boosting_type") == 0 && v.type == jbvString)
 						strncpy(boosting_type, v.val.string.val, sizeof(boosting_type) - 1);
+						boosting_type[sizeof(boosting_type) - 1] = '\0';
 					nfree(key);
 				}
 			}
@@ -776,6 +777,7 @@ lightgbm_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **errstr)
 	state->n_features = dim;
 	state->n_samples = nvec;
 	strncpy(state->boosting_type, boosting_type, sizeof(state->boosting_type) - 1);
+	state->boosting_type[sizeof(state->boosting_type) - 1] = '\0';
 
 	if (model->backend_state != NULL)
 		nfree(model->backend_state);
@@ -977,6 +979,7 @@ lightgbm_gpu_deserialize(MLGpuModel *model, const bytea * payload,
 	state->n_features = n_features;
 	state->n_samples = 0;
 	strncpy(state->boosting_type, boosting_type, sizeof(state->boosting_type) - 1);
+	state->boosting_type[sizeof(state->boosting_type) - 1] = '\0';
 
 	if (metadata != NULL)
 	{

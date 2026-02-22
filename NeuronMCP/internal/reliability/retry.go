@@ -38,11 +38,11 @@ func (e *RetryableError) Unwrap() error {
 
 /* RetryManager manages retry logic for idempotent operations */
 type RetryManager struct {
-	maxRetries      int
-	initialBackoff  time.Duration
-	maxBackoff      time.Duration
+	maxRetries        int
+	initialBackoff    time.Duration
+	maxBackoff        time.Duration
 	backoffMultiplier float64
-	idempotentTools map[string]bool
+	idempotentTools   map[string]bool
 }
 
 /* NewRetryManager creates a new retry manager */
@@ -61,11 +61,11 @@ func NewRetryManager(maxRetries int, initialBackoff, maxBackoff time.Duration, b
 	}
 
 	rm := &RetryManager{
-		maxRetries:       maxRetries,
-		initialBackoff:   initialBackoff,
-		maxBackoff:       maxBackoff,
+		maxRetries:        maxRetries,
+		initialBackoff:    initialBackoff,
+		maxBackoff:        maxBackoff,
 		backoffMultiplier: backoffMultiplier,
-		idempotentTools:  make(map[string]bool),
+		idempotentTools:   make(map[string]bool),
 	}
 
 	/* Mark known idempotent tools */
@@ -175,7 +175,7 @@ func (rm *RetryManager) ShouldRetry(toolName string, err error) bool {
 /* GetBackoff calculates the backoff duration for a retry attempt */
 func (rm *RetryManager) GetBackoff(attempt int) time.Duration {
 	if rm == nil {
-		return rm.initialBackoff
+		return 100 * time.Millisecond
 	}
 
 	backoff := rm.initialBackoff
@@ -200,11 +200,11 @@ func (rm *RetryManager) GetMaxRetries() int {
 
 /* contains checks if a string contains a substring (case-insensitive) */
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || 
-		(len(s) > len(substr) && 
-			(s[:len(substr)] == substr || 
-			 s[len(s)-len(substr):] == substr ||
-			 containsMiddle(s, substr))))
+	return len(s) >= len(substr) && (s == substr ||
+		(len(s) > len(substr) &&
+			(s[:len(substr)] == substr ||
+				s[len(s)-len(substr):] == substr ||
+				containsMiddle(s, substr))))
 }
 
 /* containsMiddle checks if substr is in the middle of s */
@@ -221,4 +221,3 @@ func containsMiddle(s, substr string) bool {
 func NewRetryableError(err error) error {
 	return &RetryableError{Err: err}
 }
-

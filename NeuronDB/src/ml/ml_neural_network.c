@@ -1437,50 +1437,18 @@ train_neural_network(PG_FUNCTION_ARGS)
 			/* Estimate JSON length: [num1,num2,...] */
 			if (n_hidden > 0)
 			{
-				size_t		est_size = (size_t) n_hidden * 20 + 2;
+				StringInfoData layerbuf;
 
-				if (est_size > MaxAllocSize)
-				{
-					nfree(sql.data);
-					NDB_SPI_SESSION_END(train_nn_spi_session);
-					MemoryContextSwitchTo(oldcontext);
-					MemoryContextDelete(callcontext);
-					for (i = 0; i < n_samples; i++)
-						nfree(X[i]);
-					nfree(X);
-					nfree(y);
-					neural_network_free(net);
-					nfree(hidden_layers);
-					nfree(table_name_str);
-					nfree(feature_col_str);
-					nfree(label_col_str);
-					nfree(activation);
-					ereport(ERROR,
-							(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
-							 errmsg("neurondb: train_neural_network: hidden_layers JSON allocation exceeds maximum")));
-				}
-				nalloc(hidden_layers_json, char, est_size);
-				hidden_layers_json[0] = '[';
-				hidden_layers_json[1] = '\0';
+				initStringInfo(&layerbuf);
+				appendStringInfoChar(&layerbuf, '[');
 				for (idx = 0; idx < n_hidden; idx++)
 				{
-					char		num_buf[32];
-					size_t		current_len = strlen(hidden_layers_json);
-
 					if (idx > 0)
-					{
-						if (current_len + 1 >= est_size)
-							break;
-						strcat(hidden_layers_json, ",");
-						current_len++;
-					}
-					snprintf(num_buf, sizeof(num_buf), "%d", hidden_layers[idx]);
-					if (current_len + strlen(num_buf) >= est_size)
-						break;
-					strcat(hidden_layers_json, num_buf);
+						appendStringInfoChar(&layerbuf, ',');
+					appendStringInfo(&layerbuf, "%d", hidden_layers[idx]);
 				}
-				if (strlen(hidden_layers_json) + 1 < est_size)
-					strcat(hidden_layers_json, "]");
+				appendStringInfoChar(&layerbuf, ']');
+				hidden_layers_json = layerbuf.data;
 			}
 			else
 			{
@@ -2062,7 +2030,10 @@ neural_network_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **e
 					nfree(temp_layers);
 				}
 				else if (strcmp(key, "activation") == 0 && v.type == jbvString)
+				{
 					strncpy(activation, v.val.string.val, sizeof(activation) - 1);
+					activation[sizeof(activation) - 1] = '\0';
+				}
 				else if (strcmp(key, "learning_rate") == 0 && v.type == jbvNumeric)
 					learning_rate = (float) DatumGetFloat8(DirectFunctionCall1(numeric_float8,
 																			   NumericGetDatum(v.val.numeric)));

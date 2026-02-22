@@ -24,6 +24,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/neurondb/NeuronAgent/internal/db"
 	"github.com/neurondb/NeuronAgent/internal/metrics"
+	"github.com/neurondb/NeuronAgent/internal/validation"
 	"github.com/neurondb/NeuronAgent/pkg/neurondb"
 )
 
@@ -41,9 +42,9 @@ type ExecutionRow struct {
 
 /* SelfImprovementManager manages agent self-improvement */
 type SelfImprovementManager struct {
-	queries     *db.Queries
-	llm         *LLMClient
-	mlClient    *neurondb.MLClient
+	queries      *db.Queries
+	llm          *LLMClient
+	mlClient     *neurondb.MLClient
 	feedbackLoop *FeedbackLoop
 }
 
@@ -76,9 +77,20 @@ func (sim *SelfImprovementManager) LearnFromExperience(ctx context.Context, agen
 	/* Analyze patterns using ML */
 	if sim.mlClient != nil && len(rows) >= 10 {
 		/* Use NeuronDB ML functions to identify patterns */
-		/* Create a temporary table with execution features */
-		featuresTable := fmt.Sprintf("temp_execution_features_%s", agentID.String()[:8])
-		
+		/* Create a temporary table with execution features (alphanumeric prefix only) */
+		prefix := agentID.String()[:8]
+		featuresTable := fmt.Sprintf("temp_execution_features_%s", prefix)
+		qFeaturesTable, err := validation.QuoteIdentifier(featuresTable)
+		if err != nil {
+			metrics.WarnWithContext(ctx, "Invalid features table name for ML analysis", map[string]interface{}{
+				"agent_id": agentID.String(),
+				"error":    err.Error(),
+			})
+			successRate := sim.calculateSuccessRate(rows)
+			avgQuality := sim.calculateAverageQuality(rows)
+			sim.updateStrategy(ctx, agentID, successRate, avgQuality)
+			return nil
+		}
 		/* Create table with features for ML analysis */
 		createTableQuery := fmt.Sprintf(`
 			CREATE TEMP TABLE %s (
@@ -91,9 +103,9 @@ func (sim *SelfImprovementManager) LearnFromExperience(ctx context.Context, agen
 				answer_length INT,
 				features FLOAT[]
 			)
-		`, featuresTable)
+		`, qFeaturesTable)
 
-		_, err := sim.queries.DB.ExecContext(ctx, createTableQuery)
+		_, err = sim.queries.DB.ExecContext(ctx, createTableQuery)
 		if err != nil {
 			metrics.WarnWithContext(ctx, "Failed to create features table for ML analysis", map[string]interface{}{
 				"agent_id": agentID.String(),
@@ -119,7 +131,7 @@ func (sim *SelfImprovementManager) LearnFromExperience(ctx context.Context, agen
 			insertQuery := fmt.Sprintf(`
 				INSERT INTO %s (success, quality_score, tokens_used, execution_time_ms, message_length, answer_length, features)
 				VALUES ($1, $2, $3, $4, $5, $6, $7::float[])
-			`, featuresTable)
+			`, qFeaturesTable)
 
 			_, err := sim.queries.DB.ExecContext(ctx, insertQuery,
 				row.Success,
@@ -176,7 +188,7 @@ func (sim *SelfImprovementManager) LearnFromExperience(ctx context.Context, agen
 			FROM predictions
 			GROUP BY cluster_id
 			ORDER BY success_rate DESC
-		`, featuresTable)
+		`, qFeaturesTable)
 
 		type ClusterAnalysis struct {
 			ClusterID        int     `db:"cluster_id"`
@@ -203,9 +215,9 @@ func (sim *SelfImprovementManager) LearnFromExperience(ctx context.Context, agen
 			avgQuality := bestCluster.AvgQuality
 
 			metrics.InfoWithContext(ctx, "ML pattern identification completed", map[string]interface{}{
-				"agent_id":        agentID.String(),
-				"model_id":        modelID,
-				"clusters_found":  len(clusters),
+				"agent_id":          agentID.String(),
+				"model_id":          modelID,
+				"clusters_found":    len(clusters),
 				"best_success_rate": successRate,
 				"best_avg_quality":  avgQuality,
 			})

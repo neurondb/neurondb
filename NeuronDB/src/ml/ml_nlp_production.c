@@ -522,6 +522,7 @@ nlp_production_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **e
 																	NumericGetDatum(v.val.numeric)));
 				else if (strcmp(key, "model_type") == 0 && v.type == jbvString)
 					strncpy(model_type, v.val.string.val, sizeof(model_type) - 1);
+					model_type[sizeof(model_type) - 1] = '\0';
 				nfree(key);
 			}
 		}
@@ -565,6 +566,7 @@ nlp_production_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **e
 	state->max_seq_len = max_seq_len;
 	state->n_samples = nvec;
 	strncpy(state->model_type, model_type, sizeof(state->model_type) - 1);
+	state->model_type[sizeof(state->model_type) - 1] = '\0';
 
 	if (model->backend_state != NULL)
 		nfree(model->backend_state);
@@ -754,6 +756,7 @@ nlp_production_gpu_deserialize(MLGpuModel *model, const bytea * payload,
 	state->max_seq_len = max_seq_len;
 	state->n_samples = 0;
 	strncpy(state->model_type, model_type, sizeof(state->model_type) - 1);
+	state->model_type[sizeof(state->model_type) - 1] = '\0';
 
 	if (metadata != NULL)
 	{

@@ -53,8 +53,8 @@ func (c *ToolPermissionChecker) CheckToolPermission(ctx context.Context, agentID
 		return agentPerm.Allowed, nil
 	}
 
-	/* Default: allow if no explicit permission is set */
-	return true, nil
+	/* Fail-closed: deny if no explicit permission is set (do not allow on DB error or missing config) */
+	return false, nil
 }
 
 /* GetAllowedTools returns list of tools allowed for an agent and session */

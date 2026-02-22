@@ -2151,6 +2151,7 @@ automl_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **errstr)
 					r = JsonbIteratorNext(&it, &v, false);
 					if (strcmp(key, "task_type") == 0 && v.type == jbvString)
 						strncpy(task_type, v.val.string.val, sizeof(task_type) - 1);
+					task_type[sizeof(task_type) - 1] = '\0';
 					nfree(key);
 				}
 			}
@@ -2162,6 +2163,7 @@ automl_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **errstr)
 				 "automl_gpu_train: Failed to parse hyperparameters JSONB (possibly corrupted)");
 			/* Use default task_type */
 			strncpy(task_type, "classification", sizeof(task_type) - 1);
+			task_type[sizeof(task_type) - 1] = '\0';
 		}
 		PG_END_TRY();
 		best_hyperparameters = (Jsonb *) PG_DETOAST_DATUM_COPY(PointerGetDatum(spec->hyperparameters));
@@ -2514,11 +2516,13 @@ cleanup:
 	state->metrics = metrics;
 	state->selected_model_id = selected_model_id;
 	strncpy(state->selected_algorithm, selected_algorithm, sizeof(state->selected_algorithm) - 1);
+	state->selected_algorithm[sizeof(state->selected_algorithm) - 1] = '\0';
 	state->best_hyperparameters = best_hyperparameters;
 	state->best_score = best_score_val;
 	state->n_features = dim;
 	state->n_samples = nvec;
 	strncpy(state->task_type, task_type, sizeof(state->task_type) - 1);
+	state->task_type[sizeof(state->task_type) - 1] = '\0';
 
 	if (model->backend_state != NULL)
 		nfree(model->backend_state);
@@ -2724,11 +2728,13 @@ automl_gpu_deserialize(MLGpuModel *model, const bytea * payload,
 	state->model_blob = payload_copy;
 	state->selected_model_id = selected_model_id;
 	strncpy(state->selected_algorithm, selected_algorithm, sizeof(state->selected_algorithm) - 1);
+	state->selected_algorithm[sizeof(state->selected_algorithm) - 1] = '\0';
 	state->best_hyperparameters = best_hyperparameters;
 	state->best_score = best_score;
 	state->n_features = n_features;
 	state->n_samples = 0;
 	strncpy(state->task_type, task_type, sizeof(state->task_type) - 1);
+	state->task_type[sizeof(state->task_type) - 1] = '\0';
 
 	if (metadata != NULL)
 	{

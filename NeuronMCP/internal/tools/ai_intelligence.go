@@ -117,25 +117,25 @@ func (t *AIModelOrchestrationTool) Execute(ctx context.Context, params map[strin
 	}
 
 	return Success(map[string]interface{}{
-		"selected_model": selectedModel,
+		"selected_model":   selectedModel,
 		"selection_reason": reason,
-		"result":          result,
+		"result":           result,
 		"available_models": models,
-		"strategy":        strategy,
+		"strategy":         strategy,
 	}, map[string]interface{}{
 		"model_metrics": modelMetrics,
-		"timestamp":      time.Now().Unix(),
+		"timestamp":     time.Now().Unix(),
 	}), nil
 }
 
 /* ModelMetrics represents metrics for a model */
 type ModelMetrics struct {
-	CostPerToken    float64
-	Latency         time.Duration
-	SuccessRate     float64
-	CurrentLoad     float64
-	Availability    float64
-	LastUsed        time.Time
+	CostPerToken float64
+	Latency      time.Duration
+	SuccessRate  float64
+	CurrentLoad  float64
+	Availability float64
+	LastUsed     time.Time
 }
 
 /* getModelMetrics retrieves model metrics from database */
@@ -187,11 +187,11 @@ func (t *AIModelOrchestrationTool) getModelMetrics(ctx context.Context, models [
 
 		metrics[modelName] = ModelMetrics{
 			CostPerToken: getFloat(avgCost, 0.001),
-			Latency:     time.Duration(getFloat(avgLatency, 100)) * time.Millisecond,
-			SuccessRate: getFloat(successRate, 0.99),
-			CurrentLoad: math.Min(float64(getInt(recentRequests, 0))/100.0, 1.0),
+			Latency:      time.Duration(getFloat(avgLatency, 100)) * time.Millisecond,
+			SuccessRate:  getFloat(successRate, 0.99),
+			CurrentLoad:  math.Min(float64(getInt(recentRequests, 0))/100.0, 1.0),
 			Availability: getFloat(successRate, 0.99),
-			LastUsed:    getTime(lastUsed, time.Now()),
+			LastUsed:     getTime(lastUsed, time.Now()),
 		}
 	}
 
@@ -269,13 +269,13 @@ func (t *AIModelOrchestrationTool) executeWithModel(ctx context.Context, model, 
 	/* Use NeuronDB LLM function to execute with specified model */
 	/* neurondb.llm(task, model, input_text, input_array, params, max_length) */
 	/* Task 'complete' generates text completion */
-	
+
 	/* Build LLM parameters */
 	llmParamsJSON := `{"temperature": 0.7, "max_tokens": 1000}`
-	
+
 	/* Call neurondb.llm() with specified model */
 	llmQuery := `SELECT neurondb.llm('complete', $1, $2, NULL, $3::jsonb, 1000) AS response`
-	
+
 	rows, err := t.db.Query(ctx, llmQuery, []interface{}{model, query, llmParamsJSON})
 	if err != nil {
 		t.logger.Error("Model execution failed", err, map[string]interface{}{
@@ -301,30 +301,30 @@ func (t *AIModelOrchestrationTool) executeWithModel(ctx context.Context, model, 
 		if err := json.Unmarshal([]byte(*responseJSON), &response); err != nil {
 			/* If not JSON, return as text */
 			return map[string]interface{}{
-				"model":   model,
-				"query":   query,
+				"model":    model,
+				"query":    query,
 				"response": *responseJSON,
-				"status":  "executed",
+				"status":   "executed",
 			}, nil
 		}
 
 		/* Extract text from response if available */
 		if text, ok := response["text"].(string); ok {
 			return map[string]interface{}{
-				"model":   model,
-				"query":   query,
+				"model":    model,
+				"query":    query,
 				"response": text,
-				"status":  "executed",
+				"status":   "executed",
 				"metadata": response,
 			}, nil
 		}
 
 		/* Return full response if no text field */
 		return map[string]interface{}{
-			"model":   model,
-			"query":   query,
+			"model":    model,
+			"query":    query,
 			"response": response,
-			"status":  "executed",
+			"status":   "executed",
 		}, nil
 	}
 
@@ -467,7 +467,12 @@ func (t *AICostTrackingTool) trackUsage(ctx context.Context, params map[string]i
 				INDEX idx_timestamp (timestamp)
 			)
 		`
-		_, _ = t.db.Query(ctx, createTable, nil)
+		if _, err := t.db.Query(ctx, createTable, nil); err != nil {
+			t.logger.Warn("Failed to ensure table exists", map[string]interface{}{
+				"table": "neurondb.cost_tracking",
+				"error": err.Error(),
+			})
+		}
 
 		/* Retry insert */
 		_, err = t.db.Query(ctx, query, []interface{}{model, int64(tokensUsed), cost, operationType})
@@ -547,13 +552,13 @@ func (t *AICostTrackingTool) getStats(ctx context.Context, params map[string]int
 		}
 
 		stats = append(stats, map[string]interface{}{
-			"model":          m,
-			"total_tokens":   getInt(totalTokens, 0),
-			"total_cost_usd": getFloat(totalCost, 0),
-			"avg_cost_usd":   getFloat(avgCost, 0),
+			"model":           m,
+			"total_tokens":    getInt(totalTokens, 0),
+			"total_cost_usd":  getFloat(totalCost, 0),
+			"avg_cost_usd":    getFloat(avgCost, 0),
 			"operation_count": getInt(operationCount, 0),
-			"first_use":      getTime(firstUse, time.Time{}),
-			"last_use":       getTime(lastUse, time.Time{}),
+			"first_use":       getTime(firstUse, time.Time{}),
+			"last_use":        getTime(lastUse, time.Time{}),
 		})
 	}
 
@@ -984,10 +989,10 @@ func (t *AIModelComparisonTool) Execute(ctx context.Context, params map[string]i
 	comparison := t.compareModels(ctx, models, metrics)
 
 	return Success(map[string]interface{}{
-		"models":    models,
-		"metrics":   metrics,
+		"models":     models,
+		"metrics":    metrics,
 		"comparison": comparison,
-		"winner":    t.selectWinner(comparison),
+		"winner":     t.selectWinner(comparison),
 	}, nil), nil
 }
 
@@ -1086,4 +1091,3 @@ func getFloatFromMap(m map[string]interface{}, key string, defaultVal float64) f
 	}
 	return defaultVal
 }
-

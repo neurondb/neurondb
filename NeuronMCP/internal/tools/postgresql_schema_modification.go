@@ -20,10 +20,12 @@ package tools
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/neurondb/NeuronMCP/internal/database"
 	"github.com/neurondb/NeuronMCP/internal/logging"
+	"github.com/neurondb/NeuronMCP/internal/validation"
 )
 
 /* PostgreSQLCreateTableTool creates tables with full options */
@@ -243,12 +245,22 @@ func (t *PostgreSQLAlterTableTool) Execute(ctx context.Context, params map[strin
 		schema = "public"
 	}
 
+	if err := validation.ValidateTableName(tableName); err != nil {
+		return Error(fmt.Sprintf("Invalid table_name: %v", err), "VALIDATION_ERROR", nil), nil
+	}
+	if err := validation.ValidateSchemaName(schema); err != nil {
+		return Error(fmt.Sprintf("Invalid schema: %v", err), "VALIDATION_ERROR", nil), nil
+	}
+	fullTableName := fmt.Sprintf("%s.%s", validation.EscapeSQLIdentifier(schema), validation.EscapeSQLIdentifier(tableName))
+
 	operation, ok := params["operation"].(string)
 	if !ok || operation == "" {
 		return Error("operation parameter is required", "INVALID_PARAMETER", nil), nil
 	}
 
-	fullTableName := fmt.Sprintf("%s.%s", schema, tableName)
+	/* colTypeRegex allows common PostgreSQL type names (e.g. VARCHAR(255), INTEGER, TEXT) */
+	colTypeRegex := regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]*(\s*\(\s*[0-9,]+\s*\))?$`)
+
 	var alterQuery string
 
 	switch operation {
@@ -258,14 +270,23 @@ func (t *PostgreSQLAlterTableTool) Execute(ctx context.Context, params map[strin
 		if colName == "" || colType == "" {
 			return Error("column_name and column_type are required for add_column", "INVALID_PARAMETER", nil), nil
 		}
-		alterQuery = fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", fullTableName, colName, colType)
+		if err := validation.ValidateColumnName(colName); err != nil {
+			return Error(fmt.Sprintf("Invalid column_name: %v", err), "VALIDATION_ERROR", nil), nil
+		}
+		if !colTypeRegex.MatchString(strings.TrimSpace(colType)) {
+			return Error("Invalid column_type format", "VALIDATION_ERROR", nil), nil
+		}
+		alterQuery = fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", fullTableName, validation.EscapeSQLIdentifier(colName), colType)
 
 	case "drop_column":
 		colName, _ := params["column_name"].(string)
 		if colName == "" {
 			return Error("column_name is required for drop_column", "INVALID_PARAMETER", nil), nil
 		}
-		alterQuery = fmt.Sprintf("ALTER TABLE %s DROP COLUMN %s", fullTableName, colName)
+		if err := validation.ValidateColumnName(colName); err != nil {
+			return Error(fmt.Sprintf("Invalid column_name: %v", err), "VALIDATION_ERROR", nil), nil
+		}
+		alterQuery = fmt.Sprintf("ALTER TABLE %s DROP COLUMN %s", fullTableName, validation.EscapeSQLIdentifier(colName))
 
 	case "alter_column":
 		colName, _ := params["column_name"].(string)
@@ -273,7 +294,13 @@ func (t *PostgreSQLAlterTableTool) Execute(ctx context.Context, params map[strin
 		if colName == "" || colType == "" {
 			return Error("column_name and column_type are required for alter_column", "INVALID_PARAMETER", nil), nil
 		}
-		alterQuery = fmt.Sprintf("ALTER TABLE %s ALTER COLUMN %s TYPE %s", fullTableName, colName, colType)
+		if err := validation.ValidateColumnName(colName); err != nil {
+			return Error(fmt.Sprintf("Invalid column_name: %v", err), "VALIDATION_ERROR", nil), nil
+		}
+		if !colTypeRegex.MatchString(strings.TrimSpace(colType)) {
+			return Error("Invalid column_type format", "VALIDATION_ERROR", nil), nil
+		}
+		alterQuery = fmt.Sprintf("ALTER TABLE %s ALTER COLUMN %s TYPE %s", fullTableName, validation.EscapeSQLIdentifier(colName), colType)
 
 	case "rename_column":
 		colName, _ := params["column_name"].(string)
@@ -281,7 +308,13 @@ func (t *PostgreSQLAlterTableTool) Execute(ctx context.Context, params map[strin
 		if colName == "" || newColName == "" {
 			return Error("column_name and new_column_name are required for rename_column", "INVALID_PARAMETER", nil), nil
 		}
-		alterQuery = fmt.Sprintf("ALTER TABLE %s RENAME COLUMN %s TO %s", fullTableName, colName, newColName)
+		if err := validation.ValidateColumnName(colName); err != nil {
+			return Error(fmt.Sprintf("Invalid column_name: %v", err), "VALIDATION_ERROR", nil), nil
+		}
+		if err := validation.ValidateColumnName(newColName); err != nil {
+			return Error(fmt.Sprintf("Invalid new_column_name: %v", err), "VALIDATION_ERROR", nil), nil
+		}
+		alterQuery = fmt.Sprintf("ALTER TABLE %s RENAME COLUMN %s TO %s", fullTableName, validation.EscapeSQLIdentifier(colName), validation.EscapeSQLIdentifier(newColName))
 
 	case "add_constraint":
 		constraintName, _ := params["constraint_name"].(string)
@@ -289,14 +322,20 @@ func (t *PostgreSQLAlterTableTool) Execute(ctx context.Context, params map[strin
 		if constraintName == "" || constraintDef == "" {
 			return Error("constraint_name and constraint_definition are required for add_constraint", "INVALID_PARAMETER", nil), nil
 		}
-		alterQuery = fmt.Sprintf("ALTER TABLE %s ADD CONSTRAINT %s %s", fullTableName, constraintName, constraintDef)
+		if err := validation.ValidateSQLIdentifier(constraintName, "constraint_name"); err != nil {
+			return Error(fmt.Sprintf("Invalid constraint_name: %v", err), "VALIDATION_ERROR", nil), nil
+		}
+		alterQuery = fmt.Sprintf("ALTER TABLE %s ADD CONSTRAINT %s %s", fullTableName, validation.EscapeSQLIdentifier(constraintName), constraintDef)
 
 	case "drop_constraint":
 		constraintName, _ := params["constraint_name"].(string)
 		if constraintName == "" {
 			return Error("constraint_name is required for drop_constraint", "INVALID_PARAMETER", nil), nil
 		}
-		alterQuery = fmt.Sprintf("ALTER TABLE %s DROP CONSTRAINT %s", fullTableName, constraintName)
+		if err := validation.ValidateSQLIdentifier(constraintName, "constraint_name"); err != nil {
+			return Error(fmt.Sprintf("Invalid constraint_name: %v", err), "VALIDATION_ERROR", nil), nil
+		}
+		alterQuery = fmt.Sprintf("ALTER TABLE %s DROP CONSTRAINT %s", fullTableName, validation.EscapeSQLIdentifier(constraintName))
 
 	default:
 		return Error(fmt.Sprintf("Invalid operation: %s", operation), "INVALID_PARAMETER", nil), nil
@@ -569,19 +608,19 @@ func (t *PostgreSQLCreateIndexTool) Execute(ctx context.Context, params map[stri
 	}
 
 	t.logger.Info("Index created", map[string]interface{}{
-		"schema":      schema,
-		"index_name":  indexName,
-		"table_name":  tableName,
-		"index_type":  indexType,
+		"schema":       schema,
+		"index_name":   indexName,
+		"table_name":   tableName,
+		"index_type":   indexType,
 		"concurrently": concurrently,
 	})
 
 	return Success(map[string]interface{}{
-		"schema":      schema,
-		"index_name":  indexName,
-		"table_name":  tableName,
-		"index_type":  indexType,
-		"query":       createQuery,
+		"schema":     schema,
+		"index_name": indexName,
+		"table_name": tableName,
+		"index_type": indexType,
+		"query":      createQuery,
 	}, map[string]interface{}{
 		"tool": "postgresql_create_index",
 	}), nil
@@ -820,7 +859,7 @@ func (t *PostgreSQLCreateFunctionTool) Execute(ctx context.Context, params map[s
 		"schema":        schema,
 		"function_name": functionName,
 		"language":      language,
-		"query":        createQuery,
+		"query":         createQuery,
 	}, map[string]interface{}{
 		"tool": "postgresql_create_function",
 	}), nil
@@ -957,4 +996,3 @@ func (t *PostgreSQLCreateTriggerTool) Execute(ctx context.Context, params map[st
 		"tool": "postgresql_create_trigger",
 	}), nil
 }
-

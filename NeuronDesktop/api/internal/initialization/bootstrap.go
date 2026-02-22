@@ -2,7 +2,9 @@ package initialization
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"time"
@@ -178,11 +180,15 @@ func (b *Bootstrap) ensureAdminUser(ctx context.Context) (*db.User, error) {
 		/* Admin user doesn't exist, create it */
 		b.logger.Info("Creating default admin user", nil)
 
-		/* Get admin password from environment or generate a random one */
+		/* Get admin password from environment or generate a cryptographically random one */
 		adminPassword := os.Getenv("ADMIN_PASSWORD")
 		if adminPassword == "" {
-			/* Generate a random password and log it (one-time setup) */
-			adminPassword = fmt.Sprintf("admin-%d", time.Now().Unix())
+			/* Generate a cryptographically random password and log it (one-time setup) */
+			buf := make([]byte, 24)
+			if _, err := rand.Read(buf); err != nil {
+				return nil, fmt.Errorf("failed to generate random admin password: %w", err)
+			}
+			adminPassword = base64.URLEncoding.EncodeToString(buf)
 			b.logger.Info("⚠️  ADMIN_PASSWORD not set - using temporary password", map[string]interface{}{
 				"password": adminPassword,
 				"warning":  "Please set ADMIN_PASSWORD environment variable and change this password immediately",
@@ -243,7 +249,11 @@ func (b *Bootstrap) ensureDefaultProfile(ctx context.Context, adminUser *db.User
 		/* Hash password for admin profile (use same as admin user password) */
 		adminPassword := os.Getenv("ADMIN_PASSWORD")
 		if adminPassword == "" {
-			adminPassword = fmt.Sprintf("admin-%d", time.Now().Unix())
+			buf := make([]byte, 24)
+			if _, err := rand.Read(buf); err != nil {
+				return nil, fmt.Errorf("failed to generate random admin password: %w", err)
+			}
+			adminPassword = base64.URLEncoding.EncodeToString(buf)
 		}
 		profilePasswordHash, hashErr := bcrypt.GenerateFromPassword([]byte(adminPassword), bcrypt.DefaultCost)
 		if hashErr != nil {

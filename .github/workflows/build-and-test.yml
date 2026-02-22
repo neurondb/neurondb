@@ -1,0 +1,95 @@
+# CI: Build and test core products on every push and PR.
+# Runs in parallel: NeuronAgent, NeuronMCP, NeuronDesktop (API + frontend), Python SDK.
+name: Build and Test
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  neuronagent:
+    name: NeuronAgent
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache-dependency-path: NeuronAgent/go.sum
+      - name: Build
+        working-directory: NeuronAgent
+        run: go build -v -o neuronagent ./cmd/agent-server
+      - name: Test
+        working-directory: NeuronAgent
+        run: go test ./... -count=1 -race
+
+  neuronmcp:
+    name: NeuronMCP
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache-dependency-path: NeuronMCP/go.sum
+      - name: Build
+        working-directory: NeuronMCP
+        run: go build -v -o neurondb-mcp ./cmd/neurondb-mcp
+      - name: Test
+        working-directory: NeuronMCP
+        run: go test ./... -count=1 -race
+
+  neurondesktop-api:
+    name: NeuronDesktop API
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache-dependency-path: NeuronDesktop/api/go.sum
+      - name: Build
+        working-directory: NeuronDesktop/api
+        run: go build -v -o neurondesktop-api ./cmd/server
+      - name: Test
+        working-directory: NeuronDesktop/api
+        run: go test ./... -count=1 -race
+
+  neurondesktop-frontend:
+    name: NeuronDesktop Frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache-dependency-path: NeuronDesktop/frontend/package-lock.json
+      - name: Install and build
+        working-directory: NeuronDesktop/frontend
+        run: |
+          npm ci
+          npm run build
+
+  python-sdk:
+    name: Python SDK
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install deps and neuronagent
+        working-directory: sdks/python
+        run: |
+          pip install requests pytest
+          pip install -e .
+      - name: Test neuronagent
+        working-directory: sdks/python
+        run: pytest neuronagent/test_client.py -v

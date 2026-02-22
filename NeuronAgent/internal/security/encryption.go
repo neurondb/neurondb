@@ -24,6 +24,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"os"
 
 	"golang.org/x/crypto/pbkdf2"
 )
@@ -35,8 +36,13 @@ type Encryption struct {
 
 /* NewEncryption creates a new encryption instance */
 func NewEncryption(secretKey string) (*Encryption, error) {
-	/* Derive key from secret using PBKDF2 */
-	salt := []byte("neurondb-encryption-salt") /* In production, use random salt */
+	/* Derive key from secret using PBKDF2; salt from env or unique default per deployment */
+	salt := []byte("neurondb-encryption-salt")
+	if envSalt := os.Getenv("NEURONDB_ENCRYPTION_KEY_SALT"); envSalt != "" {
+		if decoded, err := base64.StdEncoding.DecodeString(envSalt); err == nil && len(decoded) >= 16 {
+			salt = decoded
+		}
+	}
 	key := pbkdf2.Key([]byte(secretKey), salt, 4096, 32, sha256.New)
 
 	return &Encryption{
@@ -71,7 +77,7 @@ func (e *Encryption) Encrypt(plaintext []byte) ([]byte, error) {
 
 	/* Encrypt */
 	ciphertext := encGCM.Seal(nonce, nonce, plaintext, nil)
-	
+
 	/* Prepend salt to ciphertext: [salt (32 bytes)][nonce + ciphertext] */
 	result := append(salt, ciphertext...)
 	return result, nil
@@ -142,9 +148,3 @@ func (e *Encryption) DecryptString(ciphertext string) (string, error) {
 
 	return string(plaintext), nil
 }
-
-
-
-
-
-

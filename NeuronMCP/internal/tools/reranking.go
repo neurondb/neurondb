@@ -22,6 +22,20 @@ import (
 	"github.com/neurondb/NeuronMCP/internal/logging"
 )
 
+/* buildDocsArrayLiteral builds a safe ARRAY[]::text[] literal from documents, rejecting null bytes */
+func buildDocsArrayLiteral(documents []interface{}) (string, error) {
+	var docStrs []string
+	for _, doc := range documents {
+		if docStr, ok := doc.(string); ok {
+			if strings.Contains(docStr, "\x00") {
+				return "", fmt.Errorf("document contains null bytes")
+			}
+			docStrs = append(docStrs, fmt.Sprintf("'%s'", strings.ReplaceAll(docStr, "'", "''")))
+		}
+	}
+	return "ARRAY[" + strings.Join(docStrs, ",") + "]::text[]", nil
+}
+
 /* RerankCrossEncoderTool performs cross-encoder reranking */
 type RerankCrossEncoderTool struct {
 	*BaseTool
@@ -93,14 +107,10 @@ func (t *RerankCrossEncoderTool) Execute(ctx context.Context, params map[string]
 		return Error("query and documents are required", "VALIDATION_ERROR", nil), nil
 	}
 
-  /* Format documents array */
-	var docStrs []string
-	for _, doc := range documents {
-		if docStr, ok := doc.(string); ok {
-			docStrs = append(docStrs, fmt.Sprintf("'%s'", strings.ReplaceAll(docStr, "'", "''")))
-		}
+	docsStr, err := buildDocsArrayLiteral(documents)
+	if err != nil {
+		return Error(err.Error(), "VALIDATION_ERROR", nil), nil
 	}
-	docsStr := "ARRAY[" + strings.Join(docStrs, ",") + "]::text[]"
 
 	sqlQuery := fmt.Sprintf("SELECT * FROM rerank_cross_encoder($1::text, %s, $2::text, $3::int)", docsStr)
 	queryParams := []interface{}{query, model, topK}
@@ -192,14 +202,10 @@ func (t *RerankLLMTool) Execute(ctx context.Context, params map[string]interface
 		return Error("query and documents are required", "VALIDATION_ERROR", nil), nil
 	}
 
-  /* Format documents array */
-	var docStrs []string
-	for _, doc := range documents {
-		if docStr, ok := doc.(string); ok {
-			docStrs = append(docStrs, fmt.Sprintf("'%s'", strings.ReplaceAll(docStr, "'", "''")))
-		}
+	docsStr, err := buildDocsArrayLiteral(documents)
+	if err != nil {
+		return Error(err.Error(), "VALIDATION_ERROR", nil), nil
 	}
-	docsStr := "ARRAY[" + strings.Join(docStrs, ",") + "]::text[]"
 
 	sqlQuery := fmt.Sprintf("SELECT * FROM rerank_llm($1::text, %s, $2::text, $3::int)", docsStr)
 	queryParams := []interface{}{query, model, topK}
@@ -282,14 +288,10 @@ func (t *RerankCohereTool) Execute(ctx context.Context, params map[string]interf
 		return Error("query and documents are required", "VALIDATION_ERROR", nil), nil
 	}
 
-  /* Format documents array */
-	var docStrs []string
-	for _, doc := range documents {
-		if docStr, ok := doc.(string); ok {
-			docStrs = append(docStrs, fmt.Sprintf("'%s'", strings.ReplaceAll(docStr, "'", "''")))
-		}
+	docsStr, err := buildDocsArrayLiteral(documents)
+	if err != nil {
+		return Error(err.Error(), "VALIDATION_ERROR", nil), nil
 	}
-	docsStr := "ARRAY[" + strings.Join(docStrs, ",") + "]::text[]"
 
 	sqlQuery := fmt.Sprintf("SELECT * FROM rerank_cohere($1::text, %s, $2::int)", docsStr)
 	queryParams := []interface{}{query, topK}
@@ -370,14 +372,10 @@ func (t *RerankColBERTTool) Execute(ctx context.Context, params map[string]inter
 		return Error("query and documents are required", "VALIDATION_ERROR", nil), nil
 	}
 
-  /* Format documents array */
-	var docStrs []string
-	for _, doc := range documents {
-		if docStr, ok := doc.(string); ok {
-			docStrs = append(docStrs, fmt.Sprintf("'%s'", strings.ReplaceAll(docStr, "'", "''")))
-		}
+	docsStr, err := buildDocsArrayLiteral(documents)
+	if err != nil {
+		return Error(err.Error(), "VALIDATION_ERROR", nil), nil
 	}
-	docsStr := "ARRAY[" + strings.Join(docStrs, ",") + "]::text[]"
 
 	sqlQuery := fmt.Sprintf("SELECT * FROM rerank_colbert($1::text, %s, $2::text)", docsStr)
 	queryParams := []interface{}{query, model}
@@ -459,14 +457,10 @@ func (t *RerankLTRTool) Execute(ctx context.Context, params map[string]interface
 		return Error("query, documents, feature_table, and model_table are required", "VALIDATION_ERROR", nil), nil
 	}
 
-  /* Format documents array */
-	var docStrs []string
-	for _, doc := range documents {
-		if docStr, ok := doc.(string); ok {
-			docStrs = append(docStrs, fmt.Sprintf("'%s'", strings.ReplaceAll(docStr, "'", "''")))
-		}
+	docsStr, err := buildDocsArrayLiteral(documents)
+	if err != nil {
+		return Error(err.Error(), "VALIDATION_ERROR", nil), nil
 	}
-	docsStr := "ARRAY[" + strings.Join(docStrs, ",") + "]::text[]"
 
 	sqlQuery := fmt.Sprintf("SELECT * FROM rerank_ltr($1::text, %s, $2::text, $3::text)", docsStr)
 	queryParams := []interface{}{query, featureTable, modelTable}
@@ -554,18 +548,17 @@ func (t *RerankEnsembleTool) Execute(ctx context.Context, params map[string]inte
 		return Error("rerankers and weights arrays must have the same length", "VALIDATION_ERROR", nil), nil
 	}
 
-  /* Format arrays */
-	var docStrs []string
-	for _, doc := range documents {
-		if docStr, ok := doc.(string); ok {
-			docStrs = append(docStrs, fmt.Sprintf("'%s'", strings.ReplaceAll(docStr, "'", "''")))
-		}
+	docsStr, err := buildDocsArrayLiteral(documents)
+	if err != nil {
+		return Error(err.Error(), "VALIDATION_ERROR", nil), nil
 	}
-	docsStr := "ARRAY[" + strings.Join(docStrs, ",") + "]::text[]"
 
 	var rerankerStrs []string
 	for _, reranker := range rerankers {
 		if rStr, ok := reranker.(string); ok {
+			if strings.Contains(rStr, "\x00") {
+				return Error("reranker name contains null bytes", "VALIDATION_ERROR", nil), nil
+			}
 			rerankerStrs = append(rerankerStrs, fmt.Sprintf("'%s'", strings.ReplaceAll(rStr, "'", "''")))
 		}
 	}
@@ -597,4 +590,3 @@ func (t *RerankEnsembleTool) Execute(ctx context.Context, params map[string]inte
 		"count": len(results),
 	}), nil
 }
-

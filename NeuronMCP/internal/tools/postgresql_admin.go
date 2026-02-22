@@ -24,6 +24,8 @@ package tools
 import (
 	"context"
 	"fmt"
+	"math"
+	"regexp"
 	"strings"
 
 	"github.com/neurondb/NeuronMCP/internal/database"
@@ -151,7 +153,7 @@ func (t *PostgreSQLExplainTool) Execute(ctx context.Context, params map[string]i
 	}
 
 	t.logger.Info("Query explained", map[string]interface{}{
-		"format": format,
+		"format":  format,
 		"verbose": verbose,
 	})
 
@@ -599,10 +601,10 @@ func (t *PostgreSQLReindexTool) Execute(ctx context.Context, params map[string]i
 	})
 
 	return Success(map[string]interface{}{
-		"operation":   "reindex",
-		"table":       table,
-		"index":       index,
-		"schema":      schema,
+		"operation":    "reindex",
+		"table":        table,
+		"index":        index,
+		"schema":       schema,
 		"concurrently": concurrently,
 	}, map[string]interface{}{
 		"tool": "postgresql_reindex",
@@ -674,7 +676,7 @@ func (t *PostgreSQLTransactionsTool) Execute(ctx context.Context, params map[str
 
 	return Success(map[string]interface{}{
 		"transactions": results,
-		"count":       len(results),
+		"count":        len(results),
 	}, map[string]interface{}{
 		"tool": "postgresql_transactions",
 	}), nil
@@ -720,6 +722,10 @@ func (t *PostgreSQLTerminateQueryTool) Execute(ctx context.Context, params map[s
 	if !ok {
 		return Error("pid parameter must be a number", "INVALID_PARAMETER", nil), nil
 	}
+	pidInt := int(pid)
+	if pid <= 0 || pid > float64(math.MaxInt32) {
+		return Error("pid must be a positive integer within valid range", "INVALID_PARAMETER", nil), nil
+	}
 
 	terminateBackend := false
 	if val, ok := params["terminate_backend"].(bool); ok {
@@ -728,12 +734,12 @@ func (t *PostgreSQLTerminateQueryTool) Execute(ctx context.Context, params map[s
 
 	var query string
 	if terminateBackend {
-		query = fmt.Sprintf("SELECT pg_terminate_backend(%d)", int(pid))
+		query = "SELECT pg_terminate_backend($1)"
 	} else {
-		query = fmt.Sprintf("SELECT pg_cancel_backend(%d)", int(pid))
+		query = "SELECT pg_cancel_backend($1)"
 	}
 
-	result, err := t.executor.ExecuteQueryOne(ctx, query, nil)
+	result, err := t.executor.ExecuteQueryOne(ctx, query, []interface{}{pidInt})
 	if err != nil {
 		return Error(
 			fmt.Sprintf("Terminate query failed: %v", err),
@@ -743,13 +749,13 @@ func (t *PostgreSQLTerminateQueryTool) Execute(ctx context.Context, params map[s
 	}
 
 	t.logger.Info("Query terminated", map[string]interface{}{
-		"pid":              int(pid),
+		"pid":               int(pid),
 		"terminate_backend": terminateBackend,
 	})
 
 	return Success(map[string]interface{}{
-		"pid":              int(pid),
-		"terminated":       result,
+		"pid":               int(pid),
+		"terminated":        result,
 		"terminate_backend": terminateBackend,
 	}, map[string]interface{}{
 		"tool": "postgresql_terminate_query",
@@ -799,6 +805,20 @@ func NewPostgreSQLSetConfigTool(db *database.Database, logger *logging.Logger) *
 	}
 }
 
+/* Default slow query tool limits */
+const (
+	DefaultSlowQueryMinDurationMs = 1000.0
+	DefaultSlowQueryLimit         = 20
+)
+
+/* gucParamRegex validates PostgreSQL GUC parameter names (alphanumeric, underscore, dot) */
+var gucParamRegex = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_.]*$`)
+
+/* quoteLiteral escapes a string for use as a SQL single-quoted literal */
+func quoteLiteralAdmin(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "''") + "'"
+}
+
 /* Execute executes the SET configuration operation */
 func (t *PostgreSQLSetConfigTool) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
 	parameter, ok := params["parameter"].(string)
@@ -811,19 +831,24 @@ func (t *PostgreSQLSetConfigTool) Execute(ctx context.Context, params map[string
 		return Error("value is required", "INVALID_PARAMETER", nil), nil
 	}
 
+	if !gucParamRegex.MatchString(parameter) {
+		return Error("Invalid configuration parameter name", "VALIDATION_ERROR", nil), nil
+	}
+
 	scope := "session"
 	if val, ok := params["scope"].(string); ok {
 		scope = val
 	}
 
+	valueLiteral := quoteLiteralAdmin(value)
 	var query string
 	switch scope {
 	case "local":
-		query = fmt.Sprintf("SET LOCAL %s = %s", parameter, value)
+		query = fmt.Sprintf("SET LOCAL %s = %s", parameter, valueLiteral)
 	case "transaction":
-		query = fmt.Sprintf("SET LOCAL %s = %s", parameter, value)
+		query = fmt.Sprintf("SET LOCAL %s = %s", parameter, valueLiteral)
 	default:
-		query = fmt.Sprintf("SET %s = %s", parameter, value)
+		query = fmt.Sprintf("SET %s = %s", parameter, valueLiteral)
 	}
 
 	_, err := t.executor.ExecuteQuery(ctx, query, nil)
@@ -934,12 +959,12 @@ func NewPostgreSQLSlowQueriesTool(db *database.Database, logger *logging.Logger)
 
 /* Execute executes the slow queries query */
 func (t *PostgreSQLSlowQueriesTool) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	minDuration := 1000.0
+	minDuration := DefaultSlowQueryMinDurationMs
 	if val, ok := params["min_duration_ms"].(float64); ok {
 		minDuration = val
 	}
 
-	limit := 20
+	limit := DefaultSlowQueryLimit
 	if val, ok := params["limit"].(float64); ok {
 		limit = int(val)
 	}
@@ -968,7 +993,7 @@ func (t *PostgreSQLSlowQueriesTool) Execute(ctx context.Context, params map[stri
 		), nil
 	}
 
-	query := fmt.Sprintf(`
+	query := `
 		SELECT 
 			query,
 			calls,
@@ -983,12 +1008,11 @@ func (t *PostgreSQLSlowQueriesTool) Execute(ctx context.Context, params map[stri
 			shared_blks_dirtied,
 			shared_blks_written
 		FROM pg_stat_statements
-		WHERE mean_exec_time >= %f
+		WHERE mean_exec_time >= $1
 		ORDER BY mean_exec_time DESC
-		LIMIT %d
-	`, minDuration, limit)
-
-	results, err := t.executor.ExecuteQuery(ctx, query, nil)
+		LIMIT $2
+	`
+	results, err := t.executor.ExecuteQuery(ctx, query, []interface{}{minDuration, limit})
 	if err != nil {
 		return Error(
 			fmt.Sprintf("Slow queries query failed: %v", err),
@@ -1004,7 +1028,7 @@ func (t *PostgreSQLSlowQueriesTool) Execute(ctx context.Context, params map[stri
 
 	return Success(map[string]interface{}{
 		"slow_queries": results,
-		"count":       len(results),
+		"count":        len(results),
 	}, map[string]interface{}{
 		"tool": "postgresql_slow_queries",
 	}), nil
@@ -1127,7 +1151,7 @@ func (t *PostgreSQLCacheHitRatioTool) Execute(ctx context.Context, params map[st
 	overall, err := t.executor.ExecuteQueryOne(ctx, overallQuery, queryParams)
 	if err == nil {
 		return Success(map[string]interface{}{
-			"tables": results,
+			"tables":  results,
 			"overall": overall,
 			"count":   len(results),
 		}, map[string]interface{}{
@@ -1298,7 +1322,7 @@ func (t *PostgreSQLPartitionsTool) Execute(ctx context.Context, params map[strin
 
 	return Success(map[string]interface{}{
 		"partitions": results,
-		"count":     len(results),
+		"count":      len(results),
 	}, map[string]interface{}{
 		"tool": "postgresql_partitions",
 	}), nil
@@ -1460,7 +1484,7 @@ func (t *PostgreSQLFDWServersTool) Execute(ctx context.Context, params map[strin
 
 	return Success(map[string]interface{}{
 		"fdw_servers": results,
-		"count":      len(results),
+		"count":       len(results),
 	}, map[string]interface{}{
 		"tool": "postgresql_fdw_servers",
 	}), nil
@@ -1551,7 +1575,7 @@ func (t *PostgreSQLFDWTablesTool) Execute(ctx context.Context, params map[string
 
 	return Success(map[string]interface{}{
 		"fdw_tables": results,
-		"count":     len(results),
+		"count":      len(results),
 	}, map[string]interface{}{
 		"tool": "postgresql_fdw_tables",
 	}), nil
@@ -1618,9 +1642,8 @@ func (t *PostgreSQLLogicalReplicationSlotsTool) Execute(ctx context.Context, par
 
 	return Success(map[string]interface{}{
 		"replication_slots": results,
-		"count":            len(results),
+		"count":             len(results),
 	}, map[string]interface{}{
 		"tool": "postgresql_logical_replication_slots",
 	}), nil
 }
-

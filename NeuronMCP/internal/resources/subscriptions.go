@@ -35,19 +35,19 @@ type Subscription struct {
 
 /* ResourceUpdate represents a resource update */
 type ResourceUpdate struct {
-	URI      string                 `json:"uri"`
-	Type     string                 `json:"type"` /* created, updated, deleted */
-	Content  interface{}            `json:"content,omitempty"`
-	Timestamp time.Time             `json:"timestamp"`
+	URI       string      `json:"uri"`
+	Type      string      `json:"type"` /* created, updated, deleted */
+	Content   interface{} `json:"content,omitempty"`
+	Timestamp time.Time   `json:"timestamp"`
 }
 
 /* SubscriptionManager manages resource subscriptions */
 type SubscriptionManager struct {
 	subscriptions map[string][]*Subscription
 	mu            sync.RWMutex
-	wg            sync.WaitGroup /* Track active goroutines for cleanup */
-	shutdown      chan struct{}  /* Signal for shutdown */
-	shutdownOnce  sync.Once      /* Ensure shutdown is called only once */
+	wg            sync.WaitGroup  /* Track active goroutines for cleanup */
+	shutdown      chan struct{}   /* Signal for shutdown */
+	shutdownOnce  sync.Once       /* Ensure shutdown is called only once */
 	logger        *logging.Logger /* Logger for error reporting */
 }
 
@@ -103,14 +103,14 @@ func matchesFilter(uri, filter string) bool {
 	if filter == "" {
 		return true /* No filter means match all */
 	}
-	
+
 	/* Simple wildcard matching */
 	if strings.Contains(filter, "*") {
 		pattern := strings.ReplaceAll(filter, "*", ".*")
 		matched, _ := regexp.MatchString("^"+pattern+"$", uri)
 		return matched
 	}
-	
+
 	/* Exact match */
 	return uri == filter
 }
@@ -164,12 +164,12 @@ func (m *SubscriptionManager) Notify(uri string, updateType string, content inte
 		if sub == nil || sub.Callback == nil {
 			continue /* Skip invalid subscriptions */
 		}
-		
+
 		/* Apply filter if specified */
 		if sub.Filter != "" && !matchesFilter(uri, sub.Filter) {
 			continue /* Skip if filter doesn't match */
 		}
-		
+
 		/* Check if shutdown was requested */
 		select {
 		case <-m.shutdown:
@@ -177,7 +177,7 @@ func (m *SubscriptionManager) Notify(uri string, updateType string, content inte
 			return
 		default:
 		}
-		
+
 		/* Launch callback in goroutine to avoid blocking */
 		/* Use a timeout context to prevent goroutine leak if callback hangs */
 		m.wg.Add(1)
@@ -195,16 +195,17 @@ func (m *SubscriptionManager) Notify(uri string, updateType string, content inte
 					}
 				}
 			}()
-			
+
 			/* Create a timeout context for the callback (30 seconds max) */
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			const subscriptionCallbackTimeout = 30 * time.Second
+			ctx, cancel := context.WithTimeout(context.Background(), subscriptionCallbackTimeout)
 			defer cancel()
-			
+
 			/* Execute callback with timeout protection */
 			/* Use a single goroutine with proper context cancellation */
 			done := make(chan struct{}, 1)
 			errChan := make(chan error, 1)
-			
+
 			go func() {
 				defer func() {
 					if r := recover(); r != nil {
@@ -219,7 +220,7 @@ func (m *SubscriptionManager) Notify(uri string, updateType string, content inte
 						errChan <- fmt.Errorf("panic in callback: %v", r)
 					}
 				}()
-				
+
 				/* Check if context is already cancelled before executing */
 				select {
 				case <-ctx.Done():
@@ -228,11 +229,11 @@ func (m *SubscriptionManager) Notify(uri string, updateType string, content inte
 					return
 				default:
 				}
-				
+
 				callback(upd)
 				done <- struct{}{}
 			}()
-			
+
 			select {
 			case <-done:
 				/* Callback completed successfully */
@@ -251,7 +252,7 @@ func (m *SubscriptionManager) Notify(uri string, updateType string, content inte
 					m.logger.Warn("Subscription callback timeout", map[string]interface{}{
 						"subscription_id": subID,
 						"uri":             upd.URI,
-						"timeout_seconds":  30,
+						"timeout_seconds": int(subscriptionCallbackTimeout.Seconds()),
 					})
 				}
 			case <-m.shutdown:
@@ -282,14 +283,14 @@ func (m *SubscriptionManager) Shutdown(timeout time.Duration) error {
 	m.shutdownOnce.Do(func() {
 		/* Signal shutdown */
 		close(m.shutdown)
-		
+
 		/* Wait for all goroutines to complete with timeout */
 		done := make(chan struct{})
 		go func() {
 			m.wg.Wait()
 			close(done)
 		}()
-		
+
 		select {
 		case <-done:
 			/* All goroutines completed */
@@ -300,4 +301,3 @@ func (m *SubscriptionManager) Shutdown(timeout time.Duration) error {
 	})
 	return shutdownErr
 }
-

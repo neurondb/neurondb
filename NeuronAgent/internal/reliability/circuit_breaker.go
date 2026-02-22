@@ -41,8 +41,8 @@ type CircuitBreaker struct {
 type CircuitState string
 
 const (
-	StateClosed   CircuitState = "closed"   // Normal operation
-	StateOpen     CircuitState = "open"     // Failing, reject requests
+	StateClosed   CircuitState = "closed"    // Normal operation
+	StateOpen     CircuitState = "open"      // Failing, reject requests
 	StateHalfOpen CircuitState = "half_open" // Testing if service recovered
 )
 
@@ -101,13 +101,13 @@ func (cb *CircuitBreaker) Execute(ctx context.Context, fn func() error) error {
 			cb.state = StateOpen
 		}
 	} else {
-		/* Success - reset failure count */
+		/* Success - reset failure count and lastFailure for next cycle */
 		if cb.state == StateHalfOpen {
-			/* Success in half-open state, close the circuit */
 			cb.notifyStateChange(StateHalfOpen, StateClosed)
 			cb.state = StateClosed
 		}
 		cb.failureCount = 0
+		cb.lastFailure = time.Time{} /* Reset so timeout calculation is correct next time */
 	}
 
 	return err

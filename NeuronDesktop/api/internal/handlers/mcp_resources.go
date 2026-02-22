@@ -21,54 +21,62 @@ func NewMCPResourcesHandlers(queries *db.Queries, mcpManager *MCPManager) *MCPRe
 	}
 }
 
-/* ListResources lists MCP resources */
+/* ListResources lists MCP resources from the MCP server */
 func (h *MCPResourcesHandlers) ListResources(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	profileID := vars["profile_id"]
 
-	_, err := h.mcpManager.GetClient(r.Context(), profileID)
+	client, err := h.mcpManager.GetClient(r.Context(), profileID)
 	if err != nil {
 		WriteError(w, r, http.StatusInternalServerError, err, nil)
 		return
 	}
 
-	/* Call resources/list via MCP client */
-	/* Note: This requires extending the MCP client to support resources */
-	/* For now, return a placeholder response */
-	resources := []map[string]interface{}{
-		{"uri": "schema://", "name": "Database Schema", "description": "Database schema information"},
-		{"uri": "models://", "name": "ML Models", "description": "Available ML models"},
-		{"uri": "indexes://", "name": "Indexes", "description": "Vector index configurations"},
-		{"uri": "config://", "name": "Configuration", "description": "Server configuration"},
-		{"uri": "workers://", "name": "Workers", "description": "Background worker status"},
-		{"uri": "stats://", "name": "Statistics", "description": "Database and system statistics"},
+	resp, err := client.ListResources()
+	if err != nil {
+		WriteError(w, r, http.StatusBadGateway, err, nil)
+		return
 	}
-
+	resources := make([]map[string]interface{}, 0, len(resp.Resources))
+	for _, res := range resp.Resources {
+		resources = append(resources, map[string]interface{}{
+			"uri":         res.URI,
+			"name":        res.Name,
+			"description": res.Description,
+			"mimeType":    res.MimeType,
+		})
+	}
 	WriteSuccess(w, map[string]interface{}{"resources": resources}, http.StatusOK)
 }
 
-/* GetResource gets a specific resource */
+/* GetResource gets a specific resource from the MCP server */
 func (h *MCPResourcesHandlers) GetResource(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	profileID := vars["profile_id"]
 	resourceURI := vars["uri"]
 
-	_, err := h.mcpManager.GetClient(r.Context(), profileID)
+	client, err := h.mcpManager.GetClient(r.Context(), profileID)
 	if err != nil {
 		WriteError(w, r, http.StatusInternalServerError, err, nil)
 		return
 	}
 
-	/* Call resources/read via MCP client */
-	/* Note: This requires extending the MCP client to support resources */
-	/* For now, return a placeholder response */
-	resource := map[string]interface{}{
-		"uri":         resourceURI,
-		"name":        "Resource",
-		"description": "Resource content",
-		"mimeType":    "application/json",
-		"text":        "{}",
+	resp, err := client.ReadResource(resourceURI)
+	if err != nil {
+		WriteError(w, r, http.StatusBadGateway, err, nil)
+		return
 	}
-
+	var contents []map[string]interface{}
+	for _, c := range resp.Contents {
+		contents = append(contents, map[string]interface{}{
+			"uri":      c.URI,
+			"mimeType": c.MimeType,
+			"text":     c.Text,
+		})
+	}
+	resource := map[string]interface{}{
+		"uri":      resourceURI,
+		"contents": contents,
+	}
 	WriteSuccess(w, resource, http.StatusOK)
 }

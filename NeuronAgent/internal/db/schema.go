@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/neurondb/NeuronAgent/internal/metrics"
 )
 
 type Migration struct {
@@ -148,7 +149,9 @@ func (sm *SchemaManager) Migrate(ctx context.Context) error {
 
 		_, err = tx.ExecContext(ctx, migration.SQL)
 		if err != nil {
-			tx.Rollback()
+			if rbErr := tx.Rollback(); rbErr != nil {
+				metrics.WarnWithContext(ctx, "rollback failed after migration error", map[string]interface{}{"version": migration.Version, "error": rbErr.Error()})
+			}
 			return fmt.Errorf("failed to run migration %d: %w", migration.Version, err)
 		}
 
@@ -158,7 +161,9 @@ func (sm *SchemaManager) Migrate(ctx context.Context) error {
 			VALUES ($1, $2)
 		`, migration.Version, migration.Name)
 		if err != nil {
-			tx.Rollback()
+			if rbErr := tx.Rollback(); rbErr != nil {
+				metrics.WarnWithContext(ctx, "rollback failed after migration record error", map[string]interface{}{"version": migration.Version, "error": rbErr.Error()})
+			}
 			return fmt.Errorf("failed to record migration %d: %w", migration.Version, err)
 		}
 

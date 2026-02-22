@@ -55,9 +55,10 @@ type Server struct {
 	idempotencyCache    *cache.IdempotencyCache
 	metricsCollector    *metrics.Collector
 	prometheusExporter  *metrics.PrometheusExporter
-	httpServer          *HTTPServer // HTTP server for /metrics and /health
+	httpServer          *HTTPServer              // HTTP server for /metrics and /health
 	httpTransport       *transport.HTTPTransport // HTTP transport for MCP protocol
-	httpTransportDone   chan error // Channel to track HTTP transport goroutine completion
+	httpTransportDone   chan error               // Channel to track HTTP transport goroutine completion
+	shutdownCh          chan struct{}            // Closed on Shutdown() to stop background goroutines
 }
 
 /*
@@ -122,7 +123,7 @@ func NewServerWithConfig(configPath string) (*Server, error) {
 	tools.RegisterAllTools(toolRegistry, db, logger)
 
 	capabilitiesManager := NewCapabilitiesManager(serverSettings.GetName(), serverSettings.GetVersion(), toolRegistry)
-	
+
 	/* Configure resource subscriptions if enabled */
 	if subConfig := serverSettings.GetResourceSubscriptions(); subConfig != nil && subConfig.GetEnabled() {
 		capabilitiesManager.SetEnableSubscriptions(true)
@@ -135,13 +136,22 @@ func NewServerWithConfig(configPath string) (*Server, error) {
 	samplingManager := sampling.NewManager(db, logger)
 	elicitationManager := elicitation.NewManager(logger)
 	completionManager := completion.NewManager(promptsManager, resourcesManager)
-	
+
+	/* Channel closed when server shuts down; created here so elicitation goroutine can use it */
+	shutdownCh := make(chan struct{})
+
 	/* Start periodic cleanup for elicitation sessions */
+	const elicitationCleanupInterval = 5 * time.Minute
 	go func() {
-		ticker := time.NewTicker(5 * time.Minute)
+		ticker := time.NewTicker(elicitationCleanupInterval)
 		defer ticker.Stop()
-		for range ticker.C {
-			elicitationManager.CleanupExpiredSessions()
+		for {
+			select {
+			case <-ticker.C:
+				elicitationManager.CleanupExpiredSessions()
+			case <-shutdownCh:
+				return
+			}
 		}
 	}()
 	samplingManager.SetToolRegistry(toolRegistry) /* Enable tool calling in sampling */
@@ -197,6 +207,7 @@ func NewServerWithConfig(configPath string) (*Server, error) {
 		metricsCollector:    metricsCollector,
 		prometheusExporter:  prometheusExporter,
 		httpServer:          httpServer,
+		shutdownCh:          shutdownCh,
 	}
 
 	/* Create HTTP transport if enabled (after server is created so we can pass it) */
@@ -313,7 +324,7 @@ func (s *Server) Stop() error {
 	if s == nil {
 		return fmt.Errorf("server instance is nil")
 	}
-	
+
 	shutdownTimeout := 30 * time.Second
 	if s.logger != nil {
 		s.logger.Info("Stopping Neurondb MCP server", map[string]interface{}{
@@ -323,6 +334,12 @@ func (s *Server) Stop() error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
+
+	/* Signal background goroutines to stop */
+	if s.shutdownCh != nil {
+		close(s.shutdownCh)
+		s.shutdownCh = nil
+	}
 
 	/* Collect shutdown errors */
 	var shutdownErrors []error
@@ -339,7 +356,7 @@ func (s *Server) Stop() error {
 			}
 		}
 		httpTransportCancel()
-		
+
 		/* Wait for HTTP transport goroutine to complete (with timeout) */
 		if s.httpTransportDone != nil {
 			select {

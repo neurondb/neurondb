@@ -52,6 +52,7 @@ services:
       # HuggingFace API key for embeddings. Set NEURONDB_LLM_API_KEY in .env or environment.
       # Do NOT commit real keys. Leave unset for dev without embeddings; production should set it.
       NEURONDB_LLM_API_KEY: ${NEURONDB_LLM_API_KEY:-}
+      NEURONDB_TITANS_DIR: ${NEURONDB_TITANS_DIR:-/app/examples/titans}
     ports:
       - ${POSTGRES_PORT:-5433}:5432
     volumes:
@@ -117,6 +118,7 @@ services:
       NEURONDB_GPU_ENABLED: ${NEURONDB_GPU_ENABLED:-on}
       NEURONDB_GPU_BACKEND_TYPE: ${NEURONDB_GPU_BACKEND_TYPE:-1}
       NEURONDB_COMPUTE_MODE: ${NEURONDB_COMPUTE_MODE:-1}
+      NEURONDB_TITANS_DIR: ${NEURONDB_TITANS_DIR:-/app/examples/titans}
     ports:
       - ${POSTGRES_CUDA_PORT:-5434}:5432
     volumes:
@@ -180,6 +182,7 @@ services:
       NEURONDB_GPU_ENABLED: ${NEURONDB_GPU_ENABLED:-on}
       NEURONDB_GPU_BACKEND_TYPE: ${NEURONDB_GPU_BACKEND_TYPE:-2}
       NEURONDB_COMPUTE_MODE: ${NEURONDB_COMPUTE_MODE:-1}
+      NEURONDB_TITANS_DIR: ${NEURONDB_TITANS_DIR:-/app/examples/titans}
     ports:
       - ${POSTGRES_ROCM_PORT:-5435}:5432
     volumes:
@@ -243,6 +246,7 @@ services:
       NEURONDB_GPU_ENABLED: ${NEURONDB_GPU_ENABLED:-on}
       NEURONDB_GPU_BACKEND_TYPE: ${NEURONDB_GPU_BACKEND_TYPE:-3}
       NEURONDB_COMPUTE_MODE: ${NEURONDB_COMPUTE_MODE:-1}
+      NEURONDB_TITANS_DIR: ${NEURONDB_TITANS_DIR:-/app/examples/titans}
     ports:
       - ${POSTGRES_METAL_PORT:-5436}:5432
     volumes:

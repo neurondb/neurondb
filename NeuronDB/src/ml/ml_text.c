@@ -1074,6 +1074,7 @@ text_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **errstr)
 																	NumericGetDatum(v.val.numeric)));
 				else if (strcmp(key, "task_type") == 0 && v.type == jbvString)
 					strncpy(task_type, v.val.string.val, sizeof(task_type) - 1);
+					task_type[sizeof(task_type) - 1] = '\0';
 				nfree(key);
 			}
 		}
@@ -1116,6 +1117,7 @@ text_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **errstr)
 	state->feature_dim = feature_dim;
 	state->n_samples = nvec;
 	strncpy(state->task_type, task_type, sizeof(state->task_type) - 1);
+	state->task_type[sizeof(state->task_type) - 1] = '\0';
 
 	if (model->backend_state != NULL)
 		nfree(model->backend_state);
@@ -1320,6 +1322,7 @@ text_gpu_deserialize(MLGpuModel *model, const bytea * payload,
 	state->feature_dim = feature_dim;
 	state->n_samples = 0;
 	strncpy(state->task_type, task_type, sizeof(state->task_type) - 1);
+	state->task_type[sizeof(state->task_type) - 1] = '\0';
 
 	if (metadata != NULL)
 	{

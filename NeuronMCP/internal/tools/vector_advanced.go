@@ -107,6 +107,10 @@ func (t *VectorArithmeticTool) Execute(ctx context.Context, params map[string]in
 			query = fmt.Sprintf("SELECT vector_concat($1::vector, $2::vector)::text AS result")
 			queryParams = []interface{}{vec1Str, vec2Str}
 		} else {
+			allowedOps := map[string]bool{"+": true, "-": true}
+			if !allowedOps[op] {
+				return Error("Invalid vector operator", "VALIDATION_ERROR", nil), nil
+			}
 			query = fmt.Sprintf("SELECT (($1::vector %s $2::vector)::text) AS result", op)
 			queryParams = []interface{}{vec1Str, vec2Str}
 		}
@@ -274,7 +278,7 @@ func (t *VectorDistanceTool) Execute(ctx context.Context, params map[string]inte
 		query = "SELECT vector_mahalanobis_distance($1::vector, $2::vector, $3::vector) AS distance"
 		queryParams = []interface{}{vec1Str, vec2Str, covStr}
 	default:
-   /* Use unified distance function */
+		/* Use unified distance function */
 		pValue := 3.0
 		if p, ok := params["p_value"].(float64); ok {
 			pValue = p
@@ -386,4 +390,3 @@ func (t *VectorSimilarityUnifiedTool) Execute(ctx context.Context, params map[st
 		"metric": metric,
 	}), nil
 }
-

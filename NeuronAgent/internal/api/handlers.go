@@ -17,6 +17,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -833,7 +834,9 @@ func toMessageResponse(m *db.Message) MessageResponse {
 func respondJSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(data)
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		metrics.WarnWithContext(context.Background(), "JSON encode failed on response", map[string]interface{}{"error": err.Error()})
+	}
 }
 
 func respondError(w http.ResponseWriter, err *APIError) {

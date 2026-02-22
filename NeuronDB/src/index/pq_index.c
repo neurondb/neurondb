@@ -39,14 +39,18 @@
 #include "access/heapam.h"
 #include "access/tableam.h"
 #include "utils/relcache.h"
+#include "utils/reloptions.h"
 #include "utils/lsyscache.h"
 #include "catalog/namespace.h"
 #include "parser/parse_type.h"
 #include "nodes/makefuncs.h"
 #include "optimizer/cost.h"
+#include "access/table.h"
 #include <math.h>
 #include <float.h>
 #include <stdlib.h>
+
+extern double neurondb_l2_distance_squared(const float *a, const float *b, int n);
 
 /* PQ index parameters */
 #define PQ_DEFAULT_M 8			/* Number of subspaces */
@@ -265,28 +269,45 @@ train_subspace_kmeans_pq(float **subspace_data,
 }
 
 /*
- * Load PQ index options from relation
+ * Load PQ index options from relation (stored bytea from pqoptions).
  */
 static void
 pqLoadOptions(Relation index, PqOptions *opts_out)
 {
 	Datum		reloptions;
-	bool		isnull;
+	bytea	   *opt;
 
 	reloptions = RelationGetReloptions(index);
-	if (DatumGetPointer(reloptions) == NULL || DatumGetPointer(reloptions) == (void *) 0x1)
+	if (reloptions == (Datum) 0 || DatumGetPointer(reloptions) == NULL)
 	{
-		/* No options, use defaults */
 		opts_out->m = PQ_DEFAULT_M;
 		opts_out->ks = PQ_DEFAULT_KS;
 		opts_out->rerank_k = PQ_DEFAULT_RERANK_K;
 		return;
 	}
 
-	/* Parse options - simplified version, full implementation would use reloptions */
-	opts_out->m = PQ_DEFAULT_M;
-	opts_out->ks = PQ_DEFAULT_KS;
-	opts_out->rerank_k = PQ_DEFAULT_RERANK_K;
+	opt = (bytea *) DatumGetPointer(reloptions);
+	if (VARSIZE_ANY_EXHDR(opt) < (Size) sizeof(PqOptions))
+	{
+		opts_out->m = PQ_DEFAULT_M;
+		opts_out->ks = PQ_DEFAULT_KS;
+		opts_out->rerank_k = PQ_DEFAULT_RERANK_K;
+		return;
+	}
+
+	{
+		PqOptions *p = (PqOptions *) VARDATA(opt);
+
+		opts_out->m = p->m;
+		opts_out->ks = p->ks;
+		opts_out->rerank_k = p->rerank_k;
+		if (opts_out->m < 1 || opts_out->m > 32)
+			opts_out->m = PQ_DEFAULT_M;
+		if (opts_out->ks < 16 || opts_out->ks > 65536)
+			opts_out->ks = PQ_DEFAULT_KS;
+		if (opts_out->rerank_k < 1 || opts_out->rerank_k > 10000)
+			opts_out->rerank_k = PQ_DEFAULT_RERANK_K;
+	}
 }
 
 /* Placeholder for future implementation */
@@ -881,33 +902,41 @@ pqbuild(Relation heap, Relation index, IndexInfo * indexInfo)
 }
 
 /*
- * PQ index options handler
+ * PQ index options handler - parse reloptions and return PqOptions bytea.
  */
 static bytea *
 pqoptions(Datum reloptions, bool validate)
 {
-	relopt_value *options;
-	int			numoptions;
-	PqOptions   *opts = NULL;
-	int			m = PQ_DEFAULT_M;
-	int			ks = PQ_DEFAULT_KS;
-	int			rerank_k = PQ_DEFAULT_RERANK_K;
+	static const relopt_parse_elt tab[] = {
+		{"m", RELOPT_TYPE_INT, offsetof(PqOptions, m)},
+		{"ks", RELOPT_TYPE_INT, offsetof(PqOptions, ks)},
+		{"rerank_k", RELOPT_TYPE_INT, offsetof(PqOptions, rerank_k)}
+	};
+	bytea	   *result;
 
-	/* Parse options if provided */
-	if (reloptions != (Datum) 0)
+	if (relopt_kind_pq == 0)
+		ereport(ERROR,
+				(errcode(ERRCODE_INTERNAL_ERROR),
+				 errmsg("relopt_kind_pq not initialized")));
+
+	if (reloptions == (Datum) 0 || reloptions == PointerGetDatum(NULL))
+		reloptions = (Datum) 0;
+
+	result = (bytea *) build_reloptions(reloptions, validate, relopt_kind_pq,
+										sizeof(PqOptions), tab, lengthof(tab));
+	if (result == NULL)
 	{
-		options = parseRelOptions(reloptions, validate, relopt_kind_pq, &numoptions);
-		/* Parse individual options - simplified for now */
-		/* Full implementation would parse m, ks, rerank_k from options */
+		result = (bytea *) palloc(sizeof(PqOptions) + VARHDRSZ);
+		SET_VARSIZE(result, sizeof(PqOptions) + VARHDRSZ);
+		{
+			PqOptions *opts = (PqOptions *) VARDATA(result);
+
+			opts->m = PQ_DEFAULT_M;
+			opts->ks = PQ_DEFAULT_KS;
+			opts->rerank_k = PQ_DEFAULT_RERANK_K;
+		}
 	}
-
-	/* Allocate and return options structure */
-	opts = (PqOptions *) palloc(sizeof(PqOptions));
-	opts->m = m;
-	opts->ks = ks;
-	opts->rerank_k = rerank_k;
-
-	return (bytea *) opts;
+	return result;
 }
 
 /*
@@ -1440,39 +1469,116 @@ pq_coarse_search(Relation index, PqMetaPage meta, PqScanOpaque so,
 }
 
 /*
- * Fine rerank - compute exact distances for top candidates
+ * Fine rerank - compute exact distances for top candidates by fetching
+ * full vectors from the heap and computing exact L2 distance.
  */
 static void
 pq_fine_rerank(Relation index, PqMetaPage meta, PqScanOpaque so,
 			   ItemPointer *coarse_tids, float *coarse_dists, int coarse_count)
 {
+	ItemPointerData *tid_storage = NULL;
 	ItemPointer *results = NULL;
 	float	   *distances = NULL;
+	Relation	heapRel = NULL;
+	Snapshot	snapshot;
+	TupleDesc	heapTupdesc;
+	int			vec_attnum;
 	int			i;
+	int			n;
 	MemoryContext oldctx;
 
 	oldctx = MemoryContextSwitchTo(so->scanCtx);
 
-	nalloc(results, ItemPointer, so->k);
-	nalloc(distances, float, so->k);
-
-	/* For each candidate, fetch full vector from heap and compute exact distance */
-	/* This is simplified - full implementation would batch fetch and use SIMD */
-	for (i = 0; i < coarse_count && i < so->k; i++)
+	n = Min(coarse_count, so->k);
+	if (n <= 0)
 	{
-		/* Fetch vector from heap using TID */
-		/* For now, use coarse distance - full implementation would fetch and compute exact */
-		results[i] = coarse_tids[i];
-		distances[i] = coarse_dists[i];	/* Placeholder - would compute exact L2 distance */
+		so->results = NULL;
+		so->distances = NULL;
+		so->resultCount = 0;
+		MemoryContextSwitchTo(oldctx);
+		return;
 	}
 
-	/* Sort by distance */
-	for (i = 0; i < so->k - 1; i++)
+	tid_storage = (ItemPointerData *) palloc(n * sizeof(ItemPointerData));
+	nalloc(results, ItemPointer, so->k);
+	nalloc(distances, float, so->k);
+	for (i = 0; i < so->k; i++)
+		results[i] = &tid_storage[i < n ? i : 0];
+
+	/* Get heap relation for the index */
+	heapRel = NULL;
+	{
+		Oid			heapOid = IndexGetRelation(index->rd_id, false);
+
+		if (!OidIsValid(heapOid))
+			goto use_coarse;
+		heapRel = table_open(heapOid, AccessShareLock);
+		if (!RelationIsValid(heapRel))
+		{
+			heapRel = NULL;
+			goto use_coarse;
+		}
+	}
+
+	snapshot = GetActiveSnapshot();
+	heapTupdesc = RelationGetDescr(heapRel);
+	vec_attnum = index->rd_index->indkey[0];
+	if (vec_attnum <= 0)
+	{
+		table_close(heapRel, AccessShareLock);
+		goto use_coarse;
+	}
+
+	for (i = 0; i < n; i++)
+	{
+		HeapTupleData tupleData;
+		HeapTuple	tuple = &tupleData;
+		Buffer		heapBuf;
+		bool		found;
+		bool		isnull;
+		Datum		vec_datum;
+		Vector	   *vec = NULL;
+		double		dist_sq;
+
+		ItemPointerCopy(coarse_tids[i], &tid_storage[i]);
+		ItemPointerCopy(&tid_storage[i], &tupleData.t_self);
+		found = heap_fetch(heapRel, snapshot, tuple, &heapBuf, false);
+		if (!found || !HeapTupleIsValid(tuple))
+		{
+			distances[i] = (float) coarse_dists[i];
+			continue;
+		}
+
+		vec_datum = heap_getattr(tuple, vec_attnum, heapTupdesc, &isnull);
+		if (isnull)
+		{
+			distances[i] = (float) coarse_dists[i];
+			ReleaseBuffer(heapBuf);
+			continue;
+		}
+
+		vec = DatumGetVectorP(vec_datum);
+		if (vec == NULL || vec->dim != so->queryDim)
+		{
+			distances[i] = (float) coarse_dists[i];
+			ReleaseBuffer(heapBuf);
+			continue;
+		}
+
+		dist_sq = neurondb_l2_distance_squared(so->query, vec->data, so->queryDim);
+		distances[i] = (float) sqrt(dist_sq);
+		ReleaseBuffer(heapBuf);
+	}
+
+	table_close(heapRel, AccessShareLock);
+
+	/* Sort by exact distance */
+	for (i = 0; i < n - 1; i++)
 	{
 		int			j;
 		int			best_idx = i;
 
-		for (j = i + 1; j < so->k; j++)
+		for (j = i + 1; j < n; j++)
 		{
 			if (distances[j] < distances[best_idx])
 				best_idx = j;
@@ -1480,20 +1586,36 @@ pq_fine_rerank(Relation index, PqMetaPage meta, PqScanOpaque so,
 
 		if (best_idx != i)
 		{
-			ItemPointer temp_tid = results[i];
-			float		temp_dist = distances[i];
+			ItemPointerData temp_tid;
+			float		temp_dist;
 
-			results[i] = results[best_idx];
+			ItemPointerCopy(results[i], &temp_tid);
+			ItemPointerCopy(results[best_idx], results[i]);
+			ItemPointerCopy(&temp_tid, results[best_idx]);
+			temp_dist = distances[i];
 			distances[i] = distances[best_idx];
-			results[best_idx] = temp_tid;
 			distances[best_idx] = temp_dist;
 		}
 	}
 
 	so->results = results;
 	so->distances = distances;
-	so->resultCount = Min(so->k, coarse_count);
+	so->resultCount = n;
+	MemoryContextSwitchTo(oldctx);
+	return;
 
+use_coarse:
+	/* Fallback: use coarse distances when heap is unavailable */
+	for (i = 0; i < n; i++)
+	{
+		ItemPointerCopy(coarse_tids[i], &tid_storage[i]);
+		distances[i] = (float) coarse_dists[i];
+	}
+	so->results = results;
+	so->distances = distances;
+	so->resultCount = n;
+	if (heapRel != NULL && RelationIsValid(heapRel))
+		table_close(heapRel, AccessShareLock);
 	MemoryContextSwitchTo(oldctx);
 }
 

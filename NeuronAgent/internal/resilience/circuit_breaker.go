@@ -27,25 +27,25 @@ import (
 type CircuitState int
 
 const (
-	StateClosed CircuitState = iota // Normal operation
-	StateOpen                       // Circuit is open, failing fast
-	StateHalfOpen                   // Testing if service recovered
+	StateClosed   CircuitState = iota // Normal operation
+	StateOpen                         // Circuit is open, failing fast
+	StateHalfOpen                     // Testing if service recovered
 )
 
 // CircuitBreaker implements the circuit breaker pattern
 type CircuitBreaker struct {
-	mu                sync.RWMutex
-	state             CircuitState
-	failureCount      int
-	successCount      int
-	lastFailureTime   time.Time
-	lastSuccessTime   time.Time
-	openDuration      time.Duration
-	failureThreshold  int
-	successThreshold  int
-	timeout           time.Duration
-	onStateChange     func(name string, from, to CircuitState)
-	name              string
+	mu               sync.RWMutex
+	state            CircuitState
+	failureCount     int
+	successCount     int
+	lastFailureTime  time.Time
+	lastSuccessTime  time.Time
+	openDuration     time.Duration
+	failureThreshold int
+	successThreshold int
+	timeout          time.Duration
+	onStateChange    func(name string, from, to CircuitState)
+	name             string
 }
 
 // CircuitBreakerConfig configures a circuit breaker
@@ -141,6 +141,9 @@ func (cb *CircuitBreaker) recordFailure() {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
 
+	if cb.state == StateOpen {
+		return /* Already open, avoid redundant updates */
+	}
 	cb.failureCount++
 	cb.lastFailureTime = time.Now()
 
@@ -213,15 +216,12 @@ func (cb *CircuitBreaker) GetStats() map[string]interface{} {
 	defer cb.mu.RUnlock()
 
 	return map[string]interface{}{
-		"state":           cb.state,
-		"failure_count":   cb.failureCount,
-		"success_count":   cb.successCount,
-		"last_failure":    cb.lastFailureTime,
-		"last_success":    cb.lastSuccessTime,
+		"state":             cb.state,
+		"failure_count":     cb.failureCount,
+		"success_count":     cb.successCount,
+		"last_failure":      cb.lastFailureTime,
+		"last_success":      cb.lastSuccessTime,
 		"failure_threshold": cb.failureThreshold,
 		"success_threshold": cb.successThreshold,
 	}
 }
-
-
-

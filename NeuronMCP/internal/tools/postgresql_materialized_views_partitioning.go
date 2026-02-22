@@ -21,10 +21,12 @@ package tools
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/neurondb/NeuronMCP/internal/database"
 	"github.com/neurondb/NeuronMCP/internal/logging"
+	"github.com/neurondb/NeuronMCP/internal/validation"
 )
 
 /* ============================================================================
@@ -100,7 +102,7 @@ func (t *PostgreSQLCreateMaterializedViewTool) Execute(ctx context.Context, para
 	}
 
 	parts := []string{"CREATE MATERIALIZED VIEW"}
-	
+
 	fullViewName := fmt.Sprintf("%s.%s", quoteIdentifier(schema), quoteIdentifier(viewName))
 	parts = append(parts, fullViewName)
 
@@ -321,14 +323,14 @@ func (t *PostgreSQLDropMaterializedViewTool) Execute(ctx context.Context, params
 	}
 
 	parts := []string{"DROP MATERIALIZED VIEW"}
-	
+
 	if ifExists, ok := params["if_exists"].(bool); ok && ifExists {
 		parts = append(parts, "IF EXISTS")
 	}
-	
+
 	fullViewName := fmt.Sprintf("%s.%s", quoteIdentifier(schema), quoteIdentifier(viewName))
 	parts = append(parts, fullViewName)
-	
+
 	if cascade, ok := params["cascade"].(bool); ok && cascade {
 		parts = append(parts, "CASCADE")
 	} else {
@@ -509,16 +511,16 @@ func (t *PostgreSQLCreatePartitionTool) Execute(ctx context.Context, params map[
 	}
 
 	t.logger.Info("Partitioned table created", map[string]interface{}{
-		"table_name":      tableName,
-		"schema":          schema,
+		"table_name":       tableName,
+		"schema":           schema,
 		"partition_method": partitionMethod,
 	})
 
 	return Success(map[string]interface{}{
-		"table_name":      tableName,
-		"schema":          schema,
+		"table_name":       tableName,
+		"schema":           schema,
 		"partition_method": partitionMethod,
-		"query":           createQuery,
+		"query":            createQuery,
 	}, map[string]interface{}{
 		"tool": "postgresql_create_partition",
 	}), nil
@@ -586,6 +588,12 @@ func (t *PostgreSQLAttachPartitionTool) Execute(ctx context.Context, params map[
 	schema, _ := params["schema"].(string)
 	if schema == "" {
 		schema = "public"
+	}
+
+	/* Validate partition bound syntax (e.g. FOR VALUES FROM (1) TO (100) or FOR VALUES IN ('a', 'b')) */
+	partBoundRegex := regexp.MustCompile(`(?i)^\s*FOR\s+VALUES\s+(FROM\s*\(.+\)\s*TO\s*\(.+\)|IN\s*\(.+\)|WITH\s*\(.+\))\s*$`)
+	if !partBoundRegex.MatchString(partitionBound) {
+		return Error("Invalid partition bound syntax", "VALIDATION_ERROR", nil), nil
 	}
 
 	fullPartitionedTable := fmt.Sprintf("%s.%s", quoteIdentifier(schema), quoteIdentifier(partitionedTable))
@@ -1159,11 +1167,19 @@ func (t *PostgreSQLAlterTableAdvancedTool) Execute(ctx context.Context, params m
 			if param == "" || value == "" {
 				return Error(fmt.Sprintf("Operation %d: SET_STORAGE_PARAMETER requires 'parameter' and 'value'", i), "INVALID_PARAMETER", nil), nil
 			}
-			opStr = fmt.Sprintf("SET (%s = %s)", param, value)
+			gucParamRegex := regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_.]*$`)
+			if !gucParamRegex.MatchString(param) {
+				return Error(fmt.Sprintf("Operation %d: invalid storage parameter name", i), "VALIDATION_ERROR", nil), nil
+			}
+			opStr = fmt.Sprintf("SET (%s = %s)", param, quoteLiteral(value))
 		case "RESET_STORAGE_PARAMETER":
 			param, _ := opMap["parameter"].(string)
 			if param == "" {
 				return Error(fmt.Sprintf("Operation %d: RESET_STORAGE_PARAMETER requires 'parameter'", i), "INVALID_PARAMETER", nil), nil
+			}
+			gucParamRegex := regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_.]*$`)
+			if !gucParamRegex.MatchString(param) {
+				return Error(fmt.Sprintf("Operation %d: invalid storage parameter name", i), "VALIDATION_ERROR", nil), nil
 			}
 			opStr = fmt.Sprintf("RESET (%s)", param)
 		case "INHERIT":
@@ -1199,27 +1215,27 @@ func (t *PostgreSQLAlterTableAdvancedTool) Execute(ctx context.Context, params m
 			if trigger == "" {
 				return Error(fmt.Sprintf("Operation %d: ENABLE_REPLICA_TRIGGER requires 'trigger'", i), "INVALID_PARAMETER", nil), nil
 			}
-			opStr = fmt.Sprintf("ENABLE REPLICA TRIGGER \"%s\"", trigger)
+			opStr = fmt.Sprintf("ENABLE REPLICA TRIGGER %s", validation.EscapeSQLIdentifier(trigger))
 		case "DISABLE_TRIGGER":
 			trigger, _ := opMap["trigger"].(string)
 			if trigger == "" {
 				opStr = "DISABLE TRIGGER ALL"
 			} else {
-				opStr = fmt.Sprintf("DISABLE TRIGGER \"%s\"", trigger)
+				opStr = fmt.Sprintf("DISABLE TRIGGER %s", validation.EscapeSQLIdentifier(trigger))
 			}
 		case "ENABLE_TRIGGER":
 			trigger, _ := opMap["trigger"].(string)
 			if trigger == "" {
 				opStr = "ENABLE TRIGGER ALL"
 			} else {
-				opStr = fmt.Sprintf("ENABLE TRIGGER \"%s\"", trigger)
+				opStr = fmt.Sprintf("ENABLE TRIGGER %s", validation.EscapeSQLIdentifier(trigger))
 			}
 		case "SET_TABLESPACE":
 			tablespace, _ := opMap["tablespace"].(string)
 			if tablespace == "" {
 				return Error(fmt.Sprintf("Operation %d: SET_TABLESPACE requires 'tablespace'", i), "INVALID_PARAMETER", nil), nil
 			}
-			opStr = fmt.Sprintf("SET TABLESPACE \"%s\"", tablespace)
+			opStr = fmt.Sprintf("SET TABLESPACE %s", validation.EscapeSQLIdentifier(tablespace))
 		case "SET_LOGGED":
 			opStr = "SET LOGGED"
 		case "SET_UNLOGGED":

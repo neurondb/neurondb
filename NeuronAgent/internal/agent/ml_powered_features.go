@@ -25,16 +25,17 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/neurondb/NeuronAgent/internal/db"
+	"github.com/neurondb/NeuronAgent/internal/validation"
 	"github.com/neurondb/NeuronAgent/pkg/neurondb"
 )
 
 /* MLPoweredFeatures provides ML-powered capabilities for agents */
 type MLPoweredFeatures struct {
-	db         *db.DB
-	queries    *db.Queries
-	mlClient   *neurondb.MLClient
-	embed      *neurondb.EmbeddingClient
-	llm        *LLMClient
+	db       *db.DB
+	queries  *db.Queries
+	mlClient *neurondb.MLClient
+	embed    *neurondb.EmbeddingClient
+	llm      *LLMClient
 }
 
 /* NewMLPoweredFeatures creates ML-powered features manager */
@@ -68,22 +69,25 @@ func (m *MLPoweredFeatures) MLPoweredMemory(ctx context.Context, agentID uuid.UU
 		sanitizedPrefix = "default"
 	}
 	tableName := fmt.Sprintf("temp_memory_embeddings_%s", sanitizedPrefix)
-	/* Use PostgreSQL quote_ident for additional safety */
+	qTable, err := validation.QuoteIdentifier(tableName)
+	if err != nil {
+		return nil, fmt.Errorf("ML-powered memory failed: invalid table name: %w", err)
+	}
 	createTable := fmt.Sprintf(`CREATE TEMP TABLE %s (
 		id SERIAL PRIMARY KEY,
 		embedding vector(%d)
-	)`, tableName, len(memoryEmbeddings[0]))
+	)`, qTable, len(memoryEmbeddings[0]))
 
-	_, err := m.db.DB.ExecContext(ctx, createTable)
+	_, err = m.db.DB.ExecContext(ctx, createTable)
 	if err != nil {
 		return nil, fmt.Errorf("ML-powered memory failed: table_creation_error=true, error=%w", err)
 	}
-	defer m.db.DB.ExecContext(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", tableName))
+	defer m.db.DB.ExecContext(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", qTable))
 
 	/* Insert embeddings */
 	for _, embedding := range memoryEmbeddings {
 		embeddingJSON, _ := json.Marshal(embedding)
-		insertQuery := fmt.Sprintf("INSERT INTO %s (embedding) VALUES ($1::vector)", tableName)
+		insertQuery := fmt.Sprintf("INSERT INTO %s (embedding) VALUES ($1::vector)", qTable)
 		_, err = m.db.DB.ExecContext(ctx, insertQuery, embeddingJSON)
 		if err != nil {
 			continue /* Skip on error */
@@ -102,7 +106,7 @@ func (m *MLPoweredFeatures) MLPoweredMemory(ctx context.Context, agentID uuid.UU
 
 	/* Predict clusters */
 	query := fmt.Sprintf(`SELECT id, neurondb.predict($1, embedding) AS cluster_id
-		FROM %s`, tableName)
+		FROM %s`, qTable)
 
 	type ClusterRow struct {
 		ID        int     `db:"id"`
@@ -153,24 +157,28 @@ func (m *MLPoweredFeatures) AnomalyDetection(ctx context.Context, agentID uuid.U
 		sanitizedPrefix = "default"
 	}
 	tableName := fmt.Sprintf("temp_behavior_%s", sanitizedPrefix)
+	qTable, err := validation.QuoteIdentifier(tableName)
+	if err != nil {
+		return nil, fmt.Errorf("anomaly detection failed: invalid table name: %w", err)
+	}
 	createTable := fmt.Sprintf(`CREATE TEMP TABLE %s (
 		id SERIAL PRIMARY KEY,
 		timestamp TIMESTAMP,
 		metric_value DOUBLE PRECISION,
 		features vector(10)
-	)`, tableName)
+	)`, qTable)
 
-	_, err := m.db.DB.ExecContext(ctx, createTable)
+	_, err = m.db.DB.ExecContext(ctx, createTable)
 	if err != nil {
 		return nil, fmt.Errorf("anomaly detection failed: table_creation_error=true, error=%w", err)
 	}
-	defer m.db.DB.ExecContext(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", tableName))
+	defer m.db.DB.ExecContext(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", qTable))
 
 	/* Insert behavior data */
 	for _, metric := range behaviorData {
 		features := m.extractFeatures(metric)
 		featuresJSON, _ := json.Marshal(features)
-		insertQuery := fmt.Sprintf("INSERT INTO %s (timestamp, metric_value, features) VALUES ($1, $2, $3::vector)", tableName)
+		insertQuery := fmt.Sprintf("INSERT INTO %s (timestamp, metric_value, features) VALUES ($1, $2, $3::vector)", qTable)
 		_, err = m.db.DB.ExecContext(ctx, insertQuery, metric.Timestamp, metric.Value, featuresJSON)
 		if err != nil {
 			continue
@@ -181,7 +189,7 @@ func (m *MLPoweredFeatures) AnomalyDetection(ctx context.Context, agentID uuid.U
 	query := fmt.Sprintf(`SELECT id, timestamp, metric_value,
 		ABS(metric_value - AVG(metric_value) OVER()) / NULLIF(STDDEV(metric_value) OVER(), 0) AS z_score
 		FROM %s
-		WHERE ABS(metric_value - AVG(metric_value) OVER()) / NULLIF(STDDEV(metric_value) OVER(), 0) > 3`, tableName)
+		WHERE ABS(metric_value - AVG(metric_value) OVER()) / NULLIF(STDDEV(metric_value) OVER(), 0) > 3`, qTable)
 
 	type AnomalyRow struct {
 		ID          int       `db:"id"`
@@ -199,12 +207,12 @@ func (m *MLPoweredFeatures) AnomalyDetection(ctx context.Context, agentID uuid.U
 	var anomalies []Anomaly
 	for _, row := range rows {
 		anomalies = append(anomalies, Anomaly{
-			AgentID:    agentID,
-			Timestamp:  row.Timestamp,
-			Metric:     "behavior",
-			Value:      row.MetricValue,
-			ZScore:     row.ZScore,
-			Severity:   m.calculateSeverity(row.ZScore),
+			AgentID:   agentID,
+			Timestamp: row.Timestamp,
+			Metric:    "behavior",
+			Value:     row.MetricValue,
+			ZScore:    row.ZScore,
+			Severity:  m.calculateSeverity(row.ZScore),
 		})
 	}
 
@@ -257,9 +265,9 @@ func (m *MLPoweredFeatures) RecommendationSystem(ctx context.Context, agentID uu
 		LIMIT 5`
 
 	type ToolUsageRow struct {
-		ToolName     string  `db:"tool_name"`
-		UsageCount   int     `db:"usage_count"`
-		AvgSuccess   float64 `db:"avg_success"`
+		ToolName   string  `db:"tool_name"`
+		UsageCount int     `db:"usage_count"`
+		AvgSuccess float64 `db:"avg_success"`
 	}
 
 	var rows []ToolUsageRow
@@ -288,7 +296,6 @@ func (m *MLPoweredFeatures) TimeSeriesAnalysis(ctx context.Context, agentID uuid
 		WHERE agent_id = $1 AND metric_name = $2
 		AND timestamp BETWEEN $3 AND $4
 		ORDER BY timestamp`
-
 
 	var rows []MetricRow
 	err := m.db.DB.SelectContext(ctx, &rows, query, agentID, metric, startTime, endTime)
@@ -363,10 +370,10 @@ func (m *MLPoweredFeatures) PredictResourceUsage(ctx context.Context, agentID uu
 	modelID, err := m.getOrTrainResourceModel(ctx, agentID)
 	if err != nil {
 		return &ResourcePrediction{
-			Tokens:       1000,
-			Latency:      1.0,
-			Cost:         0.01,
-			Confidence:   0.5,
+			Tokens:     1000,
+			Latency:    1.0,
+			Cost:       0.01,
+			Confidence: 0.5,
 		}, nil
 	}
 
@@ -377,10 +384,10 @@ func (m *MLPoweredFeatures) PredictResourceUsage(ctx context.Context, agentID uu
 	tokens, err := m.mlClient.Predict(ctx, modelID, features)
 	if err != nil {
 		return &ResourcePrediction{
-			Tokens:       1000,
-			Latency:      1.0,
-			Cost:         0.01,
-			Confidence:   0.5,
+			Tokens:     1000,
+			Latency:    1.0,
+			Cost:       0.01,
+			Confidence: 0.5,
 		}, nil
 	}
 
@@ -440,10 +447,10 @@ type Anomaly struct {
 }
 
 type TaskFeatures struct {
-	TaskLength    int
-	NumTools      int
-	Complexity    float64
-	SimilarTasks  int
+	TaskLength   int
+	NumTools     int
+	Complexity   float64
+	SimilarTasks int
 }
 
 type ToolRecommendation struct {
@@ -632,4 +639,3 @@ func (m *MLPoweredFeatures) extractStructuredFeatures(data map[string]interface{
 
 	return features
 }
-

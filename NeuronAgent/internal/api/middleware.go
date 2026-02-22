@@ -33,6 +33,17 @@ type contextKey string
 const apiKeyContextKey contextKey = "api_key"
 const principalContextKey contextKey = "principal"
 
+/* RequestTimeoutMiddleware sets a deadline on the request context so handlers do not run indefinitely */
+func RequestTimeoutMiddleware(timeout time.Duration) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx, cancel := context.WithTimeout(r.Context(), timeout)
+			defer cancel()
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
 /* AuthMiddleware authenticates requests using API keys and resolves principals */
 func AuthMiddleware(keyManager *auth.APIKeyManager, principalManager *auth.PrincipalManager, rateLimiter auth.RateLimiterInterface) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -171,7 +182,7 @@ func CORSMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			origin := r.Header.Get("Origin")
 			allowedOrigins := cfg.Auth.AllowedOrigins
-			
+
 			/* If no origins configured, check environment variable */
 			if len(allowedOrigins) == 0 {
 				if envOrigins := os.Getenv("CORS_ALLOWED_ORIGINS"); envOrigins != "" {
@@ -211,7 +222,7 @@ func CORSMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 				/* If origin not in list and origin header present, deny */
 				if allowedOrigin == "" && origin != "" {
 					metrics.WarnWithContext(r.Context(), "CORS request denied: origin not allowed", map[string]interface{}{
-						"origin":         origin,
+						"origin":          origin,
 						"allowed_origins": allowedOrigins,
 					})
 				}

@@ -44,19 +44,19 @@ type slackAPIResponse struct {
 /* slackAuthTestResponse represents auth.test API response */
 type slackAuthTestResponse struct {
 	slackAPIResponse
-	URL     string `json:"url"`
-	Team    string `json:"team"`
-	User    string `json:"user"`
-	TeamID  string `json:"team_id"`
-	UserID  string `json:"user_id"`
-	BotID   string `json:"bot_id,omitempty"`
-	IsBot   bool   `json:"is_bot,omitempty"`
+	URL    string `json:"url"`
+	Team   string `json:"team"`
+	User   string `json:"user"`
+	TeamID string `json:"team_id"`
+	UserID string `json:"user_id"`
+	BotID  string `json:"bot_id,omitempty"`
+	IsBot  bool   `json:"is_bot,omitempty"`
 }
 
 /* slackConversationsListResponse represents conversations.list API response */
 type slackConversationsListResponse struct {
 	slackAPIResponse
-	Channels []slackChannel `json:"channels"`
+	Channels         []slackChannel `json:"channels"`
 	ResponseMetadata struct {
 		NextCursor string `json:"next_cursor"`
 	} `json:"response_metadata"`
@@ -71,8 +71,8 @@ type slackChannel struct {
 /* slackConversationsHistoryResponse represents conversations.history API response */
 type slackConversationsHistoryResponse struct {
 	slackAPIResponse
-	Messages []slackMessage `json:"messages"`
-	HasMore  bool           `json:"has_more"`
+	Messages         []slackMessage `json:"messages"`
+	HasMore          bool           `json:"has_more"`
 	ResponseMetadata struct {
 		NextCursor string `json:"next_cursor"`
 	} `json:"response_metadata"`
@@ -80,10 +80,10 @@ type slackConversationsHistoryResponse struct {
 
 /* slackMessage represents a Slack message */
 type slackMessage struct {
-	Type      string `json:"type"`
-	Text      string `json:"text"`
-	User      string `json:"user"`
-	TS        string `json:"ts"`
+	Type     string `json:"type"`
+	Text     string `json:"text"`
+	User     string `json:"user"`
+	TS       string `json:"ts"`
 	ThreadTS string `json:"thread_ts,omitempty"`
 }
 
@@ -127,7 +127,7 @@ func (s *SlackConnector) Type() string {
 /* makeRequest makes a POST request to Slack API */
 func (s *SlackConnector) makeRequest(ctx context.Context, method string, params url.Values) (*http.Response, error) {
 	apiURL := fmt.Sprintf("%s/%s", s.endpoint, method)
-	
+
 	req, err := http.NewRequestWithContext(ctx, "POST", apiURL, strings.NewReader(params.Encode()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -189,7 +189,7 @@ func (s *SlackConnector) Read(ctx context.Context, path string) (io.Reader, erro
 		if err != nil {
 			return nil, fmt.Errorf("failed to resolve channel name: %w", err)
 		}
-		
+
 		/* Find channel by name */
 		found := false
 		for _, ch := range channels {
@@ -203,7 +203,7 @@ func (s *SlackConnector) Read(ctx context.Context, path string) (io.Reader, erro
 				}
 			}
 		}
-		
+
 		if !found {
 			return nil, fmt.Errorf("channel not found: %s", path)
 		}
@@ -225,13 +225,12 @@ func (s *SlackConnector) Read(ctx context.Context, path string) (io.Reader, erro
 		if err != nil {
 			return nil, fmt.Errorf("failed to read messages: %w", err)
 		}
+		defer resp.Body.Close()
 
 		var historyResp slackConversationsHistoryResponse
 		if err := json.NewDecoder(resp.Body).Decode(&historyResp); err != nil {
-			resp.Body.Close()
 			return nil, fmt.Errorf("failed to decode history response: %w", err)
 		}
-		resp.Body.Close()
 
 		if !historyResp.OK {
 			return nil, fmt.Errorf("Slack API error: %s", historyResp.Error)
@@ -268,7 +267,7 @@ func (s *SlackConnector) Write(ctx context.Context, path string, data io.Reader)
 		if err != nil {
 			return fmt.Errorf("failed to resolve channel name: %w", err)
 		}
-		
+
 		/* Find channel by name */
 		found := false
 		for _, ch := range channels {
@@ -282,7 +281,7 @@ func (s *SlackConnector) Write(ctx context.Context, path string, data io.Reader)
 				}
 			}
 		}
-		
+
 		if !found {
 			return fmt.Errorf("channel not found: %s", path)
 		}

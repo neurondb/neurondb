@@ -348,7 +348,7 @@ compute_hmac_sha256(const char *key, const char *data)
 	nalloc(hex_hmac, char, SHA256_DIGEST_LENGTH * 2 + 1);
 	for (i = 0; i < SHA256_DIGEST_LENGTH; i++)
 	{
-		sprintf(hex_hmac + (i * 2), "%02x", hmac[i]);
+		snprintf(hex_hmac + (i * 2), 3, "%02x", hmac[i]);
 	}
 	hex_hmac[SHA256_DIGEST_LENGTH * 2] = '\0';
 
@@ -438,24 +438,29 @@ audit_log_query(PG_FUNCTION_ARGS)
 
 	PG_TRY();
 	{
-		char		cmd[10240];
+		static const char audit_insert_sql[] =
+			"INSERT INTO neurondb_audit_log (ts, user_id, query, vector_hash, hmac) "
+			"VALUES (now(), $1, $2, $3, $4)";
+		Oid			argtypes[4];
+		Datum		values[4];
+		char		nulls[4];
 		int			ret;
 
-		/*
-		 * All parameters safely quoted--replace with parameterized SPI in
-		 * prod
-		 */
-		snprintf(cmd,
-				 sizeof(cmd),
-				 "INSERT INTO neurondb_audit_log "
-				 "(ts, user_id, query, vector_hash, hmac) "
-				 "VALUES (now(), $$%s$$, $$%s$$, '%u', $$%s$$)",
-				 user_str,
-				 query_str,
-				 vector_hash,
-				 hmac_hex ? hmac_hex : "");
+		argtypes[0] = TEXTOID;
+		argtypes[1] = TEXTOID;
+		argtypes[2] = INT4OID;
+		argtypes[3] = TEXTOID;
+		values[0] = CStringGetTextDatum(user_str);
+		values[1] = CStringGetTextDatum(query_str);
+		values[2] = Int32GetDatum((int32) vector_hash);
+		values[3] = CStringGetTextDatum(hmac_hex ? hmac_hex : "");
+		nulls[0] = ' ';
+		nulls[1] = ' ';
+		nulls[2] = ' ';
+		nulls[3] = ' ';
 
-		ret = ndb_spi_execute(session, cmd, false, 0);
+		ret = ndb_spi_execute_with_args(session, audit_insert_sql,
+										4, argtypes, values, nulls, false, 0);
 		if (ret != SPI_OK_INSERT || SPI_processed != 1)
 		{
 			ndb_spi_session_end(&session);

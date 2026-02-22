@@ -217,6 +217,7 @@ ndb_cuda_xgboost_train(const float *features,
 			max_depth = 6;
 			learning_rate = 0.1f;
 			strncpy(objective, "reg:squarederror", sizeof(objective) - 1);
+			objective[sizeof(objective) - 1] = '\0';
 		}
 		PG_END_TRY();
 	}

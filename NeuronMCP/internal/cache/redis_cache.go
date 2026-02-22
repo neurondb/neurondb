@@ -17,55 +17,70 @@ package cache
 
 import (
 	"context"
+	"encoding/json"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 )
 
 /* RedisCache is a Redis-backed cache implementation */
-/* Note: This is a stub implementation that falls back to in-memory cache. */
-/* To enable Redis support, implement using a Redis client library like go-redis/redis. */
-/* Current implementation provides graceful fallback to memory cache when Redis is unavailable. */
 type RedisCache struct {
-	/* In a real implementation, this would contain a Redis client */
-	/* For now, we'll use a fallback to memory cache */
+	client   *redis.Client
 	fallback *MemoryCache
 	enabled  bool
 }
 
 /* NewRedisCache creates a new Redis cache */
-/* If Redis is not available, falls back to memory cache */
+/* If redisURL is empty or Redis is unavailable, falls back to memory cache */
 func NewRedisCache(redisURL string) (*RedisCache, error) {
-	/* TODO: Initialize Redis client */
-	/* For now, use memory cache as fallback */
 	fallback := NewMemoryCache()
-	
-	return &RedisCache{
-		fallback: fallback,
-		enabled:  false, /* Set to true when Redis is properly configured */
-	}, nil
+	if redisURL == "" {
+		return &RedisCache{fallback: fallback, enabled: false}, nil
+	}
+	opts, err := redis.ParseURL(redisURL)
+	if err != nil {
+		return &RedisCache{fallback: fallback, enabled: false}, nil
+	}
+	client := redis.NewClient(opts)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	err = client.Ping(ctx).Err()
+	cancel()
+	if err != nil {
+		_ = client.Close()
+		return &RedisCache{fallback: fallback, enabled: false}, nil
+	}
+	return &RedisCache{client: client, fallback: fallback, enabled: true}, nil
 }
 
 /* Get retrieves a value from Redis cache */
 func (r *RedisCache) Get(ctx context.Context, key string) (interface{}, bool) {
 	if !r.enabled {
-		/* Fallback to memory cache */
 		return r.fallback.Get(ctx, key)
 	}
-
-	/* TODO: Implement Redis GET */
-	/* For now, fallback */
-	return r.fallback.Get(ctx, key)
+	val, err := r.client.Get(ctx, key).Bytes()
+	if err == redis.Nil {
+		return nil, false
+	}
+	if err != nil {
+		return r.fallback.Get(ctx, key)
+	}
+	var out interface{}
+	if err := json.Unmarshal(val, &out); err != nil {
+		return nil, false
+	}
+	return out, true
 }
 
 /* Set stores a value in Redis cache */
 func (r *RedisCache) Set(ctx context.Context, key string, value interface{}, ttl time.Duration) error {
 	if !r.enabled {
-		/* Fallback to memory cache */
 		return r.fallback.Set(ctx, key, value, ttl)
 	}
-
-	/* TODO: Implement Redis SET with TTL */
-	/* For now, fallback */
-	return r.fallback.Set(ctx, key, value, ttl)
+	data, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	return r.client.Set(ctx, key, data, ttl).Err()
 }
 
 /* Delete removes a value from Redis cache */
@@ -73,19 +88,15 @@ func (r *RedisCache) Delete(ctx context.Context, key string) error {
 	if !r.enabled {
 		return r.fallback.Delete(ctx, key)
 	}
-
-	/* TODO: Implement Redis DEL */
-	return r.fallback.Delete(ctx, key)
+	return r.client.Del(ctx, key).Err()
 }
 
-/* Clear removes all entries from Redis cache */
+/* Clear removes all entries from Redis cache (FLUSHDB) */
 func (r *RedisCache) Clear(ctx context.Context) error {
 	if !r.enabled {
 		return r.fallback.Clear(ctx)
 	}
-
-	/* TODO: Implement Redis FLUSHDB */
-	return r.fallback.Clear(ctx)
+	return r.client.FlushDB(ctx).Err()
 }
 
 /* MultiLevelCache provides a multi-level cache (memory + Redis) */
@@ -163,24 +174,37 @@ func (m *MultiLevelCache) Clear(ctx context.Context) error {
 	return nil
 }
 
+/* QueryExecutor runs a warm query and returns the result to be cached */
+type QueryExecutor interface {
+	Execute(ctx context.Context, query CacheWarmQuery) (interface{}, error)
+}
+
 /* CacheWarmer provides cache warming functionality */
 type CacheWarmer struct {
-	cache Cache
+	cache    Cache
+	executor QueryExecutor
 }
 
-/* NewCacheWarmer creates a new cache warmer */
-func NewCacheWarmer(cache Cache) *CacheWarmer {
-	return &CacheWarmer{cache: cache}
+/* NewCacheWarmer creates a new cache warmer. If executor is non-nil, WarmCache will execute each query and store the result. */
+func NewCacheWarmer(cache Cache, executor QueryExecutor) *CacheWarmer {
+	return &CacheWarmer{cache: cache, executor: executor}
 }
 
-/* WarmCache warms the cache with frequently used queries */
+/* WarmCache runs each warm query (when executor is set), then stores the result in the cache with the query TTL */
 func (w *CacheWarmer) WarmCache(ctx context.Context, queries []CacheWarmQuery) error {
+	ttl := 5 * time.Minute
 	for _, query := range queries {
-		/* Execute query and cache result */
-		/* This would typically call a query executor */
-		/* For now, this is a placeholder */
 		key := GenerateCacheKey(query.Prefix, query.Params)
-		/* The actual query execution would happen here */
+		if w.executor != nil {
+			result, err := w.executor.Execute(ctx, query)
+			if err != nil {
+				continue
+			}
+			if qttl := query.TTL; qttl > 0 {
+				ttl = qttl
+			}
+			_ = w.cache.Set(ctx, key, result, ttl)
+		}
 		_ = key
 	}
 	return nil

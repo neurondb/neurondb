@@ -18,10 +18,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/neurondb/NeuronAgent/internal/db"
+	"github.com/neurondb/NeuronAgent/internal/validation"
 )
 
 type CodeTool struct {
@@ -45,26 +45,20 @@ func (t *CodeTool) Execute(ctx context.Context, tool *db.Tool, args map[string]i
 			tool.Name, len(args), argKeys)
 	}
 
-	/* Security: Check if path is in allowed directories */
-	allowed := false
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		return "", fmt.Errorf("code tool path resolution failed: tool_name='%s', handler_type='code', path='%s', allowed_directories=[%v], error=%w",
-			tool.Name, path, t.allowedDirs, err)
-	}
-
+	/* Security: Resolve symlinks and ensure path stays under an allowed directory */
+	var resolvedPath string
 	for _, allowedDir := range t.allowedDirs {
-		absAllowed, _ := filepath.Abs(allowedDir)
-		if strings.HasPrefix(absPath, absAllowed) {
-			allowed = true
+		safe, err := validation.SafePathUnderBase(allowedDir, path)
+		if err == nil {
+			resolvedPath = safe
 			break
 		}
 	}
-
-	if !allowed {
-		return "", fmt.Errorf("code tool execution failed: tool_name='%s', handler_type='code', path='%s', absolute_path='%s', allowed_directories=[%v], validation_error='path not in allowed directories'",
-			tool.Name, path, absPath, t.allowedDirs)
+	if resolvedPath == "" {
+		return "", fmt.Errorf("code tool execution failed: tool_name='%s', handler_type='code', path='%s', allowed_directories=[%v], validation_error='path not in allowed directories or symlink escapes'",
+			tool.Name, path, t.allowedDirs)
 	}
+	path = resolvedPath
 
 	action, _ := args["action"].(string)
 	if action == "" {

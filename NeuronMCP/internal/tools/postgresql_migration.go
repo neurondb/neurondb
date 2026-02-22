@@ -127,7 +127,12 @@ func (t *PostgreSQLSchemaEvolutionTool) trackChange(ctx context.Context, params 
 				INDEX idx_schema_created (schema_name, created_at)
 			)
 		`
-		_, _ = t.db.Query(ctx, createTable, nil)
+		if _, err := t.db.Query(ctx, createTable, nil); err != nil {
+			t.logger.Warn("Failed to ensure table exists", map[string]interface{}{
+				"table": "neurondb.schema_changes",
+				"error": err.Error(),
+			})
+		}
 		_, err = t.db.Query(ctx, query, []interface{}{schemaName, changeType, description, sqlStatement})
 		if err != nil {
 			return Error(fmt.Sprintf("Failed to track change: %v", err), "TRACK_ERROR", nil), nil
@@ -184,9 +189,9 @@ func (t *PostgreSQLSchemaEvolutionTool) getHistory(ctx context.Context, params m
 		}
 
 		entry := map[string]interface{}{
-			"id":         id,
+			"id":          id,
 			"change_type": getString(changeType, ""),
-			"created_at": createdAt,
+			"created_at":  createdAt,
 		}
 
 		if description != nil {
@@ -269,9 +274,9 @@ func (t *PostgreSQLSchemaEvolutionTool) getSchema(ctx context.Context, schemaNam
 		}
 
 		column := map[string]interface{}{
-			"name":       columnName,
-			"data_type":  dataType,
-			"nullable":   isNullable == "YES",
+			"name":      columnName,
+			"data_type": dataType,
+			"nullable":  isNullable == "YES",
 		}
 
 		if columnDefault != nil {
@@ -459,7 +464,12 @@ func (t *PostgreSQLMigrationTool) generateMigration(ctx context.Context, params 
 				executed_by VARCHAR(200)
 			)
 		`
-		_, _ = t.db.Query(ctx, createTable, nil)
+		if _, err := t.db.Query(ctx, createTable, nil); err != nil {
+			t.logger.Warn("Failed to ensure table exists", map[string]interface{}{
+				"table": "neurondb.migrations",
+				"error": err.Error(),
+			})
+		}
 		_, err = t.db.Query(ctx, query, []interface{}{migrationID, migrationName, fromSchema, toSchema, string(sqlJSON)})
 		if err != nil {
 			return Error(fmt.Sprintf("Failed to store migration: %v", err), "STORE_ERROR", nil), nil
@@ -468,7 +478,7 @@ func (t *PostgreSQLMigrationTool) generateMigration(ctx context.Context, params 
 
 	return Success(map[string]interface{}{
 		"migration_id":   migrationID,
-		"migration_name":  migrationName,
+		"migration_name": migrationName,
 		"sql_statements": migrationSQL,
 		"status":         "pending",
 	}, nil), nil
@@ -685,4 +695,3 @@ func (t *PostgreSQLMigrationTool) rollbackMigration(ctx context.Context, params 
 
 	return Error("Migration not found", "NOT_FOUND", nil), nil
 }
-

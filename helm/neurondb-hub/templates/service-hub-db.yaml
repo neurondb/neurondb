@@ -1,0 +1,18 @@
+{{- if .Values.hubDb.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "neurondb-hub.name" . }}-hub-db
+  labels:
+    {{- include "neurondb-hub.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.hubDb.port }}
+      targetPort: postgres
+      protocol: TCP
+      name: postgres
+  selector:
+    app.kubernetes.io/name: {{ include "neurondb-hub.name" . }}
+    app.kubernetes.io/component: hub-db
+{{- end }}

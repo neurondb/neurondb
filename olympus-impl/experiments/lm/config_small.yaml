@@ -1,0 +1,26 @@
+# Small config for quick LM runs (WikiText-103)
+model:
+  vocab_size: 50257
+  dim: 256
+  num_heads: 4
+  num_layers: 2
+  max_len: 512
+  num_persistent: 4
+  chunk_size: 32
+
+data:
+  dataset: wikitext
+  dataset_config: wikitext-103-raw-v1
+  max_length: 256
+  batch_size: 8
+  num_workers: 0
+
+training:
+  epochs: 1
+  lr: 1e-4
+  weight_decay: 0.01
+  grad_accum_steps: 4
+  log_interval: 10
+  eval_interval: 100
+  save_interval: 500
+  output_dir: runs/lm_small

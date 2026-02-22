@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"regexp"
 	"testing"
 	"time"
 
@@ -12,6 +13,9 @@ import (
 	"github.com/neurondb/NeuronDesktop/api/internal/db"
 	"golang.org/x/crypto/bcrypt"
 )
+
+/* safeIdentifierRegex matches valid SQL identifiers (alphanumeric, underscore, must start with letter or underscore) */
+var safeIdentifierRegex = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
 
 /* TestDB holds test database connection */
 type TestDB struct {
@@ -51,10 +55,29 @@ func SetupTestDB(t *testing.T) *TestDB {
 	}
 	defer postgresDB.Close()
 
-	/* Create test database if it doesn't exist */
-	_, err = postgresDB.Exec(fmt.Sprintf("SELECT 1 FROM pg_database WHERE datname = '%s'", testDBName))
-	if err != nil {
-		/* Database doesn't exist, create it */
+	/* Skip test when PostgreSQL is not running (e.g. CI without postgres) */
+	pingCtx, pingCancel := context.WithTimeout(context.Background(), 2*time.Second)
+	if err := postgresDB.PingContext(pingCtx); err != nil {
+		pingCancel()
+		t.Skipf("PostgreSQL not available (skipping integration test): %v", err)
+	}
+	pingCancel()
+
+	/* Validate test database name to prevent SQL injection */
+	if !safeIdentifierRegex.MatchString(testDBName) {
+		t.Fatalf("Invalid test database name (must match ^[a-zA-Z_][a-zA-Z0-9_]*$): %s", testDBName)
+	}
+
+	/* Create test database if it doesn't exist - use parameterized query for existence check */
+	checkCtx, checkCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer checkCancel()
+	var exists int
+	err = postgresDB.QueryRowContext(checkCtx, "SELECT 1 FROM pg_database WHERE datname = $1", testDBName).Scan(&exists)
+	if err != nil && err != sql.ErrNoRows {
+		t.Fatalf("Failed to check test database existence: %v", err)
+	}
+	if err == sql.ErrNoRows || exists != 1 {
+		/* Database doesn't exist, create it (testDBName already validated as safe identifier) */
 		_, err = postgresDB.Exec(fmt.Sprintf("CREATE DATABASE %s", testDBName))
 		if err != nil {
 			t.Fatalf("Failed to create test database: %v", err)
@@ -96,7 +119,17 @@ func (tdb *TestDB) CleanupTestDB(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	/* Truncate all tables */
+	/* Truncate all tables - only allow tables in the whitelist to prevent SQL injection */
+	allowedTables := map[string]bool{
+		"mcp_chat_messages": true,
+		"mcp_chat_threads":  true,
+		"model_configs":     true,
+		"api_keys":          true,
+		"request_logs":      true,
+		"profiles":          true,
+		"users":             true,
+		"app_settings":      true,
+	}
 	tables := []string{
 		"mcp_chat_messages",
 		"mcp_chat_threads",
@@ -109,6 +142,9 @@ func (tdb *TestDB) CleanupTestDB(t *testing.T) {
 	}
 
 	for _, table := range tables {
+		if !allowedTables[table] || !safeIdentifierRegex.MatchString(table) {
+			continue
+		}
 		_, err := tdb.DB.ExecContext(ctx, fmt.Sprintf("TRUNCATE TABLE %s CASCADE", table))
 		if err != nil {
 			/* Table might not exist, ignore */

@@ -24,15 +24,18 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/neurondb/NeuronAgent/internal/db"
+	"github.com/neurondb/NeuronAgent/internal/validation"
 )
 
 /* WebSearchTool provides web search functionality */
 type WebSearchTool struct {
 	client      *http.Client
 	cache       map[string]cacheEntry
+	cacheMu     sync.RWMutex
 	cacheExpiry time.Duration
 }
 
@@ -84,10 +87,11 @@ func (t *WebSearchTool) search(ctx context.Context, tool *db.Tool, args map[stri
 	}
 
 	/* Check cache */
-	if cached, ok := t.cache[query]; ok {
-		if time.Since(cached.timestamp) < t.cacheExpiry {
-			return t.formatResults(cached.results, query, maxResults)
-		}
+	t.cacheMu.RLock()
+	cached, ok := t.cache[query]
+	t.cacheMu.RUnlock()
+	if ok && time.Since(cached.timestamp) < t.cacheExpiry {
+		return t.formatResults(cached.results, query, maxResults)
 	}
 
 	/* Perform search using DuckDuckGo Instant Answer API */
@@ -101,10 +105,12 @@ func (t *WebSearchTool) search(ctx context.Context, tool *db.Tool, args map[stri
 	}
 
 	/* Cache results */
+	t.cacheMu.Lock()
 	t.cache[query] = cacheEntry{
 		results:   results,
 		timestamp: time.Now(),
 	}
+	t.cacheMu.Unlock()
 
 	return t.formatResults(results, query, maxResults)
 }
@@ -116,6 +122,9 @@ func (t *WebSearchTool) searchDuckDuckGo(ctx context.Context, query string, maxR
 	}
 
 	apiURL := fmt.Sprintf("https://api.duckduckgo.com/?q=%s&format=json&no_html=1&skip_disambig=1", url.QueryEscape(query))
+	if err := validation.ValidateURLForSSRF(apiURL, nil); err != nil {
+		return nil, fmt.Errorf("web search URL validation failed: %w", err)
+	}
 
 	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
 	if err != nil {
@@ -162,10 +171,10 @@ func (t *WebSearchTool) searchDuckDuckGo(ctx context.Context, query string, maxR
 		}
 
 		results = append(results, map[string]interface{}{
-			"title":   heading,
-			"content": abstract,
-			"url":     abstractURL,
-			"source":  "duckduckgo",
+			"title":     heading,
+			"content":   abstract,
+			"url":       abstractURL,
+			"source":    "duckduckgo",
 			"relevance": 0.9, /* High relevance for instant answers */
 		})
 	}
@@ -198,10 +207,10 @@ func (t *WebSearchTool) searchDuckDuckGo(ctx context.Context, query string, maxR
 
 				if text != "" {
 					results = append(results, map[string]interface{}{
-						"title":    title,
-						"content":  text,
-						"url":      url,
-						"source":   "duckduckgo",
+						"title":     title,
+						"content":   text,
+						"url":       url,
+						"source":    "duckduckgo",
 						"relevance": 0.7 - float64(i)*0.05, /* Decreasing relevance */
 					})
 				}
@@ -213,10 +222,10 @@ func (t *WebSearchTool) searchDuckDuckGo(ctx context.Context, query string, maxR
 	if answer, ok := ddgResponse["Answer"].(string); ok && answer != "" {
 		/* Prepend answer as highest priority result */
 		answerResult := map[string]interface{}{
-			"title":    "Direct Answer",
-			"content":  answer,
-			"url":      "",
-			"source":   "duckduckgo",
+			"title":     "Direct Answer",
+			"content":   answer,
+			"url":       "",
+			"source":    "duckduckgo",
 			"relevance": 1.0,
 		}
 		results = append([]map[string]interface{}{answerResult}, results...)
@@ -262,20 +271,20 @@ func (t *WebSearchTool) searchHTML(ctx context.Context, query string, maxResults
 	lines := strings.Split(bodyStr, "\n")
 	inResult := false
 	currentResult := make(map[string]interface{})
-	
+
 	for i, line := range lines {
 		if len(results) >= maxResults {
 			break
 		}
-		
+
 		lineLower := strings.ToLower(line)
-		
+
 		/* Detect result start */
 		if strings.Contains(lineLower, "result__a") || strings.Contains(lineLower, "result-link") {
 			inResult = true
 			currentResult = make(map[string]interface{})
 			currentResult["source"] = "duckduckgo_html"
-			
+
 			/* Try to extract URL */
 			if urlStart := strings.Index(line, "href=\""); urlStart != -1 {
 				urlStart += 6
@@ -287,7 +296,7 @@ func (t *WebSearchTool) searchHTML(ctx context.Context, query string, maxResults
 				}
 			}
 		}
-		
+
 		/* Extract title */
 		if inResult && strings.Contains(lineLower, "<a") && strings.Contains(lineLower, ">") {
 			if titleStart := strings.Index(line, ">"); titleStart != -1 {
@@ -299,7 +308,7 @@ func (t *WebSearchTool) searchHTML(ctx context.Context, query string, maxResults
 				}
 			}
 		}
-		
+
 		/* Extract snippet/description */
 		if inResult && strings.Contains(lineLower, "result__snippet") {
 			if snippetStart := strings.Index(line, ">"); snippetStart != -1 {
@@ -311,7 +320,7 @@ func (t *WebSearchTool) searchHTML(ctx context.Context, query string, maxResults
 				}
 			}
 		}
-		
+
 		/* End of result */
 		if inResult && (strings.Contains(lineLower, "</div>") || strings.Contains(lineLower, "</li>")) {
 			if title, ok := currentResult["title"].(string); ok && title != "" {
@@ -323,7 +332,7 @@ func (t *WebSearchTool) searchHTML(ctx context.Context, query string, maxResults
 			inResult = false
 			currentResult = nil
 		}
-		
+
 		/* Safety limit */
 		if i > maxResults*50 {
 			break

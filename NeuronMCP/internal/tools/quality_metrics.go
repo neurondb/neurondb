@@ -90,7 +90,7 @@ func (t *QualityMetricsTool) Execute(ctx context.Context, params map[string]inte
 		}), nil
 	}
 
-  /* Build query based on metric type */
+	/* Build query based on metric type */
 	var query string
 	var queryParams []interface{}
 
@@ -118,12 +118,16 @@ func (t *QualityMetricsTool) Execute(ctx context.Context, params map[string]inte
 				"params":    params,
 			}), nil
 		}
-   /* Use appropriate NeuronDB function */
+		/* Use appropriate NeuronDB function */
 		funcName := "recall_at_k"
 		if metric == "precision_at_k" {
 			funcName = "precision_at_k"
 		} else if metric == "f1_at_k" {
 			funcName = "f1_at_k"
+		}
+		allowedFuncs := map[string]bool{"recall_at_k": true, "precision_at_k": true, "f1_at_k": true}
+		if !allowedFuncs[funcName] {
+			return Error("Invalid metric function", "VALIDATION_ERROR", nil), nil
 		}
 		query = fmt.Sprintf("SELECT %s($1::text, $2::text, $3::text, $4::int) AS metric_value", funcName)
 		queryParams = []interface{}{table, groundTruthCol, predictedCol, int(k)}
@@ -186,12 +190,3 @@ func (t *QualityMetricsTool) Execute(ctx context.Context, params map[string]inte
 		"metric": metric,
 	}), nil
 }
-
-
-
-
-
-
-
-
-

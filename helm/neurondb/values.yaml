@@ -13,6 +13,9 @@ neurondb:
     tag: "2.0.0-pg17-cpu"
     pullPolicy: IfNotPresent
 
+  # Path to Titans LLM training scripts (used by titans_llm algorithm)
+  titansDir: "/app/examples/titans"
+
   postgresql:
     version: "17"
     database: "neurondb"
@@ -85,7 +88,9 @@ neurondb:
     port: 5432
 
   securityContext:
-    readOnlyRootFilesystem: false  # Set to true for maximum security (requires tmpfs volumes)
+    # readOnlyRootFilesystem: false = writable root (default). Set to true for production hardening;
+    # when true, ensure tmpfs volumes are configured for /tmp and any writable paths the image needs.
+    readOnlyRootFilesystem: false
 
   healthCheck:
     checkTables: true  # Check if critical tables exist in readiness probe
@@ -432,7 +437,7 @@ rbac:
 
 # NetworkPolicy
 networkPolicy:
-  enabled: false  # Enable for production security
+  enabled: true  # Restrict pod ingress/egress; set false only if your cluster does not support NetworkPolicy
   allowMonitoring: true  # Allow monitoring tools to scrape metrics
   # Restrict DNS egress to this namespace (e.g. kube-system for CoreDNS). Empty = allow all namespaces (legacy).
   dnsNamespace: "kube-system"
@@ -528,7 +533,7 @@ monitoring:
       tag: "latest"
       pullPolicy: IfNotPresent
     adminUser: "admin"
-    adminPassword: "admin"  # Change in production!
+    adminPassword: "CHANGE_IN_PRODUCTION"  # Set a strong password or use existingSecret in production
     rootUrl: "/"
     persistence:
       enabled: true

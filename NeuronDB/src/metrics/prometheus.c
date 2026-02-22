@@ -41,10 +41,38 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <errno.h>
+#include "utils/elog.h"
 #include "neurondb_validation.h"
 #include "neurondb_safe_memory.h"
 #include "neurondb_macros.h"
 #include "neurondb_macros.h"
+
+/* Write to socket with retry on EINTR; log warning on failure */
+static void
+prometheus_socket_write(int fd, const void *buf, size_t len)
+{
+	const char *p = (const char *) buf;
+	size_t		remaining = len;
+
+	while (remaining > 0)
+	{
+		ssize_t		n = write(fd, p, remaining);
+
+		if (n > 0)
+		{
+			p += n;
+			remaining -= (size_t) n;
+			continue;
+		}
+		if (n < 0 && errno == EINTR)
+			continue;
+		if (n < 0 || remaining > 0)
+			ereport(WARNING,
+					(errcode_for_socket_access(),
+					 errmsg("neurondb prometheus: write failed: %m")));
+		return;
+	}
+}
 
 /* HTTP server configuration (GUC-backed settings) */
 static int	prometheus_port = 9187;
@@ -161,13 +189,13 @@ prometheus_register_worker(void)
 		return;
 
 	memset(&worker, 0, sizeof(BackgroundWorker));
-	strcpy(worker.bgw_name, "neurondb prometheus exporter");
-	strcpy(worker.bgw_type, "neurondb prometheus");
+	snprintf(worker.bgw_name, BGW_MAXLEN, "%s", "neurondb prometheus exporter");
+	snprintf(worker.bgw_type, BGW_MAXLEN, "%s", "neurondb prometheus");
 	worker.bgw_flags = BGWORKER_SHMEM_ACCESS;
 	worker.bgw_start_time = BgWorkerStart_PostmasterStart;
 	worker.bgw_restart_time = 10;	/* restart after 10 seconds on crash */
-	sprintf(worker.bgw_library_name, "neurondb");
-	sprintf(worker.bgw_function_name, "prometheus_worker_main");
+	snprintf(worker.bgw_library_name, BGW_MAXLEN, "%s", "neurondb");
+	snprintf(worker.bgw_function_name, BGW_MAXLEN, "%s", "prometheus_worker_main");
 	worker.bgw_main_arg = (Datum) 0;
 	worker.bgw_notify_pid = 0;
 
@@ -362,10 +390,7 @@ handle_http_request(int client_socket)
 			"href=\"/metrics\">/metrics</a></p>"
 			"</body></html>";
 
-		{
-			ssize_t __w = write(client_socket, response, strlen(response));
-			(void) __w;
-		}
+		prometheus_socket_write(client_socket, response, strlen(response));
 	}
 	else
 	{
@@ -374,10 +399,7 @@ handle_http_request(int client_socket)
 			"Content-Type: text/plain\r\n\r\n"
 			"Not Found";
 
-		{
-			ssize_t __w = write(client_socket, response, strlen(response));
-			(void) __w;
-		}
+		prometheus_socket_write(client_socket, response, strlen(response));
 	}
 }
 
@@ -487,10 +509,7 @@ send_metrics(int socket)
 	 * Send HTTP/Prometheus response to socket as a single buffer. (No chunked
 	 * encoding, blocking I/O)
 	 */
-	{
-		ssize_t __w = write(socket, metrics.data, metrics.len);
-		(void) __w;
-	}
+	prometheus_socket_write(socket, metrics.data, (size_t) metrics.len);
 	pfree(metrics.data);
 }
 

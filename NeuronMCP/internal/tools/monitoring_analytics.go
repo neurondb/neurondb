@@ -176,9 +176,9 @@ func (t *RealTimeDashboardTool) getPerformanceMetrics(ctx context.Context) map[s
 /* getErrorMetrics gets error metrics */
 func (t *RealTimeDashboardTool) getErrorMetrics(ctx context.Context) map[string]interface{} {
 	return map[string]interface{}{
-		"error_count":     0,
-		"error_rate":     0.0,
-		"recent_errors":   []interface{}{},
+		"error_count":   0,
+		"error_rate":    0.0,
+		"recent_errors": []interface{}{},
 	}
 }
 
@@ -232,9 +232,9 @@ func (t *AnomalyDetectionTool) Execute(ctx context.Context, params map[string]in
 	anomalies := t.detectAnomalies(ctx, metric, timeWindow)
 
 	return Success(map[string]interface{}{
-		"metric":     metric,
+		"metric":      metric,
 		"time_window": timeWindow,
-		"anomalies":  anomalies,
+		"anomalies":   anomalies,
 	}, nil), nil
 }
 
@@ -254,13 +254,13 @@ func (t *AnomalyDetectionTool) detectAnomalies(ctx context.Context, metric, time
 		deviation := math.Abs(current-baseline) / baseline
 		if deviation > 0.3 { /* 30% deviation */
 			anomalies = append(anomalies, map[string]interface{}{
-				"type":        "statistical",
-				"metric":      metric,
-				"current":     current,
-				"baseline":    baseline,
-				"deviation":   deviation,
-				"severity":    t.getSeverity(deviation),
-				"timestamp":   time.Now(),
+				"type":      "statistical",
+				"metric":    metric,
+				"current":   current,
+				"baseline":  baseline,
+				"deviation": deviation,
+				"severity":  t.getSeverity(deviation),
+				"timestamp": time.Now(),
 			})
 		}
 	}
@@ -373,9 +373,9 @@ func (t *AnomalyDetectionTool) getBaseline(ctx context.Context, metric, timeWind
 	rows, err := t.db.Query(ctx, query, nil)
 	if err != nil {
 		t.logger.Warn("Failed to get baseline", map[string]interface{}{
-			"metric":     metric,
+			"metric":      metric,
 			"time_window": timeWindow,
-			"error":      err.Error(),
+			"error":       err.Error(),
 		})
 		return 0.0
 	}
@@ -522,9 +522,9 @@ func (t *PredictiveAnalyticsTool) Execute(ctx context.Context, params map[string
 	prediction := t.predict(ctx, metric, int(forecastDays))
 
 	return Success(map[string]interface{}{
-		"metric":       metric,
+		"metric":        metric,
 		"forecast_days": int(forecastDays),
-		"prediction":   prediction,
+		"prediction":    prediction,
 	}, nil), nil
 }
 
@@ -532,10 +532,10 @@ func (t *PredictiveAnalyticsTool) Execute(ctx context.Context, params map[string
 func (t *PredictiveAnalyticsTool) predict(ctx context.Context, metric string, days int) map[string]interface{} {
 	/* Simple linear prediction - would use ML in production */
 	return map[string]interface{}{
-		"trend":        "increasing",
-		"forecast":     []float64{100, 105, 110, 115},
-		"confidence":   0.75,
-		"method":       "linear_regression",
+		"trend":      "increasing",
+		"forecast":   []float64{100, 105, 110, 115},
+		"confidence": 0.75,
+		"method":     "linear_regression",
 	}
 }
 
@@ -592,7 +592,7 @@ func (t *CostForecastingTool) forecastCosts(ctx context.Context, period string) 
 		"estimated_cost": 1000.0,
 		"confidence":     0.8,
 		"breakdown": map[string]interface{}{
-			"compute":  500.0,
+			"compute": 500.0,
 			"storage": 300.0,
 			"network": 200.0,
 		},
@@ -667,9 +667,9 @@ func (t *UsageAnalyticsTool) Execute(ctx context.Context, params map[string]inte
 func (t *UsageAnalyticsTool) analyzeUsage(ctx context.Context, startDate, endDate, groupBy string) map[string]interface{} {
 	return map[string]interface{}{
 		"total_requests": 10000,
-		"unique_users":  100,
-		"top_tools":     []interface{}{"vector_search", "execute_query"},
-		"trends":        []interface{}{},
+		"unique_users":   100,
+		"top_tools":      []interface{}{"vector_search", "execute_query"},
+		"trends":         []interface{}{},
 	}
 }
 
@@ -762,7 +762,12 @@ func (t *AlertManagerTool) createAlert(ctx context.Context, params map[string]in
 				updated_at TIMESTAMP
 			)
 		`
-		_, _ = t.db.Query(ctx, createTable, nil)
+		if _, err := t.db.Query(ctx, createTable, nil); err != nil {
+			t.logger.Warn("Failed to ensure table exists", map[string]interface{}{
+				"table": "neurondb.alerts",
+				"error": err.Error(),
+			})
+		}
 		_, err = t.db.Query(ctx, query, []interface{}{alertName, string(conditionJSON)})
 		if err != nil {
 			return Error(fmt.Sprintf("Failed to create alert: %v", err), "CREATE_ERROR", nil), nil
@@ -857,4 +862,3 @@ func (t *AlertManagerTool) triggerAlerts(ctx context.Context, params map[string]
 		"triggered": triggered,
 	}, nil), nil
 }
-

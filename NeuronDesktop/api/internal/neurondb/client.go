@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"regexp"
 	"strings"
 	"time"
@@ -387,6 +388,7 @@ func (c *Client) ExecuteSQL(ctx context.Context, query string) (interface{}, err
 		}
 
 		if err := rows.Scan(valuePtrs...); err != nil {
+			log.Printf("[neurondb] ExecuteSQL row scan error: %v", err)
 			continue
 		}
 
@@ -449,6 +451,7 @@ func (c *Client) ExecuteSQLFull(ctx context.Context, query string) (interface{},
 			}
 
 			if err := rows.Scan(valuePtrs...); err != nil {
+				log.Printf("[neurondb] ExecuteSQLFull row scan error: %v", err)
 				continue
 			}
 
@@ -479,7 +482,10 @@ func (c *Client) ExecuteSQLFull(ctx context.Context, query string) (interface{},
 		return nil, fmt.Errorf("SQL execution failed: %w", err)
 	}
 
-	rowsAffected, _ := result.RowsAffected()
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get rows affected: %w", err)
+	}
 
 	return map[string]interface{}{
 		"rows_affected": rowsAffected,

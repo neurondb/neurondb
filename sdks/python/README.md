@@ -1,6 +1,11 @@
-# NeuronMCP Python SDK
+# NeuronDB Python SDKs
 
-A comprehensive Python SDK for interacting with NeuronMCP (Model Context Protocol) server.
+Dependencies are pinned in `setup.py` for reproducible installs. A TypeScript/JavaScript SDK for NeuronAgent and NeuronMCP is planned.
+
+This package includes:
+
+- **neurondb_mcp**: NeuronMCP (Model Context Protocol) client – tools, async.
+- **neuronagent**: NeuronAgent HTTP client – agents, sessions, messages, and **streaming**.
 
 ## Features
 
@@ -43,6 +48,24 @@ async def main():
 if __name__ == "__main__":
     asyncio.run(main())
 ```
+
+## NeuronAgent client (sessions and streaming)
+
+```python
+from neuronagent import NeuronAgentClient
+
+client = NeuronAgentClient(base_url="http://localhost:8080", api_key="your-api-key")
+agent = client.agents.create_agent(name="my-agent", system_prompt="You are helpful.")
+session = client.sessions.create_session(agent_id=agent.id)
+response = client.sessions.send_message(session_id=session.id, content="Hello")
+print(response.response)
+
+# Streaming
+for chunk in client.send_message_stream(session_id=session.id, content="Explain vectors"):
+    print(chunk, end="")
+```
+
+One-off: `from neuronagent import run; print(run("http://localhost:8080", agent_id, "Hello"))`
 
 ## Examples
 

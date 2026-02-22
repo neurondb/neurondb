@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -103,7 +104,7 @@ func GetDefaultMCPConfig() map[string]interface{} {
 	port := getEnvOrDefault("NEURONDB_PORT", "5432")
 	database := getEnvOrDefault("NEURONDB_DATABASE", "neurondb")
 	user := getEnvOrDefault("NEURONDB_USER", "neurondb")
-	password := getEnvOrDefault("NEURONDB_PASSWORD", "neurondb")
+	password := getEnvOrDefaultWithWarning("NEURONDB_PASSWORD", "neurondb", "NEURONDB_PASSWORD not set; using default (insecure for production)")
 
 	return map[string]interface{}{
 		"command": binaryPath,
@@ -126,13 +127,22 @@ func getEnvOrDefault(key, defaultValue string) string {
 	return defaultValue
 }
 
+/* getEnvOrDefaultWithWarning returns env value or default, and logs warning when using default */
+func getEnvOrDefaultWithWarning(key, defaultValue, warningMsg string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	log.Printf("[WARN] %s", warningMsg)
+	return defaultValue
+}
+
 /* GetDefaultNeuronDBDSN creates a default NeuronDB DSN */
 func GetDefaultNeuronDBDSN() string {
 	host := getEnvOrDefault("NEURONDB_HOST", "localhost")
 	port := getEnvOrDefault("NEURONDB_PORT", "5432")
 	database := getEnvOrDefault("NEURONDB_DATABASE", "neurondb")
 	user := getEnvOrDefault("NEURONDB_USER", "neurondb")
-	password := getEnvOrDefault("NEURONDB_PASSWORD", "neurondb")
+	password := getEnvOrDefaultWithWarning("NEURONDB_PASSWORD", "neurondb", "NEURONDB_PASSWORD not set; using default (insecure for production)")
 
 	if password != "" {
 		return fmt.Sprintf("postgresql://%s:%s@%s:%s/%s", user, password, host, port, database)

@@ -28,18 +28,19 @@ import (
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/neurondb/NeuronAgent/internal/db"
-	"github.com/neurondb/NeuronAgent/internal/utils"
 	"github.com/neurondb/NeuronAgent/internal/metrics"
+	"github.com/neurondb/NeuronAgent/internal/utils"
 )
 
 /* MemoryPubSub manages memory synchronization across nodes */
 type MemoryPubSub struct {
-	queries    *db.Queries
-	listener   *pq.Listener
+	queries     *db.Queries
+	listener    *pq.Listener
 	subscribers map[string][]MemorySubscriber
-	mu         sync.RWMutex
-	ctx        context.Context
-	cancel     context.CancelFunc
+	mu          sync.RWMutex
+	ctx         context.Context
+	cancel      context.CancelFunc
+	startOnce   sync.Once
 }
 
 /* MemorySubscriber is a callback for memory events */
@@ -47,7 +48,7 @@ type MemorySubscriber func(ctx context.Context, event MemoryEvent) error
 
 /* MemoryEvent represents a memory update event */
 type MemoryEvent struct {
-	Type      string    `json:"type"`      // "create", "update", "delete"
+	Type      string    `json:"type"` // "create", "update", "delete"
 	SessionID uuid.UUID `json:"session_id"`
 	AgentID   uuid.UUID `json:"agent_id"`
 	ChunkID   uuid.UUID `json:"chunk_id,omitempty"`
@@ -65,58 +66,50 @@ func NewMemoryPubSub(queries *db.Queries) *MemoryPubSub {
 	}
 }
 
-/* Start starts the pub-sub listener */
+/* Start starts the pub-sub listener (idempotent; only runs once) */
 func (mps *MemoryPubSub) Start(ctx context.Context) error {
-	/* Get connection string from environment or construct from DB connection */
-	/* For LISTEN/NOTIFY, we need a persistent connection string */
-	connStr := os.Getenv("DATABASE_URL")
-	if connStr == "" {
-		/* Construct from environment variables */
-		host := os.Getenv("DB_HOST")
-		if host == "" {
-			host = "localhost"
+	var startErr error
+	mps.startOnce.Do(func() {
+		connStr := os.Getenv("DATABASE_URL")
+		if connStr == "" {
+			host := os.Getenv("DB_HOST")
+			if host == "" {
+				host = "localhost"
+			}
+			port := getEnvInt("DB_PORT", 5432)
+			user := os.Getenv("DB_USER")
+			if user == "" {
+				user = "neurondb"
+			}
+			// Require explicit password: no default to avoid accidental production use of dev credentials.
+			password := os.Getenv("DB_PASSWORD")
+			if password == "" {
+				startErr = fmt.Errorf("DB_PASSWORD must be set for memory pub-sub (do not use default passwords in production)")
+				return
+			}
+			dbname := os.Getenv("DB_NAME")
+			if dbname == "" {
+				dbname = "neurondb"
+			}
+			connStr = utils.BuildConnectionString(host, port, user, password, dbname, "")
 		}
-		port := getEnvInt("DB_PORT", 5432)
-		user := os.Getenv("DB_USER")
-		if user == "" {
-			user = "neurondb"
+		reportProblem := func(ev pq.ListenerEventType, err error) {
+			if err != nil {
+				metrics.WarnWithContext(ctx, "Memory pub-sub listener error", map[string]interface{}{
+					"event": int(ev),
+					"error": err.Error(),
+				})
+			}
 		}
-		password := os.Getenv("DB_PASSWORD")
-		if password == "" {
-			password = "neurondb"
+		listener := pq.NewListener(connStr, 10*time.Second, time.Minute, reportProblem)
+		if startErr = listener.Listen("neurondb_agent_memory"); startErr != nil {
+			startErr = fmt.Errorf("memory pub-sub start failed: listen_error=true, error=%w", startErr)
+			return
 		}
-		dbname := os.Getenv("DB_NAME")
-		if dbname == "" {
-			dbname = "neurondb"
-		}
-		
-		connStr = utils.BuildConnectionString(host, port, user, password, dbname, "")
-	}
-	
-	/* Create PostgreSQL listener */
-	reportProblem := func(ev pq.ListenerEventType, err error) {
-		if err != nil {
-			metrics.WarnWithContext(ctx, "Memory pub-sub listener error", map[string]interface{}{
-				"event": int(ev),
-				"error": err.Error(),
-			})
-		}
-	}
-
-	listener := pq.NewListener(connStr, 10*time.Second, time.Minute, reportProblem)
-	
-	/* Listen to memory channel */
-	err := listener.Listen("neurondb_agent_memory")
-	if err != nil {
-		return fmt.Errorf("memory pub-sub start failed: listen_error=true, error=%w", err)
-	}
-
-	mps.listener = listener
-
-	/* Start event processing */
-	go mps.processEvents(mps.ctx)
-
-	return nil
+		mps.listener = listener
+		go mps.processEvents(mps.ctx)
+	})
+	return startErr
 }
 
 /* getEnvInt gets integer from environment variable with default */
@@ -173,7 +166,7 @@ func (mps *MemoryPubSub) parseEvent(payload string) (*MemoryEvent, error) {
 			Type: "update",
 		}, nil
 	}
-	
+
 	return &event, nil
 }
 
@@ -205,16 +198,14 @@ func (mps *MemoryPubSub) Subscribe(eventType string, subscriber MemorySubscriber
 func (mps *MemoryPubSub) Publish(ctx context.Context, event MemoryEvent) error {
 	/* Publish via PostgreSQL NOTIFY */
 	query := `SELECT pg_notify('neurondb_agent_memory', $1)`
-	
-	/* Serialize event to JSON */
-	payload := fmt.Sprintf(`{"type":"%s","session_id":"%s","agent_id":"%s"}`, 
-		event.Type, event.SessionID.String(), event.AgentID.String())
-	
-	_, err := mps.queries.DB.ExecContext(ctx, query, payload)
+	payloadBytes, err := json.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("memory publish failed: marshal_error=true, error=%w", err)
+	}
+	_, err = mps.queries.DB.ExecContext(ctx, query, string(payloadBytes))
 	if err != nil {
 		return fmt.Errorf("memory publish failed: notify_error=true, error=%w", err)
 	}
 
 	return nil
 }
-

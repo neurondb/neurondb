@@ -25,6 +25,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/neurondb/NeuronAgent/internal/db"
+	"github.com/neurondb/NeuronAgent/internal/validation"
 )
 
 /* VirtualFileSystemInterface defines the interface for virtual file system operations */
@@ -115,6 +116,11 @@ func (t *FileSystemTool) createFile(ctx context.Context, agentID uuid.UUID, sess
 	if !ok {
 		return "", fmt.Errorf("create_file requires path parameter")
 	}
+	safePath, err := validation.SafeVirtualPath(path)
+	if err != nil {
+		return "", fmt.Errorf("create_file path validation failed: %w", err)
+	}
+	path = safePath
 
 	content, ok := args["content"].(string)
 	if !ok {
@@ -155,6 +161,11 @@ func (t *FileSystemTool) readFile(ctx context.Context, agentID uuid.UUID, args m
 	if !ok {
 		return "", fmt.Errorf("read_file requires path parameter")
 	}
+	safePath, err := validation.SafeVirtualPath(path)
+	if err != nil {
+		return "", fmt.Errorf("read_file path validation failed: %w", err)
+	}
+	path = safePath
 
 	file, err := t.vfs.ReadFile(ctx, agentID, path)
 	if err != nil {
@@ -180,13 +191,18 @@ func (t *FileSystemTool) writeFile(ctx context.Context, agentID uuid.UUID, args 
 	if !ok {
 		return "", fmt.Errorf("write_file requires path parameter")
 	}
+	safePath, err := validation.SafeVirtualPath(path)
+	if err != nil {
+		return "", fmt.Errorf("write_file path validation failed: %w", err)
+	}
+	path = safePath
 
 	content, ok := args["content"].(string)
 	if !ok {
 		return "", fmt.Errorf("write_file requires content parameter")
 	}
 
-	err := t.vfs.WriteFile(ctx, agentID, path, []byte(content))
+	err = t.vfs.WriteFile(ctx, agentID, path, []byte(content))
 	if err != nil {
 		return "", fmt.Errorf("file write failed: %w", err)
 	}
@@ -207,8 +223,13 @@ func (t *FileSystemTool) deleteFile(ctx context.Context, agentID uuid.UUID, args
 	if !ok {
 		return "", fmt.Errorf("delete_file requires path parameter")
 	}
+	safePath, err := validation.SafeVirtualPath(path)
+	if err != nil {
+		return "", fmt.Errorf("delete_file path validation failed: %w", err)
+	}
+	path = safePath
 
-	err := t.vfs.DeleteFile(ctx, agentID, path)
+	err = t.vfs.DeleteFile(ctx, agentID, path)
 	if err != nil {
 		return "", fmt.Errorf("file deletion failed: %w", err)
 	}
@@ -229,6 +250,11 @@ func (t *FileSystemTool) listFiles(ctx context.Context, agentID uuid.UUID, sessi
 	if dp, ok := args["dir_path"].(string); ok {
 		dirPath = dp
 	}
+	safePath, err := validation.SafeVirtualPath(dirPath)
+	if err != nil {
+		return "", fmt.Errorf("list_files path validation failed: %w", err)
+	}
+	dirPath = safePath
 
 	files, err := t.vfs.ListFiles(ctx, agentID, sessionID, dirPath)
 	if err != nil {

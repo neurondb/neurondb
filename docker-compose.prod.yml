@@ -13,6 +13,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB:-neurondb}
       POSTGRES_HOST_AUTH_METHOD: md5
+      NEURONDB_TITANS_DIR: ${NEURONDB_TITANS_DIR:-/app/examples/titans}
     volumes:
       - neurondb-data:/var/lib/postgresql/data
       - ./postgresql.conf:/etc/postgresql/postgresql.conf:ro
@@ -82,6 +83,13 @@ services:
         condition: service_healthy
     networks:
       - neurondb-network
+    # MCP uses stdio (no HTTP); verify main process (PID 1) is running
+    healthcheck:
+      test: ["CMD-SHELL", "kill -0 1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     deploy:
       resources:
         limits:
@@ -135,6 +143,11 @@ services:
       - neurondesk-api
     networks:
       - neurondb-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     deploy:
       replicas: 2
       resources:
@@ -162,6 +175,11 @@ services:
       - neuronagent
     networks:
       - neurondb-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     deploy:
       resources:
         limits:

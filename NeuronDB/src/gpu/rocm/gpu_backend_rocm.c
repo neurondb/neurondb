@@ -377,6 +377,7 @@ rocm_backend_get_device_info_impl(int device_id, GPUDeviceInfo *info)
 	info->device_id = device_id;
 	strncpy(info->name, prop.name, sizeof(info->name) - 1);
 	info->name[sizeof(info->name) - 1] = '\0';
+	info->name[sizeof(info->name) - 1] = '\0';
 	info->total_memory = prop.totalGlobalMem;
 
 	size_t free_mem, total_mem;
@@ -1626,6 +1627,7 @@ ndb_rocm_device_info(int device_id, NDBGpuDeviceInfo *info)
 	memset(info, 0, sizeof(NDBGpuDeviceInfo));
 	info->device_id = device_id;
 	strncpy(info->name, prop.name, sizeof(info->name) - 1);
+	info->name[sizeof(info->name) - 1] = '\0';
 	info->name[sizeof(info->name) - 1] = '\0';
 	info->total_memory_bytes = total_mem;
 	info->free_memory_bytes = free_mem;

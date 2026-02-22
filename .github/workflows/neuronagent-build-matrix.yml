@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go_version: ["1.21", "1.22", "1.23", "1.24"]
+        go_version: ["1.21", "1.22", "1.23"]
         os: [ubuntu-latest, macos-latest]
 
     steps:
@@ -42,7 +42,7 @@ jobs:
         continue-on-error: true
 
       - name: Upload coverage
-        if: matrix.go_version == '1.24' && matrix.os == 'ubuntu-latest'
+        if: matrix.go_version == '1.23' && matrix.os == 'ubuntu-latest'
         uses: actions/upload-artifact@v4
         with:
           name: neuronagent-coverage
@@ -73,7 +73,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.23'
           cache-dependency-path: NeuronAgent/go.sum
 
       - name: Run golangci-lint
@@ -95,5 +95,5 @@ jobs:
         run: |
           echo "## NeuronAgent Build Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "All NeuronAgent builds completed for Go 1.21-1.24." >> $GITHUB_STEP_SUMMARY
+          echo "All NeuronAgent builds completed for Go 1.21-1.23." >> $GITHUB_STEP_SUMMARY
 

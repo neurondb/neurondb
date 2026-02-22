@@ -670,10 +670,19 @@ neurondb_train_transformer_llm(PG_FUNCTION_ARGS)
 			if (file_size > 0)
 			{
 				char *buffer = NULL;
+				size_t		bytes_read;
+
 				nalloc(buffer, char, file_size);
-				fread(buffer, 1, file_size, fp);
+				bytes_read = fread(buffer, 1, (size_t) file_size, fp);
 				fclose(fp);
-				
+				if (bytes_read != (size_t) file_size)
+				{
+					nfree(buffer);
+					ereport(ERROR,
+							(errcode(ERRCODE_IO_ERROR),
+							 errmsg("neurondb: failed to read model file: expected %ld bytes, got %zu",
+									(long) file_size, bytes_read)));
+				}
 				/* Convert to bytea */
 				model_data = (bytea *) palloc(VARHDRSZ + file_size);
 				SET_VARSIZE(model_data, VARHDRSZ + file_size);
@@ -1098,7 +1107,7 @@ neurondb_train_titans_llm(PG_FUNCTION_ARGS)
 			if (tools_dir != NULL)
 				script_path = psprintf("%s/../examples/titans/train_titans.py", tools_dir);
 			else
-				script_path = pstrdup("/home/pge/pge/neurondb2/examples/titans/train_titans.py");
+				script_path = pstrdup("/home/pge/pge/neurondb/examples/titans/train_titans.py");
 		}
 
 		if (access(script_path, R_OK | X_OK) != 0)
@@ -1185,9 +1194,19 @@ neurondb_train_titans_llm(PG_FUNCTION_ARGS)
 			if (file_size > 0)
 			{
 				char *buffer = NULL;
+				size_t		bytes_read;
+
 				nalloc(buffer, char, file_size);
-				fread(buffer, 1, file_size, fp);
+				bytes_read = fread(buffer, 1, (size_t) file_size, fp);
 				fclose(fp);
+				if (bytes_read != (size_t) file_size)
+				{
+					nfree(buffer);
+					ereport(ERROR,
+							(errcode(ERRCODE_IO_ERROR),
+							 errmsg("neurondb: failed to read ONNX model file: expected %ld bytes, got %zu",
+									(long) file_size, bytes_read)));
+				}
 				model_data = (bytea *) palloc(VARHDRSZ + file_size);
 				SET_VARSIZE(model_data, VARHDRSZ + file_size);
 				memcpy(VARDATA(model_data), buffer, file_size);
@@ -1298,9 +1317,7 @@ neurondb_predict_transformer_llm(PG_FUNCTION_ARGS)
 	text *input_text = PG_GETARG_TEXT_PP(1);
 	
 	char *input_str = NULL;
-	char *output_str = NULL;
-	text *result_text = NULL;
-	
+
 	MemoryContext oldcontext;
 	MemoryContext callcontext;
 	NdbSpiSession *spi_session = NULL;
@@ -1434,39 +1451,32 @@ neurondb_predict_transformer_llm(PG_FUNCTION_ARGS)
 			 errdetail("model_id=%d, input_length=%zu", model_id, strlen(input_str))));
 	
 	/*
-	 * TODO: Implement actual prediction logic for transformer LLM models.
-	 * This function should: (1) Load the ONNX model from either model_path
-	 * (file system) or model_data (bytea stored in database), (2) Initialize
-	 * ONNX Runtime session with appropriate execution providers (CPU, CUDA,
-	 * etc.), (3) Tokenize the input string using the model's tokenizer,
-	 * (4) Run inference through the transformer model, (5) Decode the output
-	 * tokens back to text. The implementation should handle batching, memory
-	 * management, and error recovery. See neurondb_onnx.c for ONNX integration
-	 * utilities.
+	 * Run ONNX inference when available; otherwise return a clear error
+	 * instead of fake output.
 	 */
-	/* Suppress unused variable warnings until ONNX is implemented */
-	(void) model_data;
-	(void) model_path;
-	output_str = psprintf("TOOL_CALL: {\"name\": \"postgresql_version\", \"arguments\": {}}");
-	
-	/* Convert to text */
-	result_text = cstring_to_text(output_str);
-	
-	/* Cleanup */
 	ndb_spi_stringinfo_free(spi_session, &sql);
 	ndb_spi_session_end(&spi_session);
 	MemoryContextSwitchTo(oldcontext);
 	if (callcontext != NULL)
 		MemoryContextDelete(callcontext);
-	
 	nfree(input_str);
 	if (algorithm)
 		nfree(algorithm);
 	if (model_path)
 		nfree(model_path);
-	if (output_str)
-		nfree(output_str);
-	
-	PG_RETURN_TEXT_P(result_text);
+
+#ifdef HAVE_ONNX_RUNTIME
+	/* TODO: Load ONNX model from model_path or model_data, run inference, decode output */
+	(void) model_data;
+	ereport(ERROR,
+			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+			 errmsg("neurondb_predict_transformer_llm: ONNX inference for transformer LLM is not yet implemented"),
+			 errhint("Model inference requires ONNX Runtime integration to be completed.")));
+#else
+	ereport(ERROR,
+			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+			 errmsg("neurondb_predict_transformer_llm: transformer LLM prediction requires ONNX Runtime"),
+			 errhint("Rebuild NeuronDB with HAVE_ONNX_RUNTIME to enable transformer LLM inference.")));
+#endif
 }
 

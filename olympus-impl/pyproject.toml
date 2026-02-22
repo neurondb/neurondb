@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "olympus-impl"
+version = "0.1.0"
+description = "Olympus: Multi-Resolution Neural Memory (implementation)"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "torch>=2.0.0",
+    "einops>=0.7.0",
+    "datasets>=2.14.0",
+    "transformers>=4.30.0",
+    "tokenizers>=0.13.0",
+    "tqdm>=4.65.0",
+    "numpy>=1.24.0",
+    "matplotlib>=3.7.0",
+    "tensorboard>=2.12.0",
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[tool.setuptools.packages.find]
+where = ["src"]

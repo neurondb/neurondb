@@ -48,12 +48,12 @@ func (awe *AdvancedWorkflowEngine) ExecuteParallel(ctx context.Context, executio
 	/* Build dependency graph */
 	dependencyGraph := make(map[uuid.UUID][]uuid.UUID)
 	inDegree := make(map[uuid.UUID]int)
-	
+
 	for _, step := range steps {
 		inDegree[step.ID] = 0
 		if step.Dependencies != nil {
 			for _, depIDStr := range step.Dependencies {
-		depID, _ := uuid.Parse(depIDStr)
+				depID, _ := uuid.Parse(depIDStr)
 				if dependencyGraph[depID] == nil {
 					dependencyGraph[depID] = make([]uuid.UUID, 0)
 				}
@@ -66,7 +66,7 @@ func (awe *AdvancedWorkflowEngine) ExecuteParallel(ctx context.Context, executio
 	/* Execute in parallel using topological levels */
 	resultOutputs := make(map[uuid.UUID]map[string]interface{})
 	var mu sync.Mutex
-	
+
 	for {
 		/* Find steps with no dependencies (ready to execute) */
 		readySteps := make([]db.WorkflowStep, 0)
@@ -80,9 +80,10 @@ func (awe *AdvancedWorkflowEngine) ExecuteParallel(ctx context.Context, executio
 			break /* No more steps to execute */
 		}
 
-		/* Execute ready steps in parallel */
+		/* Execute ready steps in parallel; collect errors in slice to avoid channel close race */
 		var wg sync.WaitGroup
-		errors := make(chan error, len(readySteps))
+		var errMu sync.Mutex
+		var stepErrors []error
 
 		for _, step := range readySteps {
 			wg.Add(1)
@@ -95,7 +96,9 @@ func (awe *AdvancedWorkflowEngine) ExecuteParallel(ctx context.Context, executio
 				/* Execute step */
 				outputs, err := awe.engine.ExecuteStep(ctx, executionID, &s, stepInputs)
 				if err != nil {
-					errors <- fmt.Errorf("parallel step execution failed: step_id='%s', step_name='%s', error=%w", s.ID.String(), s.StepName, err)
+					errMu.Lock()
+					stepErrors = append(stepErrors, fmt.Errorf("parallel step execution failed: step_id='%s', step_name='%s', error=%w", s.ID.String(), s.StepName, err))
+					errMu.Unlock()
 					return
 				}
 
@@ -113,13 +116,10 @@ func (awe *AdvancedWorkflowEngine) ExecuteParallel(ctx context.Context, executio
 		}
 
 		wg.Wait()
-		close(errors)
 
-		/* Check for errors */
-		for err := range errors {
-			if err != nil {
-				return nil, err
-			}
+		/* Return first error if any */
+		if len(stepErrors) > 0 {
+			return nil, stepErrors[0]
 		}
 	}
 
@@ -360,7 +360,7 @@ func (awe *AdvancedWorkflowEngine) buildStepInputs(step *db.WorkflowStep, workfl
 	/* This would be similar to Engine.buildStepInputs */
 	/* For now, return a simplified version */
 	inputs := make(map[string]interface{})
-	
+
 	/* Copy workflow inputs */
 	for k, v := range workflowInputs {
 		inputs[k] = v
@@ -369,7 +369,7 @@ func (awe *AdvancedWorkflowEngine) buildStepInputs(step *db.WorkflowStep, workfl
 	/* Add previous step outputs */
 	if step.Dependencies != nil {
 		for _, depIDStr := range step.Dependencies {
-		depID, _ := uuid.Parse(depIDStr)
+			depID, _ := uuid.Parse(depIDStr)
 			if outputs, exists := stepOutputs[depID]; exists {
 				for k, v := range outputs {
 					inputs[fmt.Sprintf("%s.%s", depID.String(), k)] = v
@@ -388,10 +388,10 @@ func (awe *AdvancedWorkflowEngine) evaluateCondition(ctx context.Context, condit
 
 	/* Parse and evaluate condition expression */
 	/* Supports: ==, !=, >, <, >=, <=, &&, ||, in */
-	
+
 	/* Trim whitespace */
 	condition = strings.TrimSpace(condition)
-	
+
 	/* Handle logical operators (&&, ||) */
 	if strings.Contains(condition, " && ") {
 		parts := strings.Split(condition, " && ")
@@ -406,7 +406,7 @@ func (awe *AdvancedWorkflowEngine) evaluateCondition(ctx context.Context, condit
 		}
 		return true, nil
 	}
-	
+
 	if strings.Contains(condition, " || ") {
 		parts := strings.Split(condition, " || ")
 		for _, part := range parts {
@@ -420,56 +420,56 @@ func (awe *AdvancedWorkflowEngine) evaluateCondition(ctx context.Context, condit
 		}
 		return false, nil
 	}
-	
+
 	/* Handle comparison operators */
 	if strings.Contains(condition, " == ") {
 		return awe.evaluateComparison(condition, " == ", inputs, func(a, b interface{}) bool {
 			return compareValues(a, b) == 0
 		})
 	}
-	
+
 	if strings.Contains(condition, " != ") {
 		return awe.evaluateComparison(condition, " != ", inputs, func(a, b interface{}) bool {
 			return compareValues(a, b) != 0
 		})
 	}
-	
+
 	if strings.Contains(condition, " >= ") {
 		return awe.evaluateComparison(condition, " >= ", inputs, func(a, b interface{}) bool {
 			return compareValues(a, b) >= 0
 		})
 	}
-	
+
 	if strings.Contains(condition, " <= ") {
 		return awe.evaluateComparison(condition, " <= ", inputs, func(a, b interface{}) bool {
 			return compareValues(a, b) <= 0
 		})
 	}
-	
+
 	if strings.Contains(condition, " > ") {
 		return awe.evaluateComparison(condition, " > ", inputs, func(a, b interface{}) bool {
 			return compareValues(a, b) > 0
 		})
 	}
-	
+
 	if strings.Contains(condition, " < ") {
 		return awe.evaluateComparison(condition, " < ", inputs, func(a, b interface{}) bool {
 			return compareValues(a, b) < 0
 		})
 	}
-	
+
 	/* Handle 'in' operator */
 	if strings.Contains(condition, " in ") {
 		return awe.evaluateInOperator(condition, inputs)
 	}
-	
+
 	/* If no operator found, treat as boolean value */
 	if val, ok := inputs[condition]; ok {
 		if boolVal, ok := val.(bool); ok {
 			return boolVal, nil
 		}
 	}
-	
+
 	/* Default to false if condition cannot be evaluated */
 	return false, fmt.Errorf("unable to evaluate condition: '%s'", condition)
 }
@@ -479,16 +479,16 @@ func (awe *AdvancedWorkflowEngine) evaluateComparison(condition, operator string
 	if len(parts) != 2 {
 		return false, fmt.Errorf("invalid comparison expression: '%s'", condition)
 	}
-	
+
 	left := strings.TrimSpace(parts[0])
 	right := strings.TrimSpace(parts[1])
-	
+
 	/* Get left value */
 	leftVal := awe.getValue(left, inputs)
-	
+
 	/* Get right value (could be literal or variable) */
 	rightVal := awe.getValue(right, inputs)
-	
+
 	return compareFunc(leftVal, rightVal), nil
 }
 
@@ -497,20 +497,20 @@ func (awe *AdvancedWorkflowEngine) evaluateInOperator(condition string, inputs m
 	if len(parts) != 2 {
 		return false, fmt.Errorf("invalid 'in' expression: '%s'", condition)
 	}
-	
+
 	left := strings.TrimSpace(parts[0])
 	right := strings.TrimSpace(parts[1])
-	
+
 	/* Get left value */
 	leftVal := awe.getValue(left, inputs)
-	
+
 	/* Parse right side as array */
 	/* Remove brackets if present */
 	right = strings.TrimSpace(right)
 	if strings.HasPrefix(right, "[") && strings.HasSuffix(right, "]") {
 		right = right[1 : len(right)-1]
 	}
-	
+
 	/* Split by comma */
 	rightParts := strings.Split(right, ",")
 	for _, part := range rightParts {
@@ -520,19 +520,19 @@ func (awe *AdvancedWorkflowEngine) evaluateInOperator(condition string, inputs m
 			(strings.HasPrefix(part, "\"") && strings.HasSuffix(part, "\"")) {
 			part = part[1 : len(part)-1]
 		}
-		
+
 		rightVal := awe.parseValue(part)
 		if compareValues(leftVal, rightVal) == 0 {
 			return true, nil
 		}
 	}
-	
+
 	return false, nil
 }
 
 func (awe *AdvancedWorkflowEngine) getValue(expr string, inputs map[string]interface{}) interface{} {
 	expr = strings.TrimSpace(expr)
-	
+
 	/* Check if it's a variable reference (input.xxx or just xxx) */
 	if strings.HasPrefix(expr, "input.") {
 		key := strings.TrimPrefix(expr, "input.")
@@ -542,20 +542,20 @@ func (awe *AdvancedWorkflowEngine) getValue(expr string, inputs map[string]inter
 	} else if val, ok := inputs[expr]; ok {
 		return val
 	}
-	
+
 	/* Try to parse as literal value */
 	return awe.parseValue(expr)
 }
 
 func (awe *AdvancedWorkflowEngine) parseValue(expr string) interface{} {
 	expr = strings.TrimSpace(expr)
-	
+
 	/* Remove quotes if present */
 	if (strings.HasPrefix(expr, "'") && strings.HasSuffix(expr, "'")) ||
 		(strings.HasPrefix(expr, "\"") && strings.HasSuffix(expr, "\"")) {
 		return expr[1 : len(expr)-1]
 	}
-	
+
 	/* Try boolean */
 	if expr == "true" {
 		return true
@@ -563,17 +563,17 @@ func (awe *AdvancedWorkflowEngine) parseValue(expr string) interface{} {
 	if expr == "false" {
 		return false
 	}
-	
+
 	/* Try integer */
 	if intVal, err := strconv.ParseInt(expr, 10, 64); err == nil {
 		return intVal
 	}
-	
+
 	/* Try float */
 	if floatVal, err := strconv.ParseFloat(expr, 64); err == nil {
 		return floatVal
 	}
-	
+
 	/* Return as string */
 	return expr
 }
@@ -582,7 +582,7 @@ func compareValues(a, b interface{}) int {
 	/* Convert to comparable types */
 	aFloat, aIsFloat := toFloat(a)
 	bFloat, bIsFloat := toFloat(b)
-	
+
 	if aIsFloat && bIsFloat {
 		if aFloat < bFloat {
 			return -1
@@ -592,11 +592,11 @@ func compareValues(a, b interface{}) int {
 		}
 		return 0
 	}
-	
+
 	/* String comparison */
 	aStr := fmt.Sprintf("%v", a)
 	bStr := fmt.Sprintf("%v", b)
-	
+
 	if aStr < bStr {
 		return -1
 	}
@@ -679,4 +679,3 @@ func findSubstring(s, substr string, start int) int {
 	}
 	return -1
 }
-

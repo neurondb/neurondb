@@ -20,19 +20,83 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"regexp"
 	"strings"
+	"time"
 )
 
 /* dockerCLIClient implements DockerClient using docker CLI */
 type dockerCLIClient struct{}
+
+/* Docker image name: alphanumeric, slash, period, hyphen, underscore, colon (for tag) */
+var dockerImageRe = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._/-]*([:][a-zA-Z0-9._-]+)?$`)
+
+/* ValidateContainerConfig validates config to prevent injection and path escape */
+func ValidateContainerConfig(config ContainerConfig) error {
+	if config.Image == "" {
+		return fmt.Errorf("container image is required")
+	}
+	if !dockerImageRe.MatchString(config.Image) {
+		return fmt.Errorf("invalid container image name: only alphanumeric, ., _, -, /, : allowed")
+	}
+	for hostPath, containerPath := range config.Volumes {
+		if strings.Contains(hostPath, "..") || strings.Contains(containerPath, "..") {
+			return fmt.Errorf("volume paths must not contain ..")
+		}
+		if strings.HasPrefix(hostPath, "-") || strings.HasPrefix(containerPath, "-") {
+			return fmt.Errorf("volume paths must not start with -")
+		}
+	}
+	for _, env := range config.Env {
+		if strings.Contains(env, "\x00") || strings.Contains(env, "\n") {
+			return fmt.Errorf("environment variable must not contain null or newline")
+		}
+		parts := strings.SplitN(env, "=", 2)
+		if len(parts) != 2 || parts[0] == "" {
+			return fmt.Errorf("environment variable must be KEY=VALUE")
+		}
+		for _, r := range parts[0] {
+			if r != '_' && r != '-' && (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') {
+				return fmt.Errorf("environment variable name contains invalid character")
+			}
+		}
+	}
+	for _, c := range config.Command {
+		if strings.Contains(c, "\x00") || strings.ContainsAny(c, ";&|$`\\<>()\n\r\t") {
+			return fmt.Errorf("command argument contains invalid character")
+		}
+	}
+	return nil
+}
 
 /* NewDockerClient creates a new Docker client */
 func NewDockerClient() DockerClient {
 	return &dockerCLIClient{}
 }
 
+/* Default timeouts for Docker operations when context has no deadline */
+const (
+	dockerCreateTimeout = 30 * time.Second
+	dockerStartTimeout  = 10 * time.Second
+	dockerWaitTimeout   = 5 * time.Minute
+	dockerLogsTimeout   = 10 * time.Second
+)
+
+/* withTimeout ensures ctx has a deadline for Docker operations */
+func withDockerTimeout(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
+	if _, ok := ctx.Deadline(); ok {
+		return ctx, func() {}
+	}
+	return context.WithTimeout(ctx, timeout)
+}
+
 /* CreateContainer creates a Docker container */
 func (d *dockerCLIClient) CreateContainer(ctx context.Context, config ContainerConfig) (string, error) {
+	if err := ValidateContainerConfig(config); err != nil {
+		return "", fmt.Errorf("invalid container config: %w", err)
+	}
+	ctx, cancel := withDockerTimeout(ctx, dockerCreateTimeout)
+	defer cancel()
 	/* Build docker create command */
 	args := []string{"create", "--rm"}
 
@@ -92,6 +156,8 @@ func (d *dockerCLIClient) CreateContainer(ctx context.Context, config ContainerC
 
 /* StartContainer starts a Docker container */
 func (d *dockerCLIClient) StartContainer(ctx context.Context, containerID string) error {
+	ctx, cancel := withDockerTimeout(ctx, dockerStartTimeout)
+	defer cancel()
 	cmd := exec.CommandContext(ctx, "docker", "start", containerID)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -105,6 +171,8 @@ func (d *dockerCLIClient) StartContainer(ctx context.Context, containerID string
 
 /* WaitContainer waits for a container to complete */
 func (d *dockerCLIClient) WaitContainer(ctx context.Context, containerID string) error {
+	ctx, cancel := withDockerTimeout(ctx, dockerWaitTimeout)
+	defer cancel()
 	cmd := exec.CommandContext(ctx, "docker", "wait", containerID)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -133,6 +201,8 @@ func (d *dockerCLIClient) WaitContainer(ctx context.Context, containerID string)
 
 /* GetContainerLogs retrieves logs from a container */
 func (d *dockerCLIClient) GetContainerLogs(ctx context.Context, containerID string) ([]byte, error) {
+	ctx, cancel := withDockerTimeout(ctx, dockerLogsTimeout)
+	defer cancel()
 	cmd := exec.CommandContext(ctx, "docker", "logs", containerID)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -185,4 +255,3 @@ type dockerSDKClient struct {
  * - Using container.Create(), container.Start(), container.Wait(), etc.
  * For now, we use the CLI-based implementation above.
  */
-

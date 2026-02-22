@@ -31,6 +31,7 @@ import (
 type Logger struct {
 	logger zerolog.Logger
 	level  zerolog.Level
+	closer io.Closer
 }
 
 /* NewLogger creates a new logger */
@@ -50,6 +51,7 @@ func NewLogger(cfg *config.LoggingConfig) *Logger {
 	}
 
 	var output io.Writer
+	var closer io.Closer
 	if cfg.Output != nil {
 		switch *cfg.Output {
 		case "stdout":
@@ -59,6 +61,7 @@ func NewLogger(cfg *config.LoggingConfig) *Logger {
 		default:
 			if file, err := os.OpenFile(*cfg.Output, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644); err == nil {
 				output = file
+				closer = file
 			} else {
 				output = os.Stderr
 			}
@@ -78,7 +81,16 @@ func NewLogger(cfg *config.LoggingConfig) *Logger {
 	return &Logger{
 		logger: logger,
 		level:  level,
+		closer: closer,
 	}
+}
+
+/* Close releases resources (e.g. file handles). Call on shutdown for clean exit. */
+func (l *Logger) Close() error {
+	if l.closer != nil {
+		return l.closer.Close()
+	}
+	return nil
 }
 
 /* Debug logs a debug message */

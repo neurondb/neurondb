@@ -444,24 +444,10 @@ dl_predict(PG_FUNCTION_ARGS)
 					session = neurondb_onnx_get_or_load_model(model_name_str, ONNX_MODEL_CUSTOM);
 					if (session == NULL || !session->is_loaded)
 					{
-						/* Try to load from model_data if available */
-						if (model_data != NULL)
-						{
-							/* Model data should contain ONNX model bytes */
-							/*
-							 * For now, use default output size if model not
-							 * loaded
-							 */
-							elog(WARNING,
-								 "dl_predict: ONNX model %d not loaded, using default output size", model_id);
-							n_outputs = 10;
-						}
-						else
-						{
-							elog(WARNING,
-								 "dl_predict: ONNX model %d not found, using default output size", model_id);
-							n_outputs = 10;
-						}
+						ereport(ERROR,
+								(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+								 errmsg("dl_predict: ONNX model %d could not be loaded", model_id),
+								 errhint("Ensure the model is registered and ONNX Runtime is available.")));
 					}
 					else
 					{
@@ -523,36 +509,53 @@ dl_predict(PG_FUNCTION_ARGS)
 					}
 
 #else
-					elog(WARNING,
-						 "dl_predict: ONNX runtime not available, using placeholder");
-					n_outputs = 10;
+					nfree(framework);
+					ereport(ERROR,
+							(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+							 errmsg("dl_predict: ONNX runtime not available"),
+							 errhint("Rebuild NeuronDB with HAVE_ONNX_RUNTIME for ONNX model inference.")));
 #endif
 				}
 				else if (strcmp(framework, "pytorch") == 0)
 				{
-					/* PyTorch inference - would use libtorch */
-					n_outputs = 10;
+					nfree(framework);
+					ereport(ERROR,
+							(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+							 errmsg("dl_predict: PyTorch backend not available"),
+							 errhint("PyTorch inference is not linked in this build.")));
 				}
 				else if (strcmp(framework, "tensorflow") == 0)
 				{
-					/* TensorFlow inference - would use TensorFlow C API */
-					n_outputs = 10;
+					nfree(framework);
+					ereport(ERROR,
+							(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+							 errmsg("dl_predict: TensorFlow backend not available"),
+							 errhint("TensorFlow inference is not linked in this build.")));
 				}
 				else
 				{
-					elog(WARNING,
-						 "dl_predict: Unknown framework '%s', using placeholder",
-						 framework);
-					n_outputs = 10;
+					ereport(ERROR,
+							(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+							 errmsg("dl_predict: unknown or unsupported framework '%s'", framework),
+							 errhint("Use 'onnx' for ONNX Runtime models.")));
 				}
 
 				nfree(framework);
 			}
 			else
 			{
-				/* No framework specified, use default */
-				n_outputs = 10;
+				ereport(ERROR,
+						(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+						 errmsg("dl_predict: model parameters must specify 'framework' (e.g. onnx, pytorch, tensorflow)"),
+						 errhint("Store framework in model parameters when creating the model.")));
 			}
+		}
+		else
+		{
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					 errmsg("dl_predict: model %d has no parameters; 'framework' is required", model_id),
+					 errhint("Store framework in model parameters when creating the model.")));
 		}
 	}
 

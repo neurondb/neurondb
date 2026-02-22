@@ -1,0 +1,13 @@
+NeuronDB Hub has been installed.
+
+Components:
+  Backend:  {{ include "neurondb-hub.fullname" . }}-backend:{{ .Values.backend.port }}
+  Gateway:  {{ include "neurondb-hub.fullname" . }}-gateway:{{ .Values.gateway.port }}
+  Frontend: {{ include "neurondb-hub.fullname" . }}-frontend:{{ .Values.frontend.port }}
+  {{- if .Values.hubDb.enabled }}
+  Hub DB:   {{ include "neurondb-hub.fullname" . }}-hub-db:{{ .Values.hubDb.port }}
+  {{- end }}
+
+1. Ensure secret {{ include "neurondb-hub.secretName" . }} has JWT_SECRET, DATABASE_URL, NEURONAGENT_ENDPOINT.
+2. When using in-cluster Hub DB (hubDb.enabled), set secrets.hubDbPassword or hubDb.auth.password.
+3. Expose gateway or frontend via Ingress for external access.

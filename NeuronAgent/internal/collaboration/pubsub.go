@@ -19,6 +19,8 @@ package collaboration
 import (
 	"context"
 	"sync"
+
+	"github.com/neurondb/NeuronAgent/internal/metrics"
 )
 
 /* PubSub provides publish-subscribe functionality */
@@ -71,7 +73,9 @@ func (p *PubSub) Publish(ctx context.Context, channel string, message interface{
 			case <-ctx.Done():
 				return
 			default:
-				/* Skip if channel is full */
+				metrics.WarnWithContext(ctx, "pubsub message dropped: subscriber channel full", map[string]interface{}{
+					"channel": channel,
+				})
 			}
 		}
 	}

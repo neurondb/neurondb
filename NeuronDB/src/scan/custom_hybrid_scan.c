@@ -47,16 +47,134 @@
 #include "utils/rel.h"
 #include "utils/lsyscache.h"
 #include "catalog/pg_am.h"
+#include "catalog/pg_am_d.h"
 #include "catalog/pg_class.h"
 #include "catalog/pg_index.h"
+#include "commands/defrem.h"
+#include "nodes/parsenodes.h"
+#include "nodes/primnodes.h"
+#include "nodes/extensible.h"
 #include <stdlib.h>
 #include "neurondb_validation.h"
 #include "neurondb_safe_memory.h"
 #include "neurondb_macros.h"
 
 static planner_hook_type prev_planner_hook = NULL;
+static set_rel_pathlist_hook_type prev_set_rel_pathlist_hook = NULL;
 
 void		register_hybrid_scan_planner_hook(void);
+static CustomScanMethods hybrid_custom_scan_methods;
+
+/* Query under planning (set by planner hook, read by pathlist hook) */
+static Query *hybrid_planning_query = NULL;
+
+/* Check if relation has both a vector AM index (HNSW/IVF) and a GIN index (FTS) */
+static bool
+relation_has_vector_and_fts_indexes(PlannerInfo *root, RelOptInfo *rel)
+{
+	ListCell   *lc;
+	Oid			relid = rel->relid;
+	Relation	relation;
+	bool		has_vector = false;
+	bool		has_gin = false;
+	Oid			hnsw_oid = get_am_oid("hnsw", true);
+	Oid			ivf_oid = get_am_oid("ivf", true);
+
+	(void) root;
+	if (!OidIsValid(hnsw_oid) && !OidIsValid(ivf_oid))
+		return false;
+
+	relation = table_open(relid, AccessShareLock);
+	foreach(lc, relation->rd_indexlist)
+	{
+		Oid			idxoid = lfirst_oid(lc);
+		Relation	idxrel;
+		Oid			amoid;
+
+		idxrel = index_open(idxoid, AccessShareLock);
+		amoid = idxrel->rd_rel->relam;
+		index_close(idxrel, AccessShareLock);
+		if (OidIsValid(hnsw_oid) && amoid == hnsw_oid)
+			has_vector = true;
+		if (OidIsValid(ivf_oid) && amoid == ivf_oid)
+			has_vector = true;
+		if (amoid == GIN_AM_OID)
+			has_gin = true;
+		if (has_vector && has_gin)
+			break;
+	}
+	table_close(relation, AccessShareLock);
+	return (has_vector && has_gin);
+}
+
+static Plan *hybrid_plan_custom_path(PlannerInfo *root, RelOptInfo *rel,
+									struct CustomPath *best_path, List *tlist,
+									List *clauses, List *custom_plans);
+
+static CustomPathMethods hybrid_custom_path_methods = {
+	.CustomName = "HybridScan",
+	.PlanCustomPath = hybrid_plan_custom_path,
+	.ReparameterizeCustomPathByChild = NULL
+};
+
+/* Pathlist hook: add hybrid CustomPath when relation has both vector and FTS indexes */
+static void
+hybrid_set_rel_pathlist(PlannerInfo *root, RelOptInfo *rel, Index rti, RangeTblEntry *rte)
+{
+	if (prev_set_rel_pathlist_hook)
+		prev_set_rel_pathlist_hook(root, rel, rti, rte);
+
+	if (hybrid_planning_query == NULL)
+		return;
+	if (rte->rtekind != RTE_RELATION)
+		return;
+	if (!relation_has_vector_and_fts_indexes(root, rel))
+		return;
+
+	{
+		CustomPath *cpath = (CustomPath *) palloc(sizeof(CustomPath));
+
+		memset(cpath, 0, sizeof(CustomPath));
+		cpath->path.pathtype = T_CustomScan;
+		cpath->path.parent = rel;
+		cpath->path.pathtarget = rel->reltarget;
+		cpath->path.param_info = get_baserel_parampathinfo(root, rel, NULL);
+		cpath->path.parallel_aware = false;
+		cpath->path.parallel_safe = rel->consider_parallel;
+		cpath->path.parallel_workers = 0;
+		cpath->path.rows = rel->rows;
+		cpath->path.startup_cost = 100.0;
+		cpath->path.total_cost = 100.0 + (rel->tuples * 0.01);
+		cpath->path.pathkeys = NIL;
+		cpath->flags = 0;
+		cpath->custom_paths = NIL;
+		cpath->custom_restrictinfo = NIL;
+		cpath->custom_private = NIL;
+		cpath->methods = &hybrid_custom_path_methods;
+
+		add_path(rel, (Path *) cpath);
+	}
+}
+
+static Plan *
+hybrid_plan_custom_path(PlannerInfo *root, RelOptInfo *rel,
+					   struct CustomPath *best_path, List *tlist,
+					   List *clauses, List *custom_plans)
+{
+	CustomScan *cscan = makeNode(CustomScan);
+
+	cscan->scan.plan.targetlist = tlist;
+	cscan->scan.plan.qual = clauses;
+	cscan->scan.plan.lefttree = NULL;
+	cscan->scan.plan.righttree = NULL;
+	cscan->scan.scanrelid = rel->relid;
+	cscan->flags = best_path->flags;
+	cscan->custom_plans = custom_plans;
+	cscan->custom_private = best_path->custom_private;
+	cscan->methods = &hybrid_custom_scan_methods;
+	(void) root;
+	return &cscan->scan.plan;
+}
 
 /*
  * Hybrid scan state
@@ -137,31 +255,27 @@ hybrid_estimate_path_cost(PlannerInfo * root, RelOptInfo * rel, CustomPath * pat
 }
 
 /*
- * Planner hook: Add hybrid scan custom path when appropriate
+ * Planner hook: Set query context and pathlist hook, then run standard planner.
+ * The pathlist hook adds a HybridScan CustomPath when the relation has both
+ * vector (HNSW/IVF) and FTS (GIN) indexes.
  */
 static PlannedStmt *
 hybrid_planner_hook(Query * parse, const char *query_string, int cursorOptions,
 					ParamListInfo boundParams)
 {
 	PlannedStmt *result = NULL;
+	set_rel_pathlist_hook_type prev = set_rel_pathlist_hook;
 
-	/* Call previous planner hook if any */
+	hybrid_planning_query = parse;
+	set_rel_pathlist_hook = hybrid_set_rel_pathlist;
+
 	if (prev_planner_hook)
 		result = prev_planner_hook(parse, query_string, cursorOptions, boundParams);
 	else
 		result = standard_planner(parse, query_string, cursorOptions, boundParams);
 
-	/*
-	 * TODO: Analyze query and add CustomPath for hybrid scan.
-	 * This planner hook should detect when a query involves both vector
-	 * similarity search and full-text search operations, and create a
-	 * CustomPath that combines both searches efficiently. The implementation
-	 * requires: (1) Parsing the query tree to detect vector and FTS operations,
-	 * (2) Creating a CustomPath with appropriate cost estimates based on
-	 * selectivity and index statistics, (3) Adding the path to rel->pathlist
-	 * for planner consideration. The hybrid scan should be more efficient than
-	 * separate scans when both operations are on the same relation.
-	 */
+	set_rel_pathlist_hook = prev;
+	hybrid_planning_query = NULL;
 
 	return result;
 }
@@ -218,6 +332,11 @@ hybrid_create_scan_state(CustomScan * cscan)
 
 	return (Node *) state;
 }
+
+static CustomScanMethods hybrid_custom_scan_methods = {
+	.CustomName = "HybridScan",
+	.CreateCustomScanState = hybrid_create_scan_state
+};
 
 /*
  * Begin execution

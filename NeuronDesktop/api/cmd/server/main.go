@@ -362,6 +362,11 @@ func main() {
 		neurondbHandlers.ExecuteSQLFull(w, r)
 	}).Methods("POST", "OPTIONS")
 
+	datasetHandlers := handlers.NewDatasetHandlers(queries, nil)
+	apiRouter.HandleFunc("/profiles/{profile_id}/neurondb/ingest", datasetHandlers.IngestDataset).Methods("POST")
+	apiRouter.HandleFunc("/profiles/{profile_id}/neurondb/ingest/{job_id}", datasetHandlers.GetIngestStatus).Methods("GET")
+	apiRouter.HandleFunc("/profiles/{profile_id}/neurondb/ingest", datasetHandlers.ListIngestJobs).Methods("GET")
+
 	/* RAG routes */
 	ragHandlers := handlers.NewRAGHandlers(queries, neurondbHandlers)
 	apiRouter.HandleFunc("/profiles/{profileId}/rag/query", ragHandlers.RAGQuery).Methods("POST")

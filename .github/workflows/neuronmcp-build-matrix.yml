@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go_version: ["1.21", "1.22", "1.23", "1.24"]
+        go_version: ["1.21", "1.22", "1.23"]
         os: [ubuntu-latest, macos-latest]
 
     steps:
@@ -42,7 +42,7 @@ jobs:
         continue-on-error: true
 
       - name: Upload coverage
-        if: matrix.go_version == '1.24' && matrix.os == 'ubuntu-latest'
+        if: matrix.go_version == '1.23' && matrix.os == 'ubuntu-latest'
         uses: actions/upload-artifact@v4
         with:
           name: neuronmcp-go-coverage
@@ -106,7 +106,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.23'
           cache-dependency-path: NeuronMCP/go.sum
 
       - name: Run golangci-lint
@@ -144,5 +144,5 @@ jobs:
         run: |
           echo "## NeuronMCP Build Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "All NeuronMCP builds completed for Go 1.21-1.24 and Node 18-22." >> $GITHUB_STEP_SUMMARY
+          echo "All NeuronMCP builds completed for Go 1.21-1.23 and Node 18-22." >> $GITHUB_STEP_SUMMARY
 

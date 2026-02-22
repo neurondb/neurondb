@@ -36,6 +36,8 @@ type Broker struct {
 	subscribers map[string][]EventSubscriber
 	mu          sync.RWMutex
 	enabled     bool
+	enableOnce  sync.Once
+	enableErr   error
 }
 
 /* EventBackend interface for event backends */
@@ -84,24 +86,22 @@ func NewBroker(queries *db.Queries) *Broker {
 	}
 }
 
-/* Enable enables event streaming */
+/* Enable enables event streaming (idempotent; only runs once) */
 func (b *Broker) Enable(ctx context.Context) error {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
-	if b.enabled {
-		return nil
-	}
-
-	/* Add PostgreSQL backend by default */
-	pgBackend := NewPostgreSQLBackend(b.queries)
-	b.backends = append(b.backends, pgBackend)
-
-	b.enabled = true
-	metrics.InfoWithContext(ctx, "Event broker enabled", map[string]interface{}{
-		"backends": len(b.backends),
+	b.enableOnce.Do(func() {
+		b.mu.Lock()
+		defer b.mu.Unlock()
+		if b.enabled {
+			return
+		}
+		/* Add PostgreSQL backend by default */
+		pgBackend := NewPostgreSQLBackend(b.queries)
+		b.backends = append(b.backends, pgBackend)
+		b.enabled = true
+		metrics.InfoWithContext(ctx, "Event broker enabled", map[string]interface{}{
+			"backends": len(b.backends),
+		})
 	})
-
 	return nil
 }
 
@@ -362,4 +362,3 @@ func (pg *PostgreSQLBackend) Close() error {
 	pg.handlers = make(map[string]EventHandler)
 	return nil
 }
-

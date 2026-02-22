@@ -36,7 +36,7 @@ const (
 	listWorkflowsQuery = `
 		SELECT * FROM neurondb_agent.workflows 
 		WHERE ($1::text IS NULL OR status = $1)
-		ORDER BY created_at DESC`
+		ORDER BY created_at DESC LIMIT 1000`
 
 	updateWorkflowQuery = `
 		UPDATE neurondb_agent.workflows 
@@ -49,7 +49,7 @@ const (
 	listWorkflowsByStatusQuery = `
 		SELECT * FROM neurondb_agent.workflows 
 		WHERE status = $1
-		ORDER BY created_at DESC`
+		ORDER BY created_at DESC LIMIT 1000`
 )
 
 /* Workflow step queries */
@@ -87,12 +87,12 @@ const (
 	listWorkflowExecutionsQuery = `
 		SELECT * FROM neurondb_agent.workflow_executions 
 		WHERE workflow_id = $1 
-		ORDER BY created_at DESC`
+		ORDER BY created_at DESC LIMIT 1000`
 
 	listWorkflowExecutionsByStatusQuery = `
 		SELECT * FROM neurondb_agent.workflow_executions 
 		WHERE workflow_id = $1 AND status = $2
-		ORDER BY created_at DESC`
+		ORDER BY created_at DESC LIMIT 1000`
 )
 
 /* Workflow step execution queries */
@@ -146,7 +146,7 @@ const (
 
 	listWorkflowSchedulesQuery = `
 		SELECT * FROM neurondb_agent.workflow_schedules 
-		ORDER BY created_at DESC`
+		ORDER BY created_at DESC LIMIT 1000`
 
 	listWorkflowSchedulesByNextRunQuery = `
 		SELECT * FROM neurondb_agent.workflow_schedules 

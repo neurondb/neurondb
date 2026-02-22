@@ -1106,6 +1106,101 @@ forecast_arima(PG_FUNCTION_ARGS)
 	PG_RETURN_ARRAYTYPE_P(arr);
 }
 
+/*
+ * Load TimeSeriesModel from a single SPI row (arima_models shape: p, d, q, intercept, ar_coeffs, ma_coeffs).
+ * Returns NULL on failure. Caller must call free_arima_model_for_eval to free.
+ */
+static TimeSeriesModel *
+load_arima_model_from_spi_row(HeapTuple tuple, TupleDesc tupdesc)
+{
+	TimeSeriesModel *model = NULL;
+	int32		p = 0,
+				d = 0,
+				q = 0;
+	bool		ar_isnull = false,
+				ma_isnull = false;
+	Datum		intercept_datum;
+	bool		intercept_isnull = false;
+	ArrayType  *ar_coeffs_arr = NULL;
+	ArrayType  *ma_coeffs_arr = NULL;
+	int		   *dims;
+	int			i;
+
+	if (tuple == NULL || tupdesc == NULL || tupdesc->natts < 6)
+		return NULL;
+
+	p = DatumGetInt32(SPI_getbinval(tuple, tupdesc, 1, &intercept_isnull));
+	d = DatumGetInt32(SPI_getbinval(tuple, tupdesc, 2, &intercept_isnull));
+	q = DatumGetInt32(SPI_getbinval(tuple, tupdesc, 3, &intercept_isnull));
+	intercept_datum = SPI_getbinval(tuple, tupdesc, 4, &intercept_isnull);
+	ar_coeffs_arr = (ArrayType *) DatumGetPointer(SPI_getbinval(tuple, tupdesc, 5, &ar_isnull));
+	if (ar_isnull)
+		ar_coeffs_arr = NULL;
+	ma_coeffs_arr = (ArrayType *) DatumGetPointer(SPI_getbinval(tuple, tupdesc, 6, &ma_isnull));
+	if (ma_isnull)
+		ma_coeffs_arr = NULL;
+
+	model = (TimeSeriesModel *) palloc0(sizeof(TimeSeriesModel));
+	model->p = p;
+	model->d = d;
+	model->q = q;
+	model->intercept = (float) (intercept_isnull ? 0.0 : DatumGetFloat8(intercept_datum));
+	model->n_obs = 0;
+	model->ar_coeffs = NULL;
+	model->ma_coeffs = NULL;
+	model->residuals = NULL;
+
+	if (ar_coeffs_arr != NULL && p > 0 && ARR_NDIM(ar_coeffs_arr) == 1)
+	{
+		dims = ARR_DIMS(ar_coeffs_arr);
+		if (dims[0] >= p)
+		{
+			model->ar_coeffs = (float *) palloc(p * sizeof(float));
+			for (i = 0; i < p; i++)
+			{
+				float4		val;
+
+				memcpy(&val,
+					   (char *) ARR_DATA_PTR(ar_coeffs_arr) + i * sizeof(float4),
+					   sizeof(float4));
+				model->ar_coeffs[i] = val;
+			}
+		}
+	}
+	if (ma_coeffs_arr != NULL && q > 0 && ARR_NDIM(ma_coeffs_arr) == 1)
+	{
+		dims = ARR_DIMS(ma_coeffs_arr);
+		if (dims[0] >= q)
+		{
+			model->ma_coeffs = (float *) palloc(q * sizeof(float));
+			for (i = 0; i < q; i++)
+			{
+				float4		val;
+
+				memcpy(&val,
+					   (char *) ARR_DATA_PTR(ma_coeffs_arr) + i * sizeof(float4),
+					   sizeof(float4));
+				model->ma_coeffs[i] = val;
+			}
+		}
+	}
+	return model;
+}
+
+static void
+free_arima_model_for_eval(TimeSeriesModel *model)
+{
+	if (model == NULL)
+		return;
+	if (model->ar_coeffs)
+		pfree(model->ar_coeffs);
+	if (model->ma_coeffs)
+		pfree(model->ma_coeffs);
+	if (model->residuals)
+		pfree(model->residuals);
+	pfree(model);
+}
+
 PG_FUNCTION_INFO_V1(evaluate_arima_by_model_id);
 
 /*
@@ -1148,6 +1243,9 @@ evaluate_arima_by_model_id(PG_FUNCTION_ARGS)
 	float		error = 0.0f;
 
 	NdbSpiSession *spi_session = NULL;
+	TimeSeriesModel *arima_model = NULL;
+	float	   *data = NULL;
+	float	   *forecast_arr = NULL;
 
 	/* Validate arguments */
 	if (PG_NARGS() != 5)
@@ -1161,12 +1259,6 @@ evaluate_arima_by_model_id(PG_FUNCTION_ARGS)
 				 errmsg("neurondb: evaluate_arima_by_model_id: model_id is required")));
 
 	model_id = PG_GETARG_INT32(0);
-
-	/*
-	 * Suppress unused variable warning - placeholder for future
-	 * implementation
-	 */
-	(void) model_id;
 
 	if (PG_ARGISNULL(1) || PG_ARGISNULL(2) || PG_ARGISNULL(3) || PG_ARGISNULL(4))
 		ereport(ERROR,
@@ -1192,6 +1284,40 @@ evaluate_arima_by_model_id(PG_FUNCTION_ARGS)
 	/* Connect to SPI */
 	NDB_SPI_SESSION_BEGIN(spi_session, oldcontext);
 
+	/* Load ARIMA model from neurondb.arima_models by model_id */
+	{
+		StringInfoData model_sql;
+
+		ndb_spi_stringinfo_init(spi_session, &model_sql);
+		appendStringInfo(&model_sql,
+						 "SELECT p, d, q, intercept, ar_coeffs, ma_coeffs FROM neurondb.arima_models WHERE model_id = %d",
+						 model_id);
+		ret = ndb_spi_execute(spi_session, model_sql.data, true, 1);
+		ndb_spi_stringinfo_free(spi_session, &model_sql);
+		if (ret != SPI_OK_SELECT || SPI_processed != 1)
+		{
+			NDB_SPI_SESSION_END(spi_session);
+			nfree(tbl_str);
+			nfree(time_str);
+			nfree(value_str);
+			ereport(ERROR,
+					(errcode(ERRCODE_UNDEFINED_OBJECT),
+					 errmsg("model_id %d not found in neurondb.arima_models", model_id),
+					 errhint("Provide a valid model_id from neurondb.arima_models table.")));
+		}
+		arima_model = load_arima_model_from_spi_row(SPI_tuptable->vals[0], SPI_tuptable->tupdesc);
+		if (arima_model == NULL)
+		{
+			NDB_SPI_SESSION_END(spi_session);
+			nfree(tbl_str);
+			nfree(time_str);
+			nfree(value_str);
+			ereport(ERROR,
+					(errcode(ERRCODE_INTERNAL_ERROR),
+					 errmsg("evaluate_arima_by_model_id: failed to load ARIMA model parameters")));
+		}
+	}
+
 	/* Build query to get time series data ordered by time */
 	ndb_spi_stringinfo_init(spi_session, &query);
 	appendStringInfo(&query,
@@ -1203,6 +1329,7 @@ evaluate_arima_by_model_id(PG_FUNCTION_ARGS)
 	{
 		ndb_spi_stringinfo_free(spi_session, &query);
 		NDB_SPI_SESSION_END(spi_session);
+		free_arima_model_for_eval(arima_model);
 		nfree(tbl_str);
 		nfree(time_str);
 		nfree(value_str);
@@ -1216,6 +1343,7 @@ evaluate_arima_by_model_id(PG_FUNCTION_ARGS)
 	{
 		ndb_spi_stringinfo_free(spi_session, &query);
 		NDB_SPI_SESSION_END(spi_session);
+		free_arima_model_for_eval(arima_model);
 		nfree(tbl_str);
 		nfree(time_str);
 		nfree(value_str);
@@ -1225,39 +1353,38 @@ evaluate_arima_by_model_id(PG_FUNCTION_ARGS)
 						MIN_ARIMA_OBSERVATIONS + forecast_horizon, forecast_horizon, n_points)));
 	}
 
-	/* Evaluate forecast accuracy using rolling forecast evaluation */
+	/* Copy time series values into float array for forecasting */
+	nalloc(data, float, n_points);
+	for (i = 0; i < n_points; i++)
+	{
+		bool		vn = false;
+
+		actual_datum = SPI_getbinval(SPI_tuptable->vals[i], SPI_tuptable->tupdesc, 2, &vn);
+		data[i] = (float) (vn ? 0.0 : DatumGetFloat8(actual_datum));
+	}
+
+	nalloc(forecast_arr, float, forecast_horizon);
+
+	/* Evaluate forecast accuracy using rolling forecast with loaded ARIMA model */
 	valid_predictions = 0;
 	for (i = MIN_ARIMA_OBSERVATIONS; i < n_points - forecast_horizon; i++)
 	{
-		/* Get actual value forecast_horizon steps ahead */
-		actual_tuple = SPI_tuptable->vals[i + forecast_horizon];
-		tupdesc = SPI_tuptable->tupdesc;
+		int			n_history = i;
 
-		actual_datum = SPI_getbinval(actual_tuple, tupdesc, 2, &actual_null);
-		if (actual_null)
-			continue;
+		actual_value = data[i + forecast_horizon];
 
-		actual_value = DatumGetFloat8(actual_datum);	/* Use Float8 since column is float8 */
+		arima_forecast(arima_model, data, n_history, forecast_horizon, forecast_arr);
+		forecast_value = forecast_arr[forecast_horizon - 1];
 
-		/*
-		 * Create temporary table with data up to current point for
-		 * forecasting
-		 */
-
-		/*
-		 * This is a simplified approach - in practice, you'd need to retrain
-		 * or use one-step-ahead forecasts
-		 */
-		/* For now, we'll use a simple persistence forecast as baseline */
-		forecast_value = actual_value;	/* Simple baseline - predict current
-										 * value */
-
-		/* Compute error */
 		error = actual_value - forecast_value;
 		mse += error * error;
 		mae += fabs(error);
 		valid_predictions++;
 	}
+
+	nfree(forecast_arr);
+	nfree(data);
+	free_arima_model_for_eval(arima_model);
 
 	ndb_spi_stringinfo_free(spi_session, &query);
 	NDB_SPI_SESSION_END(spi_session);
@@ -1942,6 +2069,7 @@ timeseries_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **errst
 				}
 				else if (strcmp(key, "model_type") == 0 && v.type == jbvString)
 					strncpy(model_type, v.val.string.val, sizeof(model_type) - 1);
+					model_type[sizeof(model_type) - 1] = '\0';
 				nfree(key);
 			}
 		}
@@ -2131,6 +2259,7 @@ timeseries_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **errst
 	state->n_obs = nvec;
 	state->n_samples = nvec;
 	strncpy(state->model_type, model_type, sizeof(state->model_type) - 1);
+	state->model_type[sizeof(state->model_type) - 1] = '\0';
 
 	if (model->backend_state != NULL)
 		nfree(model->backend_state);
@@ -2405,6 +2534,7 @@ timeseries_gpu_deserialize(MLGpuModel *model, const bytea * payload,
 	state->n_obs = n_obs;
 	state->n_samples = 0;
 	strncpy(state->model_type, model_type, sizeof(state->model_type) - 1);
+	state->model_type[sizeof(state->model_type) - 1] = '\0';
 
 	if (metadata != NULL)
 	{

@@ -23,6 +23,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -41,7 +42,7 @@ func createUpgrader(cfg *config.Config) websocket.Upgrader {
 		/* Fallback to CORS origins if WebSocket origins not set */
 		allowedOrigins = cfg.Auth.AllowedOrigins
 	}
-	
+
 	/* If still empty, check environment variable for development */
 	if len(allowedOrigins) == 0 {
 		if envOrigins := os.Getenv("WEBSOCKET_ALLOWED_ORIGINS"); envOrigins != "" {
@@ -87,7 +88,7 @@ func createUpgrader(cfg *config.Config) websocket.Upgrader {
 			}
 
 			metrics.WarnWithContext(r.Context(), "WebSocket connection denied: origin not allowed", map[string]interface{}{
-				"origin":         origin,
+				"origin":          origin,
 				"allowed_origins": allowedOrigins,
 			})
 			return false
@@ -95,6 +96,13 @@ func createUpgrader(cfg *config.Config) websocket.Upgrader {
 		HandshakeTimeout: 10 * time.Second,
 	}
 }
+
+const (
+	/* Maximum concurrent WebSocket connections to prevent resource exhaustion */
+	maxWebSocketConnections = 1000
+)
+
+var wsConnectionCount int64
 
 const (
 	/* WebSocket connection timeouts */
@@ -118,7 +126,7 @@ type connectionState struct {
 /* HandleWebSocket handles WebSocket connections for streaming agent responses */
 func HandleWebSocket(runtime *agent.Runtime, keyManager *auth.APIKeyManager, cfg *config.Config) http.HandlerFunc {
 	upgrader := createUpgrader(cfg)
-	
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		requestID := GetRequestID(r.Context())
 		logCtx := metrics.WithLogContext(r.Context(), requestID, "", "", "", "")
@@ -146,9 +154,21 @@ func HandleWebSocket(runtime *agent.Runtime, keyManager *auth.APIKeyManager, cfg
 			return
 		}
 
+		/* Enforce connection limit before upgrading */
+		if n := atomic.LoadInt64(&wsConnectionCount); n >= maxWebSocketConnections {
+			metrics.WarnWithContext(logCtx, "WebSocket connection rejected: limit reached", map[string]interface{}{
+				"current": n,
+				"limit":   maxWebSocketConnections,
+			})
+			http.Error(w, "Service Unavailable: too many connections", http.StatusServiceUnavailable)
+			return
+		}
+		atomic.AddInt64(&wsConnectionCount, 1)
+
 		/* Upgrade connection */
 		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
+			atomic.AddInt64(&wsConnectionCount, -1)
 			metrics.WarnWithContext(logCtx, "WebSocket upgrade failed", map[string]interface{}{
 				"error": err.Error(),
 			})
@@ -195,7 +215,7 @@ func authenticateWebSocket(r *http.Request, keyManager *auth.APIKeyManager, logC
 			apiKeyStr = parts[1]
 		}
 	}
-	
+
 	/* Fallback to query parameter if header not present (for compatibility) */
 	/* Note: Query parameters may be logged - prefer Authorization header */
 	if apiKeyStr == "" {
@@ -257,7 +277,7 @@ func (s *connectionState) pingLoop() {
 /* handleMessages handles incoming messages from the client */
 func (s *connectionState) handleMessages(runtime *agent.Runtime, logCtx context.Context) {
 	messageQueue := make(chan map[string]interface{}, 10)
-	
+
 	/* Start message reader goroutine */
 	go func() {
 		defer close(messageQueue)
@@ -298,7 +318,7 @@ func (s *connectionState) handleMessages(runtime *agent.Runtime, logCtx context.
 			callback := func(chunk string, eventType string) error {
 				s.mu.Lock()
 				defer s.mu.Unlock()
-				
+
 				if s.closed {
 					return context.Canceled
 				}
@@ -356,7 +376,7 @@ func (s *connectionState) handleMessages(runtime *agent.Runtime, logCtx context.
 func (s *connectionState) sendError(errorMsg string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	if s.closed {
 		return
 	}
@@ -373,19 +393,19 @@ func (s *connectionState) sendError(errorMsg string) {
 func (s *connectionState) close() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	if s.closed {
 		return
 	}
-	
 	s.closed = true
+	atomic.AddInt64(&wsConnectionCount, -1)
 	s.cancel()
-	
+
 	/* Send close message */
 	/* Ignore errors during connection cleanup - connection may already be closed */
 	s.conn.SetWriteDeadline(time.Now().Add(writeWait))
 	_ = s.conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-	
+
 	/* Close connection */
 	/* Ignore close errors - connection may already be closed */
 	_ = s.conn.Close()

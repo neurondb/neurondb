@@ -11,6 +11,7 @@ require (
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/lib/pq v1.10.9
 	github.com/prometheus/client_golang v1.23.2
+	github.com/redis/go-redis/v9 v9.17.3
 	github.com/rs/zerolog v1.32.0
 	github.com/spf13/cobra v1.10.2
 	go.opentelemetry.io/otel v1.39.0
@@ -37,7 +38,6 @@ require (
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.66.1 // indirect
 	github.com/prometheus/procfs v0.16.1 // indirect
-	github.com/redis/go-redis/v9 v9.17.3 // indirect
 	github.com/spf13/pflag v1.0.9 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel/metric v1.39.0 // indirect

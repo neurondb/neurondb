@@ -18,8 +18,9 @@ package db
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/binary"
 	"fmt"
-	"math/rand"
 	"strings"
 	"time"
 
@@ -28,6 +29,19 @@ import (
 	"github.com/neurondb/NeuronAgent/internal/metrics"
 	"github.com/neurondb/NeuronAgent/internal/utils"
 )
+
+/* jitterDuration returns a random duration in [-fraction*base, +fraction*base] using crypto/rand */
+func jitterDuration(base time.Duration, fraction float64) time.Duration {
+	var b [8]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return 0
+	}
+	u := binary.BigEndian.Uint64(b[:])
+	f := float64(u) / (1 << 64) /* [0, 1) */
+	/* Map to [-1, 1] then scale by fraction * base */
+	jitter := (2*f - 1) * fraction * float64(base)
+	return time.Duration(jitter)
+}
 
 /* ConnectionInfo holds details about the database connection */
 type ConnectionInfo struct {
@@ -74,28 +88,27 @@ func NewDBWithRetry(connStr string, poolConfig PoolConfig, maxRetries int, retry
 				db.SetMaxIdleConns(poolConfig.MaxIdleConns)
 				db.SetConnMaxLifetime(poolConfig.ConnMaxLifetime)
 				db.SetConnMaxIdleTime(poolConfig.ConnMaxIdleTime)
-				
+
 				/* Set search_path and timezone on the connection pool */
 				/* Note: This sets it for the initial connection, but we need it for all connections */
 				/* We'll add it to the connection string instead */
-				
+
 				/* Test the connection works */
 				_, err = db.Exec("SELECT 1")
 				if err != nil {
 					db.Close()
 					/* Log retry attempt for connection test failure */
 					metrics.WarnWithContext(context.Background(), "Database connection test failed, will retry", map[string]interface{}{
-						"attempt":      attempt + 1,
-						"max_retries":  maxRetries,
-						"error":        err.Error(),
-						"connection":   connInfo.Host,
+						"attempt":     attempt + 1,
+						"max_retries": maxRetries,
+						"error":       err.Error(),
+						"connection":  connInfo.Host,
 					})
 					/* Retry connection test failures */
 					if attempt < maxRetries-1 {
 						delay := retryDelay
-						/* Add jitter: ±25% variation to prevent thundering herd */
-						jitter := float64(delay) * 0.25
-						jitterAmount := time.Duration(jitter * (rand.Float64()*2 - 1)) /* -0.25 to +0.25 */
+						/* Add jitter: ±25% variation to prevent thundering herd (crypto/rand for safety) */
+						jitterAmount := jitterDuration(delay, 0.25)
 						delay = delay + jitterAmount
 						time.Sleep(delay)
 						retryDelay *= 2
@@ -122,19 +135,18 @@ func NewDBWithRetry(connStr string, poolConfig PoolConfig, maxRetries int, retry
 		if attempt < maxRetries-1 {
 			/* Add jitter: ±25% variation to prevent thundering herd */
 			delay := retryDelay
-			jitter := float64(delay) * 0.25
-			jitterAmount := time.Duration(jitter * (rand.Float64()*2 - 1)) /* -0.25 to +0.25 */
+			jitterAmount := jitterDuration(delay, 0.25)
 			delay = delay + jitterAmount
-			
+
 			/* Log retry attempt */
 			metrics.WarnWithContext(context.Background(), "Database connection failed, retrying", map[string]interface{}{
-				"attempt":      attempt + 1,
-				"max_retries":  maxRetries,
-				"retry_delay":  delay.String(),
-				"error":        err.Error(),
-				"connection":   connInfo.Host,
+				"attempt":     attempt + 1,
+				"max_retries": maxRetries,
+				"retry_delay": delay.String(),
+				"error":       err.Error(),
+				"connection":  connInfo.Host,
 			})
-			
+
 			time.Sleep(delay)
 			retryDelay *= 2
 		}

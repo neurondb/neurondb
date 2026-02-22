@@ -30,8 +30,9 @@ setup(
     ],
     python_requires=">=3.8",
     install_requires=[
-        "aiohttp>=3.8.0",
-        "pydantic>=1.10.0",
+        "aiohttp>=3.8.0,<4",
+        "pydantic>=1.10.0,<3",
+        "requests>=2.28.0,<3",
     ],
     extras_require={
         "dev": [
