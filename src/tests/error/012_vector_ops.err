@@ -1,0 +1,4 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/012_vector_ops.sql:66: ERROR:  function vector_exp(vector) does not exist
+LINE 2:  vector_exp('[0,1,2]'::vector) AS exp_result,
+         ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.

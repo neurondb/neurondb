@@ -1,0 +1,1 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/core/001_index.sql:12: NOTICE:  drop cascades to view test_train_view

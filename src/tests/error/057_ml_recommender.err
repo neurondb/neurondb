@@ -1,0 +1,1 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/057_ml_recommender.sql:18: NOTICE:  table "cf_ratings" does not exist, skipping

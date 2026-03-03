@@ -505,9 +505,9 @@ Key configuration areas:
 | Document | Description |
 |----------|-------------|
 | **[NeuronAgent Component](../components/neuronagent.md)** | Component overview |
-| **[NeuronAgent API Reference](../../NeuronAgent/docs/api-reference.md)** | API documentation |
-| **[Agent Runtime Guide](../../NeuronAgent/docs/runtime.md)** | Runtime guide |
-| **[Tool Registry](../../NeuronAgent/docs/tools.md)** | Tool documentation |
+| **[NeuronAgent API Reference](https://github.com/neurondb/neuron-agent)** | API documentation (neuron-agent repo) |
+| **[Agent Runtime Guide](https://github.com/neurondb/neuron-agent)** | Runtime guide (neuron-agent repo) |
+| **[Tool Registry](https://github.com/neurondb/neuron-agent)** | Tool documentation (neuron-agent repo) |
 
 ---
 

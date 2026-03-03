@@ -1,0 +1,4 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/core/007_util.sql:68: ERROR:  function register_custom_operator(unknown, unknown, regtype, regtype, regtype) does not exist
+LINE 5: SELECT register_custom_operator('test_op', 'test_func', NULL...
+               ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.

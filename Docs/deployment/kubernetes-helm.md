@@ -23,6 +23,8 @@
 |---------|-------------|
 | [Prerequisites](#prerequisites) | Required tools and cluster setup |
 | [Quick Start](#quick-start) | Fast deployment steps |
+| [CloudNativePG (CNPG)](#cloudnativepg-cnpg) | PostgreSQL via CNPG Operator (recommended) |
+| [Local Testing (kind)](#local-testing-with-kind) | Full setup and test with kind |
 | [Installation](#installation) | Detailed installation guide |
 | [Configuration](#configuration) | Configuration options |
 | [Upgrading](#upgrading) | Upgrade procedures |
@@ -40,6 +42,7 @@
 | **Kubernetes** | 1.24+ | Kubernetes cluster |
 | **Helm** | 3.8+ | Helm package manager |
 | **kubectl** | Latest | Kubernetes CLI tool |
+| **CloudNativePG Operator** | 0.27+ | Required for in-cluster PostgreSQL (see [CNPG section](#cloudnativepg-cnpg)) |
 | **Storage Class** | - | For persistent volumes |
 | **Ingress Controller** | - | Optional, for external access |
 
@@ -47,15 +50,18 @@
 
 ## Features
 
-This Helm chart provides a complete cloud-native deployment.
+This Helm chart provides a complete cloud-native deployment using **CloudNativePG (CNPG)** for PostgreSQL when not using an external database.
 
 <details>
 <summary><strong>✨ Helm Chart Features</strong></summary>
 
 | Feature | Description | Status |
 |---------|-------------|--------|
-| **StatefulSet** | NeuronDB with persistent storage | ✅ Included |
-| **Deployments** | All services with configurable replicas | ✅ Included |
+| **CloudNativePG Cluster** | PostgreSQL managed by CNPG Operator (primary + standbys) | ✅ Included |
+| **CNPG Pooler** | PgBouncer connection pooling (Pooler CRD) | ✅ Optional |
+| **CNPG ScheduledBackup** | Automated backups (Barman object store or volume snapshot) | ✅ Optional |
+| **CNPG Monitoring** | Custom Prometheus queries ConfigMap, PodMonitor | ✅ Included |
+| **Deployments** | NeuronAgent, NeuronMCP, NeuronDesktop with configurable replicas | ✅ Included |
 | **Horizontal Pod Autoscaling** | For NeuronAgent | ✅ Included |
 | **Pod Disruption Budgets** | For high availability | ✅ Included |
 | **Init Containers** | For proper startup ordering | ✅ Included |
@@ -64,25 +70,27 @@ This Helm chart provides a complete cloud-native deployment.
 | **Health Checks** | Liveness and readiness probes | ✅ Included |
 | **Resource Limits** | CPU and memory limits | ✅ Included |
 | **ConfigMaps** | For configuration management | ✅ Included |
-| **Secrets** | For sensitive data | ✅ Included |
+| **Secrets** | For sensitive data (basic-auth for CNPG) | ✅ Included |
 | **Ingress** | Support with TLS | ✅ Included |
-| **Observability Stack** | Prometheus, Grafana, Jaeger | ✅ Included |
+| **Observability Stack** | Prometheus, Grafana, Jaeger | ✅ Optional |
 
 </details>
 
-- **StatefulSet** for NeuronDB with persistent storage
-- **Deployments** for all services with configurable replicas
+- **CloudNativePG Cluster** for NeuronDB PostgreSQL: automatic failover, replication slots, `-rw` / `-ro` / `-r` services
+- **CNPG Pooler** (PgBouncer) for connection pooling when enabled
+- **CNPG ScheduledBackup** for WAL archiving and full backups to S3/GCS/Azure or volume snapshots
+- **Deployments** for NeuronAgent, NeuronMCP, NeuronDesktop with configurable replicas
 - **Horizontal Pod Autoscaling** for NeuronAgent
 - **Pod Disruption Budgets** for high availability
 - **Init Containers** for proper startup ordering
-- **ServiceAccounts** for security
-- **Network Policies** (optional) for network security
-- **Health Checks** (liveness and readiness probes)
+- **ServiceAccounts** and **RBAC** for security
+- **Network Policies** (optional) for network security, including CNPG operator and replication
+- **Health Checks** (liveness and readiness probes) on all components
 - **Resource Limits** and requests
-- **ConfigMaps** for configuration management
-- **Secrets** for sensitive data
+- **ConfigMaps** for configuration and custom monitoring queries
+- **Secrets** (kubernetes.io/basic-auth) for PostgreSQL credentials as required by CNPG
 - **Ingress** support with TLS
-- **Complete Observability Stack** (Prometheus, Grafana, Jaeger)
+- **Observability Stack** (Prometheus, Grafana, Jaeger) optional
 
 ### Verify Prerequisites
 
@@ -146,8 +154,11 @@ helm install neurondb ./helm/neurondb \
 # Check all pods are running
 kubectl get pods -n neurondb
 
-# Check services
+# Check services (CNPG creates -rw, -ro, -r)
 kubectl get svc -n neurondb
+
+# If using CNPG: check cluster status (requires kubectl-cnpg plugin)
+kubectl cnpg status neurondb-neurondb -n neurondb
 
 # Check persistent volumes
 kubectl get pvc -n neurondb
@@ -161,6 +172,101 @@ helm test neurondb -n neurondb
 # Test chart installation end-to-end (requires Kubernetes cluster or kind)
 ./scripts/neurondb-helm.sh test
 ```
+
+## CloudNativePG (CNPG)
+
+When not using external PostgreSQL, the chart deploys PostgreSQL via **CloudNativePG (CNPG)**. The CNPG Operator must be installed in the cluster first.
+
+### Install CNPG Operator
+
+```bash
+helm repo add cloudnative-pg https://cloudnative-pg.github.io/charts
+helm repo update
+helm install cnpg-operator cloudnative-pg/cloudnative-pg \
+  --namespace cnpg-system \
+  --create-namespace
+```
+
+### What the Chart Deploys (CNPG)
+
+| Resource | Description |
+|----------|-------------|
+| **Cluster** | CNPG Cluster CRD: primary + optional standbys, replication slots, WAL, storage |
+| **Services** | `<release>-neurondb-rw` (primary), `-ro` (read-only), `-r` (any replica) |
+| **Pooler** | Optional PgBouncer Pooler CRD for connection pooling |
+| **ScheduledBackup** | Optional cron-based backups to S3/GCS/Azure or volume snapshot |
+| **ConfigMap** | Custom Prometheus queries for Postgres metrics |
+
+### Key CNPG Values
+
+```yaml
+neurondb:
+  enabled: true
+  cnpg:
+    instances: 2                    # 1 = primary only; 2+ = HA
+    storage:
+      size: "50Gi"
+      storageClass: ""
+    walStorage:
+      enabled: false
+      size: "10Gi"
+    pooler:
+      enabled: true
+      type: "rw"
+      instances: 2
+      pgbouncer:
+        poolMode: "session"
+        defaultPoolSize: "25"
+        maxClientConn: "1000"
+    backup:
+      enabled: false
+      barmanObjectStore:
+        destinationPath: "s3://bucket/path"
+        # s3Credentials, googleCredentials, or azureCredentials
+      retentionPolicy: "7d"
+    scheduledBackup:
+      enabled: false
+      schedule: "0 0 2 * * *"
+    monitoring:
+      enabled: true
+    primaryUpdateStrategy: "unsupervised"
+    minSyncReplicas: 0
+    maxSyncReplicas: 0
+```
+
+PostgreSQL parameters (e.g. `shared_buffers`, `max_connections`) are set under `neurondb.cnpg.postgresql.parameters`. Do not set `shared_preload_libraries` in parameters; the CNPG operator manages it. Use a NeuronDB image that already loads the extension.
+
+### External PostgreSQL
+
+To use an existing PostgreSQL instance instead of CNPG:
+
+```yaml
+neurondb:
+  enabled: true
+  postgresql:
+    external:
+      enabled: true
+      host: "my-postgres.example.com"
+      port: 5432
+      database: "neurondb"
+      username: "neurondb"
+      # Or use connectionString / secretName
+```
+
+When `external.enabled` is true, no Cluster, Pooler, or ScheduledBackup resources are created.
+
+## Local Testing with kind
+
+A full end-to-end test (kind cluster + CNPG operator + NeuronDB chart) can be run locally.
+
+**Prerequisites:** [kind](https://kind.sigs.k8s.io/), kubectl, Helm, Docker
+
+```bash
+# From the repository root
+./scripts/test-cnpg-local.sh
+```
+
+This script creates a 3-node kind cluster, installs the CNPG operator, deploys the chart with `helm/neurondb/examples/values-cnpg-test.yaml`, waits for Cluster and Pooler to be ready, verifies `-rw`/`-ro`/`-r` services, then deletes the cluster. Use `--keep` to leave the cluster for inspection; use `--destroy` to remove an existing test cluster only.
 
 ## Installation
 
@@ -179,9 +285,11 @@ Create a custom values file:
 ```yaml
 # my-values.yaml
 neurondb:
-  persistence:
-    size: 100Gi
-    storageClass: "fast-ssd"
+  cnpg:
+    instances: 2
+    storage:
+      size: 100Gi
+      storageClass: "fast-ssd"
 
 neuronagent:
   replicas: 3
@@ -234,23 +342,25 @@ helm install neurondb ./helm/neurondb \
 
 #### NeuronDB (PostgreSQL)
 
+When using CNPG (default, in-cluster PostgreSQL):
+
 ```yaml
 neurondb:
   enabled: true
   image:
     repository: ghcr.io/neurondb/neurondb-postgres
     tag: "2.0.0-pg17-cpu"
-  
   postgresql:
     database: "neurondb"
     username: "neurondb"
     port: 5432
-  
-  persistence:
-    enabled: true
-    size: 50Gi
-    storageClass: ""  # Uses default storage class if empty
-  
+  cnpg:
+    instances: 2
+    storage:
+      size: "50Gi"
+      storageClass: ""
+    pooler:
+      enabled: true
   resources:
     requests:
       memory: "4Gi"
@@ -259,6 +369,8 @@ neurondb:
       memory: "8Gi"
       cpu: "4"
 ```
+
+When using external PostgreSQL, set `neurondb.postgresql.external.enabled: true` and configure host, database, and credentials.
 
 #### NeuronAgent
 
@@ -480,19 +592,19 @@ kubectl logs <pod-name> -n neurondb --previous
 
 ### Database Connection Issues
 
-#### Verify Database is Ready
+#### Verify Database is Ready (CNPG)
 
 ```bash
-# Check NeuronDB pod
-kubectl get pod -n neurondb -l app.kubernetes.io/component=neurondb
+# Check CNPG cluster status (install kubectl-cnpg plugin for full status)
+kubectl get cluster -n neurondb
+kubectl get pods -n neurondb -l cnpg.io/cluster=neurondb-neurondb
 
-# Check logs
-kubectl logs -n neurondb -l app.kubernetes.io/component=neurondb
+# Check primary pod logs
+kubectl logs -n neurondb -l cnpg.io/instanceRole=primary -c postgres
 
-# Test connection
-kubectl exec -it -n neurondb \
-  $(kubectl get pod -n neurondb -l app.kubernetes.io/component=neurondb -o jsonpath='{.items[0].metadata.name}') \
-  -- psql -U neurondb -d neurondb -c "SELECT version();"
+# Test connection via -rw service
+kubectl run -it --rm debug --image=postgres:17 --restart=Never -n neurondb -- \
+  psql -h neurondb-neurondb-rw -U neurondb -d neurondb -c "SELECT version();"
 ```
 
 #### Verify Service Connectivity
@@ -501,9 +613,8 @@ kubectl exec -it -n neurondb \
 # Check service endpoints
 kubectl get endpoints -n neurondb
 
-# Test from another pod
-kubectl run -it --rm debug --image=postgres:17 --restart=Never -n neurondb -- \
-  psql -h neurondb-neurondb -U neurondb -d neurondb
+# -rw = primary (read-write), -ro = read-only replicas, -r = any replica
+kubectl get svc -n neurondb | grep neurondb
 ```
 
 ### Health Check Failures
@@ -564,37 +675,42 @@ kubectl delete namespace neurondb
 
 ### Backup and Restore
 
-#### Manual Backup
+When using CNPG, backups are managed by the chart via **CNPG backup** (Barman object store or volume snapshot) and optional **ScheduledBackup**. See **[Backup and Restore](backup-restore.md)** for:
+
+- Enabling `neurondb.cnpg.backup` (S3/GCS/Azure) and `neurondb.cnpg.scheduledBackup`
+- Point-in-time recovery (PITR) with `bootstrap.recovery`
+- On-demand backup with `kubectl cnpg backup`
+
+#### Manual Backup (any deployment)
 
 ```bash
-# Backup database
-kubectl exec -n neurondb \
-  $(kubectl get pod -n neurondb -l app.kubernetes.io/component=neurondb -o jsonpath='{.items[0].metadata.name}') \
-  -- pg_dump -U neurondb neurondb > backup.sql
+# Get primary pod name (CNPG)
+POD=$(kubectl get pod -n neurondb -l cnpg.io/instanceRole=primary -o jsonpath='{.items[0].metadata.name}')
+kubectl exec -n neurondb "$POD" -c postgres -- \
+  pg_dump -U neurondb -d neurondb -Fc -f /tmp/backup.dump
+kubectl cp neurondb/"$POD":/tmp/backup.dump ./backup.dump -c postgres
 ```
 
 #### Restore
 
-```bash
-# Copy backup to pod
-kubectl cp backup.sql neurondb/<pod-name>:/tmp/backup.sql
-
-# Restore
-kubectl exec -n neurondb <pod-name> -- \
-  psql -U neurondb -d neurondb < /tmp/backup.sql
-```
+See [Backup and Restore](backup-restore.md) for restore procedures (CNPG recovery cluster or manual restore).
 
 ## Advanced Configuration
 
 ### Custom PostgreSQL Configuration
 
+When using CNPG, configure PostgreSQL via `neurondb.cnpg.postgresql.parameters`:
+
 ```yaml
 neurondb:
-  postgresql:
-    config: |
-      shared_buffers = 256MB
-      max_connections = 200
-      shared_preload_libraries = 'neurondb'
+  cnpg:
+    postgresql:
+      parameters:
+        shared_buffers: "256MB"
+        max_connections: "200"
+        effective_cache_size: "768MB"
+        work_mem: "4MB"
+# Do not set shared_preload_libraries; CNPG operator manages it.
 ```
 
 ### Service Account and RBAC
@@ -640,7 +756,7 @@ neuronagent:
 | Recommendation | Description | Priority |
 |----------------|-------------|----------|
 | **Secrets Management** | Use external secret management (AWS Secrets Manager, HashiCorp Vault) | ⚠️ Critical |
-| **Backup Strategy** | Implement automated backups using CronJob or external backup tools | ⚠️ Critical |
+| **Backup Strategy** | Use CNPG backup (Barman/ScheduledBackup) or external backup tools | ⚠️ Critical |
 | **Monitoring** | Enable full observability stack and set up alerting | ⭐ High |
 | **Resource Limits** | Set appropriate requests and limits based on workload | ⭐ High |
 | **High Availability** | Use multiple replicas and pod anti-affinity | ⭐ High |
@@ -657,8 +773,8 @@ neuronagent:
 | Document | Description |
 |----------|-------------|
 | **[Production Installation](production-install.md)** | Production setup guide |
-| **[HA Architecture](ha-architecture.md)** | High availability setup |
-| **[Backup and Restore](backup-restore.md)** | Backup procedures |
+| **[HA Architecture](ha-architecture.md)** | High availability (CNPG + Patroni) |
+| **[Backup and Restore](backup-restore.md)** | CNPG and legacy backup procedures |
 | **[Troubleshooting](../operations/troubleshooting.md)** | Common issues |
 
 ---

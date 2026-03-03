@@ -46,7 +46,7 @@ jobs:
             -t ghcr.io/neurondb/neurondb-postgres:${{ steps.version.outputs.version }} \
             -t ghcr.io/neurondb/neurondb-postgres:latest \
             --push \
-            -f dockers/neurondb/Dockerfile \
+            -f docker/neurondb/Dockerfile \
             .
       
       - name: Build NeuronAgent image
@@ -82,13 +82,13 @@ jobs:
       - name: Build NeuronDesktop Frontend image
         continue-on-error: true
         run: |
-          if [ -f dockers/neurondesktop/frontend/Dockerfile ]; then
+          if [ -f docker/neurondesktop/frontend/Dockerfile ]; then
             docker buildx build \
               --platform linux/amd64,linux/arm64 \
               -t ghcr.io/neurondb/neurondesktop-frontend:${{ steps.version.outputs.version }} \
               -t ghcr.io/neurondb/neurondesktop-frontend:latest \
               --push \
-              -f dockers/neurondesktop/frontend/Dockerfile \
+              -f docker/neurondesktop/frontend/Dockerfile \
               NeuronDesktop/frontend/
           elif [ -f NeuronDesktop/frontend/Dockerfile ]; then
             docker buildx build \

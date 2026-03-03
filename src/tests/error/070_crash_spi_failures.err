@@ -1,0 +1,8 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/070_crash_spi_failures.sql:18: NOTICE:  Correctly rejected non-existent table: neurondb: evaluate_linear_regression_by_model_id: model 1 not found
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/070_crash_spi_failures.sql:29: NOTICE:  Correctly rejected non-existent column: neurondb: evaluate_linear_regression_by_model_id: model 1 not found
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/070_crash_spi_failures.sql:35: ERROR:  neurondb: evaluate_linear_regression_by_model_id: model 1 not found
+DETAIL:  Model with model_id 1 does not exist in neurondb.ml_models catalog
+HINT:  Verify the model_id exists in neurondb.ml_models catalog.
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/070_crash_spi_failures.sql:42: ERROR:  neurondb: evaluate_linear_regression_by_model_id: model 1 not found
+DETAIL:  Model with model_id 1 does not exist in neurondb.ml_models catalog
+HINT:  Verify the model_id exists in neurondb.ml_models catalog.

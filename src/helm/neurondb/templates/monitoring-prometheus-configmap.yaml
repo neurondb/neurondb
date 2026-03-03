@@ -1,0 +1,113 @@
+{{- if and .Values.monitoring.enabled .Values.monitoring.prometheus.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "neurondb.fullname" . }}-prometheus-config
+  labels:
+    {{- include "neurondb.labels" . | nindent 4 }}
+    app.kubernetes.io/component: prometheus
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: {{ .Values.monitoring.prometheus.scrapeInterval | default "15s" }}
+      evaluation_interval: {{ .Values.monitoring.prometheus.evaluationInterval | default "15s" }}
+      external_labels:
+        cluster: {{ .Values.monitoring.prometheus.clusterName | default "neurondb" | quote }}
+        environment: {{ .Values.monitoring.prometheus.environment | default "production" | quote }}
+    
+    rule_files:
+      - alerts.yml
+      - recording_rules.yml
+    
+    scrape_configs:
+      - job_name: 'prometheus'
+        static_configs:
+          - targets: ['localhost:9090']
+      
+      {{- if and .Values.neurondb.enabled (not .Values.neurondb.postgresql.external.enabled) }}
+      - job_name: 'cnpg-cluster'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - {{ .Release.Namespace }}
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_cnpg_io_cluster]
+            action: keep
+            regex: {{ include "neurondb.cnpgClusterName" . }}
+          - source_labels: [__meta_kubernetes_pod_ip]
+            target_label: __address__
+            replacement: ${1}:9187
+            regex: (.+)
+        metrics_path: '/metrics'
+        scrape_interval: 15s
+      {{- end }}
+      
+      {{- if .Values.monitoring.prometheus.postgresExporter.enabled }}
+      - job_name: 'neurondb-postgres'
+        kubernetes_sd_configs:
+          - role: endpoints
+            namespaces:
+              names:
+                - {{ .Release.Namespace }}
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_name]
+            regex: {{ include "neurondb.neurondb.serviceName" . }}
+            action: keep
+        {{- if .Values.monitoring.prometheus.postgresExporter.port }}
+        static_configs:
+          - targets: ['{{ include "neurondb.neurondb.serviceName" . }}:{{ .Values.monitoring.prometheus.postgresExporter.port }}']
+        {{- end }}
+      {{- end }}
+    
+    alerting:
+      alertmanagers:
+        {{- if .Values.monitoring.prometheus.alertmanager.enabled }}
+        - static_configs:
+            - targets:
+                - {{ include "neurondb.fullname" . }}-alertmanager:9093
+        {{- else }}
+        - static_configs:
+            - targets: []
+        {{- end }}
+  
+  alerts.yml: |
+    groups:
+      - name: neurondb_alerts
+        interval: 30s
+        rules:
+          - alert: DatabaseConnectionFailure
+            expr: |
+              up{job=~"neurondb.*"} == 0
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Database connection failures"
+              description: "Cannot connect to NeuronDB database"
+  
+  recording_rules.yml: |
+    groups:
+      # ============================================================================
+      # Infrastructure Recording Rules
+      # ============================================================================
+      - name: infrastructure_recording
+        interval: 30s
+        rules:
+          # CPU utilization
+          - record: infrastructure:cpu:usage:percent
+            expr: |
+              100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+          
+          # Memory utilization
+          - record: infrastructure:memory:usage:percent
+            expr: |
+              (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100
+          
+          # Disk utilization
+          - record: infrastructure:disk:usage:percent
+            expr: |
+              (1 - (node_filesystem_avail_bytes{device!~"tmpfs|fuse.lxcfs"} / 
+                    node_filesystem_size_bytes{device!~"tmpfs|fuse.lxcfs"})) * 100
+{{- end }}
+

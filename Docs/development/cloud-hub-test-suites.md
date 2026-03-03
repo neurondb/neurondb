@@ -1,8 +1,8 @@
-# Test Suites for neurondb-cloud and neurondb-hub
+# Test Suites for neuron-cloud and neuron-hub
 
-This document describes how to add and run test suites for the **neurondb-cloud** and **neurondb-hub** products. Those repositories are expected to live as sibling directories of the main neurondb repo (e.g. `../neurondb-cloud`, `../neurondb-hub`) when deploying with `scripts/deploy-all.sh`.
+This document describes how to add and run test suites for the **neuron-cloud** and **neuron-hub** products. Those repositories are expected to live as sibling directories of the main neurondb repo (e.g. `../neuron-cloud`, `../neuron-hub`) when deploying with `scripts/deploy-all.sh`.
 
-## neurondb-cloud
+## neuron-cloud
 
 ### Suggested test layout
 
@@ -50,7 +50,7 @@ func TestCheckPermission_NoAssignment(t *testing.T) {
 
 ### Running tests
 
-From the neurondb-cloud repo root:
+From the neuron-cloud repo root:
 
 ```bash
 cd control-plane && go test ./...
@@ -60,7 +60,7 @@ Use a test database URL for integration tests (e.g. `DATABASE_URL` or `DB_HOST` 
 
 ---
 
-## neurondb-hub
+## neuron-hub
 
 ### Suggested test layout
 
@@ -114,7 +114,7 @@ func TestCreateAgent_NeuronAgentFails_Returns502(t *testing.T) {
 
 ### Running tests
 
-From the neurondb-hub repo root:
+From the neuron-hub repo root:
 
 ```bash
 cd backend && go test ./...
@@ -147,15 +147,15 @@ cd NeuronDesktop && go test ./...
 When Cloud and Hub repos are present, add a CI step (e.g. in GitHub Actions) to run their test suites, for example:
 
 ```yaml
-- name: Test neurondb-cloud
+- name: Test neuron-cloud
   run: |
-    if [ -d ../neurondb-cloud ]; then
-      cd ../neurondb-cloud/control-plane && go test ./...
+    if [ -d ../neuron-cloud ]; then
+      cd ../neuron-cloud/control-plane && go test ./...
     fi
 
-- name: Test neurondb-hub
+- name: Test neuron-hub
   run: |
-    if [ -d ../neurondb-hub ]; then
-      cd ../neurondb-hub/backend && go test ./...
+    if [ -d ../neuron-hub ]; then
+      cd ../neuron-hub/backend && go test ./...
     fi
 ```

@@ -1,0 +1,3 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/026_vector_hnsw_sparsevec.sql:23: NOTICE:  table "t" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/026_vector_hnsw_sparsevec.sql:50: NOTICE:  table "t" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/026_vector_hnsw_sparsevec.sql:70: NOTICE:  table "t" does not exist, skipping

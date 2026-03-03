@@ -1,0 +1,81 @@
+#-------------------------------------------------------------------------
+# Makefile.gpu.rocm
+#     ROCm GPU backend build configuration
+#
+# Copyright (c) 2024-2026, neurondb, Inc.
+#-------------------------------------------------------------------------
+
+# Note: Makefile.gpu.common is included by Makefile.core, not here
+# This prevents duplicate includes
+
+# ROCm detection
+ROCM_PATH ?= $(shell command -v hipcc >/dev/null 2>&1 && dirname $$(dirname $$(command -v hipcc)) || echo "")
+ROCM_PATH ?= $(or $(ROCM_HOME),$(ROCM_PATH),/opt/rocm)
+
+# Check if ROCm is available
+ROCM_AVAILABLE := $(shell test -f "$(ROCM_PATH)/include/hip/hip_runtime.h" 2>/dev/null && echo "yes" || echo "no")
+
+ifeq ($(ROCM_AVAILABLE),yes)
+	# ROCm compiler
+	HIPCC ?= $(ROCM_PATH)/bin/hipcc
+	HIPCC_AVAILABLE := $(shell test -x "$(HIPCC)" 2>/dev/null && echo "yes" || echo "no")
+	
+	ifeq ($(HIPCC_AVAILABLE),yes)
+		# ROCm source files
+		ROCM_SOURCES = $(wildcard src/gpu/rocm/*.hip)
+		ROCM_OBJS = $(ROCM_SOURCES:.hip=.o)
+		
+		# ROCm compilation flags
+		HIPCC_FLAGS = -O3 -fPIC -fvisibility=hidden
+		HIPCC_FLAGS += -I$(ROCM_PATH)/include
+		HIPCC_FLAGS += -I$(srcdir)/src/include
+		HIPCC_FLAGS += $(PG_CPPFLAGS)
+		
+		# ROCm link flags
+		ROCM_LDFLAGS = -L$(ROCM_PATH)/lib -Wl,-rpath,$(ROCM_PATH)/lib
+		ROCM_LIBS = -lamdhip64 -lrocblas -lrocrand
+		
+		# Add to GPU configuration
+		GPU_CPPFLAGS += -DNDB_GPU_HIP -DHAVE_ROCM -I$(ROCM_PATH)/include
+		GPU_CPPFLAGS += -DROCM_PATH="\"$(ROCM_PATH)\""
+		GPU_LDFLAGS += $(ROCM_LDFLAGS)
+		GPU_LIBS += $(ROCM_LIBS)
+		GPU_OBJS += $(ROCM_OBJS)
+		
+		# Add ROCm objects to main OBJS
+		OBJS += $(ROCM_OBJS)
+		
+		# ROCm compilation rule
+		%.o: %.hip
+		$(HIPCC) $(HIPCC_FLAGS) -c $< -o $@
+		
+		GPU_BACKENDS := $(if $(filter-out none,$(GPU_BACKENDS)),$(GPU_BACKENDS),rocm)
+		GPU_BACKENDS := $(if $(filter rocm,$(GPU_BACKENDS)),$(GPU_BACKENDS),$(GPU_BACKENDS) rocm)
+	else
+		$(warning ROCm path found but hipcc not available at $(HIPCC))
+	endif
+else
+$(info ROCm not found at $(ROCM_PATH) - ROCm backend disabled)
+endif
+
+.PHONY: rocm-check rocm-info
+
+rocm-check:
+	@echo "ROCm Path: $(ROCM_PATH)"
+	@echo "ROCm Available: $(ROCM_AVAILABLE)"
+	@echo "HIPCC: $(HIPCC)"
+	@echo "HIPCC Available: $(HIPCC_AVAILABLE)"
+	@echo "ROCm Sources: $(words $(ROCM_SOURCES)) files"
+	@echo "ROCm Objects: $(words $(ROCM_OBJS)) files"
+
+rocm-info:
+	@echo "══════════════════════════════════════════════════════════════"
+	@echo "ROCm GPU Backend Configuration"
+	@echo "══════════════════════════════════════════════════════════════"
+	@echo "ROCm Path: $(ROCM_PATH)"
+	@echo "HIPCC: $(HIPCC)"
+	@echo "Status: $(if $(filter rocm,$(GPU_BACKENDS)),Enabled,Disabled)"
+	@echo "Sources: $(words $(ROCM_SOURCES)) .hip files"
+	@echo "Objects: $(words $(ROCM_OBJS)) .o files"
+	@echo "══════════════════════════════════════════════════════════════"
+

@@ -76,7 +76,7 @@ SELECT * FROM docs ORDER BY embedding <=> query_vector LIMIT 10;
 
 ### 🤖 NeuronAgent (Agent Runtime)
 
-**Location:** `NeuronAgent/`
+**Location:** **neuron-agent** repo (standalone)
 
 **What it is:**
 - A REST/WebSocket API server (written in Go)
@@ -116,7 +116,7 @@ curl -X POST http://localhost:8080/api/v1/agents \
 
 ### 🔌 NeuronMCP (MCP Protocol Server)
 
-**Location:** `NeuronMCP/`
+**Location:** **neuron-mcp** repo (standalone)
 
 **What it is:**
 - A Model Context Protocol (MCP) server
@@ -150,7 +150,7 @@ curl -X POST http://localhost:8080/api/v1/agents \
 
 ### 🖥️ NeuronDesktop (Web UI)
 
-**Location:** `NeuronDesktop/`
+**Location:** **neuron-desktop** repo (standalone)
 
 **What it is:**
 - A web-based user interface

@@ -372,9 +372,9 @@ NEURONDB_HOST=neurondb-metal
 
 1. Check Docker build context:
    ```bash
-   ls -la dockers/neurondb/Dockerfile
-   ls -la dockers/neuronagent/Dockerfile
-   ls -la dockers/neuronmcp/Dockerfile
+   ls -la docker/neurondb/Dockerfile
+   ls -la docker/neuronagent/Dockerfile
+   ls -la docker/neuronmcp/Dockerfile
    ```
 
 2. Clear Docker build cache:
@@ -454,10 +454,10 @@ docker network inspect neurondb-network
 
 ## Related Documentation
 
-- [NeuronDB Docker Guide](../../dockers/neurondb/README.md)
-- [NeuronAgent Docker Guide](../../dockers/neuronagent/README.md)
-- [NeuronMCP Docker Guide](../../dockers/neuronmcp/README.md)
-- [Ecosystem Docker Guide](../../dockers/neurondb/ECOSYSTEM.md)
+- [NeuronDB Docker Guide](../../docker/neurondb/README.md)
+- [NeuronAgent Docker Guide](../../docker/neuronagent/README.md)
+- [NeuronMCP Docker Guide](../../docker/neuronmcp/README.md)
+- [Ecosystem Docker Guide](../../docker/neurondb/ECOSYSTEM.md)
 - [Main README](../../README.md)
 
 ## Support

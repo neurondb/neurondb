@@ -1,0 +1,3 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/071_crash_memory_contexts.sql:26: NOTICE:  Correctly handled large dataset error: neurondb: evaluate_linear_regression_by_model_id: model 1 not found
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/071_crash_memory_contexts.sql:53: ERROR:  Model not found: 1
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/071_crash_memory_contexts.sql:56: WARNING:  there is no transaction in progress

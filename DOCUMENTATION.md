@@ -68,7 +68,7 @@ This documentation is organized to support different reading modes:
 ### 🐳 Docker
 
 - **Canonical compose file**: Repository root [`docker-compose.yml`](docker-compose.yml)
-- **Docker management docs**: [dockers/README.md](dockers/README.md)
+- **Docker management docs**: [docker/README.md](docker/README.md)
 
 ---
 
@@ -146,9 +146,9 @@ graph TB
 | Component | Quick Links | Description |
 |-----------|-------------|-------------|
 | **NeuronDB** | [README](NeuronDB/README.md) · [INSTALL](NeuronDB/INSTALL.md) · [Docs](NeuronDB/docs/) | PostgreSQL extension with vector search, 52+ ML algorithms, GPU acceleration |
-| **NeuronAgent** | [README](NeuronAgent/README.md) · [API](NeuronAgent/docs/api.md) · [Architecture](NeuronAgent/docs/architecture.md) | REST/WebSocket agent runtime with multi-agent collaboration, workflow engine, HITL, 18+ tools, hierarchical memory, budget management, and evaluation framework |
-| **NeuronMCP** | [README](NeuronMCP/README.md) · [Tools](NeuronMCP/REGISTERED_TOOLS.md) · [Setup](NeuronMCP/docs/neurondb-mcp-setup.md) | MCP protocol server with 600+ tools (100+ vector operations, complete ML pipeline, RAG operations, 100+ PostgreSQL admin tools, dataset loading, debugging, composition, workflow, plugins), middleware system, batch operations, progress tracking, enterprise features (Prometheus metrics, webhooks, circuit breaker, caching), and full MCP protocol support (prompts, sampling/completions, resources) |
-| **NeuronDesktop** | [README](NeuronDesktop/README.md) · [API](NeuronDesktop/docs/api.md) · [Deployment](NeuronDesktop/docs/deployment.md) | Unified web interface dashboard |
+| **NeuronAgent** | [neuron-agent repo](https://github.com/neurondb/neuron-agent) README · API · Architecture | REST/WebSocket agent runtime (multi-agent, workflow, HITL, 18+ tools, memory, evaluation) |
+| **NeuronMCP** | [neuron-mcp repo](https://github.com/neurondb/neuron-mcp) README · Tools · Setup | MCP protocol server with 600+ tools, middleware, enterprise features |
+| **NeuronDesktop** | [neuron-desktop repo](https://github.com/neurondb/neuron-desktop) README · API · Deployment | Unified web interface dashboard |
 
 ### Ecosystem Documentation
 
@@ -156,7 +156,7 @@ graph TB
 |----------|-------------|
 | [Ecosystem Overview](Docs/ecosystem/README.md) | How components work together |
 | [Integration Guide](Docs/ecosystem/integration.md) | Component integration patterns |
-| [Docker Guide](dockers/README.md) | Docker deployment for all services |
+| [Docker Guide](docker/README.md) | Docker deployment for all services |
 
 ---
 
@@ -167,15 +167,15 @@ graph TB
 | Guide | Platform | Use Case | Difficulty |
 |-------|----------|----------|------------|
 | [NeuronDB Installation](NeuronDB/INSTALL.md) | All platforms | Install PostgreSQL extension | ⭐⭐ Medium |
-| [Docker Installation](dockers/README.md) | Docker | Container deployment | ⭐ Easy |
+| [Docker Installation](docker/README.md) | Docker | Container deployment | ⭐ Easy |
 | [Quick Start](QUICKSTART.md) | Docker | Get everything running fast | ⭐ Easy |
 
 ### Setup Scripts
 
 | Script | Purpose | Location |
 |--------|---------|----------|
-| `scripts/neurondb-setup.sh` | Unified setup for all components | `scripts/` |
-| `NeuronAgent/scripts/neuronagent-verify.sh` | Comprehensive integration testing | `NeuronAgent/scripts/` |
+| `scripts/neurondb-setup.sh` | Unified setup for extension | `scripts/` |
+| neuron-agent repo | Integration testing (e.g. `scripts/neuronagent-verify.sh`) | [neuron-agent](https://github.com/neurondb/neuron-agent) |
 | Manual verification | Quick smoke tests | See [QUICKSTART.md](QUICKSTART.md) |
 
 ---
@@ -271,8 +271,8 @@ graph TB
 | Document | Description |
 |----------|-------------|
 | [NeuronDB Configuration](NeuronDB/docs/configuration.md) | Extension configuration options |
-| [NeuronAgent Config](NeuronAgent/config.yaml) | Agent runtime configuration |
-| [NeuronMCP Config](NeuronMCP/mcp-config.json.example) | MCP server configuration |
+| [NeuronAgent Config](https://github.com/neurondb/neuron-agent) | Agent runtime configuration (see neuron-agent repo) |
+| [NeuronMCP Config](https://github.com/neurondb/neuron-mcp) | MCP server configuration (see neuron-mcp repo) |
 
 ### Operations & Monitoring
 
@@ -300,27 +300,27 @@ graph TB
 
 | Document | Description |
 |----------|-------------|
-| [REST API Reference](NeuronAgent/docs/api.md) | Complete REST API documentation |
-| [OpenAPI Spec](NeuronAgent/openapi/openapi.yaml) | OpenAPI 3.0 specification |
-| [Architecture](NeuronAgent/docs/architecture.md) | System architecture |
+| [REST API Reference](https://github.com/neurondb/neuron-agent) | Complete REST API (neuron-agent repo) |
+| [OpenAPI Spec](https://github.com/neurondb/neuron-agent) | OpenAPI 3.0 (neuron-agent repo) |
+| [Architecture](https://github.com/neurondb/neuron-agent) | System architecture (neuron-agent repo) |
 
 ### NeuronMCP API
 
 | Document | Description |
 |----------|-------------|
-| [Tools Reference](NeuronMCP/REGISTERED_TOOLS.md) | Complete tool reference (600+ tools) |
-| [PostgreSQL Tools](NeuronMCP/POSTGRESQL_TOOLS.md) | PostgreSQL administration tools (27 tools) |
-| [Tool Catalog](NeuronMCP/docs/tool-resource-catalog.md) | Complete tool and resource catalog |
-| [Setup Guide](NeuronMCP/docs/neurondb-mcp-setup.md) | MCP server setup |
+| [Tools Reference](https://github.com/neurondb/neuron-mcp) | Complete tool reference (neuron-mcp repo) |
+| [PostgreSQL Tools](https://github.com/neurondb/neuron-mcp) | PostgreSQL administration tools (neuron-mcp repo) |
+| [Tool Catalog](https://github.com/neurondb/neuron-mcp) | Tool and resource catalog (neuron-mcp repo) |
+| [Setup Guide](https://github.com/neurondb/neuron-mcp) | MCP server setup (neuron-mcp repo) |
 
 ### NeuronDesktop API
 
 | Document | Description |
 |----------|-------------|
-| [API Reference](NeuronDesktop/docs/api.md) | Complete API documentation |
-| [Integration Guide](NeuronDesktop/docs/integration.md) | Component integration |
-| [NeuronAgent Usage](NeuronDesktop/docs/neuronagent_usage.md) | Using NeuronAgent in UI |
-| [NeuronMCP Setup](NeuronDesktop/docs/neuronmcp_setup.md) | MCP server setup in UI |
+| [API Reference](https://github.com/neurondb/neuron-desktop) | Complete API (neuron-desktop repo) |
+| [Integration Guide](https://github.com/neurondb/neuron-desktop) | Component integration (neuron-desktop repo) |
+| NeuronAgent Usage | Using NeuronAgent in UI (neuron-desktop repo) |
+| NeuronMCP Setup | MCP server setup in UI (neuron-desktop repo) |
 
 ---
 
@@ -330,17 +330,17 @@ graph TB
 
 | Document | Description |
 |----------|-------------|
-| [Docker Overview](dockers/README.md) | Docker deployment guide |
-| [NeuronDB Docker](dockers/neurondb/README.md) | Database container deployment |
-| [NeuronAgent Docker](dockers/neuronagent/README.md) | Agent runtime deployment |
-| [NeuronMCP Docker](dockers/neuronmcp/README.md) | MCP server deployment |
+| [Docker Overview](docker/README.md) | Docker deployment guide |
+| [NeuronDB Docker](docker/neurondb/README.md) | Database container deployment |
+| [NeuronAgent Docker](https://github.com/neurondb/neuron-agent) | Agent runtime (neuron-agent repo) |
+| [NeuronMCP Docker](https://github.com/neurondb/neuron-mcp) | MCP server (neuron-mcp repo) |
 
 ### Production Deployment
 
 | Document | Description |
 |----------|-------------|
-| [NeuronAgent Deployment](NeuronAgent/docs/deployment.md) | Production deployment guide |
-| [NeuronDesktop Deployment](NeuronDesktop/docs/deployment.md) | Web interface deployment |
+| [NeuronAgent Deployment](https://github.com/neurondb/neuron-agent) | Production deployment (neuron-agent repo) |
+| [NeuronDesktop Deployment](https://github.com/neurondb/neuron-desktop) | Web interface deployment (neuron-desktop repo) |
 | [Security Policy](SECURITY.md) | Security best practices |
 
 ---
@@ -361,8 +361,8 @@ graph TB
 | Component | Examples Location | Count |
 |-----------|------------------|-------|
 | **NeuronDB** | [NeuronDB/demo/](NeuronDB/demo/) | 60+ SQL examples |
-| **NeuronAgent** | [NeuronAgent/examples/](NeuronAgent/examples/) | 38 files |
-| **NeuronMCP** | [NeuronMCP/docs/examples/](NeuronMCP/docs/examples/) | Multiple examples |
+| **NeuronAgent** | [neuron-agent examples](https://github.com/neurondb/neuron-agent) | 38 files |
+| **NeuronMCP** | [neuron-mcp examples](https://github.com/neurondb/neuron-mcp) | Multiple examples |
 
 ---
 
@@ -384,13 +384,13 @@ graph TB
 |----------|-------------|
 | [Compatibility Matrix](COMPATIBILITY.md) | Platform and version compatibility |
 | [What's New](NeuronDB/docs/whats-new.md) | Latest features and changes |
-| [Technology Roadmap](NeuronDB/docs/TECHNOLOGY_ROADMAP.md) | Future plans |
+| [Technology Roadmap](Docs/technology_roadmap.md) | Future plans |
 
 ### Testing
 
 | Document | Description |
 |----------|-------------|
-| [Testing Guide](NeuronAgent/TESTING.md) | Testing strategy |
+| [Testing Guide](https://github.com/neurondb/neuron-agent) | Testing strategy (neuron-agent repo) |
 | [Docker Test Results](dockers/TEST_RESULTS.md) | Docker test results |
 
 ---
@@ -441,27 +441,27 @@ graph TB
 <details>
 <summary><strong>🤖 Build AI Agents</strong></summary>
 
-- [ ] Create agents → [NeuronAgent README](NeuronAgent/README.md)
-- [ ] Use REST API → [API Reference](NeuronAgent/docs/api.md)
-- [ ] Deploy agents → [Deployment Guide](NeuronAgent/docs/deployment.md)
+- [ ] Create agents → [neuron-agent README](https://github.com/neurondb/neuron-agent)
+- [ ] Use REST API → API Reference (neuron-agent repo)
+- [ ] Deploy agents → Deployment Guide (neuron-agent repo)
 
 </details>
 
 <details>
 <summary><strong>🔌 Integrate with MCP</strong></summary>
 
-- [ ] Setup MCP server → [NeuronMCP README](NeuronMCP/README.md)
-- [ ] Use with Claude → [Setup Guide](NeuronMCP/docs/neurondb-mcp-setup.md)
-- [ ] Explore tools → [Tools Reference](NeuronMCP/REGISTERED_TOOLS.md)
+- [ ] Setup MCP server → [neuron-mcp README](https://github.com/neurondb/neuron-mcp)
+- [ ] Use with Claude → Setup Guide (neuron-mcp repo)
+- [ ] Explore tools → Tools Reference (neuron-mcp repo)
 
 </details>
 
 <details>
 <summary><strong>🖥️ Use Web Interface</strong></summary>
 
-- [ ] Setup dashboard → [NeuronDesktop README](NeuronDesktop/README.md)
-- [ ] Integrate components → [Integration Guide](NeuronDesktop/docs/integration.md)
-- [ ] Deploy production → [Deployment Guide](NeuronDesktop/docs/deployment.md)
+- [ ] Setup dashboard → [neuron-desktop README](https://github.com/neurondb/neuron-desktop)
+- [ ] Integrate components → Integration Guide (neuron-desktop repo)
+- [ ] Deploy production → Deployment Guide (neuron-desktop repo)
 
 </details>
 
@@ -469,7 +469,7 @@ graph TB
 <summary><strong>🐳 Deploy with Docker</strong></summary>
 
 - [ ] Quick start → [QUICKSTART.md](QUICKSTART.md)
-- [ ] Docker guide → [Docker README](dockers/README.md)
+- [ ] Docker guide → [Docker README](docker/README.md)
 - [ ] Component-specific → Each component's `docker/` directory
 
 </details>
@@ -478,7 +478,7 @@ graph TB
 <summary><strong>💻 Develop & Contribute</strong></summary>
 
 - [ ] Contributing → [CONTRIBUTING.md](CONTRIBUTING.md)
-- [ ] Testing → [Testing Guide](NeuronAgent/TESTING.md)
+- [ ] Testing → Testing Guide (neuron-agent repo)
 - [ ] Security → [SECURITY.md](SECURITY.md)
 
 </details>
@@ -507,7 +507,7 @@ graph TB
 | Category | Count | Location |
 |----------|-------|----------|
 | **Documentation Files** | 60+ | NeuronDB/docs/ |
-| **Code Examples** | 38 | NeuronAgent/examples/ |
+| **Code Examples** | 38 | neuron-agent repo examples |
 | **Deployment Guides** | 5 | Across components |
 | **API References** | 4 | SQL, REST, MCP, Web UI |
 

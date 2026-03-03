@@ -1,0 +1,4 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/011_pgvector_cast.sql:76: NOTICE:  NULL in array rejected: array must not contain nulls
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/011_pgvector_cast.sql:76: NOTICE:  NaN in array handled
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/011_pgvector_cast.sql:76: NOTICE:  Infinity in array handled
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/011_pgvector_cast.sql:76: NOTICE:  Empty array correctly rejected: array must be one-dimensional

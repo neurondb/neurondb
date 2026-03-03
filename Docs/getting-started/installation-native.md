@@ -123,9 +123,9 @@ make build-api
 
 ```bash
 # Copy binaries to system path
-sudo cp NeuronMCP/bin/neurondb-mcp /usr/local/bin/
-sudo cp NeuronAgent/bin/neuronagent /usr/local/bin/
-sudo cp NeuronDesktop/bin/neurondesktop /usr/local/bin/
+sudo cp /path/to/neuron-mcp/bin/neurondb-mcp /usr/local/bin/
+sudo cp /path/to/neuron-agent/bin/neuronagent /usr/local/bin/
+sudo cp /path/to/neuron-desktop/bin/neurondesktop /usr/local/bin/
 
 # Make executable
 sudo chmod +x /usr/local/bin/neurondb-mcp
@@ -230,8 +230,8 @@ See `scripts/config/neurondesktop.env.example` for complete list.
 
 Some components also support configuration files:
 
-- **NeuronMCP**: `mcp-config.json` (optional, see `NeuronMCP/mcp-config.json.example`)
-- **NeuronAgent**: `config.yaml` (optional, see `NeuronAgent/configs/config.yaml.example`)
+- **NeuronMCP**: `mcp-config.json` (optional, see neuron-mcp repo)
+- **NeuronAgent**: `config.yaml` (optional, see neuron-agent repo)
 
 Environment variables override configuration file values.
 
@@ -381,9 +381,9 @@ sudo rm -rf /etc/neurondb
 ## Next Steps
 
 - [Service Management Guide](installation-services.md) - Running components as services
-- [NeuronMCP README](../../NeuronMCP/README.md) - NeuronMCP documentation
-- [NeuronAgent README](../../NeuronAgent/README.md) - NeuronAgent documentation
-- [NeuronDesktop README](../../NeuronDesktop/README.md) - NeuronDesktop documentation
+- [NeuronMCP README](https://github.com/neurondb/neuron-mcp)
+- [NeuronAgent README](https://github.com/neurondb/neuron-agent)
+- [NeuronDesktop README](https://github.com/neurondb/neuron-desktop)
 - [Configuration Examples](../reference/configuration.md) - Configuration examples and best practices
 
 ## Related Documentation

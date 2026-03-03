@@ -1,6 +1,6 @@
-# Metering Collection (neurondb-cloud)
+# Metering Collection (neuron-cloud)
 
-This document describes how to implement metering collection for **neurondb-cloud** so that usage can be tracked per tenant and used for billing and limits.
+This document describes how to implement metering collection for **neuron-cloud** so that usage can be tracked per tenant and used for billing and limits.
 
 ## Goals
 
@@ -52,4 +52,4 @@ Implement a small **metering collector** in `services/metering` (or similar) tha
 - `METERING_WINDOW_MINUTES` (e.g. 60).
 - `METERING_TENANT_METRICS_URL` or per-tenant config for where to pull metrics.
 
-When the **neurondb-cloud** repo is present, implement the above in the control plane and run the metering collector as a cron or long-running service.
+When the **neuron-cloud** repo is present, implement the above in the control plane and run the metering collector as a cron or long-running service.

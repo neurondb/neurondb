@@ -1,0 +1,2 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/062_pgvector_hnsw_halfvec.sql:46: NOTICE:  table "t" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/062_pgvector_hnsw_halfvec.sql:64: NOTICE:  table "t" does not exist, skipping

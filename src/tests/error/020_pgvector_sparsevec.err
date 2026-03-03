@@ -1,0 +1,1 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/020_pgvector_sparsevec.sql:34: NOTICE:  Empty sparsevec format accepted

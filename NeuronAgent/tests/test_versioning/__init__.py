@@ -1,2 +1,0 @@
-"""Versioning & history tests."""
-

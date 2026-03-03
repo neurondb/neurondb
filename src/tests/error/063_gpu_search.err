@@ -1,0 +1,1 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/063_gpu_search.sql:81: NOTICE:  Skipping GPU search test: running in CPU compute mode

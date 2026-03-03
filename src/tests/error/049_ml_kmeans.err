@@ -1,0 +1,5 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/049_ml_kmeans.sql:38: NOTICE:  relation "test_settings" already exists, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/049_ml_kmeans.sql:69: NOTICE:  relation "test_metrics" already exists, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/049_ml_kmeans.sql:105: NOTICE:  table "kmeans_model" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/049_ml_kmeans.sql:142: NOTICE:  table "kmeans_metrics" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/049_ml_kmeans.sql:339: NOTICE:  CPU mode: GPU information skipped

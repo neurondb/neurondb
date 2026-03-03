@@ -538,9 +538,9 @@ docker network rm neurondb-network 2>/dev/null || true
 |----------|-------------|
 | **[Docker Deployment](docker.md)** | Docker deployment guide |
 | **[Docker Unified Guide](docker-unified.md)** | Unified Docker orchestration |
-| **[NeuronDB Docker Guide](../../dockers/neurondb/README.md)** | NeuronDB-specific Docker info |
-| **[NeuronAgent Docker Guide](../../dockers/neuronagent/README.md)** | NeuronAgent-specific Docker info |
-| **[NeuronMCP Docker Guide](../../dockers/neuronmcp/README.md)** | NeuronMCP-specific Docker info |
+**[NeuronDB Docker Guide](../../docker/neurondb/README.md)** | NeuronDB-specific Docker info |
+| **[NeuronAgent Docker Guide](../../docker/neuronagent/README.md)** | NeuronAgent-specific Docker info |
+| **[NeuronMCP Docker Guide](../../docker/neuronmcp/README.md)** | NeuronMCP-specific Docker info |
 | **[Quick Start Guide](../../QUICKSTART.md)** | Quick start instructions |
 
 ---

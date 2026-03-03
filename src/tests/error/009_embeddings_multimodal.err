@@ -1,0 +1,2 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/009_embeddings_multimodal.sql:51: NOTICE:  Image embedding test skipped (API may not support image embeddings): compressed pglz data is corrupt
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/009_embeddings_multimodal.sql:71: NOTICE:  Multimodal embedding test skipped (API may not support multimodal embeddings): compressed pglz data is corrupt

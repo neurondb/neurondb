@@ -1,0 +1,13 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/012_pgvector_hnsw_vector.sql:45: NOTICE:  table "t" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/012_pgvector_hnsw_vector.sql:63: NOTICE:  table "t" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/012_pgvector_hnsw_vector.sql:103: NOTICE:  table "t" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/012_pgvector_hnsw_vector.sql:115: WARNING:  problem in alloc set SPI Exec: detected write past chunk end in block 0x5b8bb743f3b8, chunk 0x5b8bb7440b80
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/012_pgvector_hnsw_vector.sql:128: WARNING:  problem in alloc set PortalContext: req size > alloc size for chunk 0x5b8bb7435908 in block 0x5b8bb74352d0
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/012_pgvector_hnsw_vector.sql:128: WARNING:  problem in alloc set PortalContext: req size > alloc size for chunk 0x5b8bb7436000 in block 0x5b8bb74352d0
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/012_pgvector_hnsw_vector.sql:128: WARNING:  problem in alloc set PortalContext: req size > alloc size for chunk 0x5b8bb7436020 in block 0x5b8bb74352d0
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/012_pgvector_hnsw_vector.sql:128: WARNING:  problem in alloc set PortalContext: detected write past chunk end in block 0x5b8bb73f3db0, chunk 0x5b8bb73f4410
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/012_pgvector_hnsw_vector.sql:128: WARNING:  problem in alloc set PortalContext: req size > alloc size for chunk 0x5b8bb7435908 in block 0x5b8bb74352d0
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/012_pgvector_hnsw_vector.sql:128: WARNING:  problem in alloc set PortalContext: req size > alloc size for chunk 0x5b8bb7436000 in block 0x5b8bb74352d0
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/012_pgvector_hnsw_vector.sql:128: WARNING:  problem in alloc set PortalContext: req size > alloc size for chunk 0x5b8bb7436020 in block 0x5b8bb74352d0
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/012_pgvector_hnsw_vector.sql:128: WARNING:  problem in alloc set PortalContext: detected write past chunk end in block 0x5b8bb73f3db0, chunk 0x5b8bb73f4410
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/012_pgvector_hnsw_vector.sql:166: NOTICE:  table "t" does not exist, skipping

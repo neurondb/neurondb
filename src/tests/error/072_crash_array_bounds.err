@@ -1,0 +1,1 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/072_crash_array_bounds.sql:43: WARNING:  there is no transaction in progress

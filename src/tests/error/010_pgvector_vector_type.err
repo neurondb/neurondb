@@ -1,0 +1,10 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/010_pgvector_vector_type.sql:63: NOTICE:  Non-numeric value correctly rejected: invalid input syntax for type vector: "[hello,1]"
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/010_pgvector_vector_type.sql:63: NOTICE:  NaN value rejected: vector values cannot be NaN or Infinity
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/010_pgvector_vector_type.sql:63: NOTICE:  Infinity value rejected: vector values cannot be NaN or Infinity
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/010_pgvector_vector_type.sql:63: NOTICE:  -Infinity value rejected: vector values cannot be NaN or Infinity
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/010_pgvector_vector_type.sql:100: WARNING:  Incomplete vector syntax accepted
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/010_pgvector_vector_type.sql:100: WARNING:  Trailing characters accepted
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/010_pgvector_vector_type.sql:100: WARNING:  Missing brackets accepted
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/010_pgvector_vector_type.sql:100: NOTICE:  Empty vector correctly rejected: vector must have at least 1 dimension
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/010_pgvector_vector_type.sql:118: NOTICE:  Dimension mismatch handled (may coerce or error)
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/010_pgvector_vector_type.sql:206: NOTICE:  Zero vector normalization handled

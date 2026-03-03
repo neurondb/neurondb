@@ -1,0 +1,4 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/core/006_scan.sql:12: NOTICE:  drop cascades to view test_train_view
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/core/006_scan.sql:17: NOTICE:  relation "test_train" already exists, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/core/006_scan.sql:35: NOTICE:  table "scan_test_table" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/core/006_scan.sql:87: NOTICE:  table "scan_rls_test" does not exist, skipping

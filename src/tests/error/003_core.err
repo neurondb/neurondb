@@ -1,0 +1,3 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/core/003_core.sql:30: ERROR:  type "vector" does not exist
+LINE 5:  (vector '[1,2,3]'::vector = vector '[1,2,3]'::vector) AS eq...
+                            ^

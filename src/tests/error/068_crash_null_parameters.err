@@ -1,0 +1,16 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/068_crash_null_parameters.sql:18: NOTICE:  Correctly rejected NULL model_id: neurondb: evaluate_linear_regression_by_model_id: model_id is required
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/068_crash_null_parameters.sql:29: NOTICE:  Correctly rejected NULL table_name: neurondb: evaluate_linear_regression_by_model_id: table_name, feature_col, and label_col are required
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/068_crash_null_parameters.sql:40: NOTICE:  Correctly rejected NULL feature_col: neurondb: evaluate_linear_regression_by_model_id: table_name, feature_col, and label_col are required
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/068_crash_null_parameters.sql:50: ERROR:  function predict_linear_regression_by_model_id(unknown, real[]) does not exist
+LINE 2: SELECT predict_linear_regression_by_model_id(NULL, ARRAY[1.0...
+               ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/068_crash_null_parameters.sql:55: ERROR:  function predict_linear_regression_by_model_id(integer, unknown) does not exist
+LINE 2: SELECT predict_linear_regression_by_model_id(1, NULL);
+               ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/068_crash_null_parameters.sql:60: ERROR:  function train_linear_regression(unknown, unknown, unknown, unknown) does not exist
+LINE 2: SELECT train_linear_regression(NULL, 'test_table', 'features...
+               ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/068_crash_null_parameters.sql:68: WARNING:  there is no transaction in progress

@@ -1,0 +1,3 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/core/005_storage.sql:12: NOTICE:  drop cascades to view test_train_view
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/core/005_storage.sql:17: NOTICE:  relation "test_train" already exists, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/core/005_storage.sql:35: NOTICE:  table "storage_test_table" does not exist, skipping

@@ -1,0 +1,2 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/ml/021_automl.sql:42: WARNING:  CPU mode expected but neurondb.compute_mode = 0 (expected: 0)
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/ml/021_automl.sql:48: NOTICE:  table "automl_model_temp" does not exist, skipping

@@ -1,13 +1,72 @@
 # Backup and Restore Guide
 
-Complete guide for backing up and restoring NeuronDB.
+Complete guide for backing up and restoring NeuronDB. On Kubernetes with **CloudNativePG (CNPG)**, use the chart’s CNPG backup and ScheduledBackup; otherwise use the legacy CronJob or manual procedures below.
 
-## Quick Start
+## CloudNativePG (CNPG) Backup (Kubernetes, recommended)
+
+When the Helm chart deploys PostgreSQL via CNPG, backups are configured through the Cluster and optional ScheduledBackup resources.
+
+### Enable CNPG Backup (Barman object store)
+
+Configure WAL archiving and full backups to S3, GCS, or Azure:
+
+```yaml
+neurondb:
+  cnpg:
+    backup:
+      enabled: true
+      barmanObjectStore:
+        destinationPath: "s3://my-bucket/neurondb-backups/"
+        s3Credentials:
+          accessKeyId:    { name: "backup-credentials", key: "ACCESS_KEY_ID" }
+          secretAccessKey: { name: "backup-credentials", key: "ACCESS_SECRET_KEY" }
+          region: "us-east-1"
+        wal:
+          compression: "gzip"
+        data:
+          compression: "gzip"
+          jobs: 2
+      retentionPolicy: "30d"
+    scheduledBackup:
+      enabled: true
+      schedule: "0 0 2 * * *"   # Daily at 02:00
+      target: "prefer-standby"
+```
+
+Create the secret referenced above:
+
+```bash
+kubectl create secret generic backup-credentials -n neurondb \
+  --from-literal=ACCESS_KEY_ID="<key>" \
+  --from-literal=ACCESS_SECRET_KEY="<secret>"
+```
+
+For GCS or Azure, use `googleCredentials` or `azureCredentials` in `barmanObjectStore` (see chart `values.yaml`).
+
+### On-demand backup (CNPG)
+
+```bash
+kubectl cnpg backup neurondb-neurondb -n neurondb --backup-name manual-$(date +%Y%m%d-%H%M)
+kubectl get backup -n neurondb
+```
+
+### Point-in-time recovery (PITR) with CNPG
+
+Create a new Cluster that recovers from a backup or another cluster. Set `neurondb.cnpg.bootstrap.method: recovery`, `neurondb.cnpg.bootstrap.recovery.enabled: true`, `bootstrap.recovery.source` to the backup name (or external cluster), and optionally `recoveryTarget.targetTime` (e.g. `"2025-02-26T12:00:00Z"`). Deploy the chart (or a second release) with these values; after recovery, point applications to the new Cluster’s `-rw` service.
+
+See [Kubernetes/Helm](kubernetes-helm.md#cloudnativepg-cnpg) and the chart’s `values.yaml` for all CNPG backup options (volume snapshot, retention, etc.).
+
+---
+
+## Quick Start (legacy / non-CNPG)
 
 ### Backup
 
+When using **CNPG**, enable backup as in [CloudNativePG (CNPG) Backup](#cloudnativepg-cnpg-backup-kubernetes-recommended) above.
+
+For **legacy** (CronJob-style) backup with S3:
+
 ```bash
-# Enable backup with S3
 helm upgrade neurondb ./helm/neurondb \
   --set backup.enabled=true \
   --set backup.s3.enabled=true \
@@ -97,12 +156,21 @@ backup:
 
 ## Manual Backup
 
-### Using pg_dump
+### Using pg_dump (CNPG or any deployment)
+
+```bash
+# Get primary pod name (CNPG)
+POD=$(kubectl get pod -n neurondb -l cnpg.io/instanceRole=primary -o jsonpath='{.items[0].metadata.name}')
+kubectl exec -n neurondb "$POD" -c postgres -- \
+  pg_dump -U neurondb -d neurondb -Fc -f /tmp/backup.dump
+kubectl cp neurondb/"$POD":/tmp/backup.dump ./backup.dump -c postgres
+```
+
+For non-CNPG (StatefulSet) deployment:
 
 ```bash
 kubectl exec -it statefulset/neurondb-neurondb -n neurondb -- \
   pg_dump -U neurondb -d neurondb -Fc -f /tmp/backup.dump
-
 kubectl cp neurondb/neurondb-neurondb-0:/tmp/backup.dump ./backup.dump
 ```
 
@@ -126,8 +194,11 @@ kubectl scale deployment neurondb-neuronmcp --replicas=0 -n neurondb
 
 ### Step 2: Restore Database
 
+**CNPG:** Use a new Cluster with `bootstrap.recovery` as described in [Point-in-time recovery (PITR) with CNPG](#point-in-time-recovery-pitr-with-cnpg) above.
+
+**Legacy:** Enable restore in values:
+
 ```bash
-# Enable restore in values
 helm upgrade neurondb ./helm/neurondb \
   --set backup.restore.enabled=true \
   --set backup.restore.backupFile=neurondb-backup-20240101-020000.dump \
@@ -146,9 +217,14 @@ kubectl logs -f job/neurondb-restore-<hash> -n neurondb
 ### Step 4: Verify Restore
 
 ```bash
-# Check database
-kubectl exec -it statefulset/neurondb-neurondb -n neurondb -- \
+# CNPG: use primary pod
+POD=$(kubectl get pod -n neurondb -l cnpg.io/instanceRole=primary -o jsonpath='{.items[0].metadata.name}')
+kubectl exec -n neurondb "$POD" -c postgres -- \
   psql -U neurondb -d neurondb -c "SELECT COUNT(*) FROM neurondb_agent.schema_migrations;"
+
+# Legacy StatefulSet:
+# kubectl exec -it statefulset/neurondb-neurondb -n neurondb -- \
+#   psql -U neurondb -d neurondb -c "SELECT COUNT(*) FROM neurondb_agent.schema_migrations;"
 ```
 
 ### Step 5: Restart Services
@@ -160,7 +236,9 @@ kubectl scale deployment neurondb-neuronmcp --replicas=1 -n neurondb
 
 ## Point-in-Time Recovery
 
-For point-in-time recovery, ensure WAL archiving is enabled:
+**CNPG:** See [Point-in-time recovery (PITR) with CNPG](#point-in-time-recovery-pitr-with-cnpg) above.
+
+**Legacy / self-managed:** For point-in-time recovery, ensure WAL archiving is enabled:
 
 ```yaml
 neurondb:

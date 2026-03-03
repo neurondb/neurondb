@@ -1,0 +1,6 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/028_vector_ivfflat_halfvec.sql:24: NOTICE:  table "t" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/028_vector_ivfflat_halfvec.sql:27: WARNING:  ivf: reducing nlists from 100 to 10 (not enough sample vectors)
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/028_vector_ivfflat_halfvec.sql:45: NOTICE:  table "t" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/028_vector_ivfflat_halfvec.sql:48: WARNING:  ivf: reducing nlists from 100 to 10 (not enough sample vectors)
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/028_vector_ivfflat_halfvec.sql:63: NOTICE:  table "t" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/028_vector_ivfflat_halfvec.sql:66: WARNING:  ivf: reducing nlists from 100 to 10 (not enough sample vectors)

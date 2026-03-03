@@ -1,0 +1,3 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/017_pgvector_ivfflat_halfvec.sql:24: NOTICE:  table "t" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/017_pgvector_ivfflat_halfvec.sql:45: NOTICE:  table "t" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/017_pgvector_ivfflat_halfvec.sql:63: NOTICE:  table "t" does not exist, skipping

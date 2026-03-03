@@ -1,0 +1,2 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/other/003_opq_pq.sql:4: NOTICE:  table "opq_pq_test" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/other/003_opq_pq.sql:48: NOTICE:  OPQ and PQ training completed successfully

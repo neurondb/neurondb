@@ -1,0 +1,2 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/001_core_index.sql:12: NOTICE:  extension "neurondb" already exists, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/001_core_index.sql:15: NOTICE:  table "test_train" does not exist, skipping

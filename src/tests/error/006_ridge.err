@@ -1,0 +1,4 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/ml/006_ridge.sql:119: ERROR:  function train_ridge_regression(unknown, unknown, unknown, numeric) does not exist
+LINE 3:  train_ridge_regression(
+         ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.

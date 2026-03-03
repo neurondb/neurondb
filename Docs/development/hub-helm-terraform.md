@@ -1,18 +1,18 @@
 # Hub Helm Chart and Terraform
 
-## Helm chart (in-repo)
+## Helm chart (neuron-hub repo)
 
-A minimal Helm chart for **neurondb-hub** is provided in this repo under `helm/neurondb-hub/`. It includes:
+A minimal Helm chart for **neuron-hub** is provided in the **neuron-hub** repo under `helm/`. It includes:
 
 - **Backend**: Deployment and Service for the Hub Go API (port 8081).
 - **Values**: `backend`, `gateway`, `frontend`, and `hubDb` sections in `values.yaml`.
 
-When building images from the neurondb-hub repo, push them to your registry and set in values:
+When building images from the neuron-hub repo, push them to your registry and set in values:
 
 ```yaml
 backend:
   image:
-    repository: your-registry/neurondb-hub-backend
+    repository: your-registry/neuron-hub-backend
     tag: "1.0.0"
 ```
 
@@ -20,10 +20,10 @@ Secrets (JWT_SECRET, DATABASE_URL, NEURONAGENT_ENDPOINT, etc.) should be provide
 
 ### Install
 
-From the neurondb repo root:
+From the **neuron-hub** repo root (or use the chart from that repo):
 
 ```bash
-helm install neurondb-hub ./helm/neurondb-hub --namespace neurondb-hub --create-namespace
+helm install neuron-hub ./helm --namespace neuron-hub --create-namespace
 ```
 
 To add gateway and frontend deployments, extend the chart using the same pattern as `deployment-backend.yaml` and `service-backend.yaml`.
@@ -45,11 +45,11 @@ terraform {
 }
 
 resource "helm_release" "neurondb_hub" {
-  name       = "neurondb-hub"
+  name       = "neuron-hub"
   repository = "oci://your-registry/charts"  # or path to chart
-  chart      = "neurondb-hub"
+  chart      = "neuron-hub"
   version    = "1.0.0-devel"
-  namespace  = "neurondb-hub"
+  namespace  = "neuron-hub"
 
   set_sensitive {
     name  = "hubDb.auth.password"
@@ -59,8 +59,8 @@ resource "helm_release" "neurondb_hub" {
 }
 ```
 
-2. If the chart is local, use `chart = "./helm/neurondb-hub"` (path relative to the Terraform module).
+2. If the chart is local (from neuron-hub repo), use `chart = "./helm"` (path relative to the Terraform module or neuron-hub clone).
 
 3. For production, add a Kubernetes namespace resource and wire Hub to the same cluster as NeuronAgent so `NEURONAGENT_ENDPOINT` points to the NeuronAgent service.
 
-This gives a single place (Terraform) to manage Hub deployment and upgrades when the neurondb-hub chart is used from this repo or copied into the Hub repo.
+This gives a single place (Terraform) to manage Hub deployment and upgrades when using the neuron-hub chart from the neuron-hub repo.

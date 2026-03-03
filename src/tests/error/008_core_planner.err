@@ -1,0 +1,4 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/008_core_planner.sql:12: NOTICE:  drop cascades to view test_train_view
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/008_core_planner.sql:17: NOTICE:  relation "test_train" already exists, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/008_core_planner.sql:36: NOTICE:  table "planner_test_table" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/008_core_planner.sql:38: NOTICE:  sequence "planner_test_table_id_seq" does not exist, skipping

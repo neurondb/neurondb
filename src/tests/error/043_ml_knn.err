@@ -1,0 +1,6 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/043_ml_knn.sql:38: NOTICE:  relation "test_settings" already exists, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/043_ml_knn.sql:69: NOTICE:  relation "test_metrics" already exists, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/043_ml_knn.sql:105: NOTICE:  table "gpu_model_temp" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/043_ml_knn.sql:116: WARNING:  neurondb:train: CPU training registered model_id 8 but model not immediately visible in catalog (this may be due to SPI session isolation)
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/043_ml_knn.sql:152: NOTICE:  table "gpu_metrics_temp" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/043_ml_knn.sql:432: NOTICE:  CPU mode: GPU information skipped

@@ -1,0 +1,4 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/ml/003_rf.sql:125: ERROR:  function neurondb.train(unknown, unknown, unknown, unknown, text[], jsonb) does not exist
+LINE 3:  neurondb.train(
+         ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.

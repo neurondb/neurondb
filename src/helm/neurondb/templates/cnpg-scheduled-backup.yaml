@@ -1,0 +1,19 @@
+{{- if and .Values.neurondb.cnpg.scheduledBackup.enabled (not .Values.neurondb.postgresql.external.enabled) }}
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: {{ include "neurondb.cnpgClusterName" . }}-scheduled
+  labels:
+    {{- include "neurondb.neurondb.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.neurondb.cnpg.scheduledBackup.schedule | quote }}
+  backupOwnerReference: {{ .Values.neurondb.cnpg.scheduledBackup.backupOwnerReference | default "self" }}
+  immediate: {{ .Values.neurondb.cnpg.scheduledBackup.immediate | default true }}
+  suspend: {{ .Values.neurondb.cnpg.scheduledBackup.suspend | default false }}
+  target: {{ .Values.neurondb.cnpg.scheduledBackup.target | default "prefer-standby" }}
+  cluster:
+    name: {{ include "neurondb.cnpgClusterName" . }}
+  {{- if and .Values.neurondb.cnpg.backup.enabled .Values.neurondb.cnpg.backup.volumeSnapshot.enabled }}
+  method: volumeSnapshot
+  {{- end }}
+{{- end }}

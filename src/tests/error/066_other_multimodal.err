@@ -1,0 +1,2 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/066_other_multimodal.sql:19: ERROR:  API key is required for HuggingFace but was not provided
+HINT:  Set neurondb.llm_api_key configuration parameter

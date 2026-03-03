@@ -179,10 +179,10 @@ Each component uses environment variables for configuration. See component-speci
 
 | Component | Documentation | Key Configuration |
 |-----------|---------------|-------------------|
-| **NeuronDB** | [NeuronDB Docker](../../dockers/neurondb/README.md) | `POSTGRES_PASSWORD`, `POSTGRES_PORT` |
-| **NeuronAgent** | [NeuronAgent Docker](../../dockers/neuronagent/README.md) | `NEURONDB_URL`, `API_KEY` |
-| **NeuronMCP** | [NeuronMCP Docker](../../dockers/neuronmcp/README.md) | `NEURONDB_URL`, `MCP_CONFIG` |
-| **NeuronDesktop** | [NeuronDesktop README](../../NeuronDesktop/README.md) | `API_URL`, `NEURONDB_URL` |
+| **NeuronDB** | [NeuronDB Docker](../../docker/neurondb/README.md) | `POSTGRES_PASSWORD`, `POSTGRES_PORT` |
+| **NeuronAgent** | [NeuronAgent Docker](../../docker/neuronagent/README.md) | `NEURONDB_URL`, `API_KEY` |
+| **NeuronMCP** | [NeuronMCP Docker](../../docker/neuronmcp/README.md) | `NEURONDB_URL`, `MCP_CONFIG` |
+| **NeuronDesktop** | [neuron-desktop repo](https://github.com/neurondb/neuron-desktop) | `API_URL`, `NEURONDB_URL` |
 
 > [!TIP]
 > Use `.env` file in the repository root for environment variables. See [`env.example`](../../env.example) for all available options.
@@ -554,9 +554,9 @@ docker exec neurondesk-api pg_dump -U neurondesk neurondesk > neurondesk_backup_
 | Document | Description |
 |----------|-------------|
 | **[Unified Docker Guide](docker-unified.md)** | Complete unified orchestration guide |
-| **[NeuronDB Docker](../../dockers/neurondb/README.md)** | NeuronDB-specific Docker guide |
-| **[NeuronAgent Docker](../../dockers/neuronagent/README.md)** | NeuronAgent Docker guide |
-| **[NeuronMCP Docker](../../dockers/neuronmcp/README.md)** | NeuronMCP Docker guide |
+| **[NeuronDB Docker](../../docker/neurondb/README.md)** | NeuronDB-specific Docker guide |
+| **[NeuronAgent Docker](../../docker/neuronagent/README.md)** | NeuronAgent Docker guide |
+| **[NeuronMCP Docker](../../docker/neuronmcp/README.md)** | NeuronMCP Docker guide |
 | **[Ecosystem Integration](../ecosystem/integration.md)** | Component integration guide |
 | **[Backup and Restore](backup-restore.md)** | Backup and restore procedures |
 | **[Troubleshooting](../operations/troubleshooting.md)** | Comprehensive troubleshooting guide |

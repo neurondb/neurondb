@@ -1,0 +1,11 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/022_pgvector_copy.sql:22: NOTICE:  table "t" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/022_pgvector_copy.sql:23: NOTICE:  table "t2" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/022_pgvector_copy.sql:39: NOTICE:  Vector COPY test completed
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/022_pgvector_copy.sql:52: NOTICE:  table "t" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/022_pgvector_copy.sql:53: NOTICE:  table "t2" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/022_pgvector_copy.sql:68: NOTICE:  Halfvec COPY test completed
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/022_pgvector_copy.sql:82: NOTICE:  t2 has 4 rows
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/022_pgvector_copy.sql:94: NOTICE:  table "t" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/022_pgvector_copy.sql:95: NOTICE:  table "t2" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/022_pgvector_copy.sql:110: NOTICE:  Sparsevec COPY test completed
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/022_pgvector_copy.sql:124: NOTICE:  t2 has 4 rows

@@ -4,8 +4,8 @@ NeuronDesktop is a local management UI and API.
 
 ## Where to look in the code
 
-- API service: `NeuronDesktop/api/`
-- Frontend: `NeuronDesktop/frontend/`
+- API service: **neuron-desktop** repo `api/`
+- Frontend: **neuron-desktop** repo `frontend/`
 
 ## Docker
 

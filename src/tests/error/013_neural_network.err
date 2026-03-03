@@ -1,0 +1,4 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/ml/013_neural_network.sql:18: server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/ml/013_neural_network.sql:18: error: connection to server was lost

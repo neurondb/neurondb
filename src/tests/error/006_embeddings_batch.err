@@ -1,0 +1,1 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/006_embeddings_batch.sql:51: WARNING:  neurondb: ndb_llm_route_embed_batch called with NULL or invalid parameters

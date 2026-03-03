@@ -1,0 +1,5 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/gpu/002_gpu_search.sql:5: NOTICE:  table "gpu_search_test" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/gpu/002_gpu_search.sql:11: server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/gpu/002_gpu_search.sql:11: error: connection to server was lost

@@ -1,0 +1,4 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/011_core_metrics.sql:23: ERROR:  function pg_stat_neurondb() does not exist
+LINE 4: SELECT * FROM pg_stat_neurondb();
+                      ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.

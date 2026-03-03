@@ -1,0 +1,5 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/041_ml_lasso.sql:38: NOTICE:  relation "test_settings" already exists, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/041_ml_lasso.sql:69: NOTICE:  relation "test_metrics" already exists, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/041_ml_lasso.sql:105: NOTICE:  table "gpu_model_temp" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/041_ml_lasso.sql:151: NOTICE:  table "gpu_metrics_temp" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/041_ml_lasso.sql:436: NOTICE:  CPU mode: GPU information skipped

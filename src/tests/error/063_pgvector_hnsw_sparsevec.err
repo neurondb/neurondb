@@ -1,0 +1,2 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/063_pgvector_hnsw_sparsevec.sql:23: NOTICE:  table "t" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/063_pgvector_hnsw_sparsevec.sql:31: ERROR:  sparse vector dimensions must match: 768 vs 3

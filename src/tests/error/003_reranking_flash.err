@@ -1,0 +1,1 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/rag/003_reranking_flash.sql:41: WARNING:  rerank_flash: Flash Attention integration requires model loading

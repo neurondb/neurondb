@@ -1,0 +1,23 @@
+{{- if and .Values.neurondb.enabled (not .Values.neurondb.postgresql.external.enabled) .Values.neurondb.cnpg.pooler.enabled }}
+apiVersion: postgresql.cnpg.io/v1
+kind: Pooler
+metadata:
+  name: {{ include "neurondb.neurondb.serviceName" . }}-pooler-{{ .Values.neurondb.cnpg.pooler.type }}
+  labels:
+    {{- include "neurondb.neurondb.labels" . | nindent 4 }}
+spec:
+  cluster:
+    name: {{ include "neurondb.cnpgClusterName" . }}
+  instances: {{ .Values.neurondb.cnpg.pooler.instances | default 2 }}
+  type: {{ .Values.neurondb.cnpg.pooler.type | default "rw" }}
+  pgbouncer:
+    poolMode: {{ .Values.neurondb.cnpg.pooler.pgbouncer.poolMode | default "session" }}
+    parameters:
+      default_pool_size: "{{ .Values.neurondb.cnpg.pooler.pgbouncer.defaultPoolSize | default "25" }}"
+      max_client_conn: "{{ .Values.neurondb.cnpg.pooler.pgbouncer.maxClientConn | default "1000" }}"
+      {{- with .Values.neurondb.cnpg.pooler.pgbouncer.parameters }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+  monitoring:
+    enablePodMonitor: {{ .Values.neurondb.cnpg.pooler.monitoring.enabled | default true }}
+{{- end }}

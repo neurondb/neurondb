@@ -14,9 +14,9 @@ This section is for deeper dives: internals, performance tuning, deployment patt
 
 - Extension internals: `NeuronDB/src/`
 - Extension headers/APIs: `NeuronDB/include/`
-- Agent service: `NeuronAgent/internal/`
-- MCP server: `NeuronMCP/internal/`
-- Desktop: `NeuronDesktop/`
+- Agent service: **neuron-agent** repo `internal/`
+- MCP server: **neuron-mcp** repo `internal/`
+- Desktop: **neuron-desktop** repo
 
 # ⭐ Advanced Documentation
 
@@ -29,8 +29,8 @@ This section is for deeper dives: internals, performance tuning, deployment patt
 ## 📚 Advanced Topics
 
 ### Production Deployment
-- [NeuronAgent Deployment](../../NeuronAgent/docs/deployment.md) - Production setup
-- [NeuronDesktop Deployment](../../NeuronDesktop/docs/deployment.md) - Web UI deployment
+- [NeuronAgent Deployment](https://github.com/neurondb/neuron-agent) - Production setup
+- [NeuronDesktop Deployment](https://github.com/neurondb/neuron-desktop) - Web UI deployment
 - [Security Guide](../../SECURITY.md) - Security best practices
 - [Enterprise Deployment Guide](../../ENTERPRISE_DEPLOYMENT_GUIDE.md) - Enterprise setup
 
@@ -40,19 +40,19 @@ This section is for deeper dives: internals, performance tuning, deployment patt
 - [SIMD Optimization](../../NeuronDB/docs/performance/simd-optimization.md) - CPU optimization
 
 ### Architecture & Design
-- [NeuronAgent Architecture](../../NeuronAgent/docs/architecture.md) - System design
+- [NeuronAgent Architecture](https://github.com/neurondb/neuron-agent) - System design
 - [Component Integration](../ecosystem/integration.md) - Integration patterns
 - [Ecosystem Overview](../ecosystem/README.md) - How components work together
 
 ### API References
 - [NeuronDB SQL API](../../NeuronDB/docs/sql-api.md) - 665+ SQL functions
-- [NeuronAgent REST API](../../NeuronAgent/docs/api.md) - Complete REST API
-- [NeuronMCP Tools](../../NeuronMCP/REGISTERED_TOOLS.md) - 100+ MCP tools
-- [NeuronDesktop API](../../NeuronDesktop/docs/api.md) - Web UI API
+- [NeuronAgent REST API](https://github.com/neurondb/neuron-agent) - Complete REST API
+- [NeuronMCP Tools](https://github.com/neurondb/neuron-mcp) - 100+ MCP tools
+- [NeuronDesktop API](https://github.com/neurondb/neuron-desktop) - Web UI API
 
 ### Development
 - [Contributing Guide](../../CONTRIBUTING.md) - How to contribute
-- [Testing Guide](../../NeuronAgent/TESTING.md) - Testing strategies
+- [Testing Guide](https://github.com/neurondb/neuron-agent) - Testing strategies
 - [Function Stability Policy](../../NeuronDB/docs/function-stability.md) - API stability
 
 ---
@@ -65,7 +65,7 @@ This section is for deeper dives: internals, performance tuning, deployment patt
 
 ### Custom Integrations
 - [API Integration](../ecosystem/integration.md) - Integration patterns
-- [OpenAPI Spec](../../NeuronAgent/openapi/openapi.yaml) - API specification
+- [OpenAPI Spec](https://github.com/neurondb/neuron-agent) - API specification
 
 ---
 

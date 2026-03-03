@@ -1,0 +1,4 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/099_vector_correctness_fixes.sql:40: NOTICE:  NaN correctly rejected: vector values cannot be NaN or Infinity
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/099_vector_correctness_fixes.sql:75: NOTICE:  Binary vector created successfully with 16 bits
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/099_vector_correctness_fixes.sql:86: NOTICE:  Empty binary vector correctly rejected: binaryvec: empty array not allowed
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/099_vector_correctness_fixes.sql:97: NOTICE:  Invalid character correctly rejected: binaryvec: invalid character '2' in array format

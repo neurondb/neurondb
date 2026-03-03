@@ -161,7 +161,7 @@ make Metal=1
 
 ### Go Dependencies
 
-**NeuronAgent/NeuronMCP:**
+**neuron-agent / neuron-mcp:** See those repositories for build and packaging.
 - Go modules
 - `go.mod` and `go.sum`
 

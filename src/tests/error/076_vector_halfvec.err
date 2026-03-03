@@ -1,0 +1,4 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/076_vector_halfvec.sql:37: ERROR:  operator does not exist: vector || vector
+LINE 1: ..._to_halfvec(halfvec_to_vector('[1,2,3]'::halfvec) || halfvec...
+                                                             ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.

@@ -270,11 +270,11 @@ NeuronAgent is an AI agent runtime system providing REST API and WebSocket endpo
 
 | Resource | Location | Description |
 |----------|----------|-------------|
-| **Main README** | `NeuronAgent/README.md` | Component overview |
-| **API Reference** | `NeuronAgent/docs/api.md` | Complete API documentation |
-| **Architecture** | `NeuronAgent/docs/architecture.md` | Architecture details |
-| **Deployment** | `NeuronAgent/docs/deployment.md` | Deployment guide |
-| **OpenAPI Spec** | `NeuronAgent/openapi/openapi.yaml` | OpenAPI 3.0 specification |
+| **Main README** | [neuron-agent repo](https://github.com/neurondb/neuron-agent) | Component overview |
+| **API Reference** | neuron-agent repo `docs/api.md` | Complete API documentation |
+| **Architecture** | neuron-agent repo `docs/architecture.md` | Architecture details |
+| **Deployment** | neuron-agent repo `docs/deployment.md` | Deployment guide |
+| **OpenAPI Spec** | neuron-agent repo `openapi/openapi.yaml` | OpenAPI 3.0 specification |
 | **Official Docs** | [https://www.neurondb.ai/docs/neuronagent](https://www.neurondb.ai/docs/neuronagent) | Online documentation |
 
 ---
@@ -289,7 +289,7 @@ NeuronAgent is an AI agent runtime system providing REST API and WebSocket endpo
 | **neuronagent-metal** | Apple Silicon GPU variant |
 
 > [!TIP]
-> **Docker Setup:** See [`NeuronAgent/docker/README.md`](../../NeuronAgent/docker/README.md) for detailed Docker deployment instructions.
+> **Docker Setup:** See the **neuron-agent** repo for Docker deployment instructions.
 
 ---
 
@@ -327,7 +327,7 @@ curl -X POST http://localhost:8080/api/v1/agents \
 </details>
 
 > [!TIP]
-> **Complete Setup:** For complete setup instructions, see [`NeuronAgent/README.md`](../../NeuronAgent/README.md).
+> **Complete Setup:** For complete setup instructions, see the **neuron-agent** repo.
 
 ---
 

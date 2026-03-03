@@ -1,0 +1,2 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/053_ml_pca.sql:17: ERROR:  index "pg_depend_depender_index" contains unexpected zero page at block 33
+HINT:  Please REINDEX it.

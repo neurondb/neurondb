@@ -1,0 +1,2 @@
+{{- /* KEDA ScaledObject removed: neuron-agent is deployed from neuron-agent repo. */}}
+{{- /* This file kept for backwards compatibility; delete if not needed. */}}

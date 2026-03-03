@@ -1,0 +1,20 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/999_crash_test_ml_stress.sql:20: NOTICE:  PASS: NULL algorithm rejected: algorithm cannot be NULL
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/999_crash_test_ml_stress.sql:28: NOTICE:  PASS: NULL table rejected: table_name cannot be NULL
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/999_crash_test_ml_stress.sql:37: NOTICE:  PASS: Invalid algorithm rejected: Unknown algorithm: invalid_algorithm_xyz. Use neurondb.list_algorithms() to see supported algorithms
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/999_crash_test_ml_stress.sql:46: NOTICE:  PASS: Non-existent table rejected: relation "nonexistent_table_xyz" does not exist
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/999_crash_test_ml_stress.sql:55: NOTICE:  PASS: Non-existent column rejected: column "nonexistent_col" does not exist
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/999_crash_test_ml_stress.sql:65: NOTICE:  PASS: Empty table handled: neurondb: train_linear_regression: no valid rows found
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/999_crash_test_ml_stress.sql:74: WARNING:  neurondb:train: CPU training registered model_id 32 but model not immediately visible in catalog (this may be due to SPI session isolation)
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/999_crash_test_ml_stress.sql:74: NOTICE:  INFO: Invalid hyperparameters handled (may be ignored)
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/999_crash_test_ml_stress.sql:83: NOTICE:  PASS: Negative model ID rejected: neurondb:evaluate: model_id must be positive, got -1
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/999_crash_test_ml_stress.sql:91: NOTICE:  PASS: Non-existent model rejected: Model not found: 999999
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/999_crash_test_ml_stress.sql:111: WARNING:  neurondb:train: CPU training registered model_id 34 but model not immediately visible in catalog (this may be due to SPI session isolation)
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/999_crash_test_ml_stress.sql:111: WARNING:  neurondb:train: CPU training registered model_id 35 but model not immediately visible in catalog (this may be due to SPI session isolation)
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/999_crash_test_ml_stress.sql:111: WARNING:  neurondb:train: CPU training registered model_id 36 but model not immediately visible in catalog (this may be due to SPI session isolation)
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/999_crash_test_ml_stress.sql:111: WARNING:  neurondb:train: CPU training registered model_id 37 but model not immediately visible in catalog (this may be due to SPI session isolation)
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/999_crash_test_ml_stress.sql:111: WARNING:  neurondb:train: CPU training registered model_id 38 but model not immediately visible in catalog (this may be due to SPI session isolation)
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/999_crash_test_ml_stress.sql:111: WARNING:  neurondb:train: CPU training registered model_id 39 but model not immediately visible in catalog (this may be due to SPI session isolation)
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/999_crash_test_ml_stress.sql:111: WARNING:  neurondb:train: CPU training registered model_id 40 but model not immediately visible in catalog (this may be due to SPI session isolation)
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/999_crash_test_ml_stress.sql:111: WARNING:  neurondb:train: CPU training registered model_id 41 but model not immediately visible in catalog (this may be due to SPI session isolation)
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/999_crash_test_ml_stress.sql:111: WARNING:  neurondb:train: CPU training registered model_id 42 but model not immediately visible in catalog (this may be due to SPI session isolation)
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/999_crash_test_ml_stress.sql:111: NOTICE:  PASS: Concurrent operations completed

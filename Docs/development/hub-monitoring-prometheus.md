@@ -1,12 +1,12 @@
 # Hub Monitoring with Prometheus
 
-This document describes how to add **monitoring and metrics** (Prometheus) to **neurondb-hub** so that backend and gateway can be observed in production.
+This document describes how to add **monitoring and metrics** (Prometheus) to **neuron-hub** so that backend and gateway can be observed in production.
 
 ## Goals
 
 - Expose Prometheus metrics from Hub backend and gateway (e.g. `/metrics`).
 - Optionally add structured logging (JSON) for easier aggregation.
-- Use the same patterns as NeuronAgent/NeuronMCP where applicable.
+- Use the same patterns as **neuron-agent** and **neuron-mcp** where applicable.
 
 ## Suggested approach
 
@@ -25,11 +25,11 @@ This document describes how to add **monitoring and metrics** (Prometheus) to **
 
 ### 3. Docker and deployment
 
-- In `docker-compose` and any Helm chart, expose the metrics port (e.g. 9090) and add a Prometheus scrape config for `neurondb-hub-backend` and `neurondb-hub-gateway`.
+- In `docker-compose` and any Helm chart, expose the metrics port (e.g. 9090) and add a Prometheus scrape config for `neuron-hub-backend` and `neuron-hub-gateway`.
 - Document required Prometheus scrape config in Hub’s deployment docs.
 
 ### 4. Alerts (optional)
 
 - Define Alertmanager rules for Hub (e.g. high error rate, high latency) when Hub is deployed with the same observability stack as the rest of the ecosystem.
 
-When the **neurondb-hub** repo is present, implement the `/metrics` endpoint and structured logging in the backend and gateway, then add the corresponding scrape configuration to your Prometheus setup.
+When the **neuron-hub** repo is present, implement the `/metrics` endpoint and structured logging in the backend and gateway, then add the corresponding scrape configuration to your Prometheus setup.

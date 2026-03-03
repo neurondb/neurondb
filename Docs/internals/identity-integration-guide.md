@@ -10,12 +10,12 @@ This guide explains how to integrate the unified identity model into NeuronDeskt
 
 #### NeuronDesktop
 ```bash
-psql -d neurondesk -f NeuronDesktop/api/migrations/008_unified_identity_model.sql
+psql -d neurondesk -f /path/to/neuron-desktop/api/migrations/008_unified_identity_model.sql
 ```
 
 #### NeuronAgent
 ```bash
-psql -d neurondb -f NeuronAgent/sql/014_unified_identity_model.sql
+psql -d neurondb -f /path/to/neuron-agent/sql/014_unified_identity_model.sql
 ```
 
 ### 2. Update Code to Use Unified Types

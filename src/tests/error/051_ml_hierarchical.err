@@ -1,0 +1,4 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/051_ml_hierarchical.sql:38: NOTICE:  relation "test_settings" already exists, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/051_ml_hierarchical.sql:69: NOTICE:  relation "test_metrics" already exists, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/051_ml_hierarchical.sql:107: NOTICE:  table "hierarchical_sample" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/051_ml_hierarchical.sql:207: NOTICE:  CPU mode: GPU information skipped

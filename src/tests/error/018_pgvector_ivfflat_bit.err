@@ -1,0 +1,2 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/018_pgvector_ivfflat_bit.sql:24: NOTICE:  table "t" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/018_pgvector_ivfflat_bit.sql:42: NOTICE:  table "t" does not exist, skipping

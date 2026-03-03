@@ -1,0 +1,6 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/069_crash_invalid_models.sql:18: NOTICE:  Correctly rejected non-existent model: neurondb: evaluate_linear_regression_by_model_id: model 999999 not found
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/069_crash_invalid_models.sql:29: NOTICE:  Correctly rejected negative model_id: neurondb: evaluate_linear_regression_by_model_id: model_id must be positive, got -1
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/069_crash_invalid_models.sql:40: NOTICE:  Correctly rejected zero model_id: neurondb: evaluate_linear_regression_by_model_id: model_id must be positive, got 0
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/069_crash_invalid_models.sql:46: ERROR:  neurondb: evaluate_knn_by_model_id: model 999998 not found
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/069_crash_invalid_models.sql:51: ERROR:  neurondb: evaluate_random_forest_by_model_id: model 999997 not found
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/069_crash_invalid_models.sql:54: WARNING:  there is no transaction in progress

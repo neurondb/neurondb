@@ -1,0 +1,8 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/ml/011_catboost.sql:38: NOTICE:  relation "test_settings" already exists, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/ml/011_catboost.sql:69: NOTICE:  relation "test_metrics" already exists, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/ml/011_catboost.sql:105: NOTICE:  table "gpu_model_temp" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/ml/011_catboost.sql:131: NOTICE:  CatBoost library not available, skipping test
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/ml/011_catboost.sql:149: NOTICE:  Skipping prediction tests - CatBoost library not available
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/ml/011_catboost.sql:198: NOTICE:  table "gpu_metrics_temp" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/ml/011_catboost.sql:236: WARNING:  No model_id found in gpu_model_temp
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/ml/011_catboost.sql:495: NOTICE:  CPU mode: GPU information skipped

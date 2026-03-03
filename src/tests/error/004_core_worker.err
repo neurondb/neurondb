@@ -1,0 +1,1 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/004_core_worker.sql:54: WARNING:  neurondb: exception during manual batch processing

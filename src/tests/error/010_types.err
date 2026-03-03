@@ -1,0 +1,2 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/core/010_types.sql:12: NOTICE:  drop cascades to view test_train_view
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/core/010_types.sql:52: NOTICE:  table "types_test_table" does not exist, skipping

@@ -1,0 +1,33 @@
+{
+  "timestamp": "2026-01-06T16:16:01.816248",
+  "dataset": "sift-128-euclidean",
+  "config_name": "hnsw",
+  "index_config": {
+    "type": "hnsw",
+    "params": {
+      "m": 16,
+      "ef_construction": 200
+    },
+    "search_params": {
+      "ef_search": 100
+    },
+    "description": "Hierarchical Navigable Small World graph (high recall, fast)"
+  },
+  "num_train_vectors": 1000000,
+  "num_test_queries": 10000,
+  "dimension": 128,
+  "metrics": {
+    "10": {
+      "k": 10,
+      "num_queries": 50,
+      "avg_latency_ms": 525.6224870681763,
+      "p50_latency_ms": 524.6803760528564,
+      "p95_latency_ms": 546.6173648834229,
+      "p99_latency_ms": 555.5205631256104,
+      "qps": 1.9025061229358975,
+      "recall": 1.0,
+      "min_recall": 1.0,
+      "max_recall": 1.0
+    }
+  }
+}

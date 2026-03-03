@@ -1,0 +1,76 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "neurondbpy"
+version = "1.0.0"
+description = "Python SDK for NeuronDB: client, vectors, LLM SQL, and training pipeline"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "neurondb, Inc.", email = "admin@neurondb.com" }]
+url = "https://github.com/neurondb/neurondb2"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+python_requires = ">=3.8"
+dependencies = [
+    "psycopg2-binary>=2.9.9",
+    "httpx>=0.25.0",
+    "pydantic>=2.0.0",
+    "click>=8.0.0",
+]
+
+[project.optional-dependencies]
+async = ["asyncpg>=3.0.0"]
+ml = [
+    "torch>=2.1.0",
+    "transformers>=4.36.0",
+    "deepspeed>=0.12.0",
+    "accelerate>=0.25.0",
+    "vllm>=0.2.7",
+    "sentencepiece>=0.1.99",
+    "sqlparse>=0.4.4",
+    "datasets>=2.16.0",
+    "fastapi>=0.108.0",
+    "uvicorn>=0.25.0",
+    "requests>=2.28.0",
+    "tqdm>=4.66.0",
+]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=22.0.0",
+    "mypy>=0.991",
+    "ruff>=0.1.0",
+]
+
+[project.scripts]
+neurondbpy = "neurondbpy.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["neurondbpy*"]
+
+[tool.black]
+line-length = 100
+target-version = ["py38", "py39", "py310", "py311", "py312"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py38"
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true

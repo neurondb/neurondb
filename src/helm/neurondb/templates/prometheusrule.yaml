@@ -1,0 +1,136 @@
+{{- if and .Values.observability.prometheusOperator.enabled .Values.observability.prometheusOperator.prometheusRule.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "neurondb.fullname" . }}-alerts
+  labels:
+    {{- include "neurondb.labels" . | nindent 4 }}
+    {{- with .Values.observability.prometheusOperator.prometheusRule.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  groups:
+  - name: neurondb.rules
+    interval: 30s
+    rules:
+    # Disk usage alerts
+    - alert: NeuronDBHighDiskUsage
+      expr: |
+        (node_filesystem_avail_bytes{mountpoint="/var/lib/postgresql/data"} / node_filesystem_size_bytes{mountpoint="/var/lib/postgresql/data"}) < 0.2
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "NeuronDB disk usage is above 80%"
+        description: "NeuronDB pod {{`{{ $labels.pod }}`}} has disk usage above 80% (current: {{`{{ $value | humanizePercentage }}`}})"
+    
+    - alert: NeuronDBCriticalDiskUsage
+      expr: |
+        (node_filesystem_avail_bytes{mountpoint="/var/lib/postgresql/data"} / node_filesystem_size_bytes{mountpoint="/var/lib/postgresql/data"}) < 0.1
+      for: 2m
+      labels:
+        severity: critical
+      annotations:
+        summary: "NeuronDB disk usage is above 90%"
+        description: "NeuronDB pod {{`{{ $labels.pod }}`}} has disk usage above 90% (current: {{`{{ $value | humanizePercentage }}`}})"
+    
+    # CrashLoopBackOff detection
+    - alert: NeuronDBCrashLoopBackOff
+      expr: |
+        kube_pod_container_status_restarts_total{container="neurondb"} > 3
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: "NeuronDB pod is in CrashLoopBackOff"
+        description: "NeuronDB pod {{`{{ $labels.pod }}`}} has restarted {{`{{ $value }}`}} times"
+    
+    # Database connection issues
+    - alert: NeuronDBConnectionFailure
+      expr: |
+        pg_up == 0
+      for: 2m
+      labels:
+        severity: critical
+      annotations:
+        summary: "NeuronDB database connection failed"
+        description: "Cannot connect to NeuronDB database"
+    
+    # Replication lag (if applicable)
+    - alert: NeuronDBReplicationLag
+      expr: |
+        pg_replication_lag > 60
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "NeuronDB replication lag is high"
+        description: "NeuronDB replication lag is {{`{{ $value }}`}} seconds"
+    
+    # Pod not ready
+    - alert: NeuronDBNotReady
+      expr: |
+        kube_pod_status_ready{condition="false", pod=~"neurondb-.*"} == 1
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "NeuronDB pod is not ready"
+        description: "NeuronDB pod {{`{{ $labels.pod }}`}} is not ready"
+    
+    # High CPU usage
+    - alert: NeuronDBHighCPUUsage
+      expr: |
+        rate(container_cpu_usage_seconds_total{pod=~"neurondb-.*"}[5m]) > 0.8
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: "NeuronDB CPU usage is high"
+        description: "NeuronDB pod {{`{{ $labels.pod }}`}} has CPU usage above 80%"
+    
+    # High memory usage
+    - alert: NeuronDBHighMemoryUsage
+      expr: |
+        (container_memory_working_set_bytes{pod=~"neurondb-.*"} / container_spec_memory_limit_bytes{pod=~"neurondb-.*"}) > 0.85
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "NeuronDB memory usage is high"
+        description: "NeuronDB pod {{`{{ $labels.pod }}`}} has memory usage above 85%"
+    
+    # Backup failures
+    - alert: NeuronDBBackupFailed
+      expr: |
+        kube_job_status_failed{job_name=~".*-backup-.*"} == 1
+      for: 0m
+      labels:
+        severity: critical
+      annotations:
+        summary: "NeuronDB backup job failed"
+        description: "Backup job {{`{{ $labels.job_name }}`}} has failed"
+    
+    # Migration failures
+    - alert: NeuronDBMigrationFailed
+      expr: |
+        kube_job_status_failed{job_name=~".*-migration-.*"} == 1
+      for: 0m
+      labels:
+        severity: critical
+      annotations:
+        summary: "NeuronDB migration job failed"
+        description: "Migration job {{`{{ $labels.job_name }}`}} has failed"
+    
+    # Too many connections
+    - alert: NeuronDBTooManyConnections
+      expr: |
+        pg_stat_database_numbackends{datname="neurondb"} > 100
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "NeuronDB has too many connections"
+        description: "NeuronDB has {{`{{ $value }}`}} active connections (threshold: 100)"
+{{- end }}
+

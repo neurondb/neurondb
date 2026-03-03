@@ -1,0 +1,124 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- /* NeuronDB NetworkPolicy - Default deny, allow ingress from components only */}}
+{{- if .Values.neurondb.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "neurondb.fullname" . }}-neurondb
+  labels:
+    {{- include "neurondb.neurondb.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "neurondb.neurondb.selectorLabels" . | nindent 6 }}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  {{- if .Values.networkPolicy.allowMonitoring }}
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          {{- with .Values.networkPolicy.monitoringNamespace }}
+          name: {{ . }}
+          {{- else }}
+          name: {{ .Release.Namespace }}
+          {{- end }}
+      podSelector:
+        matchLabels:
+          {{- with .Values.networkPolicy.monitoringLabels }}
+          {{- toYaml . | nindent 10 }}
+          {{- else }}
+          app: prometheus
+          {{- end }}
+    ports:
+    - protocol: TCP
+      port: {{ .Values.monitoring.prometheus.postgresExporter.port | default 9187 }}
+  {{- end }}
+  egress:
+  # Allow DNS (restrict to dnsNamespace when set to avoid unrestricted DNS egress)
+  - ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+    to:
+    {{- if .Values.networkPolicy.dnsNamespace }}
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: {{ .Values.networkPolicy.dnsNamespace }}
+    {{- else }}
+    - namespaceSelector: {}
+    {{- end }}
+  # Allow egress to monitoring endpoints if enabled
+  {{- if .Values.networkPolicy.allowMonitoring }}
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          {{- with .Values.networkPolicy.monitoringNamespace }}
+          name: {{ . }}
+          {{- else }}
+          name: {{ .Release.Namespace }}
+          {{- end }}
+      podSelector:
+        matchLabels:
+          {{- with .Values.networkPolicy.monitoringLabels }}
+          {{- toYaml . | nindent 10 }}
+          {{- else }}
+          app: prometheus
+          {{- end }}
+    ports:
+    - protocol: TCP
+      port: 9090
+  {{- end }}
+{{- end }}
+
+
+{{- /* CNPG: allow operator and replication when using CloudNativePG */}}
+{{- if and .Values.neurondb.enabled (not .Values.neurondb.postgresql.external.enabled) .Values.networkPolicy.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "neurondb.fullname" . }}-cnpg
+  labels:
+    {{- include "neurondb.neurondb.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchExpressions:
+      - key: cnpg.io/cluster
+        operator: In
+        values:
+          - {{ include "neurondb.cnpgClusterName" . | quote }}
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: cnpg-system
+    ports:
+    - protocol: TCP
+      port: 5432
+    - protocol: TCP
+      port: 9187
+  - from:
+    - podSelector: {}
+    ports:
+    - protocol: TCP
+      port: 5432
+  {{- if .Values.networkPolicy.allowMonitoring }}
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          {{- with .Values.networkPolicy.monitoringNamespace }}
+          name: {{ . }}
+          {{- else }}
+          name: {{ .Release.Namespace }}
+          {{- end }}
+    ports:
+    - protocol: TCP
+      port: 9187
+  {{- end }}
+{{- end }}

@@ -1,6 +1,0 @@
-# NeurondB extension control file
-comment = 'NeurondB: Advanced AI Database - Vector types, ML inference, hybrid search, RAG support'
-default_version = '3.0.0-devel'
-module_pathname = '$libdir/neurondb'
-relocatable = true
-# requires = 'pg_trgm'

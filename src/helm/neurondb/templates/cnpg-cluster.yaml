@@ -1,0 +1,286 @@
+{{- if and .Values.neurondb.enabled (not .Values.neurondb.postgresql.external.enabled) }}
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ include "neurondb.neurondb.serviceName" . }}
+  {{- if .Values.neurondb.cnpg.hibernation.enabled }}
+  annotations:
+    cnpg.io/hibernation: "on"
+  {{- end }}
+  labels:
+    {{- include "neurondb.neurondb.labels" . | nindent 4 }}
+spec:
+  instances: {{ .Values.neurondb.cnpg.instances | default 1 }}
+  imageName: {{ .Values.neurondb.cnpg.imageName | default (printf "%s:%s" .Values.neurondb.image.repository .Values.neurondb.image.tag) | quote }}
+  {{- with .Values.global.imagePullSecrets }}
+  imagePullSecrets:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+
+  bootstrap:
+    {{- if and .Values.neurondb.cnpg.bootstrap.recovery.enabled (eq .Values.neurondb.cnpg.bootstrap.method "recovery") }}
+    recovery:
+      source: {{ .Values.neurondb.cnpg.bootstrap.recovery.source | quote }}
+      {{- if .Values.neurondb.cnpg.bootstrap.recovery.targetTime }}
+      recoveryTarget:
+        targetTime: {{ .Values.neurondb.cnpg.bootstrap.recovery.targetTime | quote }}
+        exclusive: {{ .Values.neurondb.cnpg.bootstrap.recovery.exclusive | default false }}
+      {{- else if .Values.neurondb.cnpg.bootstrap.recovery.targetLSN }}
+      recoveryTarget:
+        targetLSN: {{ .Values.neurondb.cnpg.bootstrap.recovery.targetLSN | quote }}
+      {{- end }}
+    {{- else if and .Values.neurondb.cnpg.bootstrap.import.enabled (eq .Values.neurondb.cnpg.bootstrap.method "import") }}
+    initdb:
+      import:
+        type: {{ .Values.neurondb.cnpg.bootstrap.import.type | default "microservice" | quote }}
+        {{- with .Values.neurondb.cnpg.bootstrap.import.databases }}
+        databases:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.neurondb.cnpg.bootstrap.import.roles }}
+        roles:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        source:
+          externalCluster: {{ .Values.neurondb.cnpg.bootstrap.import.source.externalCluster | quote }}
+    {{- else }}
+    initdb:
+      database: {{ .Values.neurondb.cnpg.bootstrap.initdb.database | default .Values.neurondb.postgresql.database | quote }}
+      owner: {{ .Values.neurondb.cnpg.bootstrap.initdb.owner | default .Values.neurondb.postgresql.username | quote }}
+      secret:
+        name: {{ include "neurondb.fullname" . }}-secrets
+      {{- $hasPostInit := or .Values.neurondb.cnpg.bootstrap.initdb.runNeurondbExtension .Values.neurondb.cnpg.bootstrap.initdb.postInitSQL }}
+      {{- if $hasPostInit }}
+      postInitSQL:
+        {{- if .Values.neurondb.cnpg.bootstrap.initdb.runNeurondbExtension }}
+        - "CREATE EXTENSION IF NOT EXISTS neurondb;"
+        {{- end }}
+        {{- with .Values.neurondb.cnpg.bootstrap.initdb.postInitSQL }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- else }}
+      postInitSQL: []
+      {{- end }}
+      {{- with .Values.neurondb.cnpg.bootstrap.initdb.postInitApplicationSQL }}
+      postInitApplicationSQL:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- end }}
+
+  postgresql:
+    parameters:
+      {{- range $k, $v := .Values.neurondb.cnpg.postgresql.parameters }}
+      {{ $k }}: {{ $v | quote }}
+      {{- end }}
+    {{- if .Values.neurondb.cnpg.tls.enabled }}
+    pg_hba:
+      - "hostssl all all 0.0.0.0/0 md5"
+    {{- else }}
+    {{- with .Values.neurondb.cnpg.postgresql.pg_hba }}
+    pg_hba:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- end }}
+
+  {{- if .Values.neurondb.cnpg.tls.enabled }}
+  {{- if or .Values.neurondb.cnpg.tls.serverTLSSecretName .Values.neurondb.cnpg.tls.serverCASecretName .Values.neurondb.cnpg.tls.clientCASecretName }}
+  certificates:
+    {{- if .Values.neurondb.cnpg.tls.serverTLSSecretName }}
+    serverTLSSecret: {{ .Values.neurondb.cnpg.tls.serverTLSSecretName | quote }}
+    {{- end }}
+    {{- if .Values.neurondb.cnpg.tls.serverCASecretName }}
+    serverCASecret: {{ .Values.neurondb.cnpg.tls.serverCASecretName | quote }}
+    {{- end }}
+    {{- if .Values.neurondb.cnpg.tls.clientCASecretName }}
+    clientCASecret: {{ .Values.neurondb.cnpg.tls.clientCASecretName | quote }}
+    {{- end }}
+  {{- end }}
+  {{- end }}
+
+  {{- if or .Values.neurondb.cnpg.serviceTemplate.enabled .Values.neurondb.cnpg.managed.roles .Values.neurondb.cnpg.managed.databases }}
+  managed:
+    {{- if .Values.neurondb.cnpg.serviceTemplate.enabled }}
+    services:
+      additional:
+        - selectorType: rw
+          serviceTemplate:
+            metadata:
+              {{- with .Values.neurondb.cnpg.serviceTemplate.annotations }}
+              annotations:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+            spec:
+              type: {{ .Values.neurondb.cnpg.serviceTemplate.type | default "LoadBalancer" }}
+    {{- end }}
+    {{- with .Values.neurondb.cnpg.managed.roles }}
+    roles:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .Values.neurondb.cnpg.managed.databases }}
+    databases:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+  {{- end }}
+
+  storage:
+    size: {{ .Values.neurondb.cnpg.storage.size | default "50Gi" | quote }}
+    {{- if .Values.neurondb.cnpg.storage.storageClass }}
+    storageClass: {{ .Values.neurondb.cnpg.storage.storageClass | quote }}
+    {{- end }}
+    {{- with .Values.neurondb.cnpg.storage.pvcTemplate }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+
+  {{- if .Values.neurondb.cnpg.walStorage.enabled }}
+  walStorage:
+    size: {{ .Values.neurondb.cnpg.walStorage.size | default "10Gi" | quote }}
+    {{- if .Values.neurondb.cnpg.walStorage.storageClass }}
+    storageClass: {{ .Values.neurondb.cnpg.walStorage.storageClass | quote }}
+    {{- end }}
+  {{- end }}
+
+  resources:
+    {{- toYaml .Values.neurondb.resources | nindent 4 }}
+
+  primaryUpdateStrategy: {{ .Values.neurondb.cnpg.primaryUpdateStrategy | default "unsupervised" }}
+  primaryUpdateMethod: {{ .Values.neurondb.cnpg.primaryUpdateMethod | default "switchover" }}
+  minSyncReplicas: {{ .Values.neurondb.cnpg.minSyncReplicas | default 0 }}
+  maxSyncReplicas: {{ .Values.neurondb.cnpg.maxSyncReplicas | default 0 }}
+
+  replicationSlots:
+    highAvailability:
+      enabled: true
+      slotPrefix: "_cnpg_"
+    updateInterval: 30
+
+  {{- if .Values.neurondb.cnpg.backup.enabled }}
+  backup:
+    barmanObjectStore:
+      destinationPath: {{ .Values.neurondb.cnpg.backup.barmanObjectStore.destinationPath | quote }}
+      {{- if .Values.neurondb.cnpg.backup.barmanObjectStore.endpointURL }}
+      endpointURL: {{ .Values.neurondb.cnpg.backup.barmanObjectStore.endpointURL | quote }}
+      {{- end }}
+      {{- if .Values.neurondb.cnpg.backup.barmanObjectStore.s3Credentials.accessKeyId.name }}
+      s3Credentials:
+        accessKeyId:
+          name: {{ .Values.neurondb.cnpg.backup.barmanObjectStore.s3Credentials.accessKeyId.name | quote }}
+          key: {{ .Values.neurondb.cnpg.backup.barmanObjectStore.s3Credentials.accessKeyId.key | default "ACCESS_KEY_ID" | quote }}
+        secretAccessKey:
+          name: {{ .Values.neurondb.cnpg.backup.barmanObjectStore.s3Credentials.secretAccessKey.name | default .Values.neurondb.cnpg.backup.barmanObjectStore.s3Credentials.accessKeyId.name | quote }}
+          key: {{ .Values.neurondb.cnpg.backup.barmanObjectStore.s3Credentials.secretAccessKey.key | default "ACCESS_SECRET_KEY" | quote }}
+        {{- if .Values.neurondb.cnpg.backup.barmanObjectStore.s3Credentials.region }}
+        region: {{ .Values.neurondb.cnpg.backup.barmanObjectStore.s3Credentials.region | quote }}
+        {{- end }}
+        inheritFromIAMRole: {{ .Values.neurondb.cnpg.backup.barmanObjectStore.s3Credentials.inheritFromIAMRole | default false }}
+      {{- end }}
+      {{- if .Values.neurondb.cnpg.backup.barmanObjectStore.googleCredentials.applicationCredentials.name }}
+      googleCredentials:
+        applicationCredentials:
+          name: {{ .Values.neurondb.cnpg.backup.barmanObjectStore.googleCredentials.applicationCredentials.name | quote }}
+          key: {{ .Values.neurondb.cnpg.backup.barmanObjectStore.googleCredentials.applicationCredentials.key | default "APPLICATION_CREDENTIALS" | quote }}
+        gkeEnvironment: {{ .Values.neurondb.cnpg.backup.barmanObjectStore.googleCredentials.gkeEnvironment | default false }}
+      {{- end }}
+      {{- if .Values.neurondb.cnpg.backup.barmanObjectStore.azureCredentials.storageAccount.name }}
+      azureCredentials:
+        storageAccount:
+          name: {{ .Values.neurondb.cnpg.backup.barmanObjectStore.azureCredentials.storageAccount.name | quote }}
+          key: {{ .Values.neurondb.cnpg.backup.barmanObjectStore.azureCredentials.storageAccount.key | default "AZURE_STORAGE_ACCOUNT" | quote }}
+        storageKey:
+          name: {{ .Values.neurondb.cnpg.backup.barmanObjectStore.azureCredentials.storageKey.name | default .Values.neurondb.cnpg.backup.barmanObjectStore.azureCredentials.storageAccount.name | quote }}
+          key: {{ .Values.neurondb.cnpg.backup.barmanObjectStore.azureCredentials.storageKey.key | default "AZURE_STORAGE_KEY" | quote }}
+        inheritFromAzureAD: {{ .Values.neurondb.cnpg.backup.barmanObjectStore.azureCredentials.inheritFromAzureAD | default false }}
+      {{- end }}
+      wal:
+        compression: {{ .Values.neurondb.cnpg.backup.barmanObjectStore.wal.compression | default "gzip" }}
+        maxParallel: {{ .Values.neurondb.cnpg.backup.barmanObjectStore.wal.maxParallel | default 8 }}
+      data:
+        compression: {{ .Values.neurondb.cnpg.backup.barmanObjectStore.data.compression | default "gzip" }}
+        jobs: {{ .Values.neurondb.cnpg.backup.barmanObjectStore.data.jobs | default 2 }}
+    retentionPolicy: {{ .Values.neurondb.cnpg.backup.retentionPolicy | default "7d" }}
+    {{- if .Values.neurondb.cnpg.backup.volumeSnapshot.enabled }}
+    volumeSnapshot:
+      className: {{ .Values.neurondb.cnpg.backup.volumeSnapshot.className | quote }}
+      snapshotOwnerReference: {{ .Values.neurondb.cnpg.backup.volumeSnapshot.snapshotOwnerReference | default "none" }}
+    {{- end }}
+    target: "prefer-standby"
+  {{- end }}
+
+  {{- if .Values.neurondb.cnpg.enablePodAntiAffinity }}
+  affinity:
+    podAntiAffinityType: required
+    topologyKey: {{ .Values.neurondb.cnpg.topologyKey | default "kubernetes.io/hostname" }}
+  {{- else if .Values.neurondb.affinity }}
+  affinity:
+    {{- toYaml .Values.neurondb.affinity | nindent 4 }}
+  {{- end }}
+  {{- if .Values.neurondb.nodeSelector }}
+  nodeSelector:
+    {{- toYaml .Values.neurondb.nodeSelector | nindent 4 }}
+  {{- end }}
+  {{- if .Values.neurondb.tolerations }}
+  tolerations:
+    {{- toYaml .Values.neurondb.tolerations | nindent 4 }}
+  {{- end }}
+  {{- if .Values.neurondb.topologySpreadConstraints }}
+  topologySpreadConstraints:
+    {{- toYaml .Values.neurondb.topologySpreadConstraints | nindent 4 }}
+  {{- end }}
+
+  monitoring:
+    enablePodMonitor: {{ .Values.neurondb.cnpg.monitoring.enabled | default true }}
+    {{- $cm := .Values.neurondb.cnpg.monitoring.customQueriesConfigMap }}
+    {{- if and (eq (kindOf $cm) "map") $cm.name }}
+    customQueriesConfigMap:
+      - name: {{ $cm.name | quote }}
+        {{- if $cm.key }}
+        key: {{ $cm.key | quote }}
+        {{- end }}
+    {{- else if .Values.neurondb.cnpg.monitoring.enabled }}
+    customQueriesConfigMap:
+      - name: {{ printf "%s-monitoring" (include "neurondb.cnpgClusterName" .) | quote }}
+    {{- end }}
+    {{- with .Values.neurondb.cnpg.monitoring.customQueriesSecret }}
+    customQueriesSecret:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+
+  enableSuperuserAccess: {{ .Values.neurondb.cnpg.enableSuperuserAccess | default false }}
+
+  {{- if or .Values.neurondb.cnpg.startupProbe .Values.neurondb.cnpg.livenessProbe .Values.neurondb.cnpg.readinessProbe }}
+  probes:
+    {{- with .Values.neurondb.cnpg.startupProbe }}
+    startup:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .Values.neurondb.cnpg.livenessProbe }}
+    liveness:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .Values.neurondb.cnpg.readinessProbe }}
+    readiness:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+  {{- end }}
+
+  {{- with .Values.neurondb.cnpg.externalClusters }}
+  externalClusters:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+
+  {{- if .Values.neurondb.cnpg.replica.enabled }}
+  replica:
+    enabled: true
+    source: {{ .Values.neurondb.cnpg.replica.source | quote }}
+  {{- end }}
+
+  {{- if .Values.neurondb.cnpg.nodeMaintenanceWindow.inProgress }}
+  nodeMaintenanceWindow:
+    inProgress: true
+    reusePVC: {{ .Values.neurondb.cnpg.nodeMaintenanceWindow.reusePVC | default true }}
+  {{- end }}
+
+  {{- with .Values.neurondb.cnpg.tablespaces }}
+  tablespaces:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

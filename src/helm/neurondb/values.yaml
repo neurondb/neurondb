@@ -1,0 +1,507 @@
+# Default values for NeuronDB
+# This is a YAML-formatted file.
+
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+
+# NeuronDB PostgreSQL
+neurondb:
+  enabled: true
+  image:
+    repository: ghcr.io/neurondb/neurondb-postgres
+    tag: "2.0.0-pg17-cpu"
+    pullPolicy: IfNotPresent
+
+  # Path to Titans LLM training scripts (used by titans_llm algorithm)
+  titansDir: "/app/examples/titans"
+
+  postgresql:
+    version: "17"
+    database: "neurondb"
+    username: "neurondb"
+    password: ""  # Set via secret
+    port: 5432
+    config: ""  # Optional postgresql.conf content (ignored when using CNPG; use cnpg.postgresql.parameters)
+    # External PostgreSQL configuration
+    external:
+      enabled: false  # Set to true to use external PostgreSQL
+      host: ""  # External PostgreSQL host (required if external.enabled=true)
+      port: 5432  # External PostgreSQL port
+      database: "neurondb"  # Database name
+      username: "neurondb"  # Username
+      # Connection string format: postgresql://user:pass@host:port/db
+      # If connectionString is provided, it takes precedence over individual fields
+      connectionString: ""  # Full connection string (alternative to individual fields)
+      # Secret containing connection details (alternative to connectionString)
+      # Secret should contain keys: host, port, database, username, password
+      # Or a single key: connection-string
+      secretName: ""  # Name of secret containing connection details
+      secretKeys:
+        host: "host"
+        port: "port"
+        database: "database"
+        username: "username"
+        password: "password"
+        connectionString: "connection-string"  # Alternative: single key with full connection string
+
+  # CloudNativePG Cluster configuration (replaces StatefulSet)
+  cnpg:
+    instances: 1
+    imageName: ""  # Override: empty = use neurondb.image.repository:tag
+    postgresql:
+      parameters:
+        shared_buffers: "256MB"
+        max_connections: "200"
+        effective_cache_size: "768MB"
+        work_mem: "4MB"
+        maintenance_work_mem: "64MB"
+        wal_buffers: "16MB"
+        random_page_cost: "1.1"
+        effective_io_concurrency: "200"
+        # shared_preload_libraries: omit - CNPG operator treats it as fixed; use image default for NeuronDB
+      pg_hba: []
+    storage:
+      size: "50Gi"
+      storageClass: ""
+      pvcTemplate: {}
+    walStorage:
+      enabled: false
+      size: "10Gi"
+      storageClass: ""
+    primaryUpdateStrategy: "unsupervised"
+    primaryUpdateMethod: "switchover"
+    minSyncReplicas: 0
+    maxSyncReplicas: 0
+    enablePodAntiAffinity: true
+    topologyKey: "kubernetes.io/hostname"
+    # TLS (CNPG uses auto-generated certs by default)
+    tls:
+      enabled: true
+      serverCASecretName: ""
+      serverTLSSecretName: ""
+      clientCASecretName: ""
+      certManager:
+        enabled: false
+        issuerRef: {}
+    # Optional LoadBalancer / NLB for -rw service
+    serviceTemplate:
+      enabled: false
+      type: "LoadBalancer"
+      annotations: {}
+    monitoring:
+      enabled: true
+      customQueriesConfigMap: []
+      customQueriesSecret: []
+    enableSuperuserAccess: false
+    bootstrap:
+      method: "initdb"
+      initdb:
+        database: "neurondb"
+        owner: "neurondb"
+        runNeurondbExtension: true
+        postInitSQL: []
+        postInitApplicationSQL: []
+      recovery:
+        enabled: false
+        source: ""
+        targetTime: ""
+        targetLSN: ""
+        targetName: ""
+        targetXID: ""
+        exclusive: false
+      import:
+        enabled: false
+        type: "microservice"
+        databases: []
+        roles: []
+        source:
+          externalCluster: ""
+    backup:
+      enabled: false
+      barmanObjectStore:
+        destinationPath: ""
+        endpointURL: ""
+        s3Credentials:
+          accessKeyId: { name: "", key: "ACCESS_KEY_ID" }
+          secretAccessKey: { name: "", key: "ACCESS_SECRET_KEY" }
+          region: ""
+          inheritFromIAMRole: false
+        googleCredentials:
+          applicationCredentials: { name: "", key: "APPLICATION_CREDENTIALS" }
+          gkeEnvironment: false
+        azureCredentials:
+          storageAccount: { name: "", key: "AZURE_STORAGE_ACCOUNT" }
+          storageKey: { name: "", key: "AZURE_STORAGE_KEY" }
+          storageSasToken: { name: "", key: "AZURE_STORAGE_SAS_TOKEN" }
+          inheritFromAzureAD: false
+        wal:
+          compression: "gzip"
+          maxParallel: 8
+        data:
+          compression: "gzip"
+          jobs: 2
+      retentionPolicy: "7d"
+      volumeSnapshot:
+        enabled: false
+        className: ""
+        snapshotOwnerReference: "none"
+    scheduledBackup:
+      enabled: false
+      schedule: "0 0 2 * * *"
+      backupOwnerReference: "self"
+      immediate: true
+      suspend: false
+      target: "prefer-standby"
+    pooler:
+      enabled: false
+      type: "rw"
+      instances: 2
+      pgbouncer:
+        poolMode: "session"
+        defaultPoolSize: 25
+        maxClientConn: 1000
+        parameters: {}
+      monitoring:
+        enabled: true
+    replica:
+      enabled: false
+      primary: ""
+      source: ""
+    externalClusters: []
+    managed:
+      roles: []
+      databases: []
+    nodeMaintenanceWindow:
+      inProgress: false
+      reusePVC: true
+    hibernation:
+      enabled: false
+    tablespaces: []
+    startupProbe: {}
+    livenessProbe: {}
+    readinessProbe: {}
+
+  resources:
+    requests:
+      memory: "4Gi"
+      cpu: "2"
+    limits:
+      memory: "8Gi"
+      cpu: "4"
+
+  securityContext:
+    # readOnlyRootFilesystem: false = writable root (default). Set to true for production hardening;
+    # when true, ensure tmpfs volumes are configured for /tmp and any writable paths the image needs.
+    readOnlyRootFilesystem: false
+
+  healthCheck:
+    checkTables: true  # Check if critical tables exist in readiness probe
+    requireTables: false  # Require tables to exist (set to true for strict checking)
+    readinessProbe:
+      initialDelaySeconds: 10
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 3
+      successThreshold: 1
+    livenessProbe:
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 5
+
+  # Resource governance
+  nodeSelector: {}
+  affinity: {}
+  tolerations: []
+  topologySpreadConstraints: []
+  priorityClassName: ""  # Use PriorityClass from resourceGovernance if enabled
+
+# Ingress
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations: {}
+  hosts:
+    - host: neurondb.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  apiEnabled: false  # Enable API and agent endpoints via ingress
+  tls: []
+
+# Secrets
+secrets:
+  create: true
+  postgresPassword: ""  # Auto-generated if empty (32 char random)
+  agentApiKeys: []  # List of API keys
+
+# External Secrets Integration
+externalSecrets:
+  enabled: false
+  # External Secrets Operator
+  operator:
+    enabled: false
+    refreshInterval: "1h"
+    secretStoreRef:
+      name: "default"
+      kind: "SecretStore"  # "SecretStore" or "ClusterSecretStore"
+    target:
+      creationPolicy: "Owner"  # "Owner" or "Merge" or "None"
+    secrets:
+      postgresPassword:
+        key: "postgres-password"
+        remoteRef:
+          key: "neurondb/postgres-password"  # Path in external secret store
+          property: ""  # Optional property within the secret
+      agentApiKeys:
+        key: "agent-api-keys"
+        remoteRef:
+          key: "neurondb/agent-api-keys"
+          property: ""
+    externalPostgresSecrets: []  # Array of {key, remoteRef: {key, property}} for external PostgreSQL
+  # CSI Secrets Store Driver
+  csi:
+    enabled: false
+    provider: "aws"  # "aws", "azure", or "gcp"
+    aws:
+      region: "us-east-1"
+      secretName: "neurondb/postgres-password"
+    azure:
+      keyVaultName: ""
+      tenantId: ""
+      secretName: "postgres-password"
+    gcp:
+      secretName: "projects/PROJECT_ID/secrets/postgres-password"
+
+# ServiceAccount (legacy, for backward compatibility)
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+# RBAC
+rbac:
+  enabled: true
+  createRoles: true
+  serviceAccounts:
+    neurondb:
+      create: true
+      annotations: {}
+      automountServiceAccountToken: true
+
+# NetworkPolicy
+networkPolicy:
+  enabled: true  # Restrict pod ingress/egress; set false only if your cluster does not support NetworkPolicy
+  allowMonitoring: true  # Allow monitoring tools to scrape metrics
+  # Restrict DNS egress to this namespace (e.g. kube-system for CoreDNS). Empty = allow all namespaces (legacy).
+  dnsNamespace: "kube-system"
+  monitoringNamespace: ""  # Namespace for monitoring (defaults to release namespace)
+  monitoringLabels: {}  # Labels for monitoring pods (defaults to app: prometheus)
+  ingressNamespace: ""  # Namespace for ingress controller (defaults to release namespace)
+  ingressLabels: {}  # Labels for ingress controller pods (defaults to app.kubernetes.io/name: ingress-nginx)
+  allowedNamespaces: []  # Namespaces allowed to access NeuronMCP (empty = same namespace only)
+
+# Observability
+observability:
+  # Prometheus Operator integration
+  prometheusOperator:
+    enabled: false  # Set to true if using Prometheus Operator
+    serviceMonitor:
+      enabled: true
+      interval: "30s"
+      metricsPath: "/metrics"
+      additionalLabels: {}
+    prometheusRule:
+      enabled: true
+      additionalLabels: {}
+  # OpenTelemetry configuration
+  openTelemetry:
+    enabled: false
+    endpoint: ""  # OTLP endpoint
+    exporter:
+      otlp:
+        endpoint: ""
+        insecure: false
+        headers: {}
+    resource:
+      serviceName: "neurondb"
+      serviceVersion: "2.0.0"
+
+# Monitoring
+monitoring:
+  enabled: true
+  prometheus:
+    enabled: true
+    image:
+      repository: prom/prometheus
+      tag: "latest"
+      pullPolicy: IfNotPresent
+    scrapeInterval: "15s"
+    evaluationInterval: "15s"
+    clusterName: "neurondb"
+    environment: "production"
+    retention: "30d"
+    persistence:
+      enabled: true
+      size: "20Gi"
+      storageClass: ""
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "250m"
+      limits:
+        memory: "2Gi"
+        cpu: "1"
+    postgresExporter:
+      enabled: false
+      port: 9187
+    alertmanager:
+      enabled: false
+      image:
+        repository: prom/alertmanager
+        tag: "latest"
+        pullPolicy: IfNotPresent
+      persistence:
+        enabled: true
+        size: "2Gi"
+        storageClass: ""
+      resources:
+        requests:
+          memory: "128Mi"
+          cpu: "100m"
+        limits:
+          memory: "512Mi"
+          cpu: "500m"
+      service:
+        type: ClusterIP
+        port: 9093
+      webhook:
+        url: ""  # Set to your webhook endpoint URL
+        criticalUrl: ""  # Optional: separate URL for critical alerts
+  grafana:
+    enabled: true
+    image:
+      repository: grafana/grafana
+      tag: "latest"
+      pullPolicy: IfNotPresent
+    adminUser: "admin"
+    adminPassword: "CHANGE_IN_PRODUCTION"  # Set a strong password or use existingSecret in production
+    rootUrl: "/"
+    persistence:
+      enabled: true
+      size: "10Gi"
+      storageClass: ""
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+  jaeger:
+    enabled: true
+    image:
+      repository: jaegertracing/all-in-one
+      tag: "latest"
+      pullPolicy: IfNotPresent
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
+
+# Migrations
+migrations:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "17"
+    pullPolicy: IfNotPresent
+  waitImage:
+    repository: postgres
+    tag: "17"
+  # Custom migration script (optional)
+  # If provided, this script will be executed instead of default migration logic
+  script: ""
+  backoffLimit: 3
+  activeDeadlineSeconds: 600
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+# Resource Governance
+resourceGovernance:
+  priorityClass:
+    enabled: true
+    value: 1000  # Priority value (higher = more important)
+    preemptionPolicy: "PreemptLowerPriority"  # "PreemptLowerPriority" or "Never"
+
+# Backup (CNPG ScheduledBackup / Barman object store; legacy CronJob section removed)
+backup:
+  enabled: false
+  schedule: "0 2 * * *"
+  retention: 7
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  activeDeadlineSeconds: 3600
+  image:
+    repository: postgres
+    tag: "17"
+    pullPolicy: IfNotPresent
+  waitImage:
+    repository: postgres
+    tag: "17"
+  persistence:
+    enabled: false
+    size: "20Gi"
+    storageClass: ""
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "2"
+  s3:
+    enabled: false
+    bucket: ""
+    region: ""
+    prefix: "backups"
+    accessKeyId: ""
+    secretAccessKey: ""
+  gcs:
+    enabled: false
+    bucket: ""
+    prefix: "backups"
+    credentialsJson: ""
+  azure:
+    enabled: false
+    accountName: ""
+    containerName: ""
+    prefix: "backups"
+    clientId: ""
+    clientSecret: ""
+    tenantId: ""
+  restore:
+    enabled: false
+    backupFile: ""
+    fromS3: false
+    fromGCS: false
+    fromAzure: false
+    activeDeadlineSeconds: 3600
+    persistence:
+      enabled: false
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "1"
+      limits:
+        memory: "4Gi"
+        cpu: "4"

@@ -1,0 +1,290 @@
+# -------------------------------------------------------------------------
+#
+# docker-compose.yml
+#    Docker Compose for NeuronDB (PostgreSQL extension only).
+#
+# For full ecosystem (neurondb + neuron-agent, neuron-mcp, neuron-desktop),
+# use neuron-deploy repository or deploy each component from its repo.
+#
+# Copyright (c) 2024-2026, neurondb, Inc.
+#
+# -------------------------------------------------------------------------
+
+services:
+  neurondb:
+    profiles:
+      - default
+      - cpu
+    build:
+      context: ..
+      dockerfile: docker/neurondb/Dockerfile
+      args:
+        PG_MAJOR: ${PG_MAJOR:-17}
+        PACKAGE_VERSION: ${PACKAGE_VERSION:-1.0.0.beta}
+        ONNX_VERSION: ${ONNX_VERSION:-1.17.0}
+        VERSION: ${VERSION:-latest}
+        BUILD_DATE: ${BUILD_DATE:-}
+        VCS_REF: ${VCS_REF:-}
+    image: neurondb:cpu-pg17
+    container_name: neurondb-cpu
+    init: true
+    entrypoint: ["/usr/local/bin/docker-entrypoint-neurondb.sh"]
+    command: ["postgres"]
+    labels:
+      - com.neurondb.service=neurondb
+      - com.neurondb.variant=cpu
+      - com.neurondb.version=${VERSION:-latest}
+    environment:
+      # SECURITY WARNING: Default password 'neurondb' is for development only!
+      # For production, ALWAYS set POSTGRES_PASSWORD in .env file with a strong password.
+      # Generate secure password: openssl rand -base64 32
+      POSTGRES_USER: ${POSTGRES_USER:-neurondb}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-neurondb}
+      POSTGRES_DB: ${POSTGRES_DB:-neurondb}
+      POSTGRES_HOST_AUTH_METHOD: ${POSTGRES_HOST_AUTH_METHOD:-md5}
+      NEURONDB_GPU_BACKEND_TYPE: ${NEURONDB_GPU_BACKEND_TYPE:-0}
+      NEURONDB_COMPUTE_MODE: ${NEURONDB_COMPUTE_MODE:-0}
+      # HuggingFace API key for embeddings. Set NEURONDB_LLM_API_KEY in .env or environment.
+      # Do NOT commit real keys. Leave unset for dev without embeddings; production should set it.
+      NEURONDB_LLM_API_KEY: ${NEURONDB_LLM_API_KEY:-}
+      NEURONDB_TITANS_DIR: ${NEURONDB_TITANS_DIR:-/app/examples/titans}
+    ports:
+      - ${POSTGRES_PORT:-5433}:5432
+    volumes:
+      - neurondb-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${POSTGRES_USER:-neurondb} -d ${POSTGRES_DB:-neurondb}
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+        compress: "true"
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: 4G
+    restart: unless-stopped
+    networks:
+      - neurondb-network
+
+  neurondb-cuda:
+    profiles:
+      - cuda
+      - gpu
+    build:
+      context: ..
+      dockerfile: docker/neurondb/Dockerfile.cuda
+      args:
+        PG_MAJOR: ${PG_MAJOR:-17}
+        CUDA_VERSION: ${CUDA_VERSION:-12.2.0}
+        PACKAGE_VERSION: ${PACKAGE_VERSION:-1.0.0.beta}
+        ONNX_VERSION: ${ONNX_VERSION:-1.17.0}
+        ENABLE_RAPIDS: ${ENABLE_RAPIDS:-0}
+        VERSION: ${VERSION:-latest}
+        BUILD_DATE: ${BUILD_DATE:-}
+        VCS_REF: ${VCS_REF:-}
+    image: neurondb:cuda-pg17
+    container_name: neurondb-cuda
+    init: true
+    entrypoint: ["/usr/local/bin/docker-entrypoint-neurondb.sh"]
+    command: ["postgres"]
+    labels:
+      - com.neurondb.service=neurondb
+      - com.neurondb.variant=cuda
+      - com.neurondb.version=${VERSION:-latest}
+    environment:
+      # SECURITY WARNING: Default password 'neurondb' is for development only!
+      # For production, ALWAYS set POSTGRES_PASSWORD in .env file with a strong password.
+      # Generate secure password: openssl rand -base64 32
+      POSTGRES_USER: ${POSTGRES_USER:-neurondb}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-neurondb}
+      POSTGRES_DB: ${POSTGRES_DB:-neurondb}
+      POSTGRES_HOST_AUTH_METHOD: ${POSTGRES_HOST_AUTH_METHOD:-md5}
+      NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-all}
+      NVIDIA_DRIVER_CAPABILITIES: ${NVIDIA_DRIVER_CAPABILITIES:-compute,utility}
+      NEURONDB_GPU_ENABLED: ${NEURONDB_GPU_ENABLED:-on}
+      NEURONDB_GPU_BACKEND_TYPE: ${NEURONDB_GPU_BACKEND_TYPE:-1}
+      NEURONDB_COMPUTE_MODE: ${NEURONDB_COMPUTE_MODE:-1}
+      NEURONDB_TITANS_DIR: ${NEURONDB_TITANS_DIR:-/app/examples/titans}
+    ports:
+      - ${POSTGRES_CUDA_PORT:-5434}:5432
+    volumes:
+      - neurondb-cuda-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${POSTGRES_USER:-neurondb} -d ${POSTGRES_DB:-neurondb}
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+        compress: "true"
+    deploy:
+      resources:
+        limits:
+          cpus: "8"
+          memory: 8G
+    restart: unless-stopped
+    networks:
+      - neurondb-network
+    # GPU access via runtime (requires nvidia-container-toolkit)
+    # runtime: nvidia
+
+  neurondb-rocm:
+    profiles:
+      - rocm
+      - gpu
+    build:
+      context: ..
+      dockerfile: docker/neurondb/Dockerfile.gpu.rocm
+      args:
+        PG_MAJOR: ${PG_MAJOR:-17}
+        ROCM_VERSION: ${ROCM_VERSION:-5.7}
+        ONNX_VERSION: ${ONNX_VERSION:-1.17.0}
+        VERSION: ${VERSION:-latest}
+        BUILD_DATE: ${BUILD_DATE:-}
+        VCS_REF: ${VCS_REF:-}
+    image: neurondb:rocm-pg17
+    container_name: neurondb-rocm
+    init: true
+    entrypoint: ["/usr/local/bin/docker-entrypoint-neurondb.sh"]
+    command: ["postgres"]
+    labels:
+      - com.neurondb.service=neurondb
+      - com.neurondb.variant=rocm
+      - com.neurondb.version=${VERSION:-latest}
+    environment:
+      # SECURITY WARNING: Default password 'neurondb' is for development only!
+      # For production, ALWAYS set POSTGRES_PASSWORD in .env file with a strong password.
+      # Generate secure password: openssl rand -base64 32
+      POSTGRES_USER: ${POSTGRES_USER:-neurondb}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-neurondb}
+      POSTGRES_DB: ${POSTGRES_DB:-neurondb}
+      POSTGRES_HOST_AUTH_METHOD: ${POSTGRES_HOST_AUTH_METHOD:-md5}
+      NEURONDB_GPU_ENABLED: ${NEURONDB_GPU_ENABLED:-on}
+      NEURONDB_GPU_BACKEND_TYPE: ${NEURONDB_GPU_BACKEND_TYPE:-2}
+      NEURONDB_COMPUTE_MODE: ${NEURONDB_COMPUTE_MODE:-1}
+      NEURONDB_TITANS_DIR: ${NEURONDB_TITANS_DIR:-/app/examples/titans}
+    ports:
+      - ${POSTGRES_ROCM_PORT:-5435}:5432
+    volumes:
+      - neurondb-rocm-data:/var/lib/postgresql/data
+    devices:
+      - /dev/kfd:/dev/kfd
+      - /dev/dri:/dev/dri
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${POSTGRES_USER:-neurondb} -d ${POSTGRES_DB:-neurondb}
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+        compress: "true"
+    deploy:
+      resources:
+        limits:
+          cpus: "8"
+          memory: 8G
+    restart: unless-stopped
+    networks:
+      - neurondb-network
+
+  neurondb-metal:
+    profiles:
+      - metal
+      - gpu
+    build:
+      context: ..
+      dockerfile: docker/neurondb/Dockerfile.gpu.metal
+      args:
+        PG_MAJOR: ${PG_MAJOR:-17}
+        ONNX_VERSION: ${ONNX_VERSION:-1.17.0}
+        VERSION: ${VERSION:-latest}
+        BUILD_DATE: ${BUILD_DATE:-}
+        VCS_REF: ${VCS_REF:-}
+    image: neurondb:metal-pg17
+    container_name: neurondb-metal
+    init: true
+    entrypoint: ["/usr/local/bin/docker-entrypoint-neurondb.sh"]
+    command: ["postgres"]
+    labels:
+      - com.neurondb.service=neurondb
+      - com.neurondb.variant=metal
+      - com.neurondb.version=${VERSION:-latest}
+    environment:
+      # SECURITY WARNING: Default password 'neurondb' is for development only!
+      # For production, ALWAYS set POSTGRES_PASSWORD in .env file with a strong password.
+      # Generate secure password: openssl rand -base64 32
+      POSTGRES_USER: ${POSTGRES_USER:-neurondb}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-neurondb}
+      POSTGRES_DB: ${POSTGRES_DB:-neurondb}
+      POSTGRES_HOST_AUTH_METHOD: ${POSTGRES_HOST_AUTH_METHOD:-md5}
+      NEURONDB_GPU_ENABLED: ${NEURONDB_GPU_ENABLED:-on}
+      NEURONDB_GPU_BACKEND_TYPE: ${NEURONDB_GPU_BACKEND_TYPE:-3}
+      NEURONDB_COMPUTE_MODE: ${NEURONDB_COMPUTE_MODE:-1}
+      NEURONDB_TITANS_DIR: ${NEURONDB_TITANS_DIR:-/app/examples/titans}
+    ports:
+      - ${POSTGRES_METAL_PORT:-5436}:5432
+    volumes:
+      - neurondb-metal-data:/var/lib/postgresql/data
+    platform: linux/arm64
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${POSTGRES_USER:-neurondb} -d ${POSTGRES_DB:-neurondb}
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+        compress: "true"
+    deploy:
+      resources:
+        limits:
+          cpus: "8"
+          memory: 8G
+    restart: unless-stopped
+    networks:
+      - neurondb-network
+
+volumes:
+  neurondb-data: null
+  neurondb-cuda-data: null
+  neurondb-rocm-data: null
+  neurondb-metal-data: null
+
+networks:
+  neurondb-network:
+    name: neurondb-network
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+          gateway: 172.28.0.1
+    labels:
+      - com.neurondb.network=main
+
+

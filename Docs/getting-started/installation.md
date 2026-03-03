@@ -30,10 +30,10 @@ Complete installation guide for the NeuronDB ecosystem, based on what is present
 ### Build requirements (only if building from source)
 
 - **NeuronDB (extension)**: C toolchain + PostgreSQL server development headers (`pg_config`), `make`
-- **NeuronAgent**: Go `1.24.x` (see `NeuronAgent/go.mod`)
-- **NeuronMCP**: Go `1.23.x` (see `NeuronMCP/go.mod`)
-- **NeuronDesktop API**: Go `1.24.x` (see `NeuronDesktop/api/go.mod`)
-- **NeuronDesktop frontend**: Node.js (see `NeuronDesktop/frontend/package.json`)
+- **NeuronAgent**: Go `1.24.x` (see neuron-agent repo `go.mod`)
+- **NeuronMCP**: Go `1.23.x` (see neuron-mcp repo `go.mod`)
+- **NeuronDesktop API**: Go `1.24.x` (see neuron-desktop repo `api/go.mod`)
+- **NeuronDesktop frontend**: Node.js (see neuron-desktop repo `frontend/package.json`)
 
 ### Optional requirements
 
@@ -60,7 +60,7 @@ docker compose up -d
 #### Notes
 
 - The canonical compose file is `docker-compose.yml` at repo root.
-- For the full Docker layout and the helper script, see `dockers/README.md` and `dockers/docker.sh`.
+- For the full Docker layout and the helper script, see `docker/README.md` and `docker/docker.sh`.
 
 ### Method 2: Native installation (without Docker)
 
@@ -105,7 +105,7 @@ go build ./cmd/agent-server
 ./agent-server -config configs/config.yaml
 ```
 
-See `NeuronAgent/README.md` and `NeuronAgent/openapi/` for details.
+See the **neuron-agent** repo README and `openapi/` for details.
 
 #### Build NeuronMCP
 
@@ -129,25 +129,25 @@ export NEURONDB_DATABASE=neurondb
 ./neurondb-mcp
 ```
 
-See [NeuronMCP README](../../NeuronMCP/README.md) for setup details.
+See [neuron-mcp repo](https://github.com/neurondb/neuron-mcp) for setup details.
 
 #### Step 4: Build NeuronDesktop
 
 **Backend:**
 ```bash
-cd NeuronDesktop/api
+cd /path/to/neuron-desktop/api
 go build ./cmd/server
 ./server
 ```
 
 **Frontend:**
 ```bash
-cd NeuronDesktop/frontend
+cd /path/to/neuron-desktop/frontend
 npm install
 npm run dev
 ```
 
-See [NeuronDesktop README](../../NeuronDesktop/README.md) for detailed setup.
+See the **neuron-desktop** repo for detailed setup.
 
 ### Method 3: Package Installation
 
@@ -188,7 +188,7 @@ This runs all migrations including `migrations/001_initial_schema.sql` and subse
 
 **NeuronDesktop:**
 ```bash
-cd NeuronDesktop
+cd /path/to/neuron-desktop
 createdb neurondesk
 ./scripts/neurondesktop-setup.sh
 ```
@@ -232,14 +232,14 @@ curl http://localhost:8081/health
 Each component requires specific environment variables. See component-specific documentation:
 
 - [NeuronDB Configuration](../../NeuronDB/docs/configuration.md)
-- [NeuronAgent Configuration](../../NeuronAgent/README.md#configuration)
-- [NeuronMCP Configuration](../../NeuronMCP/README.md#configuration)
-- [NeuronDesktop Configuration](../../NeuronDesktop/README.md#configuration)
+- [NeuronAgent Configuration](https://github.com/neurondb/neuron-agent)
+- [NeuronMCP Configuration](https://github.com/neurondb/neuron-mcp)
+- [NeuronDesktop Configuration](https://github.com/neurondb/neuron-desktop)
 
 ### Configuration Files
 
-- **NeuronAgent**: `NeuronAgent/configs/config.yaml`
-- **NeuronMCP**: `NeuronMCP/mcp-config.json`
+- **NeuronAgent**: neuron-agent repo `configs/config.yaml`
+- **NeuronMCP**: neuron-mcp repo `mcp-config.json`
 - **NeuronDesktop**: Environment variables or `.env` file
 
 ## Next Steps

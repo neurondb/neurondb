@@ -1,0 +1,695 @@
+# -------------------------------------------------------------------------
+#
+# Makefile.core
+#    Core build configuration for NeurondB
+#
+# Advanced AI Database Extension build configuration. Defines source files,
+# compilation flags, and build targets for the NeuronDB PostgreSQL extension.
+#
+# Copyright (c) 2024-2026, neurondb, Inc.
+#
+# IDENTIFICATION
+#    NeuronDB/Makefile.core
+#
+# -------------------------------------------------------------------------
+
+MODULE_big = neurondb
+EXTENSION = neurondb
+DATA = sql/neurondb--1.0.sql sql/neurondb--2.0.sql sql/neurondb--2.1.0.sql sql/neurondb--3.0.0-devel.sql sql/neurondb--1.0--2.0.sql sql/neurondb--2.0--2.1.0.sql sql/neurondb--2.1.0--3.0.0-devel.sql
+DOCS = README.md
+
+PG_CPPFLAGS += -I$(srcdir)/src/include
+
+
+# Source files organized by subdirectory
+# Core vector types and operations
+OBJS = \
+	src/core/neurondb.o \
+	src/core/operators.o
+
+# Vector module (consolidated)
+OBJS += \
+	src/vector/vector_distance.o \
+	src/vector/vector_distance_simd.o \
+	src/vector/vector_types.o \
+	src/vector/vector_ops.o \
+	src/vector/vector_wal.o \
+	src/vector/vector_sparse.o \
+	src/vector/vector_graph_ops.o \
+	src/vector/vector_cast.o \
+	src/vector/vector_batch.o \
+	src/vector/vector_quantization.o \
+	src/vector/vector_advanced.o \
+
+# Index access methods
+OBJS += \
+	src/index/index_hnsw_tenant.o \
+	src/index/index_hybrid.o \
+	src/index/index_temporal.o \
+	src/index/index_consistent.o \
+	src/index/index_rerank.o \
+	src/index/hnsw_am.o \
+	src/index/ivf_am.o \
+	src/index/opclass.o \
+	src/index/index_tuning.o \
+	src/index/index_validator.o \
+	src/index/index_cache.o \
+	src/index/sparse_index.o \
+	src/index/index_replication.o
+
+# Scan nodes
+OBJS += \
+	src/scan/hnsw_scan.o \
+	src/scan/custom_hybrid_scan.o \
+	src/scan/scan_rls.o \
+	src/scan/scan_quota.o
+
+# Background workers
+OBJS += \
+	src/worker/worker_queue.o \
+	src/worker/worker_tuner.o \
+	src/worker/worker_defrag.o \
+	src/worker/worker_init.o \
+	src/worker/worker_llm.o
+
+# LLM/Hugging Face integration
+OBJS += \
+	src/llm/llm_runtime.o \
+	src/llm/llm_router.o \
+	src/llm/llm_cache.o \
+	src/llm/llm_jobs.o \
+	src/llm/llm_image_utils.o \
+	src/llm/hf_http.o \
+	src/llm/openai_http.o
+
+# ONNX Runtime integration for HuggingFace models
+OBJS += \
+	src/onnx/neurondb_onnx.o \
+	src/onnx/neurondb_tokenizer.o \
+	src/onnx/neurondb_hf.o
+
+# GPU acceleration (OLD SYSTEM - disabled when using modular GPU system)
+# The modular GPU system (Makefile.gpu.*) handles GPU objects now
+# This old code is kept for backward compatibility but disabled when GPU_BACKENDS is set
+ifneq ($(GPU_BACKENDS),none)
+# Modular GPU system is active - skip old GPU object definitions
+COMMON_GPU_OBJS :=
+CUDA_GPU_C_OBJS :=
+CUDA_GPU_CU_OBJS :=
+ROCM_GPU_C_OBJS :=
+ROCM_GPU_CU_OBJS :=
+else
+# Old GPU system (only used if GPU_BACKENDS is not set)
+COMMON_GPU_SRCS := $(wildcard src/gpu/common/*.c)
+COMMON_GPU_OBJS := $(COMMON_GPU_SRCS:.c=.o)
+
+CUDA_GPU_C_SRCS := $(wildcard src/gpu/cuda/*.c)
+CUDA_GPU_C_OBJS := $(CUDA_GPU_C_SRCS:.c=.o)
+CUDA_GPU_CU_SRCS := $(wildcard src/gpu/cuda/*.cu)
+CUDA_GPU_CU_OBJS := $(CUDA_GPU_CU_SRCS:.cu=.o)
+
+ROCM_GPU_C_SRCS := $(wildcard src/gpu/rocm/*.c)
+ROCM_GPU_C_OBJS := $(ROCM_GPU_C_SRCS:.c=.o)
+ROCM_GPU_CU_SRCS := $(wildcard src/gpu/rocm/*.cu)
+ROCM_GPU_CU_OBJS := $(ROCM_GPU_CU_SRCS:.cu=.o)
+
+OBJS += $(COMMON_GPU_OBJS)
+endif
+
+# Types and operations
+OBJS += \
+	src/types/quantization.o \
+	src/types/aggregates.o \
+	src/types/sparse_vector_types.o
+
+# Machine learning (NEW supervised learning modules FIRST for better loading)
+OBJS += \
+	src/ml/ml_unified_api.o \
+	src/ml/ml_transformer_llm.o \
+	src/ml/ml_quantization_fp8.o \
+	src/ml/ml_reranking_flash.o \
+	src/ml/ml_multimodal.o \
+	src/ml/ml_catalog.o \
+	src/ml/ml_gpu_registry.o \
+	src/ml/ml_ridge_lasso.o \
+	src/ml/ml_random_forest.o \
+	src/ml/ml_random_forest_shared.o \
+	src/ml/ml_svm.o \
+	src/ml/ml_naive_bayes.o \
+	src/ml/ml_decision_tree.o \
+	src/ml/ml_linear_regression.o \
+	src/ml/ml_logistic_regression.o \
+	src/ml/ml_knn.o \
+	src/ml/ml_projects.o \
+	src/ml/ml_utils.o \
+	src/ml/analytics.o \
+	src/ml/ml_kmeans.o \
+	src/ml/ml_dbscan.o \
+	src/ml/ml_minibatch_kmeans.o \
+	src/ml/ml_product_quantization.o \
+	src/ml/ml_mmr.o \
+	src/ml/ml_davies_bouldin.o \
+	src/ml/ml_outlier_detection.o \
+	src/ml/ml_pca_whitening.o \
+	src/ml/ml_recall_metrics.o \
+	src/ml/ml_drift_detection.o \
+	src/ml/ml_gmm.o \
+	src/ml/ml_hierarchical.o \
+	src/ml/ml_histogram.o \
+	src/ml/ml_rerank_ensemble.o \
+	src/ml/ml_ltr.o \
+	src/ml/ml_hybrid_search.o \
+	src/ml/ml_topic_discovery.o \
+	src/ml/ml_drift_time.o \
+	src/ml/ml_opq.o \
+	src/ml/ml_automl.o \
+	src/ml/ml_catboost.o \
+	src/ml/ml_deeplearning.o \
+	src/ml/ml_feature_store.o \
+	src/ml/ml_hyperparameter_tuning.o \
+	src/ml/ml_lightgbm.o \
+	src/ml/ml_mlops_advanced.o \
+	src/ml/ml_neural_network.o \
+	src/ml/ml_nlp_production.o \
+	src/ml/ml_rag.o \
+	src/ml/ml_recommender.o \
+	src/ml/ml_text.o \
+	src/ml/ml_timeseries.o \
+	src/ml/ml_xgboost.o \
+	src/ml/model_runtime.o \
+	src/ml/ml_inference.o \
+	src/ml/embeddings.o \
+	src/ml/reranking.o
+
+# Metrics and observability
+OBJS += \
+	src/metrics/pg_stat_neurondb.o \
+	src/metrics/prometheus.o
+
+# Search algorithms
+OBJS += \
+	src/search/hybrid_search.o \
+	src/search/temporal_integration.o \
+	src/search/sparse_search.o \
+	src/search/hybrid_dense_sparse.o
+
+# Storage and memory
+OBJS += \
+	src/storage/ann_buffer.o \
+	src/storage/buffer.o
+
+# Backup and replication
+OBJS += \
+	src/backup/vector_backup.o
+
+# Cache
+OBJS += \
+	src/cache/query_cache.o
+
+# Multi-tenancy
+OBJS += \
+	src/tenant/multi_tenant.o
+
+# Query planning
+OBJS += \
+	src/planner/planner.o
+
+# Utilities
+OBJS += \
+	src/util/config.o \
+	src/util/neurondb_guc.o \
+	src/util/security.o \
+	src/util/hooks.o \
+	src/util/distributed.o \
+	src/util/usability.o \
+	src/util/data_management.o \
+	src/util/gtree.o \
+	src/util/neurondb_safe_memory.o \
+	src/util/neurondb_spi_safe.o \
+	src/util/neurondb_spi.o \
+	src/util/neurondb_sql.o \
+	src/util/neurondb_simd_impl.o \
+	src/util/neurondb_json.o
+
+# Security and governance
+OBJS += \
+	src/security/vector_encryption.o \
+	src/security/ml_audit.o \
+	src/security/rag_audit.o
+
+REGRESS = \
+	00_create \
+	01_types_basic \
+	02_types_operations \
+	03_distance_metrics \
+	04_aggregates \
+	05_catalog_tables \
+	06_worker_functions \
+	07_data_management \
+	08_advanced_features \
+	09_gpu_features \
+	10_gpu_distance_wrappers \
+	11_quantization_detail \
+	12_catalog_presence \
+	13_ml_clustering \
+	14_ml_dimensionality \
+	15_ml_quantization \
+	16_ml_reranking \
+	17_ml_outliers \
+	18_ml_metrics \
+	19_ml_drift \
+	20_ml_hybrid_search \
+	21_ml_analytics \
+	99_cleanup
+
+# GPU-only tests
+REGRESS_GPU = \
+	00_create \
+	09_gpu_features \
+	10_gpu_distance_wrappers \
+	11_quantization_detail \
+	99_cleanup
+
+PGFILEDESC = "neurondb - Advanced AI Database with ML Integration"
+
+# GPU support detection (optional, controlled via make arguments)
+# Usage: make CUDA_PATH=/custom/cuda ROCM_PATH=/custom/rocm
+# Example: make clean && make CUDA_PATH=/opt/cuda
+
+# CUDA defaults
+CUDA_PATH ?= /usr/local/cuda
+CUDA_ARCH_FLAGS ?= -gencode arch=compute_70,code=sm_70 \
+                   -gencode arch=compute_75,code=sm_75 \
+                   -gencode arch=compute_86,code=sm_86 \
+                   -gencode arch=compute_90,code=compute_90
+
+# Auto-detect CUDA if not specified
+ifndef CUDA_PATH
+	CUDA_DETECT := $(shell for p in /usr/local/cuda /opt/cuda /usr/cuda; do \
+		test -f $$p/include/cuda_runtime.h && echo $$p && break; \
+	done)
+	ifneq ($(CUDA_DETECT),)
+		CUDA_PATH := $(CUDA_DETECT)
+	endif
+endif
+
+# Auto-detect ROCm if not specified
+ifndef ROCM_PATH
+	ROCM_DETECT := $(shell for p in /opt/rocm /usr/rocm; do \
+		test -f $$p/include/hip/hip_runtime.h && echo $$p && break; \
+	done)
+	ifneq ($(ROCM_DETECT),)
+		ROCM_PATH := $(ROCM_DETECT)
+	endif
+endif
+
+# Auto-detect ONNX Runtime if not specified
+ifndef ONNX_PATH
+	ONNX_DETECT := $(shell for p in /usr/local /usr /opt/onnxruntime; do \
+		test -f $$p/include/onnxruntime/core/session/onnxruntime_cxx_api.h && echo $$p && break; \
+	done)
+	ifneq ($(ONNX_DETECT),)
+		ONNX_PATH := $(ONNX_DETECT)
+	endif
+endif
+
+# Old CUDA/ROCm system (disabled when using modular GPU system or CPU-only mode)
+# Skip old system if GPU_MODE is explicitly set to "none" or GPU_BACKENDS is set to "none"
+ifeq ($(GPU_MODE),none)
+# CPU-only mode: skip old GPU detection
+else
+ifneq ($(GPU_BACKENDS),none)
+# Modular GPU system is active - skip old CUDA/ROCm
+else
+# Check for CUDA (only if not in CPU-only mode)
+ifdef CUDA_PATH
+	HAVE_CUDA := $(shell test -f $(CUDA_PATH)/include/cuda_runtime.h && echo "yes" || echo "no")
+	ifeq ($(HAVE_CUDA),yes)
+		NVCC := $(CUDA_PATH)/bin/nvcc
+		NVCCFLAGS ?= -O3 -Xcompiler "-fPIC" -I$(srcdir)/src/include -I$(CUDA_PATH)/include -DNDB_GPU_CUDA
+		PG_CPPFLAGS += -DNDB_GPU_CUDA -DHAVE_CUDA -I$(CUDA_PATH)/include
+		CUDA_LIBDIR := $(shell if test -d $(CUDA_PATH)/lib64; then echo $(CUDA_PATH)/lib64; fi)
+		ifeq ($(CUDA_LIBDIR),)
+			CUDA_LIBDIR := $(shell if test -d /usr/lib/x86_64-linux-gnu; then echo /usr/lib/x86_64-linux-gnu; fi)
+		endif
+		ifneq ($(CUDA_LIBDIR),)
+			SHLIB_LINK += -L$(CUDA_LIBDIR) -lcudart -lcublas -lcublasLt -Wl,-rpath,$(CUDA_LIBDIR)
+		else
+			SHLIB_LINK += -L$(CUDA_PATH)/lib -lcudart -lcublas -lcublasLt -Wl,-rpath,$(CUDA_PATH)/lib
+		endif
+					OBJS += $(CUDA_GPU_C_OBJS) $(CUDA_GPU_CU_OBJS)
+	# ONNX Runtime with CUDA provider
+		ifdef ONNX_PATH
+			ifneq ($(wildcard $(ONNX_PATH)/include/onnxruntime/core/session/onnxruntime_cxx_api.h),)
+				PG_CPPFLAGS += -DHAVE_ONNXRUNTIME_GPU -I$(ONNX_PATH)/include
+				ONNX_LIBDIR := $(shell test -d $(ONNX_PATH)/lib64 && echo lib64 || echo lib)
+				SHLIB_LINK += -L$(ONNX_PATH)/$(ONNX_LIBDIR) -lonnxruntime -lonnxruntime_providers_cuda
+			endif
+		endif
+	endif
+endif
+
+# Check for ROCm
+ifdef ROCM_PATH
+	HAVE_ROCM := $(shell test -f $(ROCM_PATH)/include/hip/hip_runtime.h && echo "yes" || echo "no")
+	ifeq ($(HAVE_ROCM),yes)
+		HIPCC := $(ROCM_PATH)/bin/hipcc
+		PG_CPPFLAGS += -DNDB_GPU_HIP -DNDB_GPU_ROCM -I$(ROCM_PATH)/include
+		SHLIB_LINK += -L$(ROCM_PATH)/lib -lamdhip64 -lrocblas
+		OBJS += $(ROCM_GPU_C_OBJS) $(ROCM_GPU_CU_OBJS)
+	endif
+endif
+endif
+endif
+
+# Platform detection (must be before GPU includes)
+UNAME_S := $(shell uname -s)
+UNAME_M := $(shell uname -m)
+
+# Export UNAME_S for use in included Makefiles
+export UNAME_S
+export UNAME_M
+
+# GPU backend configuration (set by build.sh or environment)
+GPU_BACKENDS ?= $(or $(GPU_MODE),none)
+
+# Include modular GPU Makefiles based on GPU_BACKENDS
+ifneq ($(GPU_BACKENDS),none)
+	# Include common GPU configuration first
+	-include Makefile.gpu.common
+	
+	# Include specific GPU backends
+	ifneq ($(filter cuda,$(GPU_BACKENDS)),)
+		-include Makefile.gpu.cuda
+	endif
+	
+	ifneq ($(filter metal,$(GPU_BACKENDS)),)
+		-include Makefile.gpu.metal
+	endif
+	
+	ifneq ($(filter rocm,$(GPU_BACKENDS)),)
+		-include Makefile.gpu.rocm
+	endif
+endif
+
+# Always compile GPU stub file for CPU-only builds
+# This provides stub implementations when GPU backends are disabled
+OBJS += src/gpu/gpu_stubs.o
+
+# Old Metal system (disabled when using modular GPU system or CPU-only mode)
+# Skip old system if GPU_MODE is explicitly set to "none" or GPU_BACKENDS is set to "none"
+ifeq ($(GPU_MODE),none)
+# CPU-only mode: skip old Metal detection
+else
+ifneq ($(GPU_BACKENDS),none)
+# Modular GPU system is active - skip old Metal (don't clear METAL_OBJS set by modular system)
+else
+# Old Metal system (only used if GPU_BACKENDS is not set and not in CPU-only mode)
+# Allow disabling explicitly: DISABLE_METAL=1 make ...
+ifeq ($(UNAME_S),Darwin)
+ifneq ($(DISABLE_METAL),1)
+	# Enable for both arm64 and x86_64 (Rosetta builds will still report x86_64 and get Metal)
+	ifneq ($(filter $(UNAME_M),arm64 x86_64),)
+		HAVE_METAL := yes
+		PG_CPPFLAGS += -DNDB_GPU_METAL
+		SHLIB_LINK += -framework Metal -framework MetalPerformanceShaders -framework Accelerate -framework Foundation
+		METAL_OBJS = src/gpu/metal/gpu_metal.o src/gpu/metal/gpu_metal_impl.o src/gpu/metal/gpu_backend_metal.o
+	endif
+endif
+endif
+
+# Add Metal objects if available
+ifneq ($(strip $(METAL_OBJS)),)
+	OBJS += $(METAL_OBJS)
+endif
+
+# Special rule for Metal implementation to avoid Protocol conflicts
+ifneq ($(strip $(METAL_OBJS)),)
+src/gpu/metal/gpu_metal_impl.o: src/gpu/metal/gpu_metal_impl.m
+	$(CC) $(filter-out -I/usr/local/include, $(PG_CPPFLAGS)) $(CFLAGS) $(CPPFLAGS) -c -o $@ $<
+endif
+endif
+endif
+
+
+# CUDA compilation rule (use NVCC when available)
+ifdef CUDA_GPU_CU_OBJS
+src/gpu/cuda/%.o: src/gpu/cuda/%.cu
+	$(NVCC) $(NVCCFLAGS) $(CUDA_ARCH_FLAGS) -Xcompiler "-fPIC" -I$(srcdir)/src/include -c $< -o $@
+src/gpu/cuda/%.bc: src/gpu/cuda/%.cu
+	$(NVCC) $(NVCCFLAGS) $(CUDA_ARCH_FLAGS) -Xcompiler "-fPIC" -I$(srcdir)/src/include -c $< -o $@
+endif
+
+# ROCm compilation rule
+ifeq ($(HAVE_ROCM),yes)
+HIPCC ?= $(ROCM_PATH)/bin/hipcc
+HIPCCFLAGS ?= -O3 -fPIC -I$(srcdir)/src/include -I$(ROCM_PATH)/include -DNDB_GPU_HIP -DNDB_GPU_ROCM
+ifdef ROCM_GPU_CU_OBJS
+src/gpu/rocm/%.o: src/gpu/rocm/%.cu
+	$(HIPCC) $(HIPCCFLAGS) -c $< -o $@
+endif
+endif
+
+SHLIB_LINK += -lm -lz -lcrypto -lcurl -lssl
+
+# Auto-detect and link ML libraries if available
+# XGBoost
+ifneq ($(wildcard /usr/local/lib/libxgboost.so),)
+	SHLIB_LINK += -L/usr/local/lib -lxgboost -Wl,-rpath,/usr/local/lib
+else
+ifneq ($(wildcard /usr/local/lib/libxgboost.a),)
+	SHLIB_LINK += -L/usr/local/lib -lxgboost -Wl,-rpath,/usr/local/lib
+endif
+endif
+
+# LightGBM (check for both naming conventions)
+ifneq ($(wildcard /usr/local/lib/lib_lightgbm.so),)
+	SHLIB_LINK += -L/usr/local/lib -l_lightgbm -Wl,-rpath,/usr/local/lib
+else
+ifneq ($(wildcard /usr/local/lib/liblightgbm.so),)
+	SHLIB_LINK += -L/usr/local/lib -llightgbm -Wl,-rpath,/usr/local/lib
+endif
+endif
+
+# CatBoost
+ifneq ($(wildcard /usr/local/lib/libcatboostmodel.so),)
+	SHLIB_LINK += -L/usr/local/lib -lcatboostmodel -Wl,-rpath,/usr/local/lib
+else
+ifneq ($(wildcard /usr/local/lib/libcatboostmodel.a),)
+	SHLIB_LINK += -L/usr/local/lib -lcatboostmodel -Wl,-rpath,/usr/local/lib
+endif
+endif
+
+# macOS: Note - symbol export issue being investigated
+# Functions are exported but PostgreSQL 17 loader cannot find them
+# This appears to be a PostgreSQL 17/macOS dylib loader bug
+ifeq ($(shell uname -s),Darwin)
+	# Keep default linking for now
+endif
+
+PG_CONFIG ?= /usr/local/pgsql.18/bin/pg_config
+
+ifneq ($(wildcard neurondb--1.0.sql.in),)
+# Generate platform-specific SQL files from template
+# This allows maintaining separate macOS and Linux files
+$(eval include Makefile.header)
+
+# Generate Linux SQL file
+sql/neurondb--1.0.sql.linux: neurondb--1.0.sql.in Makefile Makefile.sql-functions Makefile.header
+	@mkdir -p sql
+	@echo "=========================================================================="
+	@echo "Generating Linux SQL file..."
+	@echo "  PostgreSQL: $(PGSQL_VERSION) (version_num: $(PGSQL_VERSION_NUM))"
+	@echo "  Platform: Linux"
+	@echo "  Build Date: $(BUILD_DATE)"
+	@echo "=========================================================================="
+	@sed -e 's|@PGSQL_VERSION@|$(PGSQL_VERSION)|g' \
+	     -e 's|@PGSQL_VERSION_NUM@|$(PGSQL_VERSION_NUM)|g' \
+	     -e 's|@PLATFORM@|Linux|g' \
+	     -e 's|@UNAME_S@|Linux|g' \
+	     -e 's|@BUILD_DATE@|$(BUILD_DATE)|g' \
+	     -e 's|@BUILD_TYPE@|linux_pg$(PGSQL_MAJOR)|g' \
+	     neurondb--1.0.sql.in > sql/neurondb--1.0.sql.linux.tmp
+	@$(MAKE) -s -f Makefile.sql-functions ml-regression-functions > sql/neurondb--1.0.sql.reg.funcs
+	@$(MAKE) -s -f Makefile.sql-functions ml-classification-functions > sql/neurondb--1.0.sql.clf.funcs
+	@$(MAKE) -s -f Makefile.sql-functions ml-knn-functions > sql/neurondb--1.0.sql.knn.funcs
+	@$(MAKE) -s -f Makefile.sql-functions ml-ensemble-functions > sql/neurondb--1.0.sql.ens.funcs
+	@sed '/@ML_REGRESSION_FUNCTIONS@/r sql/neurondb--1.0.sql.reg.funcs' sql/neurondb--1.0.sql.linux.tmp | \
+	     sed '/@ML_REGRESSION_FUNCTIONS@/d' | \
+	     sed '/@ML_CLASSIFICATION_FUNCTIONS@/r sql/neurondb--1.0.sql.clf.funcs' | \
+	     sed '/@ML_CLASSIFICATION_FUNCTIONS@/d' | \
+	     sed '/@ML_KNN_FUNCTIONS@/r sql/neurondb--1.0.sql.knn.funcs' | \
+	     sed '/@ML_KNN_FUNCTIONS@/d' | \
+	     sed '/@ML_ENSEMBLE_FUNCTIONS@/r sql/neurondb--1.0.sql.ens.funcs' | \
+	     sed '/@ML_ENSEMBLE_FUNCTIONS@/d' > sql/neurondb--1.0.sql.linux.tmp2
+	@cp sql/neurondb--1.0.sql.linux.tmp2 sql/neurondb--1.0.sql.linux
+	@rm -f sql/neurondb--1.0.sql.linux.tmp sql/neurondb--1.0.sql.linux.tmp2 sql/neurondb--1.0.sql.reg.funcs sql/neurondb--1.0.sql.clf.funcs sql/neurondb--1.0.sql.knn.funcs sql/neurondb--1.0.sql.ens.funcs
+	@echo "✓ Generated sql/neurondb--1.0.sql.linux"
+	@echo "=========================================================================="
+
+# Generate macOS SQL file
+sql/neurondb--1.0.sql.macos: neurondb--1.0.sql.in Makefile Makefile.sql-functions Makefile.header
+	@mkdir -p sql
+	@echo "=========================================================================="
+	@echo "Generating macOS SQL file..."
+	@echo "  PostgreSQL: $(PGSQL_VERSION) (version_num: $(PGSQL_VERSION_NUM))"
+	@echo "  Platform: macOS"
+	@echo "  Build Date: $(BUILD_DATE)"
+	@echo "=========================================================================="
+	@sed -e 's|@PGSQL_VERSION@|$(PGSQL_VERSION)|g' \
+	     -e 's|@PGSQL_VERSION_NUM@|$(PGSQL_VERSION_NUM)|g' \
+	     -e 's|@PLATFORM@|macOS|g' \
+	     -e 's|@UNAME_S@|Darwin|g' \
+	     -e 's|@BUILD_DATE@|$(BUILD_DATE)|g' \
+	     -e 's|@BUILD_TYPE@|macos_pg$(PGSQL_MAJOR)|g' \
+	     neurondb--1.0.sql.in > sql/neurondb--1.0.sql.macos.tmp
+	@$(MAKE) -s -f Makefile.sql-functions ml-regression-functions > sql/neurondb--1.0.sql.reg.funcs
+	@$(MAKE) -s -f Makefile.sql-functions ml-classification-functions > sql/neurondb--1.0.sql.clf.funcs
+	@$(MAKE) -s -f Makefile.sql-functions ml-knn-functions > sql/neurondb--1.0.sql.knn.funcs
+	@$(MAKE) -s -f Makefile.sql-functions ml-ensemble-functions > sql/neurondb--1.0.sql.ens.funcs
+	@sed '/@ML_REGRESSION_FUNCTIONS@/r sql/neurondb--1.0.sql.reg.funcs' sql/neurondb--1.0.sql.macos.tmp | \
+	     sed '/@ML_REGRESSION_FUNCTIONS@/d' | \
+	     sed '/@ML_CLASSIFICATION_FUNCTIONS@/r sql/neurondb--1.0.sql.clf.funcs' | \
+	     sed '/@ML_CLASSIFICATION_FUNCTIONS@/d' | \
+	     sed '/@ML_KNN_FUNCTIONS@/r sql/neurondb--1.0.sql.knn.funcs' | \
+	     sed '/@ML_KNN_FUNCTIONS@/d' | \
+	     sed '/@ML_ENSEMBLE_FUNCTIONS@/r sql/neurondb--1.0.sql.ens.funcs' | \
+	     sed '/@ML_ENSEMBLE_FUNCTIONS@/d' > sql/neurondb--1.0.sql.macos.tmp2
+	@cp sql/neurondb--1.0.sql.macos.tmp2 sql/neurondb--1.0.sql.macos
+	@rm -f sql/neurondb--1.0.sql.macos.tmp sql/neurondb--1.0.sql.macos.tmp2 sql/neurondb--1.0.sql.reg.funcs sql/neurondb--1.0.sql.clf.funcs sql/neurondb--1.0.sql.knn.funcs sql/neurondb--1.0.sql.ens.funcs
+	@echo "✓ Generated sql/neurondb--1.0.sql.macos"
+	@echo "=========================================================================="
+
+# Select appropriate SQL file based on platform
+sql/neurondb--1.0.sql: Makefile.header
+	@mkdir -p sql
+	$(eval include Makefile.header)
+	@UNAME_S_VAL=$$(uname -s); \
+	if [ "$$UNAME_S_VAL" = "Darwin" ]; then \
+		if [ -f sql/neurondb--1.0.sql.macos ]; then \
+			echo "Using sql/neurondb--1.0.sql.macos for macOS build"; \
+			cp sql/neurondb--1.0.sql.macos sql/neurondb--1.0.sql; \
+		else \
+			echo "⚠ sql/neurondb--1.0.sql.macos not found, generating..."; \
+			$(MAKE) sql/neurondb--1.0.sql.macos; \
+			cp sql/neurondb--1.0.sql.macos sql/neurondb--1.0.sql; \
+		fi; \
+	else \
+		if [ -f sql/neurondb--1.0.sql.linux ]; then \
+			echo "Using sql/neurondb--1.0.sql.linux for Linux build"; \
+			cp sql/neurondb--1.0.sql.linux sql/neurondb--1.0.sql; \
+		else \
+			echo "⚠ sql/neurondb--1.0.sql.linux not found, generating..."; \
+			$(MAKE) sql/neurondb--1.0.sql.linux; \
+			cp sql/neurondb--1.0.sql.linux sql/neurondb--1.0.sql; \
+		fi; \
+	fi
+
+else
+# Fallback: copy from platform-specific .linux or .macos files
+sql/neurondb--1.0.sql:
+	@mkdir -p sql
+	@UNAME_S_VAL=$$(uname -s); \
+	if [ "$$UNAME_S_VAL" = "Darwin" ]; then \
+		if [ -f sql/neurondb--1.0.sql.macos ]; then \
+			echo "Using sql/neurondb--1.0.sql.macos for macOS build"; \
+			cp sql/neurondb--1.0.sql.macos sql/neurondb--1.0.sql; \
+		else \
+			echo "⚠ sql/neurondb--1.0.sql.macos not found!"; \
+			exit 1; \
+		fi; \
+	else \
+		if [ -f sql/neurondb--1.0.sql.linux ]; then \
+			echo "Using sql/neurondb--1.0.sql.linux for Linux build"; \
+			cp sql/neurondb--1.0.sql.linux sql/neurondb--1.0.sql; \
+		else \
+			echo "⚠ sql/neurondb--1.0.sql.linux not found!"; \
+			exit 1; \
+		fi; \
+	fi
+endif
+
+# Ensure SQL exists before building
+# Platform-specific prerequisites and targets
+ifeq ($(UNAME_S),Darwin)
+# macOS: Metal shaders must be built before the library (if Metal is enabled)
+ifneq ($(filter metal,$(GPU_BACKENDS)),)
+$(MODULE_big).dylib: metal-shaders
+all: metal-shaders $(MODULE_big).dylib
+else
+all: $(MODULE_big).dylib
+endif
+else
+# Linux: Build the shared library
+all: $(MODULE_big).so
+endif
+
+# ONNX Runtime configuration
+ONNX_RUNTIME_PATH = /usr/local/onnxruntime
+ifneq ($(wildcard $(ONNX_RUNTIME_PATH)),)
+    PG_CPPFLAGS += -I$(ONNX_RUNTIME_PATH)/include -DHAVE_ONNX_RUNTIME
+    SHLIB_LINK += -L$(ONNX_RUNTIME_PATH)/lib -lonnxruntime -Wl,-rpath $(ONNX_RUNTIME_PATH)/lib
+ifneq ($(QUIET_ONNX),1)
+    $(info ✓ ONNX Runtime found at $(ONNX_RUNTIME_PATH))
+endif
+else
+ifneq ($(QUIET_ONNX),1)
+    $(warning ⚠ ONNX Runtime not found at $(ONNX_RUNTIME_PATH) - building without HuggingFace support)
+endif
+endif
+
+# Redirect gcov coverage output to NeurondB directory instead of PostgreSQL source tree
+# This prevents warnings about trying to write to /home/pge/pge/postgres.18/src/port/
+export GCOV_PREFIX := $(abspath $(srcdir))/.gcov_output
+export GCOV_PREFIX_STRIP := 0
+
+PGXS := $(shell $(PG_CONFIG) --pgxs)
+include $(PGXS)
+
+# Set default goal to 'all' (must be after PGXS include)
+.DEFAULT_GOAL := all
+
+# Custom target for GPU-only tests
+installcheck-gpu:
+	$(pg_regress_installcheck) $(REGRESS_OPTS) $(REGRESS_GPU)
+
+# TAP tests
+PROVE = prove
+PROVE_FLAGS = --verbose
+TAP_TESTS = $(wildcard t/*.t)
+
+.PHONY: installcheck-tap
+installcheck-tap:
+	@if [ -z "$(TAP_TESTS)" ]; then \
+		echo "No TAP tests found in t/"; \
+		exit 1; \
+	fi
+	@echo "Running TAP tests..."
+	@$(PROVE) $(PROVE_FLAGS) $(TAP_TESTS)
+
+# Custom rule for CUDA kernel compilation
+ifdef NVCC
+src/gpu/gpu_kernels.o: src/gpu/gpu_kernels.cu
+	$(NVCC) $(NVCCFLAGS) $(CUDA_ARCH_FLAGS) -c $< -o $@
+endif
+
+# Custom rule for HIP kernel compilation
+ifdef HIPCC
+src/gpu/gpu_kernels_hip.o: src/gpu/gpu_kernels.cu
+	$(HIPCC) -O3 -fPIC -DNDB_GPU_HIP -I$(shell $(PG_CONFIG) --includedir-server) -I$(srcdir)/src/include -c -o $@ $<
+endif
+# include Makefile.metal  # Removed - conflicting with main Makefile rules
+include Makefile.metal.precompile
+
+# Remove gcov coverage files (.gcda and .gcno)
+# These are generated by gcc when building with coverage flags
+.PHONY: clean-gcov
+clean-gcov:
+	@echo "Removing gcov coverage files..."
+	@find . -name "*.gcda" -type f -delete 2>/dev/null || true
+	@find . -name "*.gcno" -type f -delete 2>/dev/null || true
+
+# Override clean target to also remove gcov files
+# This must be defined AFTER PGXS include to override the default clean
+clean: clean-gcov
+

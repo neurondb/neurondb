@@ -1,0 +1,2 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/core/002_ivf_index.sql:5: NOTICE:  table "ivf_test_vectors" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/core/002_ivf_index.sql:6: NOTICE:  index "ivf_test_idx" does not exist, skipping

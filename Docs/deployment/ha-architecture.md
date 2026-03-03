@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the high availability (HA) architecture for NeuronDB ecosystem in production.
+This document describes the high availability (HA) architecture for NeuronDB ecosystem in production. On **Kubernetes**, the recommended approach is **CloudNativePG (CNPG)**; for non-Kubernetes deployments, **Patroni** with PgBouncer is an option.
 
 ## Architecture Diagram
 
@@ -64,15 +64,31 @@ This document describes the high availability (HA) architecture for NeuronDB eco
 
 ### 3. Database Layer
 
-**PostgreSQL HA** using **Patroni**:
-- Primary node (read/write)
-- 2+ replica nodes (read-only)
-- Automatic failover
-- Connection pooling (PgBouncer)
+**On Kubernetes (recommended): CloudNativePG (CNPG)**
+
+- **Cluster CRD**: Primary + N standbys (e.g. `neurondb.cnpg.instances: 3`)
+- **Services**: `-rw` (primary, read-write), `-ro` (read-only replicas), `-r` (any replica)
+- **Automatic failover**: CNPG promotes a standby when the primary is lost (~30s)
+- **Replication slots**: High-availability replication slots for WAL retention
+- **Pooler (PgBouncer)**: Optional CNPG Pooler CRD for connection pooling
+- **Synchronous replication**: Set `minSyncReplicas` / `maxSyncReplicas` for RPO=0
+
+See [Kubernetes/Helm](kubernetes-helm.md#cloudnativepg-cnpg) for configuration.
+
+**Outside Kubernetes: PostgreSQL HA with Patroni**
 
 ## Setup
 
-### Step 1: PostgreSQL HA with Patroni
+### Option A: Kubernetes with CloudNativePG (recommended)
+
+1. Install the [CNPG Operator](https://cloudnative-pg.io/) and deploy the NeuronDB Helm chart with `neurondb.cnpg.instances: 3` (or more).
+2. Use the `-rw` service for write traffic and `-ro` or `-r` for read-only traffic.
+3. Enable the Pooler for connection pooling: `neurondb.cnpg.pooler.enabled: true`.
+4. For RPO=0, set `neurondb.cnpg.minSyncReplicas` and `maxSyncReplicas` (e.g. 1).
+
+Failover is automatic; no Patroni or manual VIP required.
+
+### Option B: PostgreSQL HA with Patroni (non-Kubernetes)
 
 ```yaml
 # docker-compose.ha.yml
@@ -150,10 +166,9 @@ server {
 
 ### Database Primary Failure
 
-1. Patroni detects primary failure
-2. Elects new primary from replicas
-3. Updates DNS/VIP to point to new primary
-4. Applications reconnect automatically
+**CNPG (Kubernetes):** CNPG detects primary failure and promotes a standby; clients using the `-rw` service are redirected to the new primary automatically.
+
+**Patroni:** Patroni detects primary failure, elects a new primary from replicas, and updates DNS/VIP; applications reconnect automatically.
 
 ### Application Node Failure
 
@@ -181,15 +196,14 @@ server {
 
 ### Backup Strategy
 
-- Daily full backups
-- Continuous WAL archiving
-- Off-site backup storage (S3)
+- **CNPG (Kubernetes):** Use `neurondb.cnpg.backup` (Barman object store) and `neurondb.cnpg.scheduledBackup` for daily backups and WAL archiving. See [Backup and Restore](backup-restore.md).
+- **Other:** Daily full backups, continuous WAL archiving, off-site backup storage (S3).
 
 ### Recovery Time Objectives (RTO)
 
-- Database failover: < 30 seconds
-- Application recovery: < 5 minutes
-- Full disaster recovery: < 1 hour
+- **CNPG:** Database failover &lt; 30 seconds; application recovery &lt; 5 minutes.
+- **Patroni:** Database failover &lt; 30 seconds; application recovery &lt; 5 minutes.
+- Full disaster recovery: &lt; 1 hour.
 
 ### Recovery Point Objectives (RPO)
 

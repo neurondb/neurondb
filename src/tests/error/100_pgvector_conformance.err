@@ -1,0 +1,5 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/100_pgvector_conformance.sql:56: NOTICE:  table "t" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/100_pgvector_conformance.sql:114: ERROR:  function array_to_vector(numeric[]) is not unique
+LINE 1: SELECT array_to_vector(ARRAY[1.0, 2.0, 3.0]) AS vec;
+               ^
+HINT:  Could not choose a best candidate function. You might need to add explicit type casts.

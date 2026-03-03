@@ -5,7 +5,7 @@
 **Complete index of all documentation in the NeuronDB ecosystem.**
 
 [![Version](https://img.shields.io/badge/version-2.0-blue)](.)
-[![Last Updated](https://img.shields.io/badge/updated-2026--01--08-lightgrey)](.)
+[![Last Updated](https://img.shields.io/badge/updated-2026--02--26-lightgrey)](.)
 
 </div>
 
@@ -97,7 +97,7 @@
 | Component | Documentation | Description |
 |-----------|---------------|-------------|
 | **NeuronAgent** | [API Reference](reference/neuronagent-api.md) | REST and WebSocket API |
-| **NeuronMCP** | [Tools Reference](../../NeuronMCP/REGISTERED_TOOLS.md) | All 100+ MCP tools |
+| **NeuronMCP** | [Tools Reference](https://github.com/neurondb/neuron-mcp) | All 100+ MCP tools |
 | **NeuronDesktop** | [API Reference](reference/api-reference.md#neurondesktop-api) | REST and WebSocket API |
 
 </details>
@@ -235,12 +235,12 @@
 | **[Deployment Documentation](deployment/README.md)** | Complete deployment guide | ⭐⭐ Medium |
 | **[Production Installation](deployment/production-install.md)** | Production setup | ⭐⭐ Medium |
 | **[Docker Deployment](deployment/docker.md)** | Docker deployment (all profiles) | ⭐ Easy |
-| **[Kubernetes/Helm](deployment/kubernetes-helm.md)** | Kubernetes deployment | ⭐⭐⭐ Advanced |
+| **[Kubernetes/Helm](deployment/kubernetes-helm.md)** | Kubernetes deployment (CNPG, Pooler, backup, local test) | ⭐⭐⭐ Advanced |
 | **[Container Images](deployment/container-images.md)** | Container image information | ⭐ Easy |
-| **[Backup and Restore](deployment/backup-restore.md)** | Backup and recovery procedures | ⭐ Easy |
+| **[Backup and Restore](deployment/backup-restore.md)** | Backup and recovery (CNPG + legacy) | ⭐ Easy |
 | **[Upgrade and Rollback](deployment/upgrade-rollback.md)** | Upgrade procedures | ⭐⭐ Medium |
 | **[Sizing Guide](deployment/sizing-guide.md)** | Resource sizing recommendations | ⭐ Easy |
-| **[HA Architecture](deployment/ha-architecture.md)** | High availability setup | ⭐⭐⭐ Advanced |
+| **[HA Architecture](deployment/ha-architecture.md)** | High availability (CNPG + Patroni) | ⭐⭐⭐ Advanced |
 
 </details>
 
@@ -255,6 +255,7 @@
 |----------|-------------|
 | **[Ecosystem Integration Guide](ecosystem/integration.md)** | Integration guide |
 | **[Ecosystem Overview](ecosystem/README.md)** | How components work together |
+| **[Directory structure](directory-structure.md)** | Repo layout (pge/: neurondb, neuron-agent, neuron-desktop, neuron-mcp) |
 
 **Topics covered:**
 - ✅ Component communication
@@ -309,7 +310,7 @@
 
 <div align="center">
 
-**Last Updated:** 2026-01-08  
+**Last Updated:** 2026-02-26  
 **Documentation Version:** 2.0.0
 
 [⬆ Back to Top](#-neurondb-complete-documentation-index) · [📚 Main Documentation](documentation.md)

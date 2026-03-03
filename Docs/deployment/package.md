@@ -31,9 +31,9 @@ Use pre-built DEB packages instead of building from source in Docker containers.
 
 ## Available Package-Based Dockerfiles
 
-1. **NeuronDB**: `dockers/neurondb/Dockerfile.package`
-2. **NeuronAgent**: `dockers/neuronagent/Dockerfile.package`
-3. **NeuronMCP**: `dockers/neuronmcp/Dockerfile.package`
+1. **NeuronDB**: `docker/neurondb/Dockerfile.package`
+2. **NeuronAgent**: `docker/neuronagent/Dockerfile.package`
+3. **NeuronMCP**: `docker/neuronmcp/Dockerfile.package`
 
 ## Building Package-Based Images
 
@@ -45,7 +45,7 @@ cd /path/to/neurondb
 
 # Build with PostgreSQL 18
 docker build \
-  -f dockers/neurondb/Dockerfile.package \
+  -f docker/neurondb/Dockerfile.package \
   --build-arg PG_MAJOR=18 \
   --build-arg PACKAGE_VERSION=1.0.0.beta \
   -t neurondb:package-pg18 \
@@ -56,7 +56,7 @@ docker build \
 
 ```bash
 docker build \
-  -f dockers/neuronagent/Dockerfile.package \
+  -f docker/neuronagent/Dockerfile.package \
   --build-arg PACKAGE_VERSION=1.0.0.beta \
   -t neuronagent:package \
   .
@@ -66,7 +66,7 @@ docker build \
 
 ```bash
 docker build \
-  -f dockers/neuronmcp/Dockerfile.package \
+  -f docker/neuronmcp/Dockerfile.package \
   --build-arg PACKAGE_VERSION=1.0.0.beta \
   -t neuronmcp:package \
   .
@@ -97,7 +97,7 @@ services:
   neurondb:
     build:
       context: .
-      dockerfile: dockers/neurondb/Dockerfile.package
+      dockerfile: docker/neurondb/Dockerfile.package
       args:
         PG_MAJOR: 18
         PACKAGE_VERSION: 1.0.0.beta

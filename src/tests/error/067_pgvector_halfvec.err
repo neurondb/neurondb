@@ -1,0 +1,3 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/067_pgvector_halfvec.sql:21: ERROR:  type "halfvec" does not exist
+LINE 1: SELECT '[1,2,3]'::halfvec;
+                          ^

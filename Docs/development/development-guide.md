@@ -36,9 +36,10 @@ NeuronDB/
 
 ### NeuronAgent
 
-**Structure:**
+**Location:** **neuron-agent** repo. Structure (reference):
+
 ```
-NeuronAgent/
+neuron-agent/
 ├── internal/
 │   ├── agent/        # Agent runtime
 │   ├── api/          # REST API
@@ -49,9 +50,10 @@ NeuronAgent/
 
 ### NeuronMCP
 
-**Structure:**
+**Location:** **neuron-mcp** repo. Structure (reference):
+
 ```
-NeuronMCP/
+neuron-mcp/
 ├── internal/
 │   ├── tools/        # MCP tools
 │   ├── server/       # MCP server
@@ -144,7 +146,7 @@ Add algorithm to catalog system.
 
 ### NeuronMCP Tool
 
-**File:** `NeuronMCP/internal/tools/my_tool.go`
+**File:** In **neuron-mcp** repo: `internal/tools/my_tool.go`
 
 ```go
 type MyTool struct {

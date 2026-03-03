@@ -1,0 +1,62 @@
+# Minimal values for local CNPG testing (e.g. kind cluster)
+# Uses standard PostgreSQL image so no NeuronDB extension; validates Cluster, Pooler, monitoring ConfigMap.
+# Usage: helm install neurondb ./helm/neurondb -n neurondb --create-namespace -f examples/values-cnpg-test.yaml
+
+neurondb:
+  enabled: true
+  image:
+    repository: ghcr.io/cloudnative-pg/postgresql
+    tag: "17"
+    pullPolicy: IfNotPresent
+  postgresql:
+    database: "neurondb"
+    username: "neurondb"
+  cnpg:
+    instances: 2
+    storage:
+      size: "5Gi"
+    bootstrap:
+      initdb:
+        runNeurondbExtension: false
+    pooler:
+      enabled: true
+      type: "rw"
+      instances: 1
+      pgbouncer:
+        poolMode: "session"
+        defaultPoolSize: "10"
+        maxClientConn: "100"
+    monitoring:
+      enabled: true
+    enablePodAntiAffinity: false
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+neuronagent:
+  enabled: false
+
+neuronmcp:
+  enabled: false
+
+neurondesktop:
+  enabled: false
+
+monitoring:
+  enabled: false
+
+networkPolicy:
+  enabled: false
+
+rbac:
+  enabled: true
+
+secrets:
+  create: true
+
+migrations:
+  enabled: false

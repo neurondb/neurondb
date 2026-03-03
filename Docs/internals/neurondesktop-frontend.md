@@ -41,8 +41,10 @@
 
 ## Project Structure
 
+**Location:** Code lives in the **neuron-desktop** repo. The structure below is a reference.
+
 ```
-NeuronDesktop/
+neuron-desktop/
 ├── app/                    # Next.js App Router
 │   ├── (auth)/            # Auth routes
 │   ├── (dashboard)/       # Dashboard routes
@@ -204,7 +206,7 @@ module.exports = {
 ## Related Documentation
 
 - [NeuronDesktop API Reference](../reference/neurondesktop-api-complete.md)
-- [NeuronDesktop Deployment](../../NeuronDesktop/docs/deployment.md)
+- [neuron-desktop Deployment](https://github.com/neurondb/neuron-desktop) (see repo docs)
 
 ---
 

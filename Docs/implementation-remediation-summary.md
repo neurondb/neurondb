@@ -1,6 +1,6 @@
 # Full-Stack Remediation Implementation Summary
 
-This document summarizes the **100% clean, detailed** implementation of the 1-year remediation plan across the neurondb, neurondb-cloud, and neurondb-hub repositories.
+This document summarizes the **100% clean, detailed** implementation of the 1-year remediation plan across the neurondb, neuron-cloud, and neuron-hub repositories.
 
 ---
 
@@ -52,7 +52,7 @@ This document summarizes the **100% clean, detailed** implementation of the 1-ye
 
 ---
 
-## 2. neurondb-cloud
+## 2. neuron-cloud
 
 ### 2.1 Security – Authentication and Secrets (Critical)
 
@@ -88,7 +88,7 @@ This document summarizes the **100% clean, detailed** implementation of the 1-ye
 
 ---
 
-## 3. neurondb-hub
+## 3. neuron-hub
 
 ### 3.1 Security – Secrets and CORS
 
@@ -137,14 +137,14 @@ This document summarizes the **100% clean, detailed** implementation of the 1-ye
 
 ### 3.6 Helm Chart (Complete)
 
-- **`infrastructure/charts/neurondb-hub/`**
+- **`infrastructure/charts/neuron-hub/`**
   - **Chart.yaml**: Name, description, version, appVersion.
   - **values.yaml**: Backend, gateway, frontend image and replica counts, service ports, resources; optional postgresql section.
   - **templates**:
     - **backend-deployment.yaml** / **backend-service.yaml**: Liveness/readiness on `/healthz` and `/readyz`.
     - **gateway-deployment.yaml** / **gateway-service.yaml**: Liveness on `/health`.
     - **frontend-deployment.yaml** / **frontend-service.yaml**: Liveness on `/`.
-  - **_helpers.tpl**: `neurondb-hub.name` and `neurondb-hub.fullname`.
+  - **_helpers.tpl**: `neuron-hub.name` and `neuron-hub.fullname`.
   - **README.md**: Requirements (JWT_SECRET, DATABASE_URL, etc.), install notes, customization, and that secrets must not be stored in values (use Kubernetes Secrets and valueFrom).
 
 ### 3.7 Documentation and Release

@@ -1,0 +1,13 @@
+# NeuronDB extension control file
+# See https://www.postgresql.org/docs/current/extend-extensions.html
+
+comment = 'NeuronDB: Advanced AI Database - Vector types, ML inference, hybrid search, RAG support'
+default_version = '3.0.0-devel'
+module_pathname = '$libdir/neurondb'
+relocatable = true
+superuser = true
+trusted = false
+# requires = 'pg_trgm'
+# For background workers (neuranq, neuranmon, neurandefrag, neuranllm) set:
+#   shared_preload_libraries = 'neurondb'
+# in postgresql.conf and restart the server.

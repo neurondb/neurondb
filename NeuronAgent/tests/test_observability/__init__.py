@@ -1,2 +1,0 @@
-"""Observability & monitoring tests."""
-

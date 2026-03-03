@@ -1,0 +1,9 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/042_ml_nb.sql:38: NOTICE:  relation "test_settings" already exists, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/042_ml_nb.sql:69: NOTICE:  relation "test_metrics" already exists, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/042_ml_nb.sql:105: NOTICE:  table "gpu_model_temp" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/042_ml_nb.sql:129: NOTICE:  GPU training failed (may require exactly 2 classes): neurondb: Naive Bayes expects labels 0 or 1, got 2
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/042_ml_nb.sql:150: NOTICE:  Skipping prediction test: model_id is NULL (training may have failed)
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/042_ml_nb.sql:164: NOTICE:  Skipping batch prediction test: model_id is NULL (training may have failed)
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/042_ml_nb.sql:171: NOTICE:  table "gpu_metrics_temp" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/042_ml_nb.sql:216: WARNING:  No model_id found in gpu_model_temp
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/042_ml_nb.sql:458: NOTICE:  CPU mode: GPU information skipped

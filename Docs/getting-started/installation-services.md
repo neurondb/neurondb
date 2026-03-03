@@ -337,9 +337,9 @@ launchctl load ~/Library/LaunchAgents/com.neurondb.neuronmcp.plist
 - [Native Installation Guide](installation-native.md) - Installing components
 - [Configuration Guide](../reference/configuration.md) - Configuration options
 - Component-specific documentation:
-  - [NeuronMCP README](../../NeuronMCP/README.md)
-  - [NeuronAgent README](../../NeuronAgent/README.md)
-  - [NeuronDesktop README](../../NeuronDesktop/README.md)
+  - [NeuronMCP README](https://github.com/neurondb/neuron-mcp)
+  - [NeuronAgent README](https://github.com/neurondb/neuron-agent)
+  - [NeuronDesktop README](https://github.com/neurondb/neuron-desktop)
 
 
 

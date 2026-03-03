@@ -1,0 +1,50 @@
+NeuronDB Ecosystem has been installed!
+
+{{- if .Values.neurondb.enabled }}
+NeuronDB:
+  Service: {{ include "neurondb.postgresHost" . }}:{{ .Values.neurondb.postgresql.port }}
+  Database: {{ .Values.neurondb.postgresql.database }}
+  Username: {{ .Values.neurondb.postgresql.username }}
+{{- end }}
+
+{{- if .Values.monitoring.enabled }}
+Monitoring:
+{{- if .Values.monitoring.prometheus.enabled }}
+  Prometheus: {{ include "neurondb.fullname" . }}-prometheus:9090
+{{- end }}
+{{- if .Values.monitoring.grafana.enabled }}
+  Grafana: {{ include "neurondb.fullname" . }}-grafana:3000
+  Admin User: admin
+  Admin Password: {{ .Values.monitoring.grafana.adminPassword }}
+{{- end }}
+{{- if .Values.monitoring.jaeger.enabled }}
+  Jaeger: {{ include "neurondb.fullname" . }}-jaeger:16686
+{{- end }}
+{{- end }}
+
+{{- if .Values.ingress.enabled }}
+Ingress:
+{{- range .Values.ingress.hosts }}
+  - {{ if $.Values.ingress.tls }}https{{ else }}http{{ end }}://{{ .host }}{{ if .paths }}{{ (first .paths).path }}{{ else }}/{{ end }}
+{{- end }}
+{{- else }}
+To access services, use port-forwarding:
+
+  # NeuronDB (PostgreSQL)
+  kubectl port-forward svc/{{ include "neurondb.postgresHost" . }} 5432:{{ .Values.neurondb.postgresql.port }} -n {{ .Release.Namespace }}
+
+  # Prometheus (if enabled)
+{{- if .Values.monitoring.enabled }}
+{{- if .Values.monitoring.prometheus.enabled }}
+  kubectl port-forward svc/{{ include "neurondb.fullname" . }}-prometheus 9090:9090 -n {{ .Release.Namespace }}
+{{- end }}
+{{- if .Values.monitoring.grafana.enabled }}
+  # Grafana
+  kubectl port-forward svc/{{ include "neurondb.fullname" . }}-grafana 3000:3000 -n {{ .Release.Namespace }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+Get status:
+  kubectl get pods -n {{ .Release.Namespace }}
+

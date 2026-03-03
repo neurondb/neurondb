@@ -1,0 +1,1 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/013_vector_vector.sql:27: ERROR:  vector dimension 5 does not match type modifier 3

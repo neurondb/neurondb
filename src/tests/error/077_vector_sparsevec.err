@@ -1,0 +1,1 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/077_vector_sparsevec.sql:34: NOTICE:  Empty sparsevec format not supported: sparsevec must have at least one entry or specify dim

@@ -1,0 +1,8 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/065_other_crash_prevention.sql:13: NOTICE:  drop cascades to view test_train_view
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/065_other_crash_prevention.sql:18: NOTICE:  relation "test_train" already exists, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/065_other_crash_prevention.sql:64: NOTICE:  NULL model name correctly rejected
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/065_other_crash_prevention.sql:64: NOTICE:  Model operations with NULL handling completed
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/065_other_crash_prevention.sql:80: NOTICE:  Invalid table name correctly rejected: relation "nonexistent_table_xyz" does not exist
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/065_other_crash_prevention.sql:88: NOTICE:  Invalid column name correctly rejected: column "nonexistent_column" does not exist
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/065_other_crash_prevention.sql:103: NOTICE:  Invalid model ID correctly rejected: neurondb:evaluate: model_id must be positive, got -999
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/065_other_crash_prevention.sql:143: NOTICE:  Model training and cleanup completed: model_id = 1

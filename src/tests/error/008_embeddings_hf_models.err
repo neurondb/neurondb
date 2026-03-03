@@ -1,0 +1,16 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/008_embeddings_hf_models.sql:326: NOTICE:  Testing Image Model 1/3: sentence-transformers/clip-ViT-B-32 (512 dim)
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/008_embeddings_hf_models.sql:326: NOTICE:    ✗ ERROR: XX001 - compressed pglz data is corrupt
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/008_embeddings_hf_models.sql:326: NOTICE:  
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/008_embeddings_hf_models.sql:326: NOTICE:  Testing Image Model 2/3: sentence-transformers/clip-ViT-B-16 (512 dim)
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/008_embeddings_hf_models.sql:326: NOTICE:    ✗ ERROR: XX001 - compressed pglz data is corrupt
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/008_embeddings_hf_models.sql:326: NOTICE:  
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/008_embeddings_hf_models.sql:326: NOTICE:  Testing Image Model 3/3: sentence-transformers/clip-ViT-L-14 (768 dim)
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/008_embeddings_hf_models.sql:326: NOTICE:    ✗ ERROR: XX001 - compressed pglz data is corrupt
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/008_embeddings_hf_models.sql:392: NOTICE:  Testing Multimodal Model 1/3: sentence-transformers/clip-ViT-B-32 (512 dim)
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/008_embeddings_hf_models.sql:392: NOTICE:    ✗ ERROR: XX001 - compressed pglz data is corrupt
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/008_embeddings_hf_models.sql:392: NOTICE:  
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/008_embeddings_hf_models.sql:392: NOTICE:  Testing Multimodal Model 2/3: sentence-transformers/clip-ViT-B-16 (512 dim)
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/008_embeddings_hf_models.sql:392: NOTICE:    ✗ ERROR: XX001 - compressed pglz data is corrupt
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/008_embeddings_hf_models.sql:392: NOTICE:  
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/008_embeddings_hf_models.sql:392: NOTICE:  Testing Multimodal Model 3/3: sentence-transformers/clip-ViT-L-14 (768 dim)
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/vector/008_embeddings_hf_models.sql:392: NOTICE:    ✗ ERROR: XX001 - compressed pglz data is corrupt

@@ -132,7 +132,7 @@ docker pull --platform linux/arm64 ghcr.io/neurondb/neurondb-postgres:v1.0.0-pg1
 ## Building Locally
 
 If you need to build images locally, see:
-- [`dockers/README.md`](../dockers/README.md)
+- [`docker/README.md`](../docker/README.md)
 - [`Docs/deployment/package.md`](package.md)
 
 ## Related Documentation

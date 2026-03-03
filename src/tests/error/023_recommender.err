@@ -1,0 +1,3 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/ml/023_recommender.sql:18: NOTICE:  table "cf_ratings" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/ml/023_recommender.sql:52: NOTICE:  relation "neurondb_cf_user_factors" already exists, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/ml/023_recommender.sql:52: NOTICE:  relation "neurondb_cf_item_factors" already exists, skipping

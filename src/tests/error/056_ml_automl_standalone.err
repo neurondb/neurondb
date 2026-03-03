@@ -1,0 +1,9 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/056_ml_automl_standalone.sql:39: WARNING:  CPU mode expected but neurondb.compute_mode = 0 (expected: 0)
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/056_ml_automl_standalone.sql:45: NOTICE:  table "automl_classification_result" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/056_ml_automl_standalone.sql:80: NOTICE:  table "automl_regression_result" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/056_ml_automl_standalone.sql:101: WARNING:  auto_train: Algorithm 'ridge' failed, continuing with next algorithm
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/056_ml_automl_standalone.sql:101: WARNING:  auto_train: Algorithm 'lasso' failed, continuing with next algorithm
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/056_ml_automl_standalone.sql:111: NOTICE:  table "automl_f1_result" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/056_ml_automl_standalone.sql:137: NOTICE:  table "automl_mse_result" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/056_ml_automl_standalone.sql:158: WARNING:  auto_train: Algorithm 'ridge' failed, continuing with next algorithm
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/056_ml_automl_standalone.sql:158: WARNING:  auto_train: Algorithm 'lasso' failed, continuing with next algorithm

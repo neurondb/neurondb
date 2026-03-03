@@ -275,19 +275,19 @@ Extensible plugin architecture for custom functionality:
 
 ## Documentation
 
-- **Main README**: `NeuronMCP/README.md`
-- **Tools Reference**: `NeuronMCP/REGISTERED_TOOLS.md`
-- **PostgreSQL Tools**: `NeuronMCP/POSTGRESQL_TOOLS.md`
-- **Setup Guide**: `NeuronMCP/docs/neurondb-mcp-setup.md`
-- **Tool Catalog**: `NeuronMCP/docs/tool-resource-catalog.md`
-- **Examples**: `NeuronMCP/docs/examples/`
+- **Main README**: [neuron-mcp repo](https://github.com/neurondb/neuron-mcp)
+- **Tools Reference**: neuron-mcp repo
+- **PostgreSQL Tools**: neuron-mcp repo
+- **Setup Guide**: neuron-mcp repo docs
+- **Tool Catalog**: neuron-mcp repo docs
+- **Examples**: neuron-mcp repo docs/examples
 - **Official Docs**: [https://www.neurondb.ai/docs/neuronmcp](https://www.neurondb.ai/docs/neuronmcp)
 
 ## Docker
 
 - Compose service: `neuronmcp` (plus GPU-profile variants)
 - From repo root: `docker compose up -d neuronmcp`
-- See: `NeuronMCP/docker/README.md`
+- See: neuron-mcp repo `docker/` or deployment docs
 
 ## Quick Start
 
@@ -330,4 +330,4 @@ Create Claude Desktop configuration file:
 }
 ```
 
-For complete setup instructions, see `NeuronMCP/README.md`.
+For complete setup instructions, see the **neuron-mcp** repo.

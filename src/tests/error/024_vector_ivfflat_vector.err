@@ -1,0 +1,9 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/024_vector_ivfflat_vector.sql:24: NOTICE:  table "t" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/024_vector_ivfflat_vector.sql:27: WARNING:  ivf: reducing nlists from 100 to 10 (not enough sample vectors)
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/024_vector_ivfflat_vector.sql:54: NOTICE:  table "t" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/024_vector_ivfflat_vector.sql:57: WARNING:  ivf: reducing nlists from 100 to 10 (not enough sample vectors)
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/024_vector_ivfflat_vector.sql:73: NOTICE:  table "t" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/024_vector_ivfflat_vector.sql:91: NOTICE:  lists = 0 rejected: value 0 out of bounds for option "lists"
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/024_vector_ivfflat_vector.sql:91: NOTICE:  lists = 32769 rejected: value 32769 out of bounds for option "lists"
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/024_vector_ivfflat_vector.sql:101: NOTICE:  table "t" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/024_vector_ivfflat_vector.sql:104: WARNING:  ivf: reducing nlists from 100 to 10 (not enough sample vectors)

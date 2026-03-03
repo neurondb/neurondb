@@ -221,7 +221,7 @@ CREATE TABLE audit_log (
 
 ```bash
 # Run OIDC hardening migration
-psql -d neurondesk -f NeuronDesktop/api/migrations/009_oidc_hardening.sql
+psql -d neurondesk -f /path/to/neuron-desktop/api/migrations/009_oidc_hardening.sql
 ```
 
 ### Verifying Migration

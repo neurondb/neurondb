@@ -1,2 +1,0 @@
-"""Security & safety tests."""
-

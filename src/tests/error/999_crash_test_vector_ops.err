@@ -1,0 +1,7 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/999_crash_test_vector_ops.sql:17: NOTICE:  PASS: NULL vector correctly rejected
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/999_crash_test_vector_ops.sql:25: NOTICE:  PASS: NULL vector correctly rejected
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/999_crash_test_vector_ops.sql:35: NOTICE:  PASS: Dimension mismatch correctly rejected
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/999_crash_test_vector_ops.sql:45: NOTICE:  INFO: Zero-length vector result: vector must have at least 1 dimension
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/999_crash_test_vector_ops.sql:69: NOTICE:  INFO: Large vector result: vector dimension cannot exceed 16000
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/999_crash_test_vector_ops.sql:82: NOTICE:  PASS: Invalid index parameters rejected
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/999_crash_test_vector_ops.sql:100: NOTICE:  PASS: Concurrent operations completed

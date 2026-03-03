@@ -251,9 +251,6 @@ cleanup_logs() {
     # Component-specific logs
     local log_dirs=(
         "NeuronDB/logs"
-        "NeuronAgent/logs"
-        "NeuronMCP/logs"
-        "NeuronDesktop/logs"
     )
     
     for log_dir in "${log_dirs[@]}"; do
@@ -285,7 +282,7 @@ cleanup_build() {
         remove_item "NeuronDB/*.o" "NeuronDB object files"
     fi
     
-    # Go build artifacts
+    # Go build artifacts (NeuronAgent/MCP/Desktop are in separate repos; keep for any local dev)
     for component in "NeuronAgent" "NeuronMCP" "NeuronDesktop"; do
         if [ -d "$component" ]; then
             remove_item "$component/bin" "$component binaries"
@@ -293,7 +290,7 @@ cleanup_build() {
         fi
     done
     
-    # Frontend build artifacts
+    # Frontend build artifacts (NeuronDesktop is in neuron-desktop repo)
     if [ -d "NeuronDesktop/frontend" ]; then
         remove_item "NeuronDesktop/frontend/.next" "Next.js build"
         remove_item "NeuronDesktop/frontend/out" "Next.js output"

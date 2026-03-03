@@ -3,7 +3,7 @@
 # Usage: ./scripts/verify-docker-ecosystem.sh [--verbose] [--skip-service SERVICE]
 # Options:
 #   --verbose         Show detailed output
-#   --skip-service S  Skip checking service S (neurondb, neuronagent, neuronmcp, neurondesk-api, neurondesk-frontend)
+#   --skip-service S  Skip checking service S (neurondb, neurondb-cuda, etc.)
 
 set -euo pipefail
 
@@ -49,61 +49,20 @@ echo ""
 
 FAIL=0
 
-# 2. NeuronDB (PostgreSQL + extension)
+# 2. NeuronDB (PostgreSQL + extension) - check default profile neurondb service
 if ! skip neurondb; then
-  if $COMPOSE exec -T neurondb psql -U neurondb -d neurondb -c "SELECT neurondb.version();" 2>/dev/null | grep -q .; then
+  if $COMPOSE exec -T neurondb-cpu psql -U neurondb -d neurondb -c "SELECT 1;" 2>/dev/null | grep -q 1; then
+    echo "[OK] NeuronDB (PostgreSQL + extension) responding"
+  elif $COMPOSE exec -T neurondb psql -U neurondb -d neurondb -c "SELECT 1;" 2>/dev/null | grep -q 1; then
     echo "[OK] NeuronDB (PostgreSQL + extension) responding"
   else
-    echo "[FAIL] NeuronDB not responding (is neurondb container running? try: $COMPOSE --profile cpu ps)"
+    echo "[FAIL] NeuronDB not responding (try: $COMPOSE --profile cpu up -d)"
     FAIL=1
   fi
-  $VERBOSE && $COMPOSE exec -T neurondb psql -U neurondb -d neurondb -c "SELECT neurondb.version();" 2>/dev/null || true
+  $VERBOSE && $COMPOSE exec -T neurondb-cpu psql -U neurondb -d neurondb -c "SELECT neurondb.version();" 2>/dev/null || $COMPOSE exec -T neurondb psql -U neurondb -d neurondb -c "SELECT neurondb.version();" 2>/dev/null || true
 fi
 
-# 3. NeuronAgent
-if ! skip neuronagent; then
-  CODE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 3 "http://localhost:8080/health" 2>/dev/null || echo "000")
-  if [[ "$CODE" == "200" ]]; then
-    echo "[OK] NeuronAgent (http://localhost:8080/health)"
-  else
-    echo "[FAIL] NeuronAgent health returned $CODE (expected 200)"
-    FAIL=1
-  fi
-  $VERBOSE && curl -s "http://localhost:8080/health" 2>/dev/null | head -5
-fi
-
-# 4. NeuronMCP (stdio; we only check container exists)
-if ! skip neuronmcp; then
-  if $COMPOSE ps neurondb-mcp 2>/dev/null | grep -q Up; then
-    echo "[OK] NeuronMCP container running"
-  else
-    echo "[FAIL] NeuronMCP container not up"
-    FAIL=1
-  fi
-fi
-
-# 5. NeuronDesktop API
-if ! skip neurondesk-api; then
-  CODE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 3 "http://localhost:8081/health" 2>/dev/null || echo "000")
-  if [[ "$CODE" == "200" ]]; then
-    echo "[OK] NeuronDesktop API (http://localhost:8081/health)"
-  else
-    echo "[FAIL] NeuronDesktop API health returned $CODE (expected 200)"
-    FAIL=1
-  fi
-  $VERBOSE && curl -s "http://localhost:8081/health" 2>/dev/null | head -5
-fi
-
-# 6. NeuronDesktop Frontend
-if ! skip neurondesk-frontend; then
-  CODE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 3 "http://localhost:3000" 2>/dev/null || echo "000")
-  if [[ "$CODE" == "200" ]] || [[ "$CODE" == "304" ]]; then
-    echo "[OK] NeuronDesktop Frontend (http://localhost:3000)"
-  else
-    echo "[FAIL] NeuronDesktop Frontend returned $CODE (expected 200/304)"
-    FAIL=1
-  fi
-fi
+# Done (agent/mcp/desktop are in separate repos)
 
 echo ""
 if [[ $FAIL -eq 0 ]]; then

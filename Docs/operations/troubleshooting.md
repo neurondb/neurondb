@@ -234,7 +234,7 @@ psql -d neurondesk -c "SELECT * FROM schema_migrations ORDER BY version DESC LIM
 
 3. **Manual migration**:
    ```bash
-   psql -d neurondesk -f NeuronDesktop/api/migrations/008_unified_identity_model.sql
+   psql -d neurondesk -f /path/to/neuron-desktop/api/migrations/008_unified_identity_model.sql
    ```
 
 ---
@@ -310,7 +310,7 @@ curl http://localhost:8081/health
 curl http://localhost:8082/health
 
 # Check MCP config
-cat NeuronMCP/mcp-config.json
+cat /path/to/neuron-mcp/mcp-config.json
 ```
 
 **Solutions**:

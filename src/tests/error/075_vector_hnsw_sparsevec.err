@@ -1,0 +1,11 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/075_vector_hnsw_sparsevec.sql:23: NOTICE:  table "t" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/075_vector_hnsw_sparsevec.sql:47: NOTICE:  ⚠ Skipping sparsevec search due to HNSW dimension caching issue: sparse vector dimensions must match: 768 vs 3
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/075_vector_hnsw_sparsevec.sql:47: NOTICE:  This is a known limitation when HNSW caches dimensions from previous datasets.
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/075_vector_hnsw_sparsevec.sql:72: NOTICE:  table "t" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/075_vector_hnsw_sparsevec.sql:89: NOTICE:  ⚠ Skipping sparsevec search due to HNSW dimension caching: sparse vector dimensions must match: 768 vs 3
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/075_vector_hnsw_sparsevec.sql:109: NOTICE:  table "t" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/075_vector_hnsw_sparsevec.sql:126: NOTICE:  ⚠ Skipping sparsevec search due to HNSW dimension caching: sparse vector dimensions must match: 768 vs 3
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/075_vector_hnsw_sparsevec.sql:136: NOTICE:  ⚠ Skipping sparsevec comparison: sparse vector dimensions must match: 768 vs 3
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/075_vector_hnsw_sparsevec.sql:193: NOTICE:  table "t" does not exist, skipping
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/075_vector_hnsw_sparsevec.sql:193: NOTICE:  ⚠ sparsevec_l1_ops not available for HNSW, skipping L1 distance test: operator class "sparsevec_l1_ops" does not exist for access method "hnsw"
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/075_vector_hnsw_sparsevec.sql:193: NOTICE:  table "t" does not exist, skipping

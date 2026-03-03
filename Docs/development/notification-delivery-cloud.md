@@ -1,6 +1,6 @@
-# Notification Delivery (neurondb-cloud)
+# Notification Delivery (neuron-cloud)
 
-This document describes how to implement notification delivery (email, Slack) for **neurondb-cloud** so that users and admins receive alerts and lifecycle notifications.
+This document describes how to implement notification delivery (email, Slack) for **neuron-cloud** so that users and admins receive alerts and lifecycle notifications.
 
 ## Goals
 
@@ -39,4 +39,4 @@ In the control plane, add or extend a **notification** service that:
 - `POST /api/v1/notifications/preferences` – user/org notification preferences (email on/off, Slack channel).
 - Store preferences in the control plane DB and have the notification service respect them when sending.
 
-When the **neurondb-cloud** repo is present, implement the notification service and wire it to the event source and delivery (SMTP, Slack); then replace Alertmanager placeholders with real configuration.
+When the **neuron-cloud** repo is present, implement the notification service and wire it to the event source and delivery (SMTP, Slack); then replace Alertmanager placeholders with real configuration.

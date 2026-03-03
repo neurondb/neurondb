@@ -1,0 +1,1 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/039_ml_dt.sql:121: WARNING:  neurondb:train: CPU training registered model_id 5 but model not immediately visible in catalog (this may be due to SPI session isolation)

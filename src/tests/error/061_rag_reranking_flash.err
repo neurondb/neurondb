@@ -1,0 +1,3 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/061_rag_reranking_flash.sql:41: WARNING:  rerank_flash: Flash Attention integration requires model loading
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/061_rag_reranking_flash.sql:57: ERROR:  API key is required for HuggingFace but was not provided
+HINT:  Set neurondb.llm_api_key configuration parameter

@@ -434,8 +434,8 @@ HNSW stands for Hierarchical Navigable Small World. It is an index. It makes vec
 - [ ] 🧪 Try more [SQL Recipes](../../examples/sql-recipes/)
 - [ ] 📚 Explore [Complete Documentation](../../documentation.md)
 - [ ] 🔍 Check [Troubleshooting Guide](troubleshooting.md) if needed
-- [ ] 🤖 Try [NeuronAgent Examples](../../NeuronAgent/examples/) for agent workflows
-- [ ] 🔌 Explore [NeuronMCP Integration](../../NeuronMCP/docs/) for MCP tools
+- [ ] 🤖 Try [NeuronAgent Examples](https://github.com/neurondb/neuron-agent) for agent workflows
+- [ ] 🔌 Explore [NeuronMCP Integration](https://github.com/neurondb/neuron-mcp) for MCP tools
 
 ---
 

@@ -2,9 +2,9 @@
 
 Welcome to the NeuronDB documentation. This is the main entry point for all documentation in the NeuronDB ecosystem.
 
-## Full platform (neurondb + neurondb-cloud + neurondb-hub)
+## Full platform (neurondb + neuron-cloud + neuron-hub)
 
-To deploy the **full platform** (core neurondb plus neurondb-cloud and neurondb-hub) on one host, use the unified deploy script and place the three repos as siblings. See **[Ecosystem Overview](ecosystem/README.md)** for product roles and **[Full platform deploy](ecosystem/README.md#full-platform-all-three)** for `./scripts/deploy-all.sh` usage.
+To deploy the **full platform** (core neurondb plus neuron-cloud and neuron-hub) on one host, use the unified deploy script and place the three repos as siblings. See **[Ecosystem Overview](ecosystem/README.md)** for product roles and **[Full platform deploy](ecosystem/README.md#full-platform-all-three)** for `./scripts/deploy-all.sh` usage.
 
 ## Quick Navigation
 
@@ -100,9 +100,9 @@ Each component has its own documentation:
 | Component | Documentation Path | Description |
 |-----------|-------------------|-------------|
 | **NeuronDB** | [`NeuronDB/docs/`](../../NeuronDB/docs/) | SQL API, configuration, ML algorithms |
-| **NeuronAgent** | [`NeuronAgent/docs/`](../../NeuronAgent/docs/) | Agent runtime documentation |
-| **NeuronMCP** | [`NeuronMCP/TOOLS_REFERENCE.md`](../../NeuronMCP/TOOLS_REFERENCE.md) | MCP tools reference |
-| **NeuronDesktop** | [`NeuronDesktop/docs/`](../../NeuronDesktop/docs/) | Desktop UI documentation |
+| **NeuronAgent** | [neuron-agent repo](https://github.com/neurondb/neuron-agent) `docs/` | Agent runtime documentation |
+| **NeuronMCP** | [neuron-mcp repo](https://github.com/neurondb/neuron-mcp) tools reference | MCP tools reference |
+| **NeuronDesktop** | [neuron-desktop repo](https://github.com/neurondb/neuron-desktop) `docs/` | Desktop UI documentation |
 
 ## Contributing
 
@@ -112,7 +112,7 @@ See the [Contributing Guide](../../CONTRIBUTING.md) for information on how to co
 
 <div align="center">
 
-**Last Updated:** 2026-01-13  
+**Last Updated:** 2026-02-26  
 **Documentation Version:** 2.0.0
 
 [⬆ Back to Top](#neurondb-documentation)

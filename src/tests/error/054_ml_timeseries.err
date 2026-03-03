@@ -1,0 +1,3 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/054_ml_timeseries.sql:66: WARNING:  neurondb:train: CPU training registered model_id 11 but model not immediately visible in catalog (this may be due to SPI session isolation)
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/054_ml_timeseries.sql:129: WARNING:  CPU mode expected but neurondb.compute_mode = 0 (expected: 0)
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/054_ml_timeseries.sql:167: WARNING:  No new model was created during GPU training

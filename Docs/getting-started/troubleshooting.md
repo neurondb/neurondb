@@ -38,8 +38,8 @@ This page lists common setup issues and quick checks.
 
 - Repo docs: `documentation.md` and `NeuronDB/docs/`
 - Component docs:
-  - `NeuronAgent/README.md`
-  - `NeuronMCP/README.md`
-  - `NeuronDesktop/README.md`
+  - `NeuronAgent/README.md` → neuron-agent repo
+  - `NeuronMCP/README.md` → neuron-mcp repo
+  - `NeuronDesktop/README.md` → neuron-desktop repo
 
 

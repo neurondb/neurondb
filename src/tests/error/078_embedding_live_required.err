@@ -1,0 +1,2 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/078_embedding_live_required.sql:24: ERROR:  This test requires neurondb.llm_api_key to be set. Please configure your Hugging Face API key: SET neurondb.llm_api_key = 'your-key-here';
+CONTEXT:  PL/pgSQL function inline_code_block line 7 at RAISE

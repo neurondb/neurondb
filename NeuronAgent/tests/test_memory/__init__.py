@@ -1,2 +1,0 @@
-"""Memory & knowledge features tests."""
-

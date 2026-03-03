@@ -1,0 +1,28 @@
+{{- if and .Values.observability.prometheusOperator.enabled .Values.observability.prometheusOperator.serviceMonitor.enabled }}
+{{- if .Values.neurondb.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "neurondb.fullname" . }}-neurondb
+  labels:
+    {{- include "neurondb.neurondb.labels" . | nindent 4 }}
+    {{- with .Values.observability.prometheusOperator.serviceMonitor.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "neurondb.neurondb.selectorLabels" . | nindent 6 }}
+  endpoints:
+  {{- if .Values.monitoring.prometheus.postgresExporter.enabled }}
+  - port: {{ .Values.monitoring.prometheus.postgresExporter.port | default 9187 }}
+    interval: {{ .Values.observability.prometheusOperator.serviceMonitor.interval | default "30s" }}
+    path: {{ .Values.observability.prometheusOperator.serviceMonitor.metricsPath | default "/metrics" }}
+  {{- end }}
+  namespaceSelector:
+    matchNames:
+    - {{ .Release.Namespace }}
+{{- end }}
+{{- end }}
+

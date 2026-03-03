@@ -1,14 +1,14 @@
 #!/bin/bash
 #
-# Deploy NeuronDB ecosystem (neurondb, neurondb-cloud, neurondb-hub) on a single
+# Deploy NeuronDB ecosystem (neurondb, neuron-cloud, neuron-hub) on a single
 # machine via passwordless SSH. Uses Docker Compose with a shared network.
 #
 # Usage: ./deploy-all.sh TARGET_HOST [LOCAL_BASE_DIR]
 #   TARGET_HOST       e.g. user@192.168.1.100 (passwordless SSH)
-#   LOCAL_BASE_DIR    optional; parent dir containing neurondb, neurondb-cloud, neurondb-hub (default: parent of neurondb repo)
+#   LOCAL_BASE_DIR    optional; parent dir containing neurondb, neuron-cloud, neuron-hub (default: parent of neurondb repo)
 #
 # Prerequisites: passwordless SSH to TARGET_HOST; Docker on remote (script can install).
-# Ports: neurondb 5433,8080,8081,3000 | neurondb-cloud 5435,8083 | neurondb-hub 5434,8084,8085,3001
+# Ports: neurondb 5433 | neuron-cloud 5435,8083 | neuron-hub 5434,8084,8085,3001
 
 set -euo pipefail
 
@@ -20,8 +20,8 @@ REMOTE_BASE="$HOME/neurondb-platform"
 SHARED_NETWORK="neurondb-platform-net"
 
 # Optional: override sibling repo paths
-NEURONDB_CLOUD_DIR="${NEURONDB_CLOUD_DIR:-$LOCAL_BASE/neurondb-cloud}"
-NEURON_HUB_DIR="${NEURON_HUB_DIR:-$LOCAL_BASE/neurondb-hub}"
+NEURONDB_CLOUD_DIR="${NEURONDB_CLOUD_DIR:-$LOCAL_BASE/neuron-cloud}"
+NEURON_HUB_DIR="${NEURON_HUB_DIR:-$LOCAL_BASE/neuron-hub}"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -58,8 +58,8 @@ remote_write() {
 
 log "Target: $TARGET_HOST | Remote base: $REMOTE_BASE"
 log "Local neurondb: $NEURONDB_ROOT"
-log "Local neurondb-cloud: $NEURONDB_CLOUD_DIR"
-log "Local neurondb-hub: $NEURON_HUB_DIR"
+log "Local neuron-cloud: $NEURONDB_CLOUD_DIR"
+log "Local neuron-hub: $NEURON_HUB_DIR"
 
 # --- Prerequisites: SSH and Docker on remote ---
 log "Checking SSH access..."
@@ -87,28 +87,27 @@ rsync -az --delete \
 ok "neurondb synced"
 
 if [[ -d "$NEURONDB_CLOUD_DIR" ]]; then
-  log "Syncing neurondb-cloud..."
+  log "Syncing neuron-cloud..."
   rsync -az --delete \
     --exclude '.git' --exclude '*.pyc' --exclude 'node_modules' \
-    "$NEURONDB_CLOUD_DIR/" "$TARGET_HOST:$REMOTE_BASE/neurondb-cloud/"
-  ok "neurondb-cloud synced"
+    "$NEURONDB_CLOUD_DIR/" "$TARGET_HOST:$REMOTE_BASE/neuron-cloud/"
+  ok "neuron-cloud synced"
 else
-  warn "neurondb-cloud not found at $NEURONDB_CLOUD_DIR (skipping)"
+  warn "neuron-cloud not found at $NEURONDB_CLOUD_DIR (skipping)"
 fi
 
 if [[ -d "$NEURON_HUB_DIR" ]]; then
-  log "Syncing neurondb-hub..."
+  log "Syncing neuron-hub..."
   rsync -az --delete \
     --exclude '.git' --exclude '*.pyc' --exclude 'node_modules' --exclude '.next' \
-    "$NEURON_HUB_DIR/" "$TARGET_HOST:$REMOTE_BASE/neurondb-hub/"
-  ok "neurondb-hub synced"
+    "$NEURON_HUB_DIR/" "$TARGET_HOST:$REMOTE_BASE/neuron-hub/"
+  ok "neuron-hub synced"
 else
-  warn "neurondb-hub not found at $NEURON_HUB_DIR (skipping)"
+  warn "neuron-hub not found at $NEURON_HUB_DIR (skipping)"
 fi
 
 # --- Neurondb: .env for ports and attach to shared network ---
 # Security: no hardcoded passwords. Set POSTGRES_PASSWORD (and optionally POSTGRES_USER, POSTGRES_DB) before running.
-# Example: export POSTGRES_PASSWORD=$(openssl rand -base64 32)
 : "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD for deploy (e.g. export POSTGRES_PASSWORD=your-secure-password)}"
 log "Configuring neurondb (.env and network override)..."
 run_remote "cat > $REMOTE_BASE/neurondb/.env << ENVEOF
@@ -116,17 +115,6 @@ POSTGRES_PORT=5433
 POSTGRES_USER=${POSTGRES_USER:-neurondb}
 POSTGRES_PASSWORD=$POSTGRES_PASSWORD
 POSTGRES_DB=${POSTGRES_DB:-neurondb}
-DB_HOST=neurondb-cpu
-DB_PORT=5432
-DB_NAME=${POSTGRES_DB:-neurondb}
-DB_USER=${POSTGRES_USER:-neurondb}
-DB_PASSWORD=$POSTGRES_PASSWORD
-NEURONDB_HOST=neurondb-cpu
-NEURONDB_PORT=5432
-NEURONDB_DATABASE=${POSTGRES_DB:-neurondb}
-NEURONDB_USER=${POSTGRES_USER:-neurondb}
-NEURONDB_PASSWORD=$POSTGRES_PASSWORD
-SERVER_PORT=8080
 ENVEOF"
 run_remote "cat > $REMOTE_BASE/neurondb/docker-compose.platform.yml << 'YAMLEOF'
 services:
@@ -134,23 +122,15 @@ services:
     networks:
       - neurondb-network
       - platform
-  neuronagent:
+  neurondb-cuda:
     networks:
       - neurondb-network
       - platform
-  neuronmcp:
+  neurondb-rocm:
     networks:
       - neurondb-network
       - platform
-  neurondesk-init:
-    networks:
-      - neurondb-network
-      - platform
-  neurondesk-api:
-    networks:
-      - neurondb-network
-      - platform
-  neurondesk-frontend:
+  neurondb-metal:
     networks:
       - neurondb-network
       - platform
@@ -171,13 +151,13 @@ log "Deploying neurondb (CPU)..."
 run_remote "cd $REMOTE_BASE/neurondb && docker compose -f docker-compose.yml -f docker-compose.platform.yml --profile cpu up -d --build"
 ok "neurondb started"
 
-# --- Neurondb-cloud: port overrides and shared network ---
-if run_remote "test -d $REMOTE_BASE/neurondb-cloud"; then
-  log "Configuring neurondb-cloud (ports 5435, 8083)..."
-  run_remote "cat > $REMOTE_BASE/neurondb-cloud/.env << 'ENVEOF'
+# --- Neurondb-cloud (neuron-cloud): port overrides and shared network ---
+if run_remote "test -d $REMOTE_BASE/neuron-cloud"; then
+  log "Configuring neuron-cloud (ports 5435, 8083)..."
+  run_remote "cat > $REMOTE_BASE/neuron-cloud/.env << 'ENVEOF'
 # Control plane DB on host 5435 to avoid conflict with neurondb 5433
 ENVEOF"
-  run_remote "cat > $REMOTE_BASE/neurondb-cloud/docker-compose.override.yml << 'YAMLEOF'
+  run_remote "cat > $REMOTE_BASE/neuron-cloud/docker-compose.override.yml << 'YAMLEOF'
 services:
   db:
     ports:
@@ -201,17 +181,17 @@ networks:
     name: $SHARED_NETWORK
     external: true
 YAMLEOF"
-  run_remote "sed -i 's/\\\$SHARED_NETWORK/$SHARED_NETWORK/' $REMOTE_BASE/neurondb-cloud/docker-compose.override.yml"
-  log "Deploying neurondb-cloud..."
-  run_remote "cd $REMOTE_BASE/neurondb-cloud && docker compose up -d --build"
-  ok "neurondb-cloud started"
+  run_remote "sed -i 's/\\\$SHARED_NETWORK/$SHARED_NETWORK/' $REMOTE_BASE/neuron-cloud/docker-compose.override.yml"
+  log "Deploying neuron-cloud..."
+  run_remote "cd $REMOTE_BASE/neuron-cloud && docker compose up -d --build"
+  ok "neuron-cloud started"
 fi
 
-# --- Neurondb-hub: Dockerfiles + override (same service names, platform ports + NEURONAGENT_URL) ---
-if run_remote "test -d $REMOTE_BASE/neurondb-hub"; then
-  log "Setting up neurondb-hub (Dockerfiles + override)..."
+# --- Neuron-hub: Dockerfiles + override ---
+if run_remote "test -d $REMOTE_BASE/neuron-hub"; then
+  log "Setting up neuron-hub (Dockerfiles + override)..."
   # Backend Dockerfile: build both server and migrate binary (migrate uses embedded migrations from cmd/migrate/migrations)
-  run_remote "cat > $REMOTE_BASE/neurondb-hub/backend/Dockerfile << 'DOCKEREOF'
+  run_remote "cat > $REMOTE_BASE/neuron-hub/backend/Dockerfile << 'DOCKEREOF'
 FROM golang:1.24-alpine AS builder
 WORKDIR /src
 COPY go.mod ./
@@ -229,7 +209,7 @@ EXPOSE 8084
 ENTRYPOINT [\"/app/neurondb-hub\"]
 DOCKEREOF"
   # Gateway Dockerfile
-  run_remote "cat > $REMOTE_BASE/neurondb-hub/gateway/Dockerfile << 'DOCKEREOF'
+  run_remote "cat > $REMOTE_BASE/neuron-hub/gateway/Dockerfile << 'DOCKEREOF'
 FROM golang:1.24-alpine AS builder
 WORKDIR /src
 COPY go.mod ./
@@ -246,7 +226,7 @@ EXPOSE 8085
 ENTRYPOINT [\"/app/gateway\"]
 DOCKEREOF"
   # Frontend Dockerfile (Next.js dev server; works without standalone output)
-  run_remote "cat > $REMOTE_BASE/neurondb-hub/frontend/Dockerfile << 'DOCKEREOF'
+  run_remote "cat > $REMOTE_BASE/neuron-hub/frontend/Dockerfile << 'DOCKEREOF'
 FROM node:20-alpine
 WORKDIR /app
 COPY package.json package-lock.json* ./
@@ -258,8 +238,8 @@ EXPOSE 3001
 CMD [\"npm\", \"run\", \"dev\"]
 DOCKEREOF"
 
-  # neurondb-hub docker-compose: ensure we have one (base may only define hub-db)
-  run_remote "test -f $REMOTE_BASE/neurondb-hub/docker-compose.yml" || run_remote "cat > $REMOTE_BASE/neurondb-hub/docker-compose.yml << 'HUBBASE'
+  # neuron-hub docker-compose: ensure we have one (base may only define hub-db)
+  run_remote "test -f $REMOTE_BASE/neuron-hub/docker-compose.yml" || run_remote "cat > $REMOTE_BASE/neuron-hub/docker-compose.yml << 'HUBBASE'
 services:
   hub-db:
     image: postgres:17-alpine
@@ -278,7 +258,7 @@ volumes:
   hub-db-data: {}
 HUBBASE"
   # Override same service names (backend, gateway, frontend) with platform ports and NEURONAGENT_URL for shared network
-  run_remote "cat > $REMOTE_BASE/neurondb-hub/docker-compose.override.yml << 'YAMLEOF'
+  run_remote "cat > $REMOTE_BASE/neuron-hub/docker-compose.override.yml << 'YAMLEOF'
 services:
   hub-db:
     ports:
@@ -336,15 +316,15 @@ networks:
     name: $SHARED_NETWORK
     external: true
 YAMLEOF"
-  run_remote "sed -i 's/\\\$SHARED_NETWORK/$SHARED_NETWORK/' $REMOTE_BASE/neurondb-hub/docker-compose.override.yml"
+  run_remote "sed -i 's/\\\$SHARED_NETWORK/$SHARED_NETWORK/' $REMOTE_BASE/neuron-hub/docker-compose.override.yml"
 
-  log "Deploying neurondb-hub..."
-  run_remote "cd $REMOTE_BASE/neurondb-hub && docker compose up -d hub-db"
+  log "Deploying neuron-hub..."
+  run_remote "cd $REMOTE_BASE/neuron-hub && docker compose up -d hub-db"
   run_remote "sleep 5"
   log "Running Hub DB migrations (Go migrate binary)..."
-  run_remote "cd $REMOTE_BASE/neurondb-hub && docker compose build backend && docker compose run --rm -e DATABASE_URL=postgres://neuronhub:neuronhub@hub-db:5432/neuronhub?sslmode=disable --entrypoint /app/migrate backend" || true
-  run_remote "cd $REMOTE_BASE/neurondb-hub && docker compose up -d --build"
-  ok "neurondb-hub started"
+  run_remote "cd $REMOTE_BASE/neuron-hub && docker compose build backend && docker compose run --rm -e DATABASE_URL=postgres://neuronhub:neuronhub@hub-db:5432/neuronhub?sslmode=disable --entrypoint /app/migrate backend" || true
+  run_remote "cd $REMOTE_BASE/neuron-hub && docker compose up -d --build"
+  ok "neuron-hub started"
 fi
 
 # --- Health checks and summary ---
@@ -359,18 +339,12 @@ log "Health check (on remote)..."
 run_remote '(
   echo "Service                    | URL                          | Status"
   echo "---------------------------|------------------------------|--------"
-  for port in 8080 8081 3000; do
-    case "$port" in 8080) name="NeuronAgent";; 8081) name="NeuronDesk API";; 3000) name="NeuronDesk UI";; *) name="port $port";; esac
-    st=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 "http://127.0.0.1:$port/health" 2>/dev/null || echo "---")
-    [ "$st" = "200" ] && st="OK" || st="-"
-    printf "%-26s | %-28s | %s\n" "$name" "http://127.0.0.1:$port" "$st"
-  done
-  if test -d '"$REMOTE_BASE"'/neurondb-cloud 2>/dev/null; then
+  if test -d '"$REMOTE_BASE"'/neuron-cloud 2>/dev/null; then
     st=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 "http://127.0.0.1:8083/health" 2>/dev/null || echo "---")
     [ "$st" = "200" ] && st="OK" || st="-"
     printf "%-26s | %-28s | %s\n" "NeuronDB Cloud Gateway" "http://127.0.0.1:8083" "$st"
   fi
-  if test -d '"$REMOTE_BASE"'/neurondb-hub 2>/dev/null; then
+  if test -d '"$REMOTE_BASE"'/neuron-hub 2>/dev/null; then
     for port in 8084 8085 3001; do
       case "$port" in 8084) name="Hub Backend";; 8085) name="Hub Gateway";; 3001) name="Hub Frontend";; *) name="Hub $port";; esac
       st=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 "http://127.0.0.1:$port/health" 2>/dev/null || echo "---")
@@ -389,18 +363,15 @@ echo -e "${GREEN}═════════════════════
 echo ""
 echo "  neurondb:"
 echo "    NeuronDB (PostgreSQL)  : $TARGET_HOST:5433"
-echo "    NeuronAgent            : http://$TARGET_HOST:8080"
-echo "    NeuronDesktop API      : http://$TARGET_HOST:8081"
-echo "    NeuronDesktop Frontend : http://$TARGET_HOST:3000"
 echo ""
-if run_remote "test -d $REMOTE_BASE/neurondb-cloud"; then
-  echo "  neurondb-cloud:"
+if run_remote "test -d $REMOTE_BASE/neuron-cloud"; then
+  echo "  neuron-cloud:"
   echo "    Control Plane DB      : $TARGET_HOST:5435"
   echo "    Gateway               : http://$TARGET_HOST:8083"
   echo ""
 fi
-if run_remote "test -d $REMOTE_BASE/neurondb-hub"; then
-  echo "  neurondb-hub:"
+if run_remote "test -d $REMOTE_BASE/neuron-hub"; then
+  echo "  neuron-hub:"
   echo "    Hub DB                : $TARGET_HOST:5434"
   echo "    Backend               : http://$TARGET_HOST:8084"
   echo "    Gateway               : http://$TARGET_HOST:8085"

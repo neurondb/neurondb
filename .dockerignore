@@ -17,4 +17,4 @@
 .cursor
 *.md
 !NeuronDB/**/*.md
-!dockers/**/*.md
+!docker/**/*.md

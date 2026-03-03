@@ -1,23 +1,51 @@
 # Security Policy
 
-## Supported versions
+## Supported Versions
 
-We release security updates for the latest major version and the previous major version. Check the releases page for supported versions.
+| Version | Supported |
+| ------- | --------- |
+| 1.0.x   | Yes       |
 
-## Reporting a vulnerability
+## Reporting a Vulnerability
 
-**Do not open a public GitHub issue for security vulnerabilities.**
+If you discover a security vulnerability in NeuronDB, please report it by emailing:
 
-- Email security concerns to: [security@neurondb.ai](mailto:security@neurondb.ai) (or the contact listed on the project website).
-- Include: description of the issue, steps to reproduce, impact, and suggested fix if any.
-- We will acknowledge within 48 hours and provide a timeline for a fix. We may ask for more detail.
-- We will credit you in the advisory unless you prefer to remain anonymous.
+**support@neurondb.ai**
 
-## Disclosure
+### What to Include
 
-- We aim to patch critical issues as soon as possible and release a security advisory.
-- We will coordinate disclosure with you (e.g. after a fix is available or after a fixed release is published).
+- Description of the vulnerability
+- Steps to reproduce
+- Potential impact
+- Suggested fix (if any)
 
-## Security hardening
+### Response Time
 
-- See [SECURITY.md](SECURITY.md) in the repo root and [docs/operations/secrets-management.md](docs/operations/secrets-management.md), [docs/operations/tls.md](docs/operations/tls.md) for configuration guidance.
+- We aim to acknowledge receipt within 48 hours
+- We will investigate and provide an initial assessment within 7 days
+- We will work with you to understand and resolve the issue
+
+### Disclosure Policy
+
+- Please do not publicly disclose the vulnerability until we have released a fix
+- We will credit you in the security advisory (unless you prefer to remain anonymous)
+- We follow responsible disclosure practices
+
+## Security Best Practices
+
+When using NeuronDB:
+
+1. **Access Control**: Use PostgreSQL role-based access control
+2. **Encryption**: Enable SSL/TLS for all connections
+3. **Updates**: Keep PostgreSQL and NeuronDB up to date
+4. **Auditing**: Enable query logging for sensitive operations
+5. **Validation**: Validate all user inputs before vector operations
+
+## Known Security Considerations
+
+- Vector encryption features are for demonstration; use PostgreSQL's native encryption for production
+- HTTP/LLM integration requires secure credential management
+- Shared memory buffers should be sized appropriately to prevent DoS
+
+Thank you for helping keep NeuronDB secure!
+

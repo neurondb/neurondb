@@ -1,0 +1,3 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/gpu/001_gpu_info.sql:14: ERROR:  neurondb: GPU initialization failed - GPU mode requires GPU to be available
+DETAIL:  compute_mode is set to 'gpu' but GPU backend could not be initialized
+HINT:  Check GPU hardware, drivers, and configuration. Set compute_mode='auto' for automatic CPU fallback.

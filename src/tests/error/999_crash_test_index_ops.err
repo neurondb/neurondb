@@ -1,0 +1,7 @@
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/999_crash_test_index_ops.sql:17: NOTICE:  PASS: Index on empty table created
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/999_crash_test_index_ops.sql:30: NOTICE:  PASS: Invalid m parameter rejected: value 0 out of bounds for option "m"
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/999_crash_test_index_ops.sql:38: NOTICE:  PASS: Invalid ef_construction rejected: value 0 out of bounds for option "ef_construction"
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/999_crash_test_index_ops.sql:54: NOTICE:  PASS: Concurrent inserts completed
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/999_crash_test_index_ops.sql:66: NOTICE:  PASS: Index with NULL vectors handled
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/999_crash_test_index_ops.sql:79: NOTICE:  PASS: Multiple indexes created
+psql:/home/pge/pge/neurondb/NeuronDB/tests/sql/basic/999_crash_test_index_ops.sql:93: NOTICE:  INFO: Query with ef_search=0 handled
