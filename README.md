@@ -361,7 +361,7 @@ graph TD
 
 ## Contributing
 
-We welcome contributions! Please see [CONTRIBUTING.md](../CONTRIBUTING.md) for:
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for:
 
 <details>
 <summary><strong>📝 Contribution Guidelines</strong></summary>
@@ -376,7 +376,7 @@ We welcome contributions! Please see [CONTRIBUTING.md](../CONTRIBUTING.md) for:
 
 ## License
 
-NeuronDB is released under a proprietary license. See [LICENSE](../LICENSE) for details.
+NeuronDB is released under a proprietary license. See [LICENSE](LICENSE) for details.
 
 <details>
 <summary><strong>📄 License Summary</strong></summary>

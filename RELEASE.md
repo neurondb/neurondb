@@ -134,5 +134,5 @@ For critical security fixes:
 - [CHANGELOG.md](CHANGELOG.md) - Full changelog
 - [CONTRIBUTING.md](CONTRIBUTING.md) - Contribution guidelines
 - [SECURITY.md](SECURITY.md) - Security policy
-- [Container Images](Docs/deployment/container-images.md) - Image documentation
+- [Container Images](docs/deployment/container-images.md) - Image documentation
 

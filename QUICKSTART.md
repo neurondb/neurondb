@@ -12,7 +12,7 @@
 ---
 
 > [!TIP]
-> **New here?** Start with **[Simple Start Guide](Docs/getting-started/simple-start.md)** for a plain-English walkthrough.
+> **New here?** Start with **[Simple Start Guide](docs/getting-started/simple-start.md)** for a plain-English walkthrough.
 
 > [!NOTE]
 > This repo runs the **NeuronDB extension only**. For the full stack (NeuronAgent, NeuronMCP, NeuronDesktop), use the **neuron-deploy** repo or run each component from **neuron-agent**, **neuron-mcp**, **neuron-desktop**.
