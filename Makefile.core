@@ -15,7 +15,7 @@
 
 MODULE_big = neurondb
 EXTENSION = neurondb
-DATA = sql/neurondb--1.0.sql sql/neurondb--2.0.sql sql/neurondb--2.1.0.sql sql/neurondb--3.0.0-devel.sql sql/neurondb--1.0--2.0.sql sql/neurondb--2.0--2.1.0.sql sql/neurondb--2.1.0--3.0.0-devel.sql
+DATA = sql/neurondb--1.0.sql sql/neurondb--2.0.sql sql/neurondb--2.1.0.sql sql/neurondb--3.0.0-devel.sql sql/neurondb--1.0--2.0.sql sql/neurondb--2.0--2.1.0.sql sql/neurondb--2.1.0--3.0.0-devel.sql sql/neurondb_llm_models.sql sql/neurondb_llm_functions.sql sql/neurondb--3.0.0-devel--3.1.0.sql sql/neurondb--3.1.0.sql
 DOCS = README.md
 
 PG_CPPFLAGS += -I$(srcdir)/src/include
