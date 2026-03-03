@@ -177,5 +177,5 @@ If you have questions about function stability:
 
 - [Deprecation Policy](deprecation-policy.md) - How functions are deprecated and removed
 - [SQL API Reference](sql-api.md) - Complete function reference
-- [API Snapshots](api-snapshots/README.md) - Versioned API snapshots
+- [API Snapshots](api-snapshots/readme.md) - Versioned API snapshots
 

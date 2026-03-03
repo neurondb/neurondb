@@ -147,7 +147,7 @@
 
 | Platform | Documentation | Status |
 |----------|---------------|--------|
-| **GPU Feature Matrix** | [gpu_feature_matrix.md](gpu/gpu_feature_matrix.md) | ✅ Complete |
+| **GPU Feature Matrix** | [gpu_feature_matrix.md](gpu/gpu-feature-matrix.md) | ✅ Complete |
 | **CUDA Support** | [CUDA Support](../../NeuronDB/docs/gpu/cuda-support.md) | ✅ Complete |
 | **ROCm Support** | [ROCm Support](../../NeuronDB/docs/gpu/rocm-support.md) | ✅ Complete |
 | **Metal Support** | [Metal Support](../../NeuronDB/docs/gpu/metal-support.md) | ✅ Complete |
@@ -254,7 +254,7 @@
 | Document | Description |
 |----------|-------------|
 | **[Ecosystem Integration Guide](ecosystem/integration.md)** | Integration guide |
-| **[Ecosystem Overview](ecosystem/README.md)** | How components work together |
+| **[Ecosystem Overview](ecosystem/readme.md)** | How components work together |
 | **[Directory structure](directory-structure.md)** | Repo layout (pge/: neurondb, neuron-agent, neuron-desktop, neuron-mcp) |
 
 **Topics covered:**

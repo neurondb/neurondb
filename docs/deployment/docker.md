@@ -524,7 +524,7 @@ docker exec neurondesk-api pg_dump -U neurondesk neurondesk > neurondesk_backup_
    ```
 
 > [!NOTE]
-> **GPU Support:** See [GPU Feature Matrix](../../gpu/gpu_feature_matrix.md) for detailed GPU support information.
+> **GPU Support:** See [GPU Feature Matrix](../../gpu/gpu-feature-matrix.md) for detailed GPU support information.
 
 </details>
 

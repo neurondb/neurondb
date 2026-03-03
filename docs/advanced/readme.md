@@ -42,7 +42,7 @@ This section is for deeper dives: internals, performance tuning, deployment patt
 ### Architecture & Design
 - [NeuronAgent Architecture](https://github.com/neurondb/neuron-agent) - System design
 - [Component Integration](../ecosystem/integration.md) - Integration patterns
-- [Ecosystem Overview](../ecosystem/README.md) - How components work together
+- [Ecosystem Overview](../ecosystem/readme.md) - How components work together
 
 ### API References
 - [NeuronDB SQL API](../../NeuronDB/docs/sql-api.md) - 665+ SQL functions

@@ -42,28 +42,28 @@ This documentation is organized to support different reading modes:
 | Mode | Best For | Start Here |
 |------|----------|------------|
 | 🚀 **Getting Started** | First-time users, quick setup | [QUICKSTART.md](QUICKSTART.md) |
-| 📚 **Reference** | API lookups, function docs | [Docs/reference/README.md](Docs/reference/README.md) |
-| 🔍 **Internals** | Architecture, performance tuning | [Docs/internals/README.md](Docs/internals/README.md) |
-| 🎓 **Tutorials** | Step-by-step learning | [Docs/getting-started/](Docs/getting-started/) |
+| 📚 **Reference** | API lookups, function docs | [Docs/reference/README.md](docs/reference/README.md) |
+| 🔍 **Internals** | Architecture, performance tuning | [Docs/internals/README.md](docs/internals/README.md) |
+| 🎓 **Tutorials** | Step-by-step learning | [Docs/getting-started/](docs/getting-started/) |
 
 ### ✅ Recommended Learning Path
 
 **Follow this path for the best learning experience:**
 
 - [ ] **Step 1:** Start with **[QUICKSTART.md](QUICKSTART.md)** - Get all services running in minutes
-- [ ] **Step 2:** Read **[Docs/getting-started/simple-start.md](Docs/getting-started/simple-start.md)** - Simple setup guide
-- [ ] **Step 3:** Review **[Docs/getting-started/architecture.md](Docs/getting-started/architecture.md)** - Understand the architecture
-- [ ] **Step 4:** Keep **[Docs/getting-started/troubleshooting.md](Docs/getting-started/troubleshooting.md)** handy for issues
-- [ ] **Step 5:** Use **[Docs/reference/README.md](Docs/reference/README.md)** for quick lookups
+- [ ] **Step 2:** Read **[Docs/getting-started/simple-start.md](docs/getting-started/simple-start.md)** - Simple setup guide
+- [ ] **Step 3:** Review **[Docs/getting-started/architecture.md](docs/getting-started/architecture.md)** - Understand the architecture
+- [ ] **Step 4:** Keep **[Docs/getting-started/troubleshooting.md](docs/getting-started/troubleshooting.md)** handy for issues
+- [ ] **Step 5:** Use **[Docs/reference/README.md](docs/reference/README.md)** for quick lookups
 
 ### 📍 Documentation Entry Points
 
 | Section | Entry Point | Description |
 |---------|-------------|-------------|
-| 🚀 **Getting started** | [Docs/getting-started/README.md](Docs/getting-started/README.md) | Setup and installation guides |
-| 🧩 **Components** | [Docs/components/README.md](Docs/components/README.md) | Component overviews |
-| 🚢 **Deployment** | [Docs/deployment/README.md](Docs/deployment/README.md) | Production deployment |
-| 📚 **Reference** | [Docs/reference/README.md](Docs/reference/README.md) | API and function references |
+| 🚀 **Getting started** | [Docs/getting-started/README.md](docs/getting-started/README.md) | Setup and installation guides |
+| 🧩 **Components** | [Docs/components/README.md](docs/components/README.md) | Component overviews |
+| 🚢 **Deployment** | [Docs/deployment/README.md](docs/deployment/README.md) | Production deployment |
+| 📚 **Reference** | [Docs/reference/README.md](docs/reference/README.md) | API and function references |
 
 ### 🐳 Docker
 
@@ -154,8 +154,8 @@ graph TB
 
 | Document | Description |
 |----------|-------------|
-| [Ecosystem Overview](Docs/ecosystem/README.md) | How components work together |
-| [Integration Guide](Docs/ecosystem/integration.md) | Component integration patterns |
+| [Ecosystem Overview](docs/ecosystem/README.md) | How components work together |
+| [Integration Guide](docs/ecosystem/integration.md) | Component integration patterns |
 | [Docker Guide](docker/README.md) | Docker deployment for all services |
 
 ---
@@ -384,7 +384,7 @@ graph TB
 |----------|-------------|
 | [Compatibility Matrix](COMPATIBILITY.md) | Platform and version compatibility |
 | [What's New](NeuronDB/docs/whats-new.md) | Latest features and changes |
-| [Technology Roadmap](Docs/technology_roadmap.md) | Future plans |
+| [Technology Roadmap](docs/technology-roadmap.md) | Future plans |
 
 ### Testing
 

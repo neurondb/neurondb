@@ -344,13 +344,13 @@ helm install neurondb ./helm/neurondb \
 
 ## Documentation
 
-- [Kubernetes Helm Guide](Docs/deployment/kubernetes-helm.md) - Detailed deployment guide
+- [Kubernetes Helm Guide](docs/deployment/kubernetes-helm.md) - Detailed deployment guide
 - [Helm Chart README](helm/neurondb/README.md) - Chart-specific documentation
 
 ## Support
 
 For issues and questions:
-- Check [Troubleshooting Guide](Docs/deployment/kubernetes-helm.md#troubleshooting)
+- Check [Troubleshooting Guide](docs/deployment/kubernetes-helm.md#troubleshooting)
 - Review [Helm Chart README](helm/neurondb/README.md)
 - Open an issue on GitHub
 

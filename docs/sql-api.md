@@ -282,7 +282,7 @@ NeuronDB follows strict API contract policies to ensure stability and predictabi
 
 - **[Function Stability Policy](function-stability.md)** - Classification of functions as stable, experimental, or internal
 - **[Deprecation Policy](deprecation-policy.md)** - How functions are deprecated and removed
-- **[API Snapshots](api-snapshots/README.md)** - Versioned API reference snapshots for each release
+- **[API Snapshots](api-snapshots/readme.md)** - Versioned API reference snapshots for each release
 
 All functions in this reference are classified according to their stability level. Functions marked as `stable` are safe for production use and maintain backward compatibility.
 

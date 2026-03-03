@@ -274,6 +274,6 @@ If you have concerns about a deprecation:
 
 - [Function Stability Policy](function-stability.md) - Function stability classifications
 - [SQL API Reference](sql-api.md) - Complete function reference with deprecation notices
-- [API Snapshots](api-snapshots/README.md) - Versioned API snapshots for reference
+- [API Snapshots](api-snapshots/readme.md) - Versioned API snapshots for reference
 - [Release Notes](../whats-new.md) - Deprecation announcements
 
