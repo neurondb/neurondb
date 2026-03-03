@@ -60,6 +60,7 @@ tramp
 
 # Log files
 *.log
+build.log
 *.log.*
 pg.log
 pg.log.log
