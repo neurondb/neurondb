@@ -521,8 +521,10 @@ nlp_production_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **e
 					max_seq_len = DatumGetInt32(DirectFunctionCall1(numeric_int4,
 																	NumericGetDatum(v.val.numeric)));
 				else if (strcmp(key, "model_type") == 0 && v.type == jbvString)
+				{
 					strncpy(model_type, v.val.string.val, sizeof(model_type) - 1);
 					model_type[sizeof(model_type) - 1] = '\0';
+				}
 				nfree(key);
 			}
 		}

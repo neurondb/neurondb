@@ -60,7 +60,6 @@ ivf_search_kernel(const float *query,
 	float *topk_distances = (float *) (shared_mem + k * sizeof(uint32_t));
 
 	int tid = threadIdx.x;
-	int bid = blockIdx.x;
 
 	/* Initialize top-k */
 	if (tid < k)

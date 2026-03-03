@@ -527,6 +527,17 @@ sync_index_async(PG_FUNCTION_ARGS)
 	text	   *target_replica = NULL;
 	char	   *idx_str = NULL;
 	char	   *replica_str = NULL;
+	StringInfoData sql;
+	StringInfoData slot_name;
+	StringInfoData pub_name;
+	int			ret;
+	bool		slot_exists;
+	bool		publication_exists;
+	Oid			argtypes[3];
+	Datum		values[3];
+	char		nulls[3];
+	int			i;
+	NdbSpiSession *session = NULL;
 
 	/* Check for NULL arguments */
 	if (PG_ARGISNULL(0))
@@ -543,19 +554,6 @@ sync_index_async(PG_FUNCTION_ARGS)
 	target_replica = PG_GETARG_TEXT_PP(1);
 	idx_str = text_to_cstring(index_name);
 	replica_str = text_to_cstring(target_replica);
-
-	StringInfoData sql;
-	StringInfoData slot_name;
-	StringInfoData pub_name;
-	int			ret;
-	bool		slot_exists;
-	bool		publication_exists;
-	Oid			argtypes[3];
-	Datum		values[3];
-	char		nulls[3];
-	int			i;
-
-	NdbSpiSession *session = NULL;
 
 	session = ndb_spi_session_begin(CurrentMemoryContext, false);
 	if (session == NULL)

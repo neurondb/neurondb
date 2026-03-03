@@ -34,6 +34,16 @@
 int			neurondb_query_cache_size = 1000;	/* Maximum cache entries */
 int			neurondb_query_cache_ttl = 3600;		/* Default TTL in seconds */
 
+/* Forward declarations for cache API (for -Wmissing-prototypes) */
+void		neurondb_init_query_cache(void);
+bool		neurondb_query_cache_lookup(const float4 *query_vector, int dim, int k, int strategy,
+										ItemPointerData **results, float4 **distances, int *result_count);
+void		neurondb_query_cache_store(const float4 *query_vector, int dim, int k, int strategy,
+									   ItemPointerData *results, float4 *distances, int result_count,
+									   int ttl_seconds);
+void		neurondb_query_cache_clear(void);
+void		neurondb_query_cache_get_stats(uint64 *hits, uint64 *misses, uint64 *entries, uint64 *evictions);
+
 /*
  * Query cache entry structure
  * Stored in hash table with query_hash as key
@@ -77,7 +87,6 @@ neurondb_generate_cache_key(const float4 *query_vector, int dim, int k, int stra
 {
 	uint32		hash_value;
 	uint32		hash1, hash2;
-	int			i;
 
 	if (key_size < 64)
 		ereport(ERROR,

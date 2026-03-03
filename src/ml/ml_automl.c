@@ -2190,19 +2190,17 @@ automl_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **errstr)
 		int			n_candidates = 0;
 		int			best_idx = 0;
 		int			i;
+		int			train_size;
+		int			test_size;
+		float	   *train_features = NULL;
+		double	   *train_labels = NULL;
+		float	   *test_features = NULL;
+		double	   *test_labels = NULL;
+		int			j;
+		bool		error_occurred = false;
 
 		for (i = 0; i < 4; i++)
 			candidate_model_ids[i] = 0;
-
-		int			train_size;
-		int			test_size;
-
-		float *train_features = NULL;
-		double *train_labels = NULL;
-		float *test_features = NULL;
-		double *test_labels = NULL;
-		int			j;
-		bool		error_occurred = false;
 
 		/* Select candidate algorithms based on task type */
 		if (strcmp(task_type, "classification") == 0)

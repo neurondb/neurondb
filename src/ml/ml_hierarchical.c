@@ -1110,8 +1110,10 @@ hierarchical_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **err
 					num_clusters = DatumGetInt32(DirectFunctionCall1(numeric_int4,
 																	 NumericGetDatum(v.val.numeric)));
 				else if (strcmp(key, "linkage") == 0 && v.type == jbvString)
+				{
 					strncpy(linkage, v.val.string.val, sizeof(linkage) - 1);
 					linkage[sizeof(linkage) - 1] = '\0';
+				}
 				nfree(key);
 			}
 		}

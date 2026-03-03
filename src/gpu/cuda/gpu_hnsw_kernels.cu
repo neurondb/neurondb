@@ -185,7 +185,6 @@ hnsw_search_kernel(const float *query,
 	/* Start from entry point */
 	uint32_t current = entry_point;
 	int current_level = entry_level;
-	float current_dist = FLT_MAX;
 
 	/* Navigate down to layer 0 */
 	while (current_level > 0)

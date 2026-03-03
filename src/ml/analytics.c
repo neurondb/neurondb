@@ -1290,10 +1290,10 @@ vector_statistics(PG_FUNCTION_ARGS)
 
 	if (dim <= 0)
 	{
-		int			i;
+		int			vec_i;
 
-		for (i = 0; i < nvec; i++)
-			nfree(data[i]);
+		for (vec_i = 0; vec_i < nvec; vec_i++)
+			nfree(data[vec_i]);
 		nfree(data);
 		nfree(tbl_str);
 		nfree(col_str);
@@ -1574,6 +1574,9 @@ index_quality_metrics(PG_FUNCTION_ARGS)
 		/* Query index statistics from pg_class and pg_stat_user_indexes */
 		{
 			StringInfoData sql;
+			Oid			argtypes[1] = {TEXTOID};
+			Datum		values[1] = {PointerGetDatum(index_name)};
+			const char nulls[1] = {' '};
 
 			initStringInfo(&sql);
 			appendStringInfo(&sql,
@@ -1585,9 +1588,6 @@ index_quality_metrics(PG_FUNCTION_ARGS)
 							 "JOIN pg_class i ON i.oid = idx.indexrelid "
 							 "LEFT JOIN pg_stat_user_indexes s ON s.indexrelid = i.oid "
 							 "WHERE c.relname = $1");
-			Oid			argtypes[1] = {TEXTOID};
-			Datum		values[1] = {PointerGetDatum(index_name)};
-			const char nulls[1] = {' '};
 
 			ret = ndb_spi_execute_with_args(spi_session, sql.data, 1, argtypes, values, nulls, true, 0);
 			if (ret == SPI_OK_SELECT && SPI_processed > 0)
@@ -1629,6 +1629,9 @@ index_quality_metrics(PG_FUNCTION_ARGS)
 		 */
 		{
 			StringInfoData sql;
+			Oid			argtypes[1] = {TEXTOID};
+			Datum		values[1] = {PointerGetDatum(index_name)};
+			const char nulls[1] = {' '};
 
 			initStringInfo(&sql);
 			appendStringInfo(&sql,
@@ -1638,9 +1641,6 @@ index_quality_metrics(PG_FUNCTION_ARGS)
 							 "FROM neurondb.query_metrics "
 							 "WHERE index_name = $1 "
 							 "AND query_timestamp > NOW() - INTERVAL '24 hours'");
-			Oid			argtypes[1] = {TEXTOID};
-			Datum		values[1] = {PointerGetDatum(index_name)};
-			const char nulls[1] = {' '};
 
 			ret = ndb_spi_execute_with_args(spi_session, sql.data, 1, argtypes, values, nulls, true, 0);
 			if (ret == SPI_OK_SELECT && SPI_processed > 0)

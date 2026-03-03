@@ -627,8 +627,10 @@ lightgbm_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **errstr)
 						learning_rate = (float) DatumGetFloat8(DirectFunctionCall1(numeric_float8,
 																				   NumericGetDatum(v.val.numeric)));
 					else if (strcmp(key, "boosting_type") == 0 && v.type == jbvString)
+					{
 						strncpy(boosting_type, v.val.string.val, sizeof(boosting_type) - 1);
 						boosting_type[sizeof(boosting_type) - 1] = '\0';
+					}
 					nfree(key);
 				}
 			}

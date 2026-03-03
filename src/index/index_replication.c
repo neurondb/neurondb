@@ -207,6 +207,9 @@ neurondb_get_replication_lag(Oid indexOid)
 	int64		lag = -1;
 	StringInfoData sql;
 	char	   *index_name = NULL;
+	Oid			argtypes[1] = {TEXTOID};
+	Datum		values[1];
+	char		nulls[1] = {0};
 
 	session = ndb_spi_session_begin(CurrentMemoryContext, false);
 	if (session == NULL)
@@ -246,10 +249,6 @@ neurondb_get_replication_lag(Oid indexOid)
 					 "FROM neurondb_index_sync_state "
 					 "WHERE source_index_name = $1 AND sync_status = 'active' "
 					 "LIMIT 1");
-
-	Oid			argtypes[1] = {TEXTOID};
-	Datum		values[1];
-	char		nulls[1] = {0};
 
 	values[0] = CStringGetTextDatum(index_name);
 

@@ -1073,8 +1073,10 @@ text_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **errstr)
 					feature_dim = DatumGetInt32(DirectFunctionCall1(numeric_int4,
 																	NumericGetDatum(v.val.numeric)));
 				else if (strcmp(key, "task_type") == 0 && v.type == jbvString)
+				{
 					strncpy(task_type, v.val.string.val, sizeof(task_type) - 1);
 					task_type[sizeof(task_type) - 1] = '\0';
+				}
 				nfree(key);
 			}
 		}

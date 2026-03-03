@@ -163,18 +163,6 @@ static int	ndb_cuda_launch_pq_asymmetric_distance_batch(const float *query,
 														  int m,
 														  int ks,
 														  ndb_stream_t stream);
-static int	ndb_cuda_launch_hnsw_build(const float *vectors,
-									   int num_vectors,
-									   int dim,
-									   int m,
-									   int ef_construction,
-									   uint32_t **result_nodes,
-									   uint32_t **result_neighbors,
-									   int32_t **result_neighbor_counts,
-									   int32_t **result_node_levels,
-									   uint32_t *entry_point,
-									   int *entry_level,
-									   ndb_stream_t stream);
 static int	ndb_cuda_hnsw_search(const float *query,
 					 const float *nodes,
 					 const uint32_t *neighbors,
@@ -246,6 +234,36 @@ static int	ndb_cuda_ivf_search_batch(const float *queries,
 									  uint32_t *result_indices,
 									  float *result_distances,
 									  ndb_stream_t stream);
+
+/* Stub: HNSW build on CUDA not yet implemented; callers fall back to CPU */
+static int
+ndb_cuda_launch_hnsw_build(const float *vectors,
+						   int num_vectors,
+						   int dim,
+						   int m,
+						   int ef_construction,
+						   uint32_t **result_nodes,
+						   uint32_t **result_neighbors,
+						   int32_t **result_neighbor_counts,
+						   int32_t **result_node_levels,
+						   uint32_t *entry_point,
+						   int *entry_level,
+						   ndb_stream_t stream)
+{
+	(void) vectors;
+	(void) num_vectors;
+	(void) dim;
+	(void) m;
+	(void) ef_construction;
+	(void) result_nodes;
+	(void) result_neighbors;
+	(void) result_neighbor_counts;
+	(void) result_node_levels;
+	(void) entry_point;
+	(void) entry_level;
+	(void) stream;
+	return -1;					/* not implemented */
+}
 
 static int
 ndb_cuda_init(void)

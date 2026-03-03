@@ -431,7 +431,7 @@ neurondb_load_training_data(NdbSpiSession *session,
 		int			max_samples_limit = neurondb_ml_max_samples;
 		char	   *target_copy = NULL;
 		const char *target_quoted_const;
-		char	   *table_quoted;
+		const char *table_quoted;
 		StringInfoData quoted_features;
 		char	   *fcopy = NULL;
 		char	   *start = NULL;
@@ -4211,7 +4211,10 @@ cpu_fallback_training:
 					 errhint("CPU training may have failed. Check logs for details.")));
 		}
 		/* End of AUTO mode CPU fallback block */
+		PG_RETURN_INT32(model_id);
 	}
+	/* GPU-only mode and GPU failed: should have errored above; satisfy compiler */
+	PG_RETURN_INT32(0);
 }
 
 /* ----------

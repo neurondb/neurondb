@@ -522,7 +522,7 @@ FlushInMemoryGraph(Relation index, HnswInMemoryGraph *graph, HnswBuildState *bui
 		HnswInMemoryElement *next = element->next;
 		BlockNumber blkno;
 		Buffer		buf;
-		Page		page;
+		Page		nodePage;
 		HnswNode	node;
 		Size		nodeSize;
 		int			i, l;
@@ -542,8 +542,8 @@ FlushInMemoryGraph(Relation index, HnswInMemoryGraph *graph, HnswBuildState *bui
 		/* Allocate new page for this node */
 		buf = HNSW_READBUFFER(index, P_NEW);
 		LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
-		page = BufferGetPage(buf);
-		PageInit(page, BufferGetPageSize(buf), 0);
+		nodePage = BufferGetPage(buf);
+		PageInit(nodePage, BufferGetPageSize(buf), 0);
 		blkno = BufferGetBlockNumber(buf);
 
 		/* Allocate node buffer */
@@ -574,7 +574,7 @@ FlushInMemoryGraph(Relation index, HnswInMemoryGraph *graph, HnswBuildState *bui
 		}
 
 		/* Add node to page */
-		if (PageAddItem(page, (Item) node, nodeSize, InvalidOffsetNumber, false, false) == InvalidOffsetNumber)
+		if (PageAddItem(nodePage, (Item) node, nodeSize, InvalidOffsetNumber, false, false) == InvalidOffsetNumber)
 		{
 			pfree(nodeBuf);
 			UnlockReleaseBuffer(buf);
@@ -622,31 +622,31 @@ FlushInMemoryGraph(Relation index, HnswInMemoryGraph *graph, HnswBuildState *bui
 	{
 		HnswInMemoryElement *next = element->next;
 		Buffer		buf;
-		Page		page;
+		Page		nodePage;
 		HnswNode	node;
 		int			l;
 
 	buf = HNSW_READBUFFER(index, element->blkno);
 	LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
-	page = BufferGetPage(buf);
+	nodePage = BufferGetPage(buf);
 	
 	/* Check if page has valid items before accessing */
-	if (PageIsNew(page) || PageIsEmpty(page) ||
-		PageGetMaxOffsetNumber(page) < FirstOffsetNumber)
+	if (PageIsNew(nodePage) || PageIsEmpty(nodePage) ||
+		PageGetMaxOffsetNumber(nodePage) < FirstOffsetNumber)
 	{
 		UnlockReleaseBuffer(buf);
 		return;  /* Skip this element */
 	}
 	
 	{
-		ItemId elementItemId = PageGetItemId(page, FirstOffsetNumber);
+		ItemId elementItemId = PageGetItemId(nodePage, FirstOffsetNumber);
 		if (!ItemIdIsValid(elementItemId) || !ItemIdHasStorage(elementItemId))
 		{
 			UnlockReleaseBuffer(buf);
 			return;  /* Skip this element */
 		}
 		
-		node = (HnswNode) PageGetItem(page, elementItemId);
+		node = (HnswNode) PageGetItem(nodePage, elementItemId);
 	}
 	
 	if (node == NULL)
@@ -2125,8 +2125,8 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 	if (so->currentResult >= so->resultCount && so->iterativeScanEnabled)
 	{
 		Buffer		metaBuffer;
-		Page		metaPage;
-		HnswMetaPage meta;
+		Page		innerMetaPage;
+		HnswMetaPage innerMeta;
 		MemoryContext oldctx;
 		int			oldEfSearch = so->efSearch;
 		int			newEfSearch;
@@ -2154,8 +2154,8 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		/* Re-scan with increased ef_search */
 		metaBuffer = ReadBuffer(scan->indexRelation, 0);
 		LockBuffer(metaBuffer, BUFFER_LOCK_SHARE);
-		metaPage = BufferGetPage(metaBuffer);
-		meta = (HnswMetaPage) PageGetContents(metaPage);
+		innerMetaPage = BufferGetPage(metaBuffer);
+		innerMeta = (HnswMetaPage) PageGetContents(innerMetaPage);
 
 		if (!so->query)
 		{
@@ -2177,10 +2177,10 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 
 		/* Use dedicated scan context for search allocations */
 		oldctx = MemoryContextSwitchTo(so->scanCtx);
-		hnswSearch(scan->indexRelation, meta,
-				   so->query, so->queryDim,
-				   so->strategy, so->efSearch, so->k,
-				   &so->results, &so->distances, &so->resultCount);
+		hnswSearch(scan->indexRelation, innerMeta,
+			   so->query, so->queryDim,
+			   so->strategy, so->efSearch, so->k,
+			   &so->results, &so->distances, &so->resultCount);
 		MemoryContextSwitchTo(oldctx);
 
 		UnlockReleaseBuffer(metaBuffer);
@@ -4339,14 +4339,14 @@ hnswInsertNode(Relation index,
 					{
 						/* For larger arrays, use qsort for better performance */
 						NeighborCandidate *sortedCandidates;
-						int			i;
+						int			sortIdx;
 
 						/* Create sorted candidate array */
 						sortedCandidates = (NeighborCandidate *) palloc(candidateCount * sizeof(NeighborCandidate));
-						for (i = 0; i < candidateCount; i++)
+						for (sortIdx = 0; sortIdx < candidateCount; sortIdx++)
 						{
-							sortedCandidates[i].blk = candidates[i];
-							sortedCandidates[i].dist = candidateDistances[i];
+							sortedCandidates[sortIdx].blk = candidates[sortIdx];
+							sortedCandidates[sortIdx].dist = candidateDistances[sortIdx];
 						}
 
 						/* Sort by distance */

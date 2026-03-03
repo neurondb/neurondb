@@ -1241,11 +1241,14 @@ evaluate_arima_by_model_id(PG_FUNCTION_ARGS)
 	float		actual_value = 0.0f;
 	float		forecast_value = 0.0f;
 	float		error = 0.0f;
-
 	NdbSpiSession *spi_session = NULL;
 	TimeSeriesModel *arima_model = NULL;
 	float	   *data = NULL;
 	float	   *forecast_arr = NULL;
+
+	(void) actual_tuple;
+	(void) tupdesc;
+	(void) actual_null;
 
 	/* Validate arguments */
 	if (PG_NARGS() != 5)
@@ -2068,8 +2071,10 @@ timeseries_gpu_train(MLGpuModel *model, const MLGpuTrainSpec *spec, char **errst
 					q = DatumGetInt32(DirectFunctionCall1(numeric_int4, NumericGetDatum(v.val.numeric)));
 				}
 				else if (strcmp(key, "model_type") == 0 && v.type == jbvString)
+				{
 					strncpy(model_type, v.val.string.val, sizeof(model_type) - 1);
 					model_type[sizeof(model_type) - 1] = '\0';
+				}
 				nfree(key);
 			}
 		}

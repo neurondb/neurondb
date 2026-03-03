@@ -992,6 +992,49 @@ check_dead_tuples(Relation index, ValidateResult * result)
 }
 
 /*
+ * Check if a heap tuple is visible to the given snapshot.
+ * Returns 1 if tuple should be counted as dead, 0 if live.
+ * Used to avoid nested PG_TRY in diagnose_index.
+ */
+static int
+check_tuple_visibility(Relation heapRel, Snapshot snapshot, HeapTuple tuple)
+{
+	Buffer		heapBuf;
+	bool		found;
+
+	if (snapshot == NULL)
+		return 1;
+	PG_TRY();
+	{
+		found = heap_fetch(heapRel, snapshot, tuple, &heapBuf, false);
+		if (found && HeapTupleIsValid(tuple))
+		{
+			if (!HeapTupleSatisfiesVisibility(tuple, snapshot, heapBuf))
+			{
+				if (BufferIsValid(heapBuf))
+					ReleaseBuffer(heapBuf);
+				return 1;
+			}
+			if (BufferIsValid(heapBuf))
+				ReleaseBuffer(heapBuf);
+			return 0;
+		}
+		else
+		{
+			if (found && BufferIsValid(heapBuf))
+				ReleaseBuffer(heapBuf);
+			return 1;
+		}
+	}
+	PG_CATCH();
+	{
+		return 1;			/* error -> count as dead */
+	}
+	PG_END_TRY();
+	return 1;				/* not reached */
+}
+
+/*
  * Diagnose index and return metrics
  */
 static DiagResult *
@@ -1047,7 +1090,6 @@ diagnose_index(Relation index)
 		Snapshot	snapshot;
 		HeapTupleData tupleData;
 		HeapTuple	tuple = &tupleData;
-		bool		found;
 
 		/* Safely get heap relation - IndexGetRelation might fail */
 		{
@@ -1165,39 +1207,9 @@ diagnose_index(Relation index)
 
 						totalTuples++;
 
-						/* Check if heap tuple is visible - wrap in error handling */
-						PG_TRY();
-						{
-							Buffer		heapBuf;
-
-							if (snapshot != NULL)
-							{
-								found = heap_fetch(heapRel, snapshot, tuple, &heapBuf, false);
-								if (found && HeapTupleIsValid(tuple))
-								{
-									if (!HeapTupleSatisfiesVisibility(tuple, snapshot, heapBuf))
-									{
-										deadTuples++;
-									}
-									if (BufferIsValid(heapBuf))
-										ReleaseBuffer(heapBuf);
-								}
-								else
-								{
-									deadTuples++;
-								}
-							}
-							else
-							{
-								deadTuples++;
-							}
-						}
-						PG_CATCH();
-						{
-							/* If heap_fetch fails, count as dead */
+						/* Check if heap tuple is visible - use helper to avoid nested PG_TRY */
+						if (check_tuple_visibility(heapRel, snapshot, tuple) != 0)
 							deadTuples++;
-						}
-						PG_END_TRY();
 					}
 
 					UnlockReleaseBuffer(buf);
@@ -1585,11 +1597,11 @@ index_statistics(PG_FUNCTION_ARGS)
 		pfree(idx_name);
 		/* Return minimal safe result instead of crashing */
 		{
-			StringInfoData json_buf;
-			Jsonb *result_jsonb = NULL;
-			
-			initStringInfo(&json_buf);
-			appendStringInfo(&json_buf,
+			StringInfoData catch_json_buf;
+			Jsonb	   *catch_result_jsonb = NULL;
+
+			initStringInfo(&catch_json_buf);
+			appendStringInfo(&catch_json_buf,
 							 "{\"index_name\":\"%s\","
 							 "\"index_type\":\"%s\","
 							 "\"index_size_bytes\":0,"
@@ -1604,10 +1616,10 @@ index_statistics(PG_FUNCTION_ARGS)
 							 "\"orphan_nodes\":0}",
 							 idx_name,
 							 index_type);
-			result_jsonb = DatumGetJsonbP(DirectFunctionCall1(
-														  jsonb_in, CStringGetTextDatum(json_buf.data)));
-			pfree(json_buf.data);
-			PG_RETURN_POINTER(result_jsonb);
+			catch_result_jsonb = DatumGetJsonbP(DirectFunctionCall1(
+														  jsonb_in, CStringGetTextDatum(catch_json_buf.data)));
+			pfree(catch_json_buf.data);
+			PG_RETURN_POINTER(catch_result_jsonb);
 		}
 	}
 	PG_END_TRY();
@@ -1781,11 +1793,11 @@ index_health(PG_FUNCTION_ARGS)
 		pfree(idx_name);
 		/* Return safe default result */
 		{
-			StringInfoData json_buf;
-			Jsonb *result_jsonb = NULL;
+			StringInfoData catch_json_buf;
+			Jsonb	   *catch_result_jsonb = NULL;
 
-			initStringInfo(&json_buf);
-			appendStringInfo(&json_buf,
+			initStringInfo(&catch_json_buf);
+			appendStringInfo(&catch_json_buf,
 							 "{\"index_name\":\"%s\","
 							 "\"health_status\":\"UNKNOWN\","
 							 "\"health_score\":0.0,"
@@ -1794,10 +1806,10 @@ index_health(PG_FUNCTION_ARGS)
 							 "\"orphan_nodes\":0,"
 							 "\"recommendations\":\"Index diagnosis failed\"}",
 							 idx_name);
-			result_jsonb = DatumGetJsonbP(DirectFunctionCall1(
-														  jsonb_in, CStringGetTextDatum(json_buf.data)));
-			pfree(json_buf.data);
-			PG_RETURN_POINTER(result_jsonb);
+			catch_result_jsonb = DatumGetJsonbP(DirectFunctionCall1(
+														  jsonb_in, CStringGetTextDatum(catch_json_buf.data)));
+			pfree(catch_json_buf.data);
+			PG_RETURN_POINTER(catch_result_jsonb);
 		}
 	}
 	PG_END_TRY();
