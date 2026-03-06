@@ -11418,42 +11418,21 @@ CREATE TABLE IF NOT EXISTS neurondb.rag_pipelines (
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
--- Add columns to existing table if they don't exist (for migration)
-DO $$
-BEGIN
-    -- Add reranking columns
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'neurondb' AND table_name = 'rag_pipelines' AND column_name = 'rerank_enabled') THEN
-        ALTER TABLE neurondb.rag_pipelines ADD COLUMN rerank_enabled BOOLEAN DEFAULT false;
-        ALTER TABLE neurondb.rag_pipelines ADD COLUMN rerank_top_k INTEGER DEFAULT 10;
-        ALTER TABLE neurondb.rag_pipelines ADD COLUMN rerank_initial_k INTEGER DEFAULT 50;
-    END IF;
-    
-    -- Add hybrid search columns
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'neurondb' AND table_name = 'rag_pipelines' AND column_name = 'hybrid_enabled') THEN
-        ALTER TABLE neurondb.rag_pipelines ADD COLUMN hybrid_enabled BOOLEAN DEFAULT false;
-        ALTER TABLE neurondb.rag_pipelines ADD COLUMN vector_weight FLOAT DEFAULT 0.7;
-        ALTER TABLE neurondb.rag_pipelines ADD COLUMN text_weight FLOAT DEFAULT 0.3;
-    END IF;
-    
-    -- Add evaluation columns
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'neurondb' AND table_name = 'rag_pipelines' AND column_name = 'evaluation_enabled') THEN
-        ALTER TABLE neurondb.rag_pipelines ADD COLUMN evaluation_enabled BOOLEAN DEFAULT false;
-        ALTER TABLE neurondb.rag_pipelines ADD COLUMN evaluation_metrics TEXT[] DEFAULT ARRAY['relevancy', 'semantic_similarity'];
-        ALTER TABLE neurondb.rag_pipelines ADD COLUMN evaluation_threshold FLOAT DEFAULT 0.7;
-    END IF;
-    
-    -- Add LLM generation columns
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'neurondb' AND table_name = 'rag_pipelines' AND column_name = 'llm_model') THEN
-        ALTER TABLE neurondb.rag_pipelines ADD COLUMN llm_model TEXT DEFAULT 'gpt-3.5-turbo';
-        ALTER TABLE neurondb.rag_pipelines ADD COLUMN llm_temperature FLOAT DEFAULT 0.7;
-        ALTER TABLE neurondb.rag_pipelines ADD COLUMN llm_max_tokens INTEGER DEFAULT 500;
-    END IF;
-    
-    -- Add updated_at column
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'neurondb' AND table_name = 'rag_pipelines' AND column_name = 'updated_at') THEN
-        ALTER TABLE neurondb.rag_pipelines ADD COLUMN updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
-    END IF;
-END $$;
+-- Migration: Add columns if they don't exist (safe for fresh install since CREATE TABLE above already has them)
+-- NOTE: Replaced DO block that queried information_schema (causes catalog corruption during CREATE EXTENSION)
+ALTER TABLE neurondb.rag_pipelines ADD COLUMN IF NOT EXISTS rerank_enabled BOOLEAN DEFAULT false;
+ALTER TABLE neurondb.rag_pipelines ADD COLUMN IF NOT EXISTS rerank_top_k INTEGER DEFAULT 10;
+ALTER TABLE neurondb.rag_pipelines ADD COLUMN IF NOT EXISTS rerank_initial_k INTEGER DEFAULT 50;
+ALTER TABLE neurondb.rag_pipelines ADD COLUMN IF NOT EXISTS hybrid_enabled BOOLEAN DEFAULT false;
+ALTER TABLE neurondb.rag_pipelines ADD COLUMN IF NOT EXISTS vector_weight FLOAT DEFAULT 0.7;
+ALTER TABLE neurondb.rag_pipelines ADD COLUMN IF NOT EXISTS text_weight FLOAT DEFAULT 0.3;
+ALTER TABLE neurondb.rag_pipelines ADD COLUMN IF NOT EXISTS evaluation_enabled BOOLEAN DEFAULT false;
+ALTER TABLE neurondb.rag_pipelines ADD COLUMN IF NOT EXISTS evaluation_metrics TEXT[] DEFAULT ARRAY['relevancy', 'semantic_similarity'];
+ALTER TABLE neurondb.rag_pipelines ADD COLUMN IF NOT EXISTS evaluation_threshold FLOAT DEFAULT 0.7;
+ALTER TABLE neurondb.rag_pipelines ADD COLUMN IF NOT EXISTS llm_model TEXT DEFAULT 'gpt-3.5-turbo';
+ALTER TABLE neurondb.rag_pipelines ADD COLUMN IF NOT EXISTS llm_temperature FLOAT DEFAULT 0.7;
+ALTER TABLE neurondb.rag_pipelines ADD COLUMN IF NOT EXISTS llm_max_tokens INTEGER DEFAULT 500;
+ALTER TABLE neurondb.rag_pipelines ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
 
 -- Create function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION neurondb.update_rag_pipeline_timestamp()
