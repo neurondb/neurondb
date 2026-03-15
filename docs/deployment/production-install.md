@@ -28,16 +28,16 @@
 ## Prerequisites
 
 <details>
-<summary><strong>📋 Prerequisites Checklist</strong></summary>
+<summary><strong>Prerequisites Checklist</strong></summary>
 
 | Requirement | Minimum Version | Required |
 |-------------|----------------|----------|
-| **Kubernetes** | 1.24+ | ✅ Yes |
-| **Helm** | 3.8+ | ✅ Yes |
-| **kubectl** | Latest | ✅ Yes |
-| **StorageClass** | - | ✅ Yes |
-| **Prometheus Operator** | - | ❌ Optional |
-| **External Secrets Operator** | - | ❌ Optional |
+| **Kubernetes** | 1.24+ | Yes |
+| **Helm** | 3.8+ | Yes |
+| **kubectl** | Latest | Yes |
+| **StorageClass** | - | Yes |
+| **Prometheus Operator** | - | Optional |
+| **External Secrets Operator** | - | Optional |
 
 </details>
 
@@ -49,7 +49,7 @@
 ### Option A: AWS RDS
 
 <details>
-<summary><strong>☁️ AWS RDS Setup</strong></summary>
+<summary><strong>AWS RDS Setup</strong></summary>
 
 1. Create RDS PostgreSQL instance:
 ```bash
@@ -110,7 +110,7 @@ kubectl create secret generic neurondb-external-postgres-secret \
 ### Option C: Azure Database for PostgreSQL
 
 <details>
-<summary><strong>☁️ Azure Database Setup</strong></summary>
+<summary><strong>Azure Database Setup</strong></summary>
 
 1. Create Azure PostgreSQL Flexible Server:
 ```bash
@@ -265,7 +265,7 @@ helm upgrade neurondb ./helm/neurondb \
 4. **Monitor upgrade:**
 ```bash
 kubectl get pods -n neurondb -w
-kubectl logs -f deployment/neurondb-neuronagent -n neurondb
+kubectl logs -f statefulset/neurondb-neurondb -n neurondb
 ```
 
 ### Rollback Procedure
@@ -289,77 +289,55 @@ kubectl get svc -n neurondb
 
 ## Sizing Guidance
 
-### Small Deployment (Development/Testing)
+Sizing below is for the NeuronDB (PostgreSQL) component only. Size other services (if any) per their documentation.
+
+### Small (development / testing)
 
 - **NeuronDB**: 2 CPU, 4Gi memory, 50Gi storage
-- **NeuronAgent**: 1 replica, 500m CPU, 512Mi memory
-- **NeuronMCP**: 1 replica, 250m CPU, 256Mi memory
-- **Total**: ~6 CPU, ~6Gi memory
 
-### Medium Deployment (Production - Small)
+### Medium (production, small)
 
 - **NeuronDB**: 4 CPU, 8Gi memory, 200Gi storage
-- **NeuronAgent**: 2 replicas, 1 CPU, 1Gi memory each
-- **NeuronMCP**: 1 replica, 500m CPU, 512Mi memory
-- **Total**: ~7 CPU, ~11Gi memory
 
-### Large Deployment (Production - Medium)
+### Large (production, medium)
 
 - **NeuronDB**: 8 CPU, 16Gi memory, 500Gi storage
-- **NeuronAgent**: 3 replicas, 2 CPU, 2Gi memory each
-- **NeuronMCP**: 2 replicas, 1 CPU, 1Gi memory each
-- **Total**: ~20 CPU, ~26Gi memory
 
-### Enterprise Deployment (Production - Large)
+### Enterprise (production, large)
 
 - **NeuronDB**: 16 CPU, 32Gi memory, 1Ti storage
-- **NeuronAgent**: 5 replicas, 4 CPU, 4Gi memory each
-- **NeuronMCP**: 3 replicas, 2 CPU, 2Gi memory each
-- **Total**: ~46 CPU, ~58Gi memory
 
-### Storage Sizing
+### Storage
 
-- **Small**: 50-100Gi (development)
-- **Medium**: 200-500Gi (production)
-- **Large**: 500Gi-1Ti (enterprise)
-- **Growth rate**: Plan for 2-3x current size for 1 year
-
-### Network Bandwidth
-
-- **Small**: 100 Mbps
-- **Medium**: 1 Gbps
-- **Large**: 10 Gbps
+- **Small**: 50–100Gi (development)
+- **Medium**: 200–500Gi (production)
+- **Large**: 500Gi–1Ti (enterprise)
+- Plan for 2–3× current size for 1 year growth
 
 ## Post-Installation Verification
 
-1. Check all pods are running:
+1. Check pods are running:
 ```bash
 kubectl get pods -n neurondb
 ```
 
-2. Verify services:
+2. List services:
 ```bash
 kubectl get svc -n neurondb
 ```
 
-3. Test database connectivity:
+3. Test database and extension:
 ```bash
-kubectl exec -it deployment/neurondb-neuronagent -n neurondb -- \
-  psql -h $DB_HOST -U $DB_USER -d $DB_NAME -c "SELECT version();"
+POD=$(kubectl get pod -n neurondb -l app=neurondb -o jsonpath='{.items[0].metadata.name}')
+kubectl exec -n neurondb "$POD" -- psql -U neurondb -d neurondb -c "SELECT neurondb.version();"
 ```
 
-4. Check health endpoints:
-```bash
-kubectl port-forward svc/neurondb-neuronagent 8080:8080 -n neurondb
-curl http://localhost:8080/health
-```
-
-5. Verify NetworkPolicies:
+4. Check NetworkPolicies (if used):
 ```bash
 kubectl get networkpolicies -n neurondb
 ```
 
-6. Check backups:
+5. Verify backups (if configured):
 ```bash
 kubectl get cronjob -n neurondb
 kubectl get jobs -n neurondb | grep backup
@@ -376,7 +354,7 @@ See [Troubleshooting Guide](../operations/troubleshooting.md) for common issues.
 
 ---
 
-## 🔗 Related Documentation
+## Related Documentation
 
 | Document | Description |
 |----------|-------------|
@@ -389,7 +367,7 @@ See [Troubleshooting Guide](../operations/troubleshooting.md) for common issues.
 
 <div align="center">
 
-[⬆ Back to Top](#production-installation-guide) · [📚 Deployment Index](README.md) · [📚 Main Documentation](../../README.md)
+[Back to Top](#production-installation-guide) · [Deployment Index](README.md) · [Main Documentation](../../README.md)
 
 </div>
 

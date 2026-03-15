@@ -125,22 +125,19 @@ psql -h localhost -U postgres -d neurondb -c "SELECT neurondb.version();"
 
 **Process:**
 1. Backup database
-2. Stop services using NeuronDB
-3. Install new extension version
+2. Stop applications that use the database (if any)
+3. Install new extension version from repository root
 4. Run upgrade SQL (if provided)
-5. Restart services
+5. Restart PostgreSQL if needed
 6. Verify functionality
 
 ```bash
 # 1. Backup
 pg_dump -h localhost -U postgres -d neurondb -F c -f backup.dump
 
-# 2. Stop services
-systemctl stop neuronagent
-systemctl stop neuronmcp
+# 2. Stop applications using the database (optional; stop only what you control)
 
-# 3. Install new version
-cd NeuronDB
+# 3. Install new version (from repository root)
 make install
 
 # 4. Upgrade extension (if needed)
@@ -148,12 +145,11 @@ psql -h localhost -U postgres -d neurondb <<EOF
 ALTER EXTENSION neurondb UPDATE TO '1.0.1';
 EOF
 
-# 5. Restart services
-systemctl start neuronagent
-systemctl start neuronmcp
+# 5. Restart PostgreSQL if required
+# systemctl restart postgresql
 
-# 6. Verify (from neuron-agent repo)
-# In neuron-agent: ./scripts/neuronagent-verify.sh --tier 0
+# 6. Verify
+psql -h localhost -U postgres -d neurondb -c "SELECT neurondb.version();"
 ```
 
 #### Major Upgrades (e.g., 1.0.x → 2.0.0)
@@ -197,8 +193,7 @@ systemctl stop postgresql@17-main
   --old-bindir=/usr/lib/postgresql/16/bin \
   --new-bindir=/usr/lib/postgresql/17/bin
 
-# 5. Rebuild NeuronDB extension
-cd NeuronDB
+# 5. Rebuild NeuronDB extension (from repository root)
 PG_CONFIG=/usr/lib/postgresql/17/bin/pg_config make install
 
 # 6. Start PostgreSQL 17
@@ -412,9 +407,8 @@ work_mem = 256MB  # For large index builds
 ### Connection Pooling
 
 **Recommended pool sizes:**
-- **NeuronAgent:** 10-50 connections (depending on load)
-- **NeuronMCP:** 5-20 connections
-- **Application:** 20-100 connections
+- **Application connections:** 20–100 (or as needed for your apps)
+- **Admin/maintenance:** Reserve a few connections
 
 **PostgreSQL max_connections:**
 ```

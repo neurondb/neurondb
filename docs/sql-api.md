@@ -299,6 +299,6 @@ All functions in this reference are classified according to their stability leve
 
 <div align="center">
 
-[⬆ Back to Top](#sql-api-reference)
+[Back to Top](#sql-api-reference)
 
 </div>

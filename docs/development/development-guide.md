@@ -1,73 +1,32 @@
 # NeuronDB Development Guide
 
-**Complete development guide for contributing to NeuronDB ecosystem.**
-
-> **Version:** 1.0  
-> **Last Updated:** 2025-01-01
-
-## Table of Contents
-
-- [Code Organization](#code-organization)
-- [Adding New SQL Functions](#adding-new-sql-functions)
-- [Adding New ML Algorithms](#adding-new-ml-algorithms)
-- [Adding New Tools](#adding-new-tools)
-- [Testing Procedures](#testing-procedures)
-- [Debugging Guides](#debugging-guides)
+Contribute to the NeuronDB PostgreSQL extension: code layout, adding SQL functions and ML algorithms, and testing.
 
 ---
 
-## Code Organization
+## Code organization
 
-### NeuronDB Extension
+Repository root (no top-level `NeuronDB/` directory):
 
-**Structure:**
 ```
-NeuronDB/
 ├── src/              # C source code
 │   ├── core/         # Core vector operations
 │   ├── ml/           # ML algorithms
 │   ├── gpu/          # GPU acceleration
 │   ├── index/        # Index methods
-│   └── ...
-├── include/          # Header files
-├── tests/            # Test files
-└── docs/             # Documentation
-```
-
-### NeuronAgent
-
-**Location:** **neuron-agent** repo. Structure (reference):
-
-```
-neuron-agent/
-├── internal/
-│   ├── agent/        # Agent runtime
-│   ├── api/          # REST API
-│   ├── tools/        # Tool system
-│   └── ...
-└── cmd/              # Command-line tools
-```
-
-### NeuronMCP
-
-**Location:** **neuron-mcp** repo. Structure (reference):
-
-```
-neuron-mcp/
-├── internal/
-│   ├── tools/        # MCP tools
-│   ├── server/       # MCP server
-│   └── ...
-└── cmd/              # Command-line tools
+│   └── tests/        # Test runner and SQL tests
+├── sql/              # SQL extension files (neurondb--*.sql)
+├── docs/             # Documentation
+└── Makefile          # Build (./build.sh or make)
 ```
 
 ---
 
-## Adding New SQL Functions
+## Adding new SQL functions
 
-### Step 1: Implement C Function
+### 1. Implement C function
 
-**File:** `NeuronDB/src/vector/vector_ops.c`
+**File:** `src/vector/vector_ops.c` (or appropriate module)
 
 ```c
 PG_FUNCTION_INFO_V1(my_new_function);
@@ -81,9 +40,9 @@ my_new_function(PG_FUNCTION_ARGS)
 }
 ```
 
-### Step 2: Add SQL Declaration
+### 2. Add SQL declaration
 
-**File:** `NeuronDB/sql/neurondb--1.0.sql`
+**File:** `sql/neurondb--1.0.sql` (or the correct versioned SQL file)
 
 ```sql
 CREATE FUNCTION my_new_function(vector) RETURNS vector
@@ -92,9 +51,9 @@ CREATE FUNCTION my_new_function(vector) RETURNS vector
 COMMENT ON FUNCTION my_new_function IS 'Description of function';
 ```
 
-### Step 3: Add Tests
+### 3. Add tests
 
-**File:** `NeuronDB/tests/sql/basic/my_new_function.sql`
+**File:** `src/tests/sql/basic/my_new_function.sql`
 
 ```sql
 SELECT my_new_function('[1.0, 2.0, 3.0]'::vector);
@@ -102,158 +61,45 @@ SELECT my_new_function('[1.0, 2.0, 3.0]'::vector);
 
 ---
 
-## Adding New ML Algorithms
+## Adding new ML algorithms
 
-### Step 1: Implement Algorithm
+### 1. Implement algorithm
 
-**File:** `NeuronDB/src/ml/ml_my_algorithm.c`
+**File:** `src/ml/ml_my_algorithm.c`
 
-```c
-PG_FUNCTION_INFO_V1(train_my_algorithm);
+### 2. Add SQL functions
 
-Datum
-train_my_algorithm(PG_FUNCTION_ARGS)
-{
-    // Training implementation
-    // Store model in catalog
-    PG_RETURN_INT32(model_id);
-}
-```
+**File:** `sql/neurondb--1.0.sql` — `CREATE FUNCTION` for train and predict.
 
-### Step 2: Add SQL Functions
+### 3. Register in catalog
 
-**File:** `NeuronDB/sql/neurondb--1.0.sql`
-
-```sql
-CREATE FUNCTION train_my_algorithm(text, text, text) RETURNS integer
-    AS 'MODULE_PATHNAME', 'train_my_algorithm'
-    LANGUAGE C STABLE;
-
-CREATE FUNCTION predict_my_algorithm(integer, vector) RETURNS float8
-    AS 'MODULE_PATHNAME', 'predict_my_algorithm'
-    LANGUAGE C STABLE STRICT;
-```
-
-### Step 3: Register in Catalog
-
-**File:** `NeuronDB/src/ml/ml_catalog.c`
-
-Add algorithm to catalog system.
+**File:** `src/ml/ml_catalog.c` — Register the algorithm in the catalog.
 
 ---
 
-## Adding New Tools
+## Testing
 
-### NeuronMCP Tool
+**SQL regression tests:**
 
-**File:** In **neuron-mcp** repo: `internal/tools/my_tool.go`
-
-```go
-type MyTool struct {
-    *BaseTool
-    executor *QueryExecutor
-    logger   *logging.Logger
-}
-
-func NewMyTool(db *database.Database, logger *logging.Logger) *MyTool {
-    return &MyTool{
-        BaseTool: NewBaseTool(
-            "my_tool",
-            "Tool description",
-            InputSchema(),
-        ),
-        executor: NewQueryExecutor(db),
-        logger:   logger,
-    }
-}
-
-func (t *MyTool) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-    // Implementation
-    return Success(result, metadata), nil
-}
-```
-
-**Register:**
-```go
-// In register.go
-registry.Register(NewMyTool(db, logger))
-```
-
----
-
-## Testing Procedures
-
-### SQL Tests
-
-**Run:**
 ```bash
-cd NeuronDB
+# From repository root
 make installcheck
 ```
 
-**Add Test:**
-```sql
--- File: tests/sql/basic/my_test.sql
-BEGIN;
-SELECT my_function('[1.0, 2.0, 3.0]'::vector);
-ROLLBACK;
-```
+**Add a test:** Create or extend a `.sql` file under `src/tests/sql/` and run `make installcheck`.
 
-### Go Tests
-
-**Run:**
-```bash
-cd NeuronAgent
-go test ./...
-```
-
-**Add Test:**
-```go
-func TestMyFunction(t *testing.T) {
-    // Test implementation
-}
-```
+**Docker:** See [Testing with Docker](../readme-docker.md).
 
 ---
 
-## Debugging Guides
+## Debugging
 
-### PostgreSQL Extension
-
-**Enable Debug Logging:**
-```sql
-SET client_min_messages = debug1;
-```
-
-**Check Extension:**
-```sql
-SELECT * FROM pg_extension WHERE extname = 'neurondb';
-```
-
-### GPU Debugging
-
-**Check GPU Status:**
-```sql
-SELECT * FROM neurondb_gpu_info();
-```
-
-**Enable GPU Logging:**
-```sql
-SET log_min_messages = debug1;
-```
+- **PostgreSQL:** `SET client_min_messages = debug1;` and inspect `pg_extension` for `neurondb`.
+- **GPU:** `SELECT * FROM neurondb_gpu_info();` and enable debug logging as needed.
 
 ---
 
-## Related Documentation
+## Related documentation
 
-- [Build System](build-system.md)
-- [Contributing Guide](../../CONTRIBUTING.md)
-- [Code Standards](../../CONTRIBUTING.md#code-standards)
-
----
-
-**Last Updated:** 2025-01-01  
-**Documentation Version:** 1.0.0
-
-
-
+- [Build system](build-system.md)
+- [Contributing](../../CONTRIBUTING.md)

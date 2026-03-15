@@ -11,7 +11,7 @@ This file explains how docs are organized and how to extend them.
 ## Style guidelines
 
 - **Prefer short sections** with clear headings.
-- **Link to source** by referencing file paths like `NeuronDB/src/...` rather than duplicating code.
+- **Link to source** by referencing file paths like `src/...` (repository root) rather than duplicating code.
 - **Separate concerns**:
   - getting-started docs: “do this”
   - internals docs: “why it works / how it’s built”

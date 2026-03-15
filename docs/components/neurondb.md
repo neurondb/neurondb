@@ -5,8 +5,8 @@ NeuronDB is a PostgreSQL extension that adds vector search, machine learning, an
 ## What it is
 
 - A PostgreSQL extension that defines types (for example `vector`), operators, and index access methods
-- 665+ SQL functions for vector operations, ML algorithms, embeddings, and RAG pipelines
-- Support for 52+ machine learning algorithms
+- ~650+ SQL functions for vector operations, ML, embeddings, and RAG
+- 25+ machine learning algorithm families
 - GPU acceleration for CUDA, ROCm, and Metal platforms
 - Background workers for async operations, auto-tuning, and maintenance
 
@@ -18,7 +18,7 @@ NeuronDB is a PostgreSQL extension that adds vector search, machine learning, an
 - **Indexing**: HNSW and IVF indexes for fast similarity search
 - **Quantization**: Product Quantization (PQ) and Optimized Product Quantization (OPQ)
 
-### Machine Learning (52+ Algorithms)
+### Machine Learning (25+ algorithm families)
 - **Classification**: Random Forest, SVM, Logistic Regression, Naive Bayes, Decision Trees
 - **Regression**: Linear, Ridge, Lasso, Neural Networks, Deep Learning
 - **Clustering**: K-Means, Mini-batch K-Means, DBSCAN, Gaussian Mixture Model, Hierarchical
@@ -78,16 +78,16 @@ NeuronDB is a PostgreSQL extension that adds vector search, machine learning, an
 
 ## Documentation
 
-- **Main README**: `NeuronDB/README.md`
-- **Installation**: `NeuronDB/INSTALL.md`
-- **Complete Docs**: `NeuronDB/docs/`
-- **SQL API**: 665+ functions defined in `NeuronDB/sql/neurondb--3.0.0-devel.sql`
+- **Main README**: [README.md](../../README.md) (repository root)
+- **Installation**: [INSTALL.md](../../INSTALL.md) (repository root)
+- **Complete Docs**: [docs/](../../docs/)
+- **SQL API**: Functions defined in `sql/neurondb--*.sql` (repository root)
 - **Official Docs**: [https://www.neurondb.ai/docs](https://www.neurondb.ai/docs)
 
 ## Docker
 
-- Compose services: `neurondb` (cpu), `neurondb-cuda`, `neurondb-rocm`, `neurondb-metal`
-- See: `docker/neurondb/README.md` and repo-root `docker-compose.yml`
+- Compose file: `docker/docker-compose.yml`. Services: `neurondb` (CPU) and GPU profiles (cuda, rocm, metal).
+- See [docker/README.md](../../docker/README.md).
 
 ## Quick Start
 
@@ -98,4 +98,4 @@ CREATE EXTENSION IF NOT EXISTS neurondb;
 SELECT neurondb.version();
 ```
 
-For detailed setup, see `NeuronDB/INSTALL.md` or `Docs/getting-started/installation.md`.
+For detailed setup, see [INSTALL.md](../../INSTALL.md) or [Installation](../getting-started/installation.md).

@@ -253,17 +253,17 @@ REINDEX INDEX documents_embedding_idx;
 
 | Document | Description |
 |----------|-------------|
-| **[Vector Types](../../NeuronDB/docs/vector-search/vector-types.md)** | Vector type details |
+| **[Vector Types](../vector-search/vector-types.md)** | Vector type details |
 | **[Data Types Reference](data-types.md)** | Complete data types reference |
-| **[Embedding Generation](../../NeuronDB/docs/ml-embeddings/embedding-generation.md)** | How to generate embeddings |
-| **[Indexing Guide](../../NeuronDB/docs/vector-search/indexing.md)** | Index configuration |
-| **[Performance Tuning](../../NeuronDB/docs/configuration.md)** | Performance optimization |
+| **[Embedding Generation](../ml-embeddings/embedding-generation.md)** | How to generate embeddings |
+| **[Indexing Guide](../vector-search/indexing.md)** | Index configuration |
+| **[Performance Tuning](../configuration.md)** | Performance optimization |
 
 ---
 
 <div align="center">
 
-[⬆ Back to Top](#embedding-compatibility-guide) · [📚 Reference Index](README.md) · [📚 Main Documentation](../../README.md)
+[Back to Top](#embedding-compatibility-guide) · [Reference Index](README.md) · [Main Documentation](../../README.md)
 
 </div>
 

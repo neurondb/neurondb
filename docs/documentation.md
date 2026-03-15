@@ -1,17 +1,25 @@
 # Documentation
 
-This repository includes:
-
-- Canonical documentation under `Docs/`
-- Component documentation under:
-  - `NeuronDB/docs/`
-  - `NeuronAgent/docs/` → neuron-agent repo
-  - `NeuronMCP/docs/` (plus neuron-mcp repo tools reference)
-  - `NeuronDesktop/docs/` → neuron-desktop repo
+Technical documentation for the NeuronDB PostgreSQL extension is under **`docs/`**.
 
 ## Recommended starting points
 
-- `documentation.md` (complete documentation index)
-- `QUICKSTART.md` (get running quickly)
-- `Docs/getting-started/simple-start.md` (beginner-friendly)
-- `docker/README.md` (Docker deployment)
+| Document | Description |
+|----------|-------------|
+| [Documentation index](documentation-index.md) | Full index of all documentation |
+| [Simple start](getting-started/simple-start.md) | Step-by-step setup |
+| [QUICKSTART](../../QUICKSTART.md) | Get running quickly |
+| [Docker](../../docker/README.md) | Docker deployment |
+
+## Topics
+
+- **Getting started:** Setup, installation, quick start, troubleshooting
+- **Reference:** SQL API, data types, configuration
+- **Vector search:** Types, indexing, distance metrics, quantization
+- **ML algorithms:** Gradient boosting, random forest, clustering, regression, and more
+- **Embeddings & RAG:** Embedding generation, model inference, RAG pipeline
+- **GPU:** CUDA, ROCm, Metal support
+- **Deployment:** Docker, Kubernetes, production, backup
+- **Development:** Build system, adding functions, testing
+
+See [readme.md](readme.md) for the full documentation map.

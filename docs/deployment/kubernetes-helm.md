@@ -1,19 +1,6 @@
-# ☸️ Kubernetes Helm Deployment Guide
+# Kubernetes Helm Deployment Guide
 
-<div align="center">
-
-**Complete guide for deploying NeuronDB ecosystem on Kubernetes using Helm**
-
-[![Kubernetes](https://img.shields.io/badge/kubernetes-1.24+-blue)](.)
-[![Helm](https://img.shields.io/badge/helm-3.8+-blue)](.)
-[![Difficulty](https://img.shields.io/badge/difficulty-advanced-orange)](.)
-
-</div>
-
----
-
-> [!TIP]
-> This guide covers production-grade Kubernetes deployment. It includes high availability, monitoring, and security features.
+This guide covers deploying the **NeuronDB** (PostgreSQL + extension) on Kubernetes with Helm. The chart may include only the NeuronDB/PostgreSQL component; other services are not documented in this repository.
 
 ---
 
@@ -32,10 +19,10 @@
 | [Monitoring](#monitoring) | Monitoring setup |
 | [Troubleshooting](#troubleshooting) | Common issues and solutions |
 
-## ✅ Prerequisites
+## Prerequisites
 
 <details>
-<summary><strong>📋 Prerequisites Checklist</strong></summary>
+<summary><strong>Prerequisites Checklist</strong></summary>
 
 | Requirement | Minimum Version | Description |
 |-------------|----------------|-------------|
@@ -50,47 +37,30 @@
 
 ## Features
 
-This Helm chart provides a complete cloud-native deployment using **CloudNativePG (CNPG)** for PostgreSQL when not using an external database.
+The Helm chart can deploy NeuronDB (PostgreSQL with the extension) using **CloudNativePG (CNPG)** when not using an external database.
 
 <details>
-<summary><strong>✨ Helm Chart Features</strong></summary>
+<summary><strong>Helm chart features (NeuronDB / PostgreSQL)</strong></summary>
 
 | Feature | Description | Status |
 |---------|-------------|--------|
-| **CloudNativePG Cluster** | PostgreSQL managed by CNPG Operator (primary + standbys) | ✅ Included |
-| **CNPG Pooler** | PgBouncer connection pooling (Pooler CRD) | ✅ Optional |
-| **CNPG ScheduledBackup** | Automated backups (Barman object store or volume snapshot) | ✅ Optional |
-| **CNPG Monitoring** | Custom Prometheus queries ConfigMap, PodMonitor | ✅ Included |
-| **Deployments** | NeuronAgent, NeuronMCP, NeuronDesktop with configurable replicas | ✅ Included |
-| **Horizontal Pod Autoscaling** | For NeuronAgent | ✅ Included |
-| **Pod Disruption Budgets** | For high availability | ✅ Included |
-| **Init Containers** | For proper startup ordering | ✅ Included |
-| **ServiceAccounts** | For security | ✅ Included |
-| **Network Policies** | For network security | ✅ Optional |
-| **Health Checks** | Liveness and readiness probes | ✅ Included |
-| **Resource Limits** | CPU and memory limits | ✅ Included |
-| **ConfigMaps** | For configuration management | ✅ Included |
-| **Secrets** | For sensitive data (basic-auth for CNPG) | ✅ Included |
-| **Ingress** | Support with TLS | ✅ Included |
-| **Observability Stack** | Prometheus, Grafana, Jaeger | ✅ Optional |
+| **CloudNativePG Cluster** | PostgreSQL managed by CNPG (primary + standbys) | Included |
+| **CNPG Pooler** | PgBouncer connection pooling (Pooler CRD) | Optional |
+| **CNPG ScheduledBackup** | Automated backups (Barman object store or volume snapshot) | Optional |
+| **CNPG Monitoring** | Prometheus queries ConfigMap, PodMonitor | Included |
+| **Resource limits** | CPU and memory limits | Included |
+| **Health checks** | Liveness and readiness probes | Included |
+| **ConfigMaps / Secrets** | Configuration and credentials | Included |
+| **Network Policies** | Optional network security | Optional |
 
 </details>
 
-- **CloudNativePG Cluster** for NeuronDB PostgreSQL: automatic failover, replication slots, `-rw` / `-ro` / `-r` services
+- **CloudNativePG Cluster** for NeuronDB PostgreSQL: automatic failover, replication, `-rw` / `-ro` / `-r` services
 - **CNPG Pooler** (PgBouncer) for connection pooling when enabled
-- **CNPG ScheduledBackup** for WAL archiving and full backups to S3/GCS/Azure or volume snapshots
-- **Deployments** for NeuronAgent, NeuronMCP, NeuronDesktop with configurable replicas
-- **Horizontal Pod Autoscaling** for NeuronAgent
-- **Pod Disruption Budgets** for high availability
-- **Init Containers** for proper startup ordering
-- **ServiceAccounts** and **RBAC** for security
-- **Network Policies** (optional) for network security, including CNPG operator and replication
-- **Health Checks** (liveness and readiness probes) on all components
-- **Resource Limits** and requests
-- **ConfigMaps** for configuration and custom monitoring queries
-- **Secrets** (kubernetes.io/basic-auth) for PostgreSQL credentials as required by CNPG
-- **Ingress** support with TLS
-- **Observability Stack** (Prometheus, Grafana, Jaeger) optional
+- **CNPG ScheduledBackup** for WAL archiving and full backups
+- **Health checks** and **resource limits** on the database pods
+- **ConfigMaps** and **Secrets** for configuration and PostgreSQL credentials
+- **Network Policies** (optional) for network security
 
 ### Verify Prerequisites
 
@@ -283,18 +253,13 @@ helm install neurondb ./helm/neurondb \
 Create a custom values file:
 
 ```yaml
-# my-values.yaml
+# my-values.yaml (NeuronDB / PostgreSQL only)
 neurondb:
   cnpg:
     instances: 2
     storage:
       size: 100Gi
       storageClass: "fast-ssd"
-
-neuronagent:
-  replicas: 3
-  autoscaling:
-    maxReplicas: 20
 
 monitoring:
   enabled: true
@@ -372,43 +337,6 @@ neurondb:
 
 When using external PostgreSQL, set `neurondb.postgresql.external.enabled: true` and configure host, database, and credentials.
 
-#### NeuronAgent
-
-```yaml
-neuronagent:
-  enabled: true
-  replicas: 2
-  logLevel: "info"
-  
-  autoscaling:
-    enabled: true
-    minReplicas: 2
-    maxReplicas: 10
-    targetCPUUtilizationPercentage: 70
-```
-
-#### NeuronMCP
-
-```yaml
-neuronmcp:
-  enabled: true
-  replicas: 1
-  logLevel: "info"
-```
-
-#### NeuronDesktop
-
-```yaml
-neurondesktop:
-  enabled: true
-  api:
-    replicas: 2
-    database: "neurondesk"
-    logLevel: "info"
-  frontend:
-    replicas: 2
-```
-
 #### Monitoring
 
 ```yaml
@@ -459,28 +387,16 @@ helm rollback neurondb 2 -n neurondb
 
 ### Port Forwarding
 
-#### NeuronDesktop Frontend
+#### PostgreSQL (NeuronDB)
 
 ```bash
-kubectl port-forward -n neurondb \
-  svc/neurondb-neurondesktop-frontend 3000:3000
+# Forward the read-write service (primary)
+kubectl port-forward -n neurondb svc/neurondb-neurondb-rw 5432:5432
+# Or the generic service name if your chart exposes it:
+# kubectl port-forward -n neurondb svc/neurondb-neurondb 5432:5432
 ```
 
-Access at: http://localhost:3000
-
-#### NeuronDesktop API
-
-```bash
-kubectl port-forward -n neurondb \
-  svc/neurondb-neurondesktop-api 8081:8081
-```
-
-#### NeuronAgent
-
-```bash
-kubectl port-forward -n neurondb \
-  svc/neurondb-neuronagent 8080:8080
-```
+Connect with `psql -h localhost -p 5432 -U neurondb -d neurondb` and run `SELECT neurondb.version();`.
 
 #### Grafana
 
@@ -525,10 +441,10 @@ curl https://neurondb.yourdomain.com
 
 ### Prometheus Metrics
 
-Services expose metrics at `/metrics`:
-
-- NeuronAgent: `http://neurondb-neuronagent:8080/metrics`
-- NeuronDesktop API: `http://neurondb-neurondesktop-api:8081/metrics`
+PostgreSQL and the NeuronDB extension can be monitored via:
+- **Postgres Exporter** (if enabled): standard PostgreSQL metrics
+- **CNPG**: cluster and instance metrics when using CloudNativePG
+- Extension version and GPU status via SQL: `SELECT neurondb.version();`, `SELECT neurondb.gpu_enabled();`
 
 ### Grafana Dashboards
 
@@ -647,16 +563,16 @@ kubectl top pods -n neurondb
 
 #### Adjust Resources
 
-Update values.yaml and upgrade:
+Update values and upgrade. For the NeuronDB (PostgreSQL) pods:
 
 ```yaml
-neuronagent:
+neurondb:
   resources:
     requests:
-      memory: "1Gi"  # Increase if needed
-      cpu: "1"
-    limits:
       memory: "4Gi"
+      cpu: "2"
+    limits:
+      memory: "8Gi"
       cpu: "4"
 ```
 
@@ -725,12 +641,12 @@ serviceAccount:
 
 ### Node Selectors and Affinity
 
-Add to deployment templates or use values:
+Add to the NeuronDB (PostgreSQL) deployment or use chart values:
 
 ```yaml
-neuronagent:
+neurondb:
   nodeSelector:
-    workload-type: "compute"
+    workload-type: "database"
   affinity:
     podAntiAffinity:
       preferredDuringSchedulingIgnoredDuringExecution:
@@ -741,7 +657,7 @@ neuronagent:
             - key: app.kubernetes.io/component
               operator: In
               values:
-              - neuronagent
+              - neurondb
           topologyKey: kubernetes.io/hostname
 ```
 
@@ -751,24 +667,24 @@ neuronagent:
 > Follow these recommendations for production deployments.
 
 <details>
-<summary><strong>✅ Production Checklist</strong></summary>
+<summary><strong>Production Checklist</strong></summary>
 
 | Recommendation | Description | Priority |
 |----------------|-------------|----------|
-| **Secrets Management** | Use external secret management (AWS Secrets Manager, HashiCorp Vault) | ⚠️ Critical |
-| **Backup Strategy** | Use CNPG backup (Barman/ScheduledBackup) or external backup tools | ⚠️ Critical |
-| **Monitoring** | Enable full observability stack and set up alerting | ⭐ High |
-| **Resource Limits** | Set appropriate requests and limits based on workload | ⭐ High |
-| **High Availability** | Use multiple replicas and pod anti-affinity | ⭐ High |
-| **Storage** | Use fast, reliable storage class for production | ⭐ High |
-| **Ingress** | Enable TLS/SSL for external access | ⚠️ Critical |
-| **Network Policies** | Implement network policies for security | ⚠️ Critical |
+| **Secrets Management** | Use external secret management (AWS Secrets Manager, HashiCorp Vault) | Critical |
+| **Backup Strategy** | Use CNPG backup (Barman/ScheduledBackup) or external backup tools | Critical |
+| **Monitoring** | Enable full observability stack and set up alerting | High |
+| **Resource Limits** | Set appropriate requests and limits based on workload | High |
+| **High Availability** | Use multiple replicas and pod anti-affinity | High |
+| **Storage** | Use fast, reliable storage class for production | High |
+| **Ingress** | Enable TLS/SSL for external access | Critical |
+| **Network Policies** | Implement network policies for security | Critical |
 
 </details>
 
 ---
 
-## 🔗 Related Documentation
+## Related Documentation
 
 | Document | Description |
 |----------|-------------|
@@ -781,7 +697,7 @@ neuronagent:
 
 <div align="center">
 
-[⬆ Back to Top](#️-kubernetes-helm-deployment-guide) · [📚 Deployment Index](README.md) · [📚 Main Documentation](../../README.md)
+[Back to Top](#kubernetes-helm-deployment-guide) · [Deployment Index](README.md) · [Main Documentation](../../README.md)
 
 </div>
 

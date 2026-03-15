@@ -1,6 +1,6 @@
 # Glossary
 
-This glossary focuses on doc-level and ecosystem-level terms used across this repository.
+This glossary defines terms used in the NeuronDB documentation.
 
 ## Terms
 

@@ -24,31 +24,6 @@ Base images with NeuronDB extension pre-installed:
 **Latest tags:**
 - `ghcr.io/neurondb/neurondb-postgres:latest-pg17-cpu` (points to latest stable release)
 
-### NeuronAgent
-
-- `ghcr.io/neurondb/neuronagent:{version}`
-
-**Examples:**
-- `ghcr.io/neurondb/neuronagent:v1.0.0`
-- `ghcr.io/neurondb/neuronagent:latest`
-
-### NeuronMCP
-
-- `ghcr.io/neurondb/neurondb-mcp:{version}`
-
-**Examples:**
-- `ghcr.io/neurondb/neurondb-mcp:v1.0.0`
-- `ghcr.io/neurondb/neurondb-mcp:latest`
-
-### NeuronDesktop
-
-- `ghcr.io/neurondb/neurondesktop-api:{version}`
-- `ghcr.io/neurondb/neurondesktop-frontend:{version}`
-
-**Examples:**
-- `ghcr.io/neurondb/neurondesktop-api:v1.0.0`
-- `ghcr.io/neurondb/neurondesktop-frontend:v1.0.0`
-
 ## Using Published Images
 
 ### Pull and Use in docker-compose.yml
@@ -59,15 +34,7 @@ Update `docker-compose.yml` to use published images:
 services:
   neurondb:
     image: ghcr.io/neurondb/neurondb-postgres:v1.0.0-pg17-cpu
-    # ... other configuration
-
-  neuronagent:
-    image: ghcr.io/neurondb/neuronagent:v1.0.0
-    # ... other configuration
-
-  neuronmcp:
-    image: ghcr.io/neurondb/neurondb-mcp:v1.0.0
-    # ... other configuration
+    # ... other configuration (see docker/docker-compose.yml)
 ```
 
 ### Pull Manually
@@ -111,8 +78,6 @@ Find digests in:
 Nightly builds are available for the `main` branch:
 
 - `ghcr.io/neurondb/neurondb-postgres:nightly-pg17-cpu`
-- `ghcr.io/neurondb/neuronagent:nightly`
-- `ghcr.io/neurondb/neurondb-mcp:nightly`
 
 > [!WARNING]
 > Nightly builds are for testing only and may be unstable.

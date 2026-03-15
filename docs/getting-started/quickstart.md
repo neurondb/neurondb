@@ -18,19 +18,42 @@
 
 ---
 
+## Minimal setup (copy-paste)
+
+**Docker (from repository root):**
+
+```bash
+# 1. Start NeuronDB
+docker compose -f docker/docker-compose.yml up -d neurondb
+
+# 2. Wait until healthy (about 30–60 seconds)
+docker compose -f docker/docker-compose.yml ps
+
+# 3. Verify
+docker compose -f docker/docker-compose.yml exec neurondb psql -U neurondb -d neurondb -c "CREATE EXTENSION IF NOT EXISTS neurondb; SELECT neurondb.version();"
+```
+
+**Optional: load quickstart data** (requires DB running on port 5433):
+
+```bash
+./scripts/neurondb-quickstart-data.sh
+```
+
+---
+
 ## 🎯 Goal
 
 **What you'll accomplish:**
-- ✅ Install NeuronDB extension
-- ✅ Load sample data
-- ✅ Run your first vector search query
-- ✅ Understand basic concepts
+- Install NeuronDB extension
+- Load sample data
+- Run your first vector search query
+- Understand basic concepts
 
 **Time required:** 5-10 minutes
 
 ---
 
-## 📋 Prerequisites
+## Prerequisites
 
 Before you begin, make sure you have:
 
@@ -39,7 +62,7 @@ Before you begin, make sure you have:
 - [ ] **5-10 minutes** - For complete quickstart
 
 <details>
-<summary><strong>🔍 Verify Prerequisites</strong></summary>
+<summary><strong>Verify Prerequisites</strong></summary>
 
 ```bash
 # Check if psql is installed
@@ -54,7 +77,7 @@ docker compose version
 
 ---
 
-## 📦 Step 1: Install NeuronDB
+## Step 1: Install NeuronDB
 
 If you haven't installed NeuronDB yet, choose your method:
 
@@ -63,11 +86,11 @@ If you haven't installed NeuronDB yet, choose your method:
 **Fastest way to get started:**
 
 ```bash
-# From repository root
-docker compose up -d neurondb
+# From repository root (compose file is in docker/)
+docker compose -f docker/docker-compose.yml up -d neurondb
 
 # Wait for service to be healthy (30-60 seconds)
-docker compose ps neurondb
+docker compose -f docker/docker-compose.yml ps neurondb
 ```
 
 **Expected output:**
@@ -79,7 +102,7 @@ neurondb-cpu        healthy
 > [!NOTE]
 > Docker starts a PostgreSQL container with NeuronDB pre-installed. The first run takes 2 to 5 minutes to download images.
 
-### Option B: Native Installation 🔧
+### Option B: Native Installation
 
 **For production or custom setups:**
 
@@ -87,13 +110,13 @@ Follow the detailed [Installation Guide](installation.md) for native PostgreSQL 
 
 ---
 
-### ✅ Verify Installation
+### Verify Installation
 
 **Test NeuronDB installation:**
 
 ```bash
-# With Docker Compose
-docker compose exec neurondb psql -U neurondb -d neurondb -c "CREATE EXTENSION IF NOT EXISTS neurondb;"
+# With Docker Compose (from repo root)
+docker compose -f docker/docker-compose.yml exec neurondb psql -U neurondb -d neurondb -c "CREATE EXTENSION IF NOT EXISTS neurondb;"
 
 # Or with native PostgreSQL
 psql -d your_database -c "CREATE EXTENSION IF NOT EXISTS neurondb;"
@@ -103,7 +126,7 @@ psql -d your_database -c "CREATE EXTENSION IF NOT EXISTS neurondb;"
 
 ```bash
 # With Docker Compose
-docker compose exec neurondb psql -U neurondb -d neurondb -c "SELECT neurondb.version();"
+docker compose -f docker/docker-compose.yml exec neurondb psql -U neurondb -d neurondb -c "SELECT neurondb.version();"
 
 # Or with native PostgreSQL
 psql -d your_database -c "SELECT neurondb.version();"
@@ -122,12 +145,12 @@ psql -d your_database -c "SELECT neurondb.version();"
 
 ---
 
-## 📊 Step 2: Load Quickstart Data Pack
+## Step 2: Load Quickstart Data Pack
 
 The quickstart data pack provides **~500 sample documents** with pre-generated embeddings, ready for immediate use.
 
 <details>
-<summary><strong>📚 What's in the Data Pack?</strong></summary>
+<summary><strong>What's in the Data Pack?</strong></summary>
 
 - **~500 documents** - Sample text documents
 - **Pre-generated embeddings** - Vector representations (384 dimensions)
@@ -136,7 +159,7 @@ The quickstart data pack provides **~500 sample documents** with pre-generated e
 
 </details>
 
-### Option 1: Using the CLI (Recommended) 🚀
+### Option 1: Using the CLI (Recommended)
 
 **Easiest method - handles everything automatically:**
 
@@ -151,30 +174,30 @@ The quickstart data pack provides **~500 sample documents** with pre-generated e
 3. Creates HNSW index
 4. Verifies data is loaded
 
-### Option 2: Using the Loader Script 📝
+### Option 2: Using the Loader Script
 
 **Manual control over the process:**
 
 ```bash
 # From repository root
-./examples/quickstart/load_quickstart.sh
+./src/examples/quickstart/load_quickstart.sh
 ```
 
-### Option 3: Using psql Directly 💻
+### Option 3: Using psql Directly
 
-**For maximum control:**
+**For maximum control (from repository root):**
 
 ```bash
-# With Docker Compose
-docker compose exec neurondb psql -U neurondb -d neurondb -f examples/quickstart/quickstart_data.sql
+# With native PostgreSQL
+psql -d your_database -f src/examples/quickstart/quickstart_data.sql
 
-# Or with native PostgreSQL
-psql -d your_database -f examples/quickstart/quickstart_data.sql
+# With Docker (connect from host; file on host)
+psql "postgresql://neurondb:neurondb@localhost:5433/neurondb" -f src/examples/quickstart/quickstart_data.sql
 ```
 
 ---
 
-### ✅ Verify Data Loaded
+### Verify Data Loaded
 
 **Check that data was loaded successfully:**
 
@@ -208,7 +231,7 @@ psql "postgresql://neurondb:neurondb@localhost:5433/neurondb" -c "SELECT COUNT(*
 
 ---
 
-## 🔍 Step 3: Try SQL Recipes
+## Step 3: Try SQL Recipes
 
 The SQL recipe library provides **ready-to-run queries** for common operations.
 
@@ -273,11 +296,11 @@ LIMIT 10;
 3. Returns top 10 results
 
 > [!TIP]
-> **Embedding models:** The `all-MiniLM-L6-v2` model is fast and works well for general text. See [Embedding Models](../../NeuronDB/docs/embedding-models.md) for more options.
+> **Embedding models:** The `all-MiniLM-L6-v2` model is fast and works well for general text. See [Embedding generation](../ml-embeddings/embedding-generation.md) for more options.
 
 ---
 
-### Example 3: Hybrid Search (Vector + Full-Text) 🔗
+### Example 3: Hybrid Search (Vector + Full-Text)
 
 **Combine vector similarity with PostgreSQL full-text search:**
 
@@ -312,7 +335,7 @@ LIMIT 10;
 
 ---
 
-### Example 4: Filtered Search 🎛️
+### Example 4: Filtered Search
 
 **Add metadata filters to vector search:**
 
@@ -343,7 +366,7 @@ LIMIT 10;
 
 ---
 
-## 📚 More SQL Recipes
+## More SQL Recipes
 
 <details>
 <summary><strong>📖 Additional Recipes</strong></summary>
@@ -392,7 +415,7 @@ SELECT * FROM neurondb.retrieve_context(
 ## 🎓 Understanding the Results
 
 <details>
-<summary><strong>📚 Key Concepts</strong></summary>
+<summary><strong>Key Concepts</strong></summary>
 
 ### What is an Embedding?
 
@@ -426,23 +449,21 @@ HNSW stands for Hierarchical Navigable Small World. It is an index. It makes vec
 
 ---
 
-## 🚀 Next Steps
+## Next Steps
 
 **Continue your journey:**
 
-- [ ] 📐 Read [Architecture Guide](architecture.md) to understand components
-- [ ] 🧪 Try more [SQL Recipes](../../examples/sql-recipes/)
-- [ ] 📚 Explore [Complete Documentation](../../documentation.md)
-- [ ] 🔍 Check [Troubleshooting Guide](troubleshooting.md) if needed
-- [ ] 🤖 Try [NeuronAgent Examples](https://github.com/neurondb/neuron-agent) for agent workflows
-- [ ] 🔌 Explore [NeuronMCP Integration](https://github.com/neurondb/neuron-mcp) for MCP tools
+- [ ] Read [Architecture Guide](architecture.md)
+- [ ] Try more [SQL Recipes](../../src/examples/sql-recipes/)
+- [ ] Explore [Documentation index](../documentation-index.md)
+- [ ] Check [Troubleshooting Guide](troubleshooting.md)
 
 ---
 
-## 💡 Tips for Success
+## Tips for Success
 
 <details>
-<summary><strong>💡 Helpful Tips</strong></summary>
+<summary><strong>Helpful Tips</strong></summary>
 
 ### Performance Tips
 
@@ -506,20 +527,20 @@ UPDATE my_docs SET embedding = embed_text(content, 'all-MiniLM-L6-v2');
 
 ---
 
-## 🔗 Related Documentation
+## Related Documentation
 
 | Document | Description |
 |----------|-------------|
 | **[Simple Start Guide](simple-start.md)** | Beginner-friendly walkthrough |
 | **[Architecture Guide](architecture.md)** | Understand components |
 | **[Installation Guide](installation.md)** | Detailed installation options |
-| **[SQL Recipes](../../examples/sql-recipes/)** | Ready-to-run SQL examples |
-| **[Complete Documentation](../../documentation.md)** | Full documentation index |
+| **[SQL Recipes](../../src/examples/sql-recipes/)** | Ready-to-run SQL examples |
+| **[Complete Documentation](../documentation-index.md)** | Full documentation index |
 
 ---
 
 <div align="center">
 
-[⬆ Back to Top](#-quick-start-guide) · [📚 Main Documentation](../../documentation.md) · [🚀 Simple Start](simple-start.md)
+[Back to Top](#quick-start-guide) · [Main Documentation](../readme.md) · [Simple Start](simple-start.md)
 
 </div>

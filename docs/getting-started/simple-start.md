@@ -1,4 +1,4 @@
-# 🚀 Simple Start Guide
+# Simple Start Guide
 
 <div align="center">
 
@@ -16,34 +16,46 @@ This guide walks you through setup step by step. If you know Docker and PostgreS
 
 ---
 
-## 🎯 Goal
+## Goal
 
 **What you'll accomplish:**
-- ✅ Get NeuronDB running locally
-- ✅ Create your first vector table
-- ✅ Perform your first similarity search
-- ✅ Understand the basic concepts
+- Get NeuronDB running locally
+- Create your first vector table
+- Perform your first similarity search
+- Understand the basic concepts
 
 **Time required:** 5-10 minutes
 
 ---
 
-## 🛣️ Choose Your Path
+## Choose Your Path
 
 **Pick the method that works best for you:**
 
 | Method | Best For | Time | Difficulty | Prerequisites |
 |--------|----------|------|------------|---------------|
-| **🐳 Docker** (recommended) | Fastest start, easiest setup | 5 min | ⭐ Easy | Docker installed |
-| **🔧 Native build** | Custom setup, production-like | 30+ min | ⭐⭐⭐ Advanced | PostgreSQL dev headers, C compiler |
+| **Docker** (recommended) | Fastest start, easiest setup | 5 min | Easy | Docker installed |
+| **Native build** | Custom setup, production-like | 30+ min | Advanced | PostgreSQL dev headers, C compiler |
 
 Docker handles all dependencies automatically. You do not need to install PostgreSQL or configure it. Everything runs in isolated containers.
 
 ---
 
-## 🐳 Docker Quickstart (Recommended)
+## Docker Quickstart (Recommended)
 
-### 📋 Prerequisites Checklist
+### Minimal setup (copy-paste)
+
+From the **repository root**:
+
+```bash
+docker compose -f docker/docker-compose.yml up -d neurondb
+docker compose -f docker/docker-compose.yml ps   # wait until healthy
+docker compose -f docker/docker-compose.yml exec neurondb psql -U neurondb -d neurondb -c "CREATE EXTENSION IF NOT EXISTS neurondb; SELECT neurondb.version();"
+```
+
+Then follow **Step 4** below for your first vector search.
+
+### Prerequisites Checklist
 
 Before you begin, make sure you have:
 
@@ -54,7 +66,7 @@ Before you begin, make sure you have:
 - [ ] **Ports available**: 5433, 8080, 8081, 3000 (optional)
 
 <details>
-<summary><strong>🔍 Verify Docker Installation</strong></summary>
+<summary><strong>Verify Docker Installation</strong></summary>
 
 Run these commands to verify Docker is installed correctly:
 
@@ -82,18 +94,17 @@ If you see errors, install Docker from [docker.com](https://www.docker.com/get-s
 
 ---
 
-### 📝 Step-by-Step Instructions
+### Step-by-Step Instructions
 
 #### Step 1: Start the Database
 
-**From the repository root**, start NeuronDB:
+**From the repository root**, start NeuronDB (the compose file is in `docker/`):
 
 ```bash
-# Start just the database (simplest option)
-docker compose up -d neurondb
+# Start NeuronDB (database only)
+docker compose -f docker/docker-compose.yml up -d neurondb
 
-# Or start all services (database + agent + MCP + desktop)
-docker compose up -d
+# Or: cd docker && docker compose up -d neurondb
 ```
 
 Docker downloads and starts a PostgreSQL container with the NeuronDB extension. The `-d` flag runs it in the background.
@@ -107,8 +118,8 @@ Docker downloads and starts a PostgreSQL container with the NeuronDB extension. 
 Check that the service is running:
 
 ```bash
-# Check service status
-docker compose ps
+# Check service status (from repo root)
+docker compose -f docker/docker-compose.yml ps
 ```
 
 **Expected output:**
@@ -120,13 +131,13 @@ neurondb-cpu        healthy (or running)
 Wait for "healthy" status. This means PostgreSQL initialized and accepts connections. This takes 30 to 60 seconds.
 
 <details>
-<summary><strong>🔍 What if it's not healthy?</strong></summary>
+<summary><strong>What if it's not healthy?</strong></summary>
 
 If the service shows as "unhealthy" or keeps restarting:
 
 1. **Check logs:**
    ```bash
-   docker compose logs neurondb
+   docker compose -f docker/docker-compose.yml logs neurondb
    ```
 
 2. **Common issues:**
@@ -144,10 +155,10 @@ Connect to the database and verify NeuronDB is installed:
 
 ```bash
 # Create the extension (if not already created)
-docker compose exec neurondb psql -U neurondb -d neurondb -c "CREATE EXTENSION IF NOT EXISTS neurondb;"
+docker compose -f docker/docker-compose.yml exec neurondb psql -U neurondb -d neurondb -c "CREATE EXTENSION IF NOT EXISTS neurondb;"
 
 # Check the version
-docker compose exec neurondb psql -U neurondb -d neurondb -c "SELECT neurondb.version();"
+docker compose -f docker/docker-compose.yml exec neurondb psql -U neurondb -d neurondb -c "SELECT neurondb.version();"
 ```
 
 **Expected output:**
@@ -167,7 +178,7 @@ CREATE EXTENSION
 Let's create a simple example to understand how vector search works:
 
 ```bash
-docker compose exec neurondb psql -U neurondb -d neurondb <<EOF
+docker compose -f docker/docker-compose.yml exec neurondb psql -U neurondb -d neurondb <<EOF
 -- Step 1: Create a table to store documents with embeddings
 CREATE TABLE test_vectors (
   id SERIAL PRIMARY KEY,
@@ -219,10 +230,10 @@ EOF
 
 ---
 
-## 🔧 Native Quickstart (Advanced)
+## Native Quickstart (Advanced)
 
 <details>
-<summary><strong>📦 Native Installation Steps</strong></summary>
+<summary><strong>Native Installation Steps</strong></summary>
 
 **For advanced users only** - Requires PostgreSQL development headers and C compiler
 
@@ -238,18 +249,13 @@ EOF
 #### 1. Build the Extension
 
 ```bash
-# Navigate to NeuronDB directory
-cd NeuronDB
-
-# Build the extension
-make
-
-# Install the extension
-sudo make install
+# From repository root
+./build.sh
+# Or manually: PG_CONFIG=/path/to/pg_config make && sudo make install
 ```
 
 > [!NOTE]
-> **What's happening?** The `make` command compiles the C code into a PostgreSQL extension. `make install` copies the compiled files to PostgreSQL's extension directory.
+> **What's happening?** The build compiles the C extension. See [INSTALL.md](../../INSTALL.md) for full steps. `make install` copies the extension into PostgreSQL's extension directory.
 
 #### 2. Configure PostgreSQL
 
@@ -316,7 +322,7 @@ DROP TABLE test;
 ## 🎓 Understanding What You Just Did
 
 <details>
-<summary><strong>📚 Key Concepts Explained</strong></summary>
+<summary><strong>Key Concepts Explained</strong></summary>
 
 ### What is a Vector?
 
@@ -346,29 +352,29 @@ NeuronDB adds vector search capabilities directly to PostgreSQL, so you can:
 
 ---
 
-## 🎯 Next Steps
+## Next Steps
 
 **Continue your journey:**
 
-- [ ] 📐 Read [`architecture.md`](architecture.md) to understand the moving parts
-- [ ] 🧪 Try examples from [`examples/`](../../examples/)
-- [ ] 📚 Explore the [complete documentation](../../documentation.md)
-- [ ] 🔍 If something fails, check [`troubleshooting.md`](troubleshooting.md)
-- [ ] 🚀 Try the [Quickstart Data Pack](../../examples/quickstart-data/) for sample data
+- [ ] Read [`architecture.md`](architecture.md) to understand the moving parts
+- [ ] Try examples from [`src/examples/`](../../src/examples/)
+- [ ] Explore the [documentation index](documentation-index.md)
+- [ ] If something fails, check [`troubleshooting.md`](troubleshooting.md)
+- [ ] Try the [Quickstart Data Pack](../../src/examples/quickstart-data/) for sample data
 
 ---
 
-## 💡 Quick Tips
+## Quick Tips
 
 <details>
-<summary><strong>💡 Helpful Tips for Success</strong></summary>
+<summary><strong>Helpful Tips for Success</strong></summary>
 
 ### Docker Tips
 
 - **Docker is recommended** for the easiest setup
 - **Keep containers running** - They use minimal resources when idle
-- **Use `docker compose logs`** to see what's happening
-- **Port conflicts?** Change ports in `docker-compose.yml`
+- **Use `docker compose -f docker/docker-compose.yml logs neurondb`** to see what's happening
+- **Port conflicts?** Change ports in `docker/docker-compose.yml`
 
 ### Learning Tips
 
@@ -379,9 +385,9 @@ NeuronDB adds vector search capabilities directly to PostgreSQL, so you can:
 
 ### Development Tips
 
-- **Use the SQL recipes** - Ready-to-run examples in `Docs/getting-started/recipes/`
+- **Use the SQL recipes** - Ready-to-run examples in [getting-started/recipes/](recipes/)
 - **Try the CLI helpers** - Scripts in `scripts/` for common tasks
-- **Explore the examples** - Working code in `examples/`
+- **Explore the examples** - Working code in `src/examples/`
 
 </details>
 
@@ -410,11 +416,11 @@ NeuronDB adds vector search capabilities directly to PostgreSQL, so you can:
 
 **A:** 
 ```bash
-# Stop all services (keeps data)
-docker compose down
+# From repo root (keeps data)
+docker compose -f docker/docker-compose.yml down
 
 # Stop and remove all data
-docker compose down -v
+docker compose -f docker/docker-compose.yml down -v
 ```
 
 ### Q: Where is my data stored?
@@ -425,19 +431,19 @@ docker compose down -v
 
 ---
 
-## 🔗 Related Documentation
+## Related Documentation
 
 | Document | Description |
 |----------|-------------|
 | **[Architecture Guide](architecture.md)** | Understand how components work |
 | **[Installation Guide](installation.md)** | Detailed installation options |
 | **[Troubleshooting](troubleshooting.md)** | Common issues and solutions |
-| **[Complete Documentation](../../documentation.md)** | Full documentation index |
+| **[Documentation index](documentation-index.md)** | Full documentation index |
 
 ---
 
 <div align="center">
 
-[⬆ Back to Top](#-simple-start-guide) · [📚 Main Documentation](../../documentation.md) · [🚀 Quickstart](quickstart.md)
+[Back to top](#simple-start-guide) · [Documentation](readme.md) · [Quickstart](quickstart.md)
 
 </div>

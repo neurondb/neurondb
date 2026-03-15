@@ -19,16 +19,16 @@
 ## Pre-Upgrade Checklist
 
 <details>
-<summary><strong>✅ Pre-Upgrade Checklist</strong></summary>
+<summary><strong>Pre-Upgrade Checklist</strong></summary>
 
 | Task | Command | Required |
 |------|---------|----------|
-| **Review release notes** | Check CHANGELOG.md | ⚠️ Critical |
-| **Backup database** | See [Backup Guide](./backup-restore.md) | ⚠️ Critical |
-| **Verify current version** | `helm list -n neurondb` | ✅ Yes |
-| **Check migration status** | `kubectl get jobs -n neurondb \| grep migration` | ✅ Yes |
-| **Ensure resources** | Check cluster capacity | ✅ Yes |
-| **Review values.yaml** | Check for deprecated options | ⭐ High |
+| **Review release notes** | Check CHANGELOG.md | Critical |
+| **Backup database** | See [Backup Guide](./backup-restore.md) | Critical |
+| **Verify current version** | `helm list -n neurondb` | Yes |
+| **Check migration status** | `kubectl get jobs -n neurondb \| grep migration` | Yes |
+| **Ensure resources** | Check cluster capacity | Yes |
+| **Review values.yaml** | Check for deprecated options | High |
 
 </details>
 
@@ -78,12 +78,11 @@ helm upgrade neurondb ./helm/neurondb \
 # Watch pods
 kubectl get pods -n neurondb -w
 
-# Check rollout status
+# Check rollout status (PostgreSQL/NeuronDB)
 kubectl rollout status statefulset/neurondb-neurondb -n neurondb
-kubectl rollout status deployment/neurondb-neuronagent -n neurondb
 
 # Check logs
-kubectl logs -f deployment/neurondb-neuronagent -n neurondb
+kubectl logs -f statefulset/neurondb-neurondb -n neurondb
 ```
 
 ### Step 6: Verify Upgrade
@@ -93,9 +92,10 @@ kubectl logs -f deployment/neurondb-neuronagent -n neurondb
 helm list -n neurondb
 kubectl get pods -n neurondb -o jsonpath='{.items[*].spec.containers[*].image}'
 
-# Test functionality
-kubectl port-forward svc/neurondb-neuronagent 8080:8080 -n neurondb
-curl http://localhost:8080/health
+# Test database and extension
+kubectl port-forward svc/neurondb-neurondb 5432:5432 -n neurondb
+# In another terminal:
+psql -h localhost -p 5432 -U neurondb -d neurondb -c "SELECT neurondb.version();"
 ```
 
 ## Rollback Procedure
@@ -138,9 +138,10 @@ kubectl exec -it statefulset/neurondb-neurondb -n neurondb -- \
 # Check pod versions
 kubectl get pods -n neurondb -o jsonpath='{.items[*].spec.containers[*].image}'
 
-# Verify functionality
-kubectl port-forward svc/neurondb-neuronagent 8080:8080 -n neurondb
-curl http://localhost:8080/health
+# Verify database and extension
+kubectl port-forward svc/neurondb-neurondb 5432:5432 -n neurondb
+# In another terminal:
+psql -h localhost -p 5432 -U neurondb -d neurondb -c "SELECT neurondb.version();"
 ```
 
 ## Zero-Downtime Upgrades
@@ -267,23 +268,23 @@ helm install neurondb ./helm/neurondb \
 > Follow these practices for safe upgrades.
 
 <details>
-<summary><strong>✅ Upgrade Best Practices</strong></summary>
+<summary><strong>Upgrade Best Practices</strong></summary>
 
 | Practice | Description | Priority |
 |----------|-------------|----------|
-| **Always backup** | Backup before upgrade | ⚠️ Critical |
-| **Test in staging** | Test upgrades in staging first | ⚠️ Critical |
-| **Review changes** | Review breaking changes in release notes | ⚠️ Critical |
-| **Monitor** | Monitor during and after upgrade | ⚠️ Critical |
-| **Rollback plan** | Keep rollback plan ready | ⚠️ Critical |
-| **Document migrations** | Document custom migrations | ⭐ High |
-| **Canary deployments** | Use canary deployments for major upgrades | ⭐ High |
+| **Always backup** | Backup before upgrade | Critical |
+| **Test in staging** | Test upgrades in staging first | Critical |
+| **Review changes** | Review breaking changes in release notes | Critical |
+| **Monitor** | Monitor during and after upgrade | Critical |
+| **Rollback plan** | Keep rollback plan ready | Critical |
+| **Document migrations** | Document custom migrations | High |
+| **Canary deployments** | Use canary deployments for major upgrades | High |
 
 </details>
 
 ---
 
-## 🔗 Related Documentation
+## Related Documentation
 
 | Document | Description |
 |----------|-------------|
@@ -296,7 +297,7 @@ helm install neurondb ./helm/neurondb \
 
 <div align="center">
 
-[⬆ Back to Top](#upgrade-and-rollback-guide) · [📚 Deployment Index](README.md) · [📚 Main Documentation](../../README.md)
+[Back to Top](#upgrade-and-rollback-guide) · [Deployment Index](README.md) · [Main Documentation](../../README.md)
 
 </div>
 

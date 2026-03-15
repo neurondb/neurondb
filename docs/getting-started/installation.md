@@ -1,157 +1,71 @@
 # Installation Guide
 
-Complete installation guide for the NeuronDB ecosystem, based on what is present in this repository.
+Install the NeuronDB PostgreSQL extension via Docker or from source.
 
-> **New here?** Start with **[simple-start.md](simple-start.md)** first.
-
-> **Technical user?** Continue below for detailed installation options.
+> **New here?** Start with [Simple Start](simple-start.md).
 
 ---
 
-## Choose Your Installation Method
+## Choose your method
 
-| Method | Best For | Time Required | Difficulty |
-|--------|----------|---------------|------------|
-| **[Docker](#method-1-docker-recommended)** | Most users | 5-15 minutes | Easy |
-| **[Source build](#method-2-source-build)** | Developers, custom builds | 30+ minutes | Advanced |
-
-**Recommendation:** Use Docker unless you have a specific reason not to.
+| Method | Best for | Time | Difficulty |
+|--------|----------|------|------------|
+| **[Docker](#method-1-docker-recommended)** | Most users | 5–15 min | Easy |
+| **[Source build](#method-2-source-build)** | Developers, custom builds | 30+ min | Advanced |
 
 ---
 
-## Prerequisites (by component)
+## Prerequisites
 
-### System requirements
+- **PostgreSQL:** 16, 17, or 18 (for native install)
+- **OS:** Linux, macOS, or Windows (WSL2)
+- **Docker:** For containerized install
 
-- **PostgreSQL**: 16, 17, or 18
-- **Operating System**: Linux, macOS, or Windows (with WSL2)
-- **Docker**: required for containerized deployment
+**Source build only:** C toolchain, `pg_config`, `make`. See [INSTALL.md](../../INSTALL.md) for ML library prerequisites (XGBoost, LightGBM, CatBoost). Optional: GPU support (CUDA, ROCm, Metal).
 
-### Build requirements (only if building from source)
-
-- **NeuronDB (extension)**: C toolchain + PostgreSQL server development headers (`pg_config`), `make`
-- **NeuronAgent**: Go `1.24.x` (see neuron-agent repo `go.mod`)
-- **NeuronMCP**: Go `1.23.x` (see neuron-mcp repo `go.mod`)
-- **NeuronDesktop API**: Go `1.24.x` (see neuron-desktop repo `api/go.mod`)
-- **NeuronDesktop frontend**: Node.js (see neuron-desktop repo `frontend/package.json`)
-
-### Optional requirements
-
-- **GPU Support**: CUDA (NVIDIA), ROCm (AMD), or Metal (Apple Silicon) for GPU acceleration
-- **Build Tools**: C compiler (GCC or Clang), Make, PostgreSQL development headers
-
-## Installation Methods
-
-### Method 1: Docker (Recommended)
-
-Docker installation provides the easiest and most consistent setup.
-
-#### Quick Start
+## Method 1: Docker
 
 ```bash
-# Clone the repository (or use your existing checkout)
 git clone <repository-url>
 cd neurondb
 
-# Start all services
-docker compose up -d
+docker compose -f docker/docker-compose.yml up -d
+
+# Or: cd docker && docker compose up -d
 ```
 
-#### Notes
+- Compose file: **`docker/docker-compose.yml`**. See [docker/README.md](../../docker/README.md) and `docker/docker.sh` for GPU profiles.
 
-- The canonical compose file is `docker-compose.yml` at repo root.
-- For the full Docker layout and the helper script, see `docker/README.md` and `docker/docker.sh`.
-
-### Method 2: Native installation (without Docker)
-
-Install components directly on your system using automated installation scripts or manual setup.
-
-**Quick Installation:**
+## Method 2: Native installation
 
 ```bash
-# Install all components
-sudo ./scripts/install-components.sh
-
-# Install specific components
-sudo ./scripts/install-components.sh neuronmcp neuronagent
+# From repository root
+./build.sh
+# Or: PG_CONFIG=/path/to/pg_config make && sudo make install
 ```
 
-For detailed instructions, see [Native Installation Guide](installation-native.md) and [Service Management Guide](installation-services.md).
+See [INSTALL.md](../../INSTALL.md) and [Native Installation](installation-native.md) for details.
 
-### Method 3: Source build (manual)
+## Method 3: Source build (manual)
 
-Build and install components manually:
-
-#### Build/install NeuronDB extension
-
-See `NeuronDB/INSTALL.md` (and `NeuronDB/Makefile`) for the authoritative steps.
+From the repository root:
 
 ```bash
-cd NeuronDB
 PG_CONFIG=/path/to/pg_config make
 sudo PG_CONFIG=/path/to/pg_config make install
-
-# Then, in Postgres:
-# CREATE EXTENSION neurondb;
 ```
 
-#### Build NeuronAgent
+Then in PostgreSQL:
 
-```bash
-cd NeuronAgent
-go build ./cmd/agent-server
-
-# Run with configuration
-./agent-server -config configs/config.yaml
+```sql
+CREATE EXTENSION neurondb;
 ```
 
-See the **neuron-agent** repo README and `openapi/` for details.
+See [INSTALL.md](../../INSTALL.md) for full steps.
 
-#### Build NeuronMCP
+### Method 4: Package Installation
 
-```bash
-cd NeuronMCP
-go build ./cmd/neurondb-mcp
-
-# Run with environment variables (see `docker-compose.yml` for the env names)
-# For Docker Compose setup (connecting from host):
-export NEURONDB_HOST=localhost
-export NEURONDB_PORT=5433        # Docker Compose default host port
-export NEURONDB_DATABASE=neurondb
-export NEURONDB_USER=neurondb
-export NEURONDB_PASSWORD=neurondb
-./neurondb-mcp
-
-# For native PostgreSQL or inside Docker network:
-export NEURONDB_HOST=localhost
-export NEURONDB_PORT=5432        # Native PostgreSQL default port
-export NEURONDB_DATABASE=neurondb
-./neurondb-mcp
-```
-
-See [neuron-mcp repo](https://github.com/neurondb/neuron-mcp) for setup details.
-
-#### Step 4: Build NeuronDesktop
-
-**Backend:**
-```bash
-cd /path/to/neuron-desktop/api
-go build ./cmd/server
-./server
-```
-
-**Frontend:**
-```bash
-cd /path/to/neuron-desktop/frontend
-npm install
-npm run dev
-```
-
-See the **neuron-desktop** repo for detailed setup.
-
-### Method 3: Package Installation
-
-Install using platform-specific packages (DEB/RPM).
+Install using platform-specific packages (DEB/RPM), if available.
 
 ```bash
 # Debian/Ubuntu
@@ -171,28 +85,13 @@ See [Packaging Documentation](../deployment/package.md) for package build instru
 createdb neurondb
 ```
 
-### Install Extensions
+### Install Extension
 
 ```bash
 psql -d neurondb -c "CREATE EXTENSION neurondb;"
 ```
 
-### Run Migrations
-
-**NeuronAgent:**
-```bash
-cd NeuronAgent
-./scripts/neuronagent-migrate.sh
-```
-This runs all migrations including `migrations/001_initial_schema.sql` and subsequent migrations.
-
-**NeuronDesktop:**
-```bash
-cd /path/to/neuron-desktop
-createdb neurondesk
-./scripts/neurondesktop-setup.sh
-```
-This runs all migrations including `api/migrations/001_initial_schema.sql` and subsequent migrations.
+For NeuronAgent or NeuronDesktop database migrations, see their respective repositories.
 
 ## Verification
 
@@ -202,51 +101,21 @@ This runs all migrations including `api/migrations/001_initial_schema.sql` and s
 psql -d neurondb -c "SELECT neurondb.version();"
 ```
 
-### Verify NeuronAgent
-
-```bash
-curl http://localhost:8080/health
-```
-
-### Verify NeuronMCP
-
-```bash
-# Check if binary exists and is executable
-which neurondb-mcp
-```
-
-### Verify NeuronDesktop
-
-```bash
-# Frontend
-curl http://localhost:3000
-
-# Backend
-curl http://localhost:8081/health
-```
+For verifying NeuronAgent, NeuronMCP, or NeuronDesktop, see their repositories.
 
 ## Configuration
 
-### Environment Variables
+### NeuronDB configuration
 
-Each component requires specific environment variables. See component-specific documentation:
+- [Configuration reference](../configuration.md) — GUCs, `shared_preload_libraries`, etc.
+- Environment variables for Docker are in `.env.example` at the repository root.
 
-- [NeuronDB Configuration](../../NeuronDB/docs/configuration.md)
-- [NeuronAgent Configuration](https://github.com/neurondb/neuron-agent)
-- [NeuronMCP Configuration](https://github.com/neurondb/neuron-mcp)
-- [NeuronDesktop Configuration](https://github.com/neurondb/neuron-desktop)
-
-### Configuration Files
-
-- **NeuronAgent**: neuron-agent repo `configs/config.yaml`
-- **NeuronMCP**: neuron-mcp repo `mcp-config.json`
-- **NeuronDesktop**: Environment variables or `.env` file
+Configuration for NeuronAgent, NeuronMCP, and NeuronDesktop is documented in their respective repositories.
 
 ## Next Steps
 
-1. **[Quick Start Guide](quickstart.md)** - Run your first queries
-2. **[Component Documentation](../components/README.md)** - Learn about each component
-3. **[Integration Guide](../ecosystem/integration.md)** - Connect components together
+1. **[Quick Start Guide](quickstart.md)** — Run your first queries
+2. **[Components](components/README.md)** — NeuronDB component overview
 
 ## Troubleshooting
 
@@ -258,7 +127,7 @@ Each component requires specific environment variables. See component-specific d
 - **Build Errors**: Verify all prerequisites are installed
 
 For detailed troubleshooting, see:
-- [NeuronDB Troubleshooting](../../NeuronDB/docs/troubleshooting.md)
+- [Troubleshooting](troubleshooting.md) (this repo)
 - [Official Documentation](https://www.neurondb.ai/docs/troubleshooting)
 
 ## Official Documentation

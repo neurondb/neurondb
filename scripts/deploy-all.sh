@@ -8,6 +8,7 @@
 #   LOCAL_BASE_DIR    optional; parent dir containing neurondb, neuron-cloud, neuron-hub (default: parent of neurondb repo)
 #
 # Prerequisites: passwordless SSH to TARGET_HOST; Docker on remote (script can install).
+# When neuron-hub is deployed: set HUB_POSTGRES_PASSWORD and HUB_JWT_SECRET (no hardcoded secrets).
 # Ports: neurondb 5433 | neuron-cloud 5435,8083 | neuron-hub 5434,8084,8085,3001
 
 set -euo pipefail
@@ -187,77 +188,19 @@ YAMLEOF"
   ok "neuron-cloud started"
 fi
 
-# --- Neuron-hub: Dockerfiles + override ---
+# --- Neuron-hub: use repo docker/ compose + override (no hardcoded secrets) ---
 if run_remote "test -d $REMOTE_BASE/neuron-hub"; then
-  log "Setting up neuron-hub (Dockerfiles + override)..."
-  # Backend Dockerfile: build both server and migrate binary (migrate uses embedded migrations from cmd/migrate/migrations)
-  run_remote "cat > $REMOTE_BASE/neuron-hub/backend/Dockerfile << 'DOCKEREOF'
-FROM golang:1.24-alpine AS builder
-WORKDIR /src
-COPY go.mod ./
-RUN go mod download
-COPY . .
-RUN go build -trimpath -o /app/neurondb-hub ./cmd/server && go build -trimpath -o /app/migrate ./cmd/migrate
-
-FROM alpine:3.19
-RUN apk --no-cache add ca-certificates
-COPY --from=builder /app/neurondb-hub /app/neurondb-hub
-COPY --from=builder /app/migrate /app/migrate
-WORKDIR /app
-ENV PORT=8084
-EXPOSE 8084
-ENTRYPOINT [\"/app/neurondb-hub\"]
-DOCKEREOF"
-  # Gateway Dockerfile
-  run_remote "cat > $REMOTE_BASE/neuron-hub/gateway/Dockerfile << 'DOCKEREOF'
-FROM golang:1.24-alpine AS builder
-WORKDIR /src
-COPY go.mod ./
-RUN go mod download
-COPY . .
-RUN go build -trimpath -o /app/gateway .
-
-FROM alpine:3.19
-RUN apk --no-cache add ca-certificates
-COPY --from=builder /app/gateway /app/
-WORKDIR /app
-ENV PORT=8085
-EXPOSE 8085
-ENTRYPOINT [\"/app/gateway\"]
-DOCKEREOF"
-  # Frontend Dockerfile (Next.js dev server; works without standalone output)
-  run_remote "cat > $REMOTE_BASE/neuron-hub/frontend/Dockerfile << 'DOCKEREOF'
-FROM node:20-alpine
-WORKDIR /app
-COPY package.json package-lock.json* ./
-RUN npm ci
-COPY . .
-ENV NEXT_TELEMETRY_DISABLED=1
-ENV PORT=3001
-EXPOSE 3001
-CMD [\"npm\", \"run\", \"dev\"]
-DOCKEREOF"
-
-  # neuron-hub docker-compose: ensure we have one (base may only define hub-db)
-  run_remote "test -f $REMOTE_BASE/neuron-hub/docker-compose.yml" || run_remote "cat > $REMOTE_BASE/neuron-hub/docker-compose.yml << 'HUBBASE'
-services:
-  hub-db:
-    image: postgres:17-alpine
-    environment:
-      POSTGRES_USER: neuronhub
-      POSTGRES_PASSWORD: neuronhub
-      POSTGRES_DB: neuronhub
-    volumes:
-      - hub-db-data:/var/lib/postgresql/data
-    healthcheck:
-      test: [\"CMD-SHELL\", \"pg_isready -U neuronhub -d neuronhub\"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-volumes:
-  hub-db-data: {}
-HUBBASE"
-  # Override same service names (backend, gateway, frontend) with platform ports and NEURONAGENT_URL for shared network
+  : "${HUB_POSTGRES_PASSWORD:?Set HUB_POSTGRES_PASSWORD for neuron-hub (e.g. export HUB_POSTGRES_PASSWORD=your-secure-password)}"
+  : "${HUB_JWT_SECRET:?Set HUB_JWT_SECRET for neuron-hub (e.g. export HUB_JWT_SECRET=your-secure-secret)}"
+  log "Setting up neuron-hub (docker/docker-compose.yml + override, env from .env)..."
+  run_remote "cat > $REMOTE_BASE/neuron-hub/.env << ENVEOF
+POSTGRES_USER=${HUB_POSTGRES_USER:-neuronhub}
+POSTGRES_PASSWORD=$HUB_POSTGRES_PASSWORD
+POSTGRES_DB=${HUB_POSTGRES_DB:-neuronhub}
+JWT_SECRET=$HUB_JWT_SECRET
+CORS_ORIGINS=\${CORS_ORIGINS:-http://localhost:3000}
+ENVEOF"
+  # Override: platform ports (8084, 8085, 3001), NEURONAGENT_URL, and shared network. Build from repo docker/Dockerfile.*.
   run_remote "cat > $REMOTE_BASE/neuron-hub/docker-compose.override.yml << 'YAMLEOF'
 services:
   hub-db:
@@ -268,22 +211,16 @@ services:
       - platform
 
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
     ports:
       - \"8084:8084\"
     environment:
       PORT: \"8084\"
-      DATABASE_URL: postgres://neuronhub:neuronhub@hub-db:5432/neuronhub?sslmode=disable
-      JWT_SECRET: \"change-me-in-production\"
-      CORS_ORIGIN: \"*\"
       NEURONAGENT_URL: \"http://neuronagent:8080\"
     networks:
       - default
       - platform
     healthcheck:
-      test: [\"CMD\", \"wget\", \"-q\", \"--spider\", \"http://localhost:8084/health\"]
+      test: [\"CMD-SHELL\", \"curl -sf http://localhost:8084/health || exit 1\"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -294,18 +231,17 @@ services:
       - \"8085:8085\"
     environment:
       PORT: \"8085\"
-      DATABASE_URL: postgres://neuronhub:neuronhub@hub-db:5432/neuronhub?sslmode=disable
       NEURONAGENT_URL: \"http://neuronagent:8080\"
-      CORS_ORIGIN: \"*\"
+      HUB_BACKEND_URL: \"http://backend:8084\"
     networks:
       - default
       - platform
 
   frontend:
     ports:
-      - \"3001:3001\"
+      - \"3001:3000\"
     environment:
-      PORT: \"3001\"
+      PORT: \"3000\"
       NEXT_PUBLIC_API_URL: \"http://localhost:8084\"
     networks:
       - default
@@ -319,11 +255,10 @@ YAMLEOF"
   run_remote "sed -i 's/\\\$SHARED_NETWORK/$SHARED_NETWORK/' $REMOTE_BASE/neuron-hub/docker-compose.override.yml"
 
   log "Deploying neuron-hub..."
-  run_remote "cd $REMOTE_BASE/neuron-hub && docker compose up -d hub-db"
+  run_remote "cd $REMOTE_BASE/neuron-hub && docker compose -f docker/docker-compose.yml -f docker-compose.override.yml up -d hub-db"
   run_remote "sleep 5"
-  log "Running Hub DB migrations (Go migrate binary)..."
-  run_remote "cd $REMOTE_BASE/neuron-hub && docker compose build backend && docker compose run --rm -e DATABASE_URL=postgres://neuronhub:neuronhub@hub-db:5432/neuronhub?sslmode=disable --entrypoint /app/migrate backend" || true
-  run_remote "cd $REMOTE_BASE/neuron-hub && docker compose up -d --build"
+  log "Running Hub DB migrations (backend image runs migrate on startup; first up -d will apply them)..."
+  run_remote "cd $REMOTE_BASE/neuron-hub && docker compose -f docker/docker-compose.yml -f docker-compose.override.yml up -d --build"
   ok "neuron-hub started"
 fi
 

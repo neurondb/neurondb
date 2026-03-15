@@ -1,121 +1,148 @@
 # NeuronDB Documentation
 
-Welcome to the NeuronDB documentation. This is the main entry point for all documentation in the NeuronDB ecosystem.
+Technical documentation for the **NeuronDB** PostgreSQL extension: vector search, machine learning, embeddings, and RAG directly in PostgreSQL.
 
-## Full platform (neurondb + neuron-cloud + neuron-hub)
+---
 
-To deploy the **full platform** (core neurondb plus neuron-cloud and neuron-hub) on one host, use the unified deploy script and place the three repos as siblings. See **[Ecosystem Overview](ecosystem/readme.md)** for product roles and **[Full platform deploy](ecosystem/readme.md#full-platform-all-three)** for `./scripts/deploy-all.sh` usage.
+## Quick links
 
-## Quick Navigation
+| Goal | Document |
+|------|----------|
+| Run NeuronDB in under 5 minutes | [Simple Start](getting-started/simple-start.md) |
+| Install (Docker or native) | [Installation](getting-started/installation.md) |
+| First queries and sample data | [Quick Start](getting-started/quickstart.md) |
+| All SQL functions and types | [SQL API](sql-api.md) · [Data types](reference/data-types.md) |
+| Configuration (GUCs) | [Configuration](configuration.md) |
+| Troubleshooting | [Troubleshooting](getting-started/troubleshooting.md) |
 
-<details>
-<summary><strong>🚀 Getting Started</strong></summary>
+---
 
-| Document | Description | Time | Difficulty |
-|----------|-------------|------|------------|
-| **[Simple Start Guide](getting-started/simple-start.md)** | Beginner-friendly setup | 10 min | ⭐ Easy |
-| **[Quick Start Guide](../../QUICKSTART.md)** | Get all services running quickly | 5-10 min | ⭐ Easy |
-| **[Architecture Overview](getting-started/architecture.md)** | Understand the system architecture | 15 min | ⭐⭐ Medium |
-| **[Installation Guide](getting-started/installation.md)** | Installation instructions | 30+ min | ⭐⭐ Medium |
-| **[Ecosystem Overview](ecosystem/readme.md)** | neurondb vs cloud vs hub; full-platform deploy | 5 min | ⭐ Easy |
+## Documentation map
 
-</details>
-
-<details>
-<summary><strong>📚 Documentation Indexes</strong></summary>
-
-- **[Complete Documentation Index](documentation-index.md)** - Comprehensive index of all documentation
-- **[Documentation Overview](documentation.md)** - Main documentation index
-
-</details>
-
-<details>
-<summary><strong>📖 Reference Documentation</strong></summary>
+<details open>
+<summary><strong>Getting started</strong></summary>
 
 | Document | Description |
 |----------|-------------|
-| **[API Reference](reference/api-reference.md)** | Complete API reference for all components |
-| **[Data Types](reference/data-types.md)** | All data types with detailed specifications |
-| **[Top Functions](reference/top_functions.md)** | Most commonly used functions |
-| **[Glossary](reference/glossary.md)** | Terminology and definitions |
+| [Simple Start](getting-started/simple-start.md) | Step-by-step setup (Docker or native) |
+| [Quick Start](getting-started/quickstart.md) | Load data and run vector search |
+| [Installation](getting-started/installation.md) | Docker, native build, and package install |
+| [Architecture](getting-started/architecture.md) | Extension architecture and components |
+| [Troubleshooting](getting-started/troubleshooting.md) | Common issues and fixes |
 
 </details>
 
 <details>
-<summary><strong>🚢 Deployment</strong></summary>
+<summary><strong>Reference</strong></summary>
 
-| Document | Description | Use Case |
-|----------|-------------|----------|
-| **[Docker Deployment](deployment/docker.md)** | Component-specific Docker guide | Individual components |
-| **[Docker Unified Guide](deployment/docker-unified.md)** | Unified Docker orchestration | Full stack |
-| **[Docker Ecosystem](deployment/docker-ecosystem.md)** | Complete ecosystem setup | Production |
-| **[Kubernetes/Helm](deployment/kubernetes-helm.md)** | Kubernetes deployment | Cloud/K8s |
-| **[Production Installation](deployment/production-install.md)** | Production setup guide | Enterprise |
-
-</details>
-
-<details>
-<summary><strong>⚙️ Operations</strong></summary>
-
-- **[Troubleshooting](operations/troubleshooting.md)** - Comprehensive troubleshooting guide
-- **[Observability Setup](operations/observability-setup.md)** - Monitoring and observability
+| Document | Description |
+|----------|-------------|
+| [SQL API](sql-api.md) | Functions, operators, and aggregates |
+| [Data types](reference/data-types.md) | Vector and related types |
+| [Configuration](configuration.md) | GUC variables and tuning |
+| [API stability](reference/api-stability.md) | Stability and deprecation |
 
 </details>
 
 <details>
-<summary><strong>💻 Development</strong></summary>
+<summary><strong>Vector search & indexing</strong></summary>
 
-- **[Development Guide](development/development-guide.md)** - Development procedures
-- **[Build System](development/build-system.md)** - Build system documentation
-- **[Documentation Structure](development/structure.md)** - How documentation is organized
+| Document | Description |
+|----------|-------------|
+| [Vector types](vector-search/vector-types.md) | `vector`, `vectorp`, `vecmap`, `vgraph`, `rtext`, `halfvec`, `binaryvec`, `sparsevec` |
+| [Indexing](vector-search/indexing.md) | HNSW, IVF (index access methods); PQ/OPQ are quantization |
+| [Distance metrics](vector-search/distance-metrics.md) | L2, cosine, inner product |
+| [Quantization](vector-search/quantization.md) | PQ, OPQ, and compression |
 
 </details>
 
 <details>
-<summary><strong>🔧 Internals</strong></summary>
+<summary><strong>ML algorithms</strong></summary>
 
-- **[Architecture Documentation](internals/README.md)** - Internal architecture details
-- **[Index Methods](internals/index-methods.md)** - Index implementation details
-- **[Identity Integration](internals/identity-integration-guide.md)** - Identity system
+| Document | Description |
+|----------|-------------|
+| [Gradient boosting](ml-algorithms/gradient-boosting.md) | XGBoost, LightGBM, CatBoost |
+| [Random forest](ml-algorithms/random-forest.md) | Classification and regression |
+| [Clustering](ml-algorithms/clustering.md) | K-Means, DBSCAN, GMM |
+| [Classification](ml-algorithms/classification.md) | SVM, logistic regression, Naive Bayes |
+| [Regression](ml-algorithms/regression.md) | Linear, Ridge, Lasso |
+| [Outlier detection](ml-algorithms/outlier-detection.md) | Z-score, IQR |
+| [Time series](ml-algorithms/time-series.md) | Forecasting |
+| [Recommendation systems](ml-algorithms/recommendation-systems.md) | Collaborative filtering |
 
 </details>
 
-## Documentation Structure
+<details>
+<summary><strong>Embeddings & RAG</strong></summary>
 
-The documentation is organized into several main sections:
+| Document | Description |
+|----------|-------------|
+| [Embedding generation](ml-embeddings/embedding-generation.md) | Text, image, and batch embeddings |
+| [Model inference](ml-embeddings/model-inference.md) | ONNX runtime and models |
+| [RAG overview](rag/overview.md) | End-to-end RAG pipeline |
+| [LLM integration](rag/llm-integration.md) | Providers and configuration |
+| [Document processing](rag/document-processing.md) | Chunking and ingestion |
 
-- **`getting-started/`** - Fastest path to a working setup
-- **`reference/`** - Stable reference pages (APIs, types, functions)
-- **`internals/`** - Deeper dives (architecture, optimization, production)
-- **`deployment/`** - Deployment guides and configurations
-- **`operations/`** - Operations and troubleshooting guides
-- **`development/`** - Development guides and build system
-- **`components/`** - Component-specific documentation
-- **`ecosystem/`** - Ecosystem integration guides
+</details>
 
-## Component Documentation
+<details>
+<summary><strong>GPU & performance</strong></summary>
 
-Each component has its own documentation:
+| Document | Description |
+|----------|-------------|
+| [GPU feature matrix](gpu/gpu-feature-matrix.md) | CUDA, ROCm, Metal support |
+| [CUDA support](gpu/cuda-support.md) | NVIDIA GPU setup |
+| [ROCm support](gpu/rocm-support.md) | AMD GPU setup |
+| [Metal support](gpu/metal-support.md) | Apple Silicon setup |
+| [SIMD optimization](performance/simd-optimization.md) | CPU vectorization |
 
-| Component | Documentation Path | Description |
-|-----------|-------------------|-------------|
-| **NeuronDB** | [`NeuronDB/docs/`](../../NeuronDB/docs/) | SQL API, configuration, ML algorithms |
-| **NeuronAgent** | [neuron-agent repo](https://github.com/neurondb/neuron-agent) `docs/` | Agent runtime documentation |
-| **NeuronMCP** | [neuron-mcp repo](https://github.com/neurondb/neuron-mcp) tools reference | MCP tools reference |
-| **NeuronDesktop** | [neuron-desktop repo](https://github.com/neurondb/neuron-desktop) `docs/` | Desktop UI documentation |
+</details>
 
-## Contributing
+<details>
+<summary><strong>Deployment & operations</strong></summary>
 
-See the [Contributing Guide](../../CONTRIBUTING.md) for information on how to contribute to the documentation.
+| Document | Description |
+|----------|-------------|
+| [Docker](deployment/docker-unified.md) | Build and run with Docker Compose |
+| [Container images](deployment/container-images.md) | Image names and tags |
+| [Production install](deployment/production-install.md) | Production and Kubernetes |
+| [Backup and restore](deployment/backup-restore.md) | Data backup and recovery |
+| [Observability](operations/observability-setup.md) | Monitoring and metrics |
+| [Troubleshooting](operations/troubleshooting.md) | Operations runbooks |
+
+</details>
+
+<details>
+<summary><strong>Development</strong></summary>
+
+| Document | Description |
+|----------|-------------|
+| [Development guide](development/development-guide.md) | Code layout and adding features |
+| [Build system](development/build-system.md) | Makefiles and build targets |
+| [Testing with Docker](readme-docker.md) | Running tests against Docker Postgres |
+
+</details>
+
+<details>
+<summary><strong>Internals</strong></summary>
+
+| Document | Description |
+|----------|-------------|
+| [Index methods](internals/index-methods.md) | HNSW, IVF implementation |
+| [Vector contract](vector/vector-contract.md) | Vector type contracts and invariants |
+
+</details>
+
+---
+
+## Full index
+
+For a flat index of all documents, see [Documentation index](documentation-index.md).
 
 ---
 
 <div align="center">
 
-**Last Updated:** 2026-02-26  
-**Documentation Version:** 2.0.0
-
-[⬆ Back to Top](#neurondb-documentation)
+[Back to top](#neurondb-documentation) · [README](../../README.md) · [QUICKSTART](../../QUICKSTART.md)
 
 </div>
-
