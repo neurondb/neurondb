@@ -2,7 +2,7 @@
 
 <div align="center">
 
-**Vector search, machine learning, and hybrid search directly in PostgreSQL**
+**PostgreSQL extension for vector similarity search (HNSW, IVFFlat), kNN, embeddings, machine learning, and hybrid full-text + vector search in SQL**
 
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16%2C17%2C18-blue.svg)](https://www.postgresql.org/)
 [![Version](https://img.shields.io/badge/version-3.0.0--devel-blue.svg)](https://github.com/neurondb/neurondb)
@@ -31,7 +31,6 @@ Then run your first vector search: [Simple Start](docs/getting-started/simple-st
 <summary><strong>Expand full table of contents</strong></summary>
 
 - [Overview](#overview)
-  - [Ecosystem](#ecosystem)
   - [Key Capabilities](#key-capabilities)
   - [Performance Metrics](#performance-metrics)
 - [Documentation](#documentation)
@@ -63,20 +62,11 @@ Then run your first vector search: [Simple Start](docs/getting-started/simple-st
 
 ## Overview
 
-NeuronDB extends PostgreSQL with vector search, ML model inference, hybrid retrieval, and RAG pipeline support.
+**Vectors, embeddings, and ML—inside PostgreSQL.** NeuronDB keeps similarity search and models on **your live rows**, not in a separate database you have to sync and babysit.
 
-### Ecosystem
+**HNSW · IVFFlat · kNN · hybrid full-text + vector · RAG pieces · train & predict in SQL**—all first-class in the engine.
 
-NeuronDB is the core extension. Related projects (separate repositories):
-
-| Project | Purpose |
-|:--------|:--------|
-| **[neuron-agent](https://github.com/neurondb/neuron-agent)** | Agent runtime: REST/WebSocket API, tools, workflows, memory |
-| **[neuron-mcp](https://github.com/neurondb/neuron-mcp)** | MCP server: 650+ tools exposing NeuronDB and PostgreSQL |
-| **[neuron-hub](https://github.com/neurondb/neuron-hub)** | Agent builder and embed widget |
-| **[neuron-cloud](https://github.com/neurondb/neuron-cloud)** | SaaS control plane |
-
-See [Ecosystem Overview](docs/ecosystem/readme.md) and each project’s README and FEATURES.md.
+**One extension:** same Postgres **backups, HA, and security**. Start with **`CREATE EXTENSION neurondb;`**, then index and query from SQL.
 
 ### Key Capabilities
 
