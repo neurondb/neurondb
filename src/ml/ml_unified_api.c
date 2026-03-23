@@ -3713,6 +3713,135 @@ cpu_fallback_training:
 				}
 			}
 		}
+	else if (algo_enum == ML_ALGO_DECISION_TREE)
+		{
+			/*
+			 * Call C train_decision_tree_classifier directly to avoid nested
+			 * SPI from within an already-active SPI session (same pattern as
+			 * random_forest).
+			 */
+			List	   *funcname = NULL;
+			Oid			func_oid;
+			Oid			argtypes[5];
+			Datum		values[5];
+			FmgrInfo	flinfo;
+			Datum		result_datum;
+			text	   *table_name_text_local = NULL;
+			text	   *feature_col_text = NULL;
+			text	   *label_col_text = NULL;
+			int			max_depth = 10;
+			int			min_samples = 2;
+			const char *feature_col;
+
+			if (feature_name_count > 0 && feature_names != NULL && feature_names[0] != NULL && strlen(feature_names[0]) > 0)
+				feature_col = feature_names[0];
+			else if (feature_list_str != NULL && strlen(feature_list_str) > 0 && strcmp(feature_list_str, "*") != 0)
+			{
+				if (strchr(feature_list_str, ',') == NULL)
+					feature_col = feature_list_str;
+				else
+					feature_col = "features";
+			}
+			else
+				feature_col = "features";
+
+			neurondb_parse_hyperparams_int(hyperparams, "max_depth", &max_depth, 10);
+			neurondb_parse_hyperparams_int(hyperparams, "min_samples_split", &min_samples, 2);
+
+			table_name_text_local = cstring_to_text(table_name);
+			feature_col_text = cstring_to_text(feature_col);
+			label_col_text = cstring_to_text(target_column);
+
+			funcname = list_make1(makeString("train_decision_tree_classifier"));
+			argtypes[0] = TEXTOID;
+			argtypes[1] = TEXTOID;
+			argtypes[2] = TEXTOID;
+			argtypes[3] = INT4OID;
+			argtypes[4] = INT4OID;
+
+			func_oid = LookupFuncName(funcname, 5, argtypes, false);
+			list_free(funcname);
+
+			if (OidIsValid(func_oid))
+			{
+				fmgr_info(func_oid, &flinfo);
+				values[0] = PointerGetDatum(table_name_text_local);
+				values[1] = PointerGetDatum(feature_col_text);
+				values[2] = PointerGetDatum(label_col_text);
+				values[3] = Int32GetDatum(max_depth);
+				values[4] = Int32GetDatum(min_samples);
+
+				result_datum = FunctionCall5(&flinfo,
+											 values[0], values[1], values[2],
+											 values[3], values[4]);
+
+				model_id = DatumGetInt32(result_datum);
+
+				if (model_id > 0)
+				{
+					ndb_spi_stringinfo_free(spi_session, &sql);
+					ndb_spi_stringinfo_init(spi_session, &sql);
+					appendStringInfo(&sql,
+									 "UPDATE " NDB_FQ_ML_MODELS " SET " NDB_COL_METRICS " = "
+									 "COALESCE(" NDB_COL_METRICS ", '{}'::jsonb) || '{\"storage\":\"cpu\",\"training_backend\":0}'::jsonb "
+									 "WHERE " NDB_COL_MODEL_ID " = %d",
+									 model_id);
+					ret = ndb_spi_execute(spi_session, sql.data, false, 0);
+					if (ret != SPI_OK_UPDATE && ret != SPI_OK_UPDATE_RETURNING)
+					{
+						ndb_spi_stringinfo_free(spi_session, &sql);
+						ndb_spi_session_end(&spi_session);
+						neurondb_cleanup(oldcontext, callcontext);
+						ereport(ERROR,
+								(errcode(ERRCODE_INTERNAL_ERROR),
+								 errmsg(NDB_ERR_PREFIX_TRAIN " failed to update model metrics (SPI returned %d)", ret)));
+					}
+				}
+				else
+				{
+					ndb_spi_stringinfo_free(spi_session, &sql);
+					ndb_spi_session_end(&spi_session);
+					neurondb_cleanup(oldcontext, callcontext);
+					ereport(ERROR,
+							(errcode(ERRCODE_INTERNAL_ERROR),
+							 errmsg(NDB_ERR_PREFIX_TRAIN " CPU training returned invalid model_id: %d", model_id),
+							 errdetail("Algorithm: %s, Project: %s, Table: %s", algorithm, project_name, table_name),
+							 errhint("CPU training function may have failed. Check logs for details.")));
+				}
+			}
+			else if (neurondb_build_training_sql(algo_enum, &sql, table_name, feature_list_str,
+												 target_column, hyperparams, feature_names, feature_name_count))
+			{
+				ret = ndb_spi_execute(spi_session, sql.data, true, 0);
+
+				if (ret == SPI_OK_SELECT && SPI_processed > 0)
+				{
+					int32		model_id_val;
+
+					if (ndb_spi_get_int32(spi_session, 0, 1, &model_id_val) && model_id_val > 0)
+					{
+						model_id = model_id_val;
+						ndb_spi_stringinfo_free(spi_session, &sql);
+						ndb_spi_stringinfo_init(spi_session, &sql);
+						appendStringInfo(&sql,
+										 "UPDATE " NDB_FQ_ML_MODELS " SET " NDB_COL_METRICS " = "
+										 "COALESCE(" NDB_COL_METRICS ", '{}'::jsonb) || '{\"storage\":\"cpu\",\"training_backend\":0}'::jsonb "
+										 "WHERE " NDB_COL_MODEL_ID " = %d",
+										 model_id);
+						ret = ndb_spi_execute(spi_session, sql.data, false, 0);
+						if (ret != SPI_OK_UPDATE && ret != SPI_OK_UPDATE_RETURNING)
+						{
+							ndb_spi_stringinfo_free(spi_session, &sql);
+							ndb_spi_session_end(&spi_session);
+							neurondb_cleanup(oldcontext, callcontext);
+							ereport(ERROR,
+									(errcode(ERRCODE_INTERNAL_ERROR),
+									 errmsg(NDB_ERR_PREFIX_TRAIN " failed to update model metrics (SPI returned %d)", ret)));
+						}
+					}
+				}
+			}
+		}
 	else if (neurondb_build_training_sql(algo_enum, &sql, table_name, feature_list_str,
 										 target_column, hyperparams, feature_names, feature_name_count))
 	{

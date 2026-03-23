@@ -76,15 +76,14 @@ RUN set -eux; \
     mv /tmp/onnxruntime ${ONNX_PATH}; \
     rm -f /tmp/onnxruntime.tgz
 
-WORKDIR /build/Neurondb
+WORKDIR /build/neurondb
 
 COPY . .
 
 # Build NeuronDB with ROCm support
 # Architecture is automatically detected and handled by the build system
 # Generate configuration header first
-RUN cd NeuronDB && \
-    mkdir -p include && \
+RUN mkdir -p include && \
     cat > include/neurondb_config.h <<'EOF'
 /*-------------------------------------------------------------------------
  * neurondb_config.h - Auto-generated configuration header
@@ -112,8 +111,7 @@ RUN cd NeuronDB && \
 EOF
 
 # Build and install
-RUN cd NeuronDB && \
-    make clean && \
+RUN make clean && \
     make GPU_BACKENDS=rocm ROCM_PATH=${ROCM_PATH} ONNX_PATH=${ONNX_PATH} && \
     make install
 
@@ -147,13 +145,11 @@ COPY --from=builder /usr/share/postgresql/${PG_MAJOR}/extension/neurondb* /usr/s
 COPY --from=builder /usr/local/onnxruntime ${ONNX_PATH}
 COPY --from=builder /opt/rocm /opt/rocm
 
-COPY docker/docker-entrypoint-initdb.d/ /docker-entrypoint-initdb.d/
+COPY docker/neurondb/docker-entrypoint-initdb.d/ /docker-entrypoint-initdb.d/
 
-# Copy NeuronMCP SQL files for auto-setup
-COPY NeuronMCP/sql/ /docker-entrypoint-initdb.d/neurondb_mcp/
-
-# Copy NeuronAgent migration files for auto-setup
-COPY NeuronAgent/migrations/ /docker-entrypoint-initdb.d/neurondb_agent/
+COPY docker/neurondb/docker-entrypoint-neurondb.sh /usr/local/bin/docker-entrypoint-neurondb.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint-neurondb.sh && \
+    chown root:root /usr/local/bin/docker-entrypoint-neurondb.sh
 
 VOLUME ["/var/lib/postgresql/data"]
 

@@ -263,14 +263,14 @@ VERSION=3.0.0-devel
 BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
 VCS_REF=$(git rev-parse --short HEAD)
 
-docker build -f docker/Dockerfile \
+docker build -f docker/neurondb/Dockerfile \
   --build-arg PG_MAJOR=17 \
   --build-arg ONNX_VERSION=1.17.0 \
   --build-arg VERSION=${VERSION} \
   --build-arg BUILD_DATE=${BUILD_DATE} \
   --build-arg VCS_REF=${VCS_REF} \
   -t neurondb:${VERSION}-cpu \
-  -t neurondb:latest-cpu ..
+  -t neurondb:latest-cpu .
 ```
 
 ## Architecture Support
@@ -295,10 +295,10 @@ docker buildx create --name multiarch --use
 
 # Build for both architectures
 docker buildx build --platform linux/amd64,linux/arm64 \
-  -f docker/Dockerfile \
+  -f docker/neurondb/Dockerfile \
   --build-arg PG_MAJOR=17 \
   -t neurondb:17-cpu \
-  --push .  # or --load for local use
+  --push .  # or --load for local use (run from repository root)
 ```
 
 ## PostgreSQL Version Selection
@@ -306,14 +306,14 @@ docker buildx build --platform linux/amd64,linux/arm64 \
 All Dockerfiles support PostgreSQL 16, 17, and 18. Specify the version via build arg:
 
 ```bash
-# PostgreSQL 16
-docker build -f docker/Dockerfile --build-arg PG_MAJOR=16 -t neurondb:16-cpu ..
+# PostgreSQL 16 (from repository root)
+docker build -f docker/neurondb/Dockerfile --build-arg PG_MAJOR=16 -t neurondb:16-cpu .
 
 # PostgreSQL 17 (default)
-docker build -f docker/Dockerfile --build-arg PG_MAJOR=17 -t neurondb:17-cpu ..
+docker build -f docker/neurondb/Dockerfile --build-arg PG_MAJOR=17 -t neurondb:17-cpu .
 
 # PostgreSQL 18
-docker build -f docker/Dockerfile --build-arg PG_MAJOR=18 -t neurondb:18-cpu ..
+docker build -f docker/neurondb/Dockerfile --build-arg PG_MAJOR=18 -t neurondb:18-cpu .
 ```
 
 ## Docker Compose Profiles
@@ -410,10 +410,10 @@ The `.env.example` file includes all configurable environment variables with doc
 Build CUDA image with RAPIDS/cuML support:
 
 ```bash
-docker build -f docker/Dockerfile.gpu.cuda \
+docker build -f docker/neurondb/Dockerfile.gpu.cuda \
   --build-arg PG_MAJOR=17 \
   --build-arg ENABLE_RAPIDS=1 \
-  -t neurondb:17-cuda-rapids ..
+  -t neurondb:17-cuda-rapids .
 ```
 
 ### Multi-Stage Build Optimization
@@ -561,13 +561,13 @@ docker inspect neurondb-cuda | jq '.[0].State.Health'
 ### Build for Production
 
 ```bash
-# Build optimized CPU image for PostgreSQL 18
-docker build -f docker/Dockerfile \
+# Build optimized CPU image for PostgreSQL 18 (from repository root)
+docker build -f docker/neurondb/Dockerfile \
   --build-arg PG_MAJOR=18 \
   --build-arg ONNX_VERSION=1.17.0 \
   -t neurondb:18-cpu-prod \
   --target builder \
-  ..
+  .
 ```
 
 ### Development Workflow

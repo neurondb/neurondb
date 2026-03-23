@@ -70,21 +70,21 @@ static Query *hybrid_planning_query = NULL;
 
 /* Check if relation has both a vector AM index (HNSW/IVF) and a GIN index (FTS) */
 static bool
-relation_has_vector_and_fts_indexes(PlannerInfo *root, RelOptInfo *rel)
+relation_has_vector_and_fts_indexes(Oid relationOid)
 {
 	ListCell   *lc;
-	Oid			relid = rel->relid;
 	Relation	relation;
 	bool		has_vector = false;
 	bool		has_gin = false;
 	Oid			hnsw_oid = get_am_oid("hnsw", true);
 	Oid			ivf_oid = get_am_oid("ivf", true);
 
-	(void) root;
+	if (!OidIsValid(relationOid))
+		return false;
 	if (!OidIsValid(hnsw_oid) && !OidIsValid(ivf_oid))
 		return false;
 
-	relation = table_open(relid, AccessShareLock);
+	relation = table_open(relationOid, AccessShareLock);
 	foreach(lc, relation->rd_indexlist)
 	{
 		Oid			idxoid = lfirst_oid(lc);
@@ -128,7 +128,7 @@ hybrid_set_rel_pathlist(PlannerInfo *root, RelOptInfo *rel, Index rti, RangeTblE
 		return;
 	if (rte->rtekind != RTE_RELATION)
 		return;
-	if (!relation_has_vector_and_fts_indexes(root, rel))
+	if (!relation_has_vector_and_fts_indexes(rte->relid))
 		return;
 
 	{

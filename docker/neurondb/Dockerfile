@@ -72,16 +72,14 @@ RUN set -eux; \
     mv /tmp/onnxruntime ${ONNX_PATH}; \
     rm -f /tmp/onnxruntime.tgz
 
-WORKDIR /build/Neurondb
+WORKDIR /build/neurondb
 
 COPY . .
 
 # Build and install ONLY the NeuronDB PostgreSQL extension into the builder image.
-# (Do not call the repo-root Makefile here: it builds the whole ecosystem and
-# requires Go/Node which are intentionally not part of this image.)
+# (Do not call the repo-root ecosystem targets; this directory is the git repo root.)
 # Generate configuration header before building
-RUN cd NeuronDB && \
-    mkdir -p include && \
+RUN mkdir -p include && \
     cat > include/neurondb_config.h <<'EOF'
 /*-------------------------------------------------------------------------
  * neurondb_config.h - Auto-generated configuration header
@@ -106,32 +104,9 @@ RUN cd NeuronDB && \
 EOF
 
 # Build and install the extension
-RUN cd NeuronDB && \
-    GPU_BACKENDS=none make clean && \
+RUN GPU_BACKENDS=none make clean && \
     GPU_BACKENDS=none make && \
-    # Ensure SQL file exists before installation (Makefile expects sql/neurondb--1.0.sql)
-    mkdir -p sql && \
-    if [ ! -f sql/neurondb--1.0.sql ]; then \
-        if [ -f sql/neurondb--1.0.sql.linux ]; then \
-            cp sql/neurondb--1.0.sql.linux sql/neurondb--1.0.sql; \
-        elif [ -f sql/neurondb--2.0.sql ]; then \
-            cp sql/neurondb--2.0.sql sql/neurondb--1.0.sql; \
-        elif [ -f sql/neurondb--2.0.sql.linux ]; then \
-            cp sql/neurondb--2.0.sql.linux sql/neurondb--1.0.sql; \
-        else \
-            echo "Warning: No SQL file found, attempting to generate..."; \
-            make sql/neurondb--1.0.sql || echo "Could not generate SQL file"; \
-        fi; \
-    fi && \
-    GPU_BACKENDS=none make install && \
-    # After installation, check if the control file specifies version 2.0
-    # and if neurondb--2.0.sql is missing, create it from neurondb--1.0.sql
-    SHAREDIR=$(/usr/lib/postgresql/${PG_MAJOR}/bin/pg_config --sharedir) && \
-    DEFAULT_VERSION=$(grep -E "^default_version\s*=" "$SHAREDIR/extension/neurondb.control" | sed 's/.*=\s*\(.*\)/\1/' | tr -d "'\" " || echo "1.0") && \
-    if [ "$DEFAULT_VERSION" = "2.0" ] && [ -f "$SHAREDIR/extension/neurondb--1.0.sql" ] && [ ! -f "$SHAREDIR/extension/neurondb--2.0.sql" ]; then \
-      echo "Control file specifies version 2.0, creating neurondb--2.0.sql from 1.0..." && \
-      cp "$SHAREDIR/extension/neurondb--1.0.sql" "$SHAREDIR/extension/neurondb--2.0.sql"; \
-    fi
+    GPU_BACKENDS=none make install
 
 # -----------------------------------------------------------------------------
 
@@ -175,7 +150,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy Python site-packages with ML libraries from builder
-COPY --from=builder /usr/local/lib/python3.*/dist-packages/ /usr/local/lib/python3.11/dist-packages/
+COPY --from=builder /usr/local/lib/python3.11/dist-packages/ /usr/local/lib/python3.11/dist-packages/
 RUN ldconfig
 
 # Copy runtime assets from builder
@@ -191,16 +166,8 @@ COPY docker/neurondb/docker-entrypoint-neurondb.sh /usr/local/bin/docker-entrypo
 RUN chmod +x /usr/local/bin/docker-entrypoint-neurondb.sh && \
     chown root:root /usr/local/bin/docker-entrypoint-neurondb.sh
 
-# Copy NeuronMCP SQL files for auto-setup
-RUN mkdir -p /docker-entrypoint-initdb.d/neurondb_mcp
-COPY NeuronMCP/neuron-mcp.sql /docker-entrypoint-initdb.d/neurondb_mcp/neuron-mcp.sql
-
-# Copy NeuronAgent migration files for auto-setup
-COPY NeuronAgent/sql/ /docker-entrypoint-initdb.d/neurondb_agent/
-
-# Copy Titans LLM training scripts (used when NEURONDB_TITANS_DIR=/app/examples/titans)
+# Optional NeuronMCP / NeuronAgent / Titans assets live in sibling repos; see docker/neurondb/optional-init/
 RUN mkdir -p /app/examples
-COPY examples/titans /app/examples/titans
 
 # Volume declaration removed - let base postgres image handle it
 # docker-compose.yml mounts the volume at the correct path for each PG version

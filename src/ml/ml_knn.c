@@ -91,11 +91,48 @@ euclidean_distance(const float *a, const float *b, int dim)
 }
 
 /*
+ * Majority class among k nearest neighbors (labels may be any integer class id).
+ * Tie-break: prefer the larger class label (matches legacy binary tie behavior).
+ */
+static int
+knn_majority_class_from_k_neighbor_labels(const double *neighbor_labels, int k_count)
+{
+	int			a;
+	int			b;
+	double		best_votes = -1.0;
+	int			best_label = 0;
+
+	if (neighbor_labels == NULL || k_count <= 0)
+		return 0;
+
+	for (a = 0; a < k_count; a++)
+	{
+		int			label_a = (int) rint(neighbor_labels[a]);
+		double		votes = 0.0;
+
+		for (b = 0; b < k_count; b++)
+		{
+			int			label_b = (int) rint(neighbor_labels[b]);
+
+			if (label_a == label_b)
+				votes += 1.0;
+		}
+		if (votes > best_votes ||
+			(votes == best_votes && label_a > best_label))
+		{
+			best_votes = votes;
+			best_label = label_a;
+		}
+	}
+	return best_label;
+}
+
+/*
  * knn_classify - Classify a sample using K-Nearest Neighbors
  *
  * User-facing function that classifies a single sample using the K-Nearest
  * Neighbors algorithm. Finds the k nearest training samples and returns the
- * majority class label for binary classification.
+ * majority class label for classification (binary or multiclass).
  *
  * Parameters:
  *   query_vector - Feature vector to classify (vector)
@@ -103,7 +140,7 @@ euclidean_distance(const float *a, const float *b, int dim)
  *   k - Number of nearest neighbors to consider (int32)
  *
  * Returns:
- *   Class label (0 or 1 for binary classification) as float8
+ *   Predicted class label (integer) as int4
  *
  * Notes:
  *   The function uses Euclidean distance to find nearest neighbors. For
@@ -131,7 +168,6 @@ knn_classify(PG_FUNCTION_ARGS)
 	int			dim;
 
 	KNNSample *samples = NULL;
-	double		class_votes[2] = {0.0, 0.0};
 	int			predicted_class;
 	int			i;
 	MemoryContext oldcontext;
@@ -326,16 +362,18 @@ knn_classify(PG_FUNCTION_ARGS)
 
 		qsort(samples, nsamples, sizeof(KNNSample), compare_samples);
 
-		for (i = 0; i < k && i < nsamples; i++)
 		{
-			int			label_class = (int) samples[i].label;
+			int			k_use = k;
+			double	   *k_labs = NULL;
 
-			if (label_class >= 0 && label_class < 2)
-				class_votes[label_class] += 1.0;
+			if (k_use > nsamples)
+				k_use = nsamples;
+			nalloc(k_labs, double, k_use);
+			for (i = 0; i < k_use; i++)
+				k_labs[i] = samples[i].label;
+			predicted_class = knn_majority_class_from_k_neighbor_labels(k_labs, k_use);
+			nfree(k_labs);
 		}
-
-		/* Break ties by preferring class 1 if votes are equal */
-		predicted_class = (class_votes[1] >= class_votes[0]) ? 1 : 0;
 
 		for (i = 0; i < nsamples; i++)
 		{
@@ -1604,17 +1642,16 @@ predict_knn_model_id(PG_FUNCTION_ARGS)
 
 		if (hdr->task_type == 0)
 		{
-			double		class_votes[2] = {0.0, 0.0};
+			int			k_use = hdr->k;
+			double	   *k_labs = NULL;
 
-			for (i = 0; i < hdr->k && i < hdr->n_samples; i++)
-			{
-				int			label = (int) training_labels[indices[i]];
-
-				if (label >= 0 && label < 2)
-					class_votes[label] += 1.0;
-			}
-			/* Break ties by preferring class 1 if votes are equal */
-			prediction = (class_votes[1] >= class_votes[0]) ? 1.0 : 0.0;
+			if (k_use > hdr->n_samples)
+				k_use = hdr->n_samples;
+			nalloc(k_labs, double, k_use);
+			for (i = 0; i < k_use; i++)
+				k_labs[i] = training_labels[indices[i]];
+			prediction = (double) knn_majority_class_from_k_neighbor_labels(k_labs, k_use);
+			nfree(k_labs);
 		}
 		else
 		{
@@ -1812,6 +1849,7 @@ knn_predict_batch(int32 model_id,
 		if (is_gpu)
 		{
 			const NdbCudaKnnModelHeader *gpu_hdr;
+			bool		knn_gpu_eval_binary = true;
 
 			if (VARSIZE(model_data) - VARHDRSZ < (int) sizeof(NdbCudaKnnModelHeader))
 			{
@@ -1831,6 +1869,23 @@ knn_predict_batch(int32 model_id,
 			}
 
 			gpu_hdr = (const NdbCudaKnnModelHeader *) base;
+			{
+				const double *knn_meta_labels;
+				int			si_meta;
+
+				knn_meta_labels = (const double *) (base + sizeof(NdbCudaKnnModelHeader) +
+													sizeof(float) * (size_t) gpu_hdr->n_samples * (size_t) gpu_hdr->n_features);
+				for (si_meta = 0; si_meta < gpu_hdr->n_samples; si_meta++)
+				{
+					int			lc = (int) rint(knn_meta_labels[si_meta]);
+
+					if (lc != 0 && lc != 1)
+					{
+						knn_gpu_eval_binary = false;
+						break;
+					}
+				}
+			}
 
 #ifdef NDB_GPU_CUDA
 			if (neurondb_gpu_is_available() && gpu_hdr->task_type == 0)
@@ -1865,25 +1920,36 @@ knn_predict_batch(int32 model_id,
 									continue;
 
 								true_class = (int) rint(y_true);
-								if (true_class < 0)
-									true_class = 0;
-								if (true_class > 1)
-									true_class = 1;
+								if (knn_gpu_eval_binary)
+								{
+									if (true_class < 0)
+										true_class = 0;
+									if (true_class > 1)
+										true_class = 1;
+								}
 
 								pred_class = predictions[i];
-								if (pred_class < 0)
-									pred_class = 0;
-								if (pred_class > 1)
-									pred_class = 1;
+								if (knn_gpu_eval_binary)
+								{
+									if (pred_class < 0)
+										pred_class = 0;
+									if (pred_class > 1)
+										pred_class = 1;
+								}
 
-								if (true_class == 1 && pred_class == 1)
+								if (knn_gpu_eval_binary)
+								{
+									if (true_class == 1 && pred_class == 1)
+										tp++;
+									else if (true_class == 0 && pred_class == 0)
+										tn++;
+									else if (true_class == 0 && pred_class == 1)
+										fp++;
+									else if (true_class == 1 && pred_class == 0)
+										fn++;
+								}
+								else if (true_class == pred_class)
 									tp++;
-								else if (true_class == 0 && pred_class == 0)
-									tn++;
-								else if (true_class == 0 && pred_class == 1)
-									fp++;
-								else if (true_class == 1 && pred_class == 0)
-									fn++;
 							}
 
 							nfree(predictions);
@@ -1954,10 +2020,13 @@ knn_predict_batch(int32 model_id,
 						continue;
 
 					true_class = (int) rint(y_true);
-					if (true_class < 0)
-						true_class = 0;
-					if (true_class > 1)
-						true_class = 1;
+					if (knn_gpu_eval_binary)
+					{
+						if (true_class < 0)
+							true_class = 0;
+						if (true_class > 1)
+							true_class = 1;
+					}
 
 					nalloc(distances_local, float, gpu_hdr->n_samples);
 					nalloc(indices_local, int, gpu_hdr->n_samples);
@@ -2001,37 +2070,43 @@ knn_predict_batch(int32 model_id,
 					}
 
 					{
-						double		class_votes[2] = {0.0, 0.0};
-						int			k;
+						int			k_use = k_value;
+						double	   *k_labs = NULL;
 
-						for (k = 0; k < k_value && k < gpu_hdr->n_samples; k++)
-						{
-							int			label = (int) training_labels[indices_local[k]];
-
-							if (label >= 0 && label < 2)
-								class_votes[label] += 1.0;
-						}
-						/* Break ties by preferring class 1 if votes are equal */
-						prediction = (class_votes[1] >= class_votes[0]) ? 1.0 : 0.0;
+						if (k_use > gpu_hdr->n_samples)
+							k_use = gpu_hdr->n_samples;
+						nalloc(k_labs, double, k_use);
+						for (j = 0; j < k_use; j++)
+							k_labs[j] = training_labels[indices_local[j]];
+						prediction = (double) knn_majority_class_from_k_neighbor_labels(k_labs, k_use);
+						nfree(k_labs);
 					}
 
 					pred_class = (int) rint(prediction);
-					if (pred_class < 0)
-						pred_class = 0;
-					if (pred_class > 1)
-						pred_class = 1;
+					if (knn_gpu_eval_binary)
+					{
+						if (pred_class < 0)
+							pred_class = 0;
+						if (pred_class > 1)
+							pred_class = 1;
+					}
 
 					nfree(distances_local);
 					nfree(indices_local);
 
-					if (true_class == 1 && pred_class == 1)
+					if (knn_gpu_eval_binary)
+					{
+						if (true_class == 1 && pred_class == 1)
+							tp++;
+						else if (true_class == 0 && pred_class == 0)
+							tn++;
+						else if (true_class == 0 && pred_class == 1)
+							fp++;
+						else if (true_class == 1 && pred_class == 0)
+							fn++;
+					}
+					else if (true_class == pred_class)
 						tp++;
-					else if (true_class == 0 && pred_class == 0)
-						tn++;
-					else if (true_class == 0 && pred_class == 1)
-						fp++;
-					else if (true_class == 1 && pred_class == 0)
-						fn++;
 				}
 			}
 		}
@@ -2183,68 +2258,93 @@ knn_predict_batch(int32 model_id,
 				return;
 			}
 
-			for (i = 0; i < n_samples; i++)
 			{
-				const float *row = features + (i * feature_dim);
-				double		y_true = labels[i];
-				int			true_class;
-				double		prediction = 0.0;
-				int			pred_class;
+				bool		knn_spi_binary = true;
+				int			jb;
 
-				KNNSample *samples_local = NULL;
-
-				if (!isfinite(y_true))
-					continue;
-
-				true_class = (int) rint(y_true);
-				if (true_class < 0)
-					true_class = 0;
-				if (true_class > 1)
-					true_class = 1;
-
-				nalloc(samples_local, KNNSample, train_valid);
-				for (j = 0; j < train_valid; j++)
+				for (jb = 0; jb < train_valid; jb++)
 				{
-					samples_local[j].features = train_features + (j * feature_dim);
-					samples_local[j].label = train_labels[j];
-					samples_local[j].distance = euclidean_distance(
-																   row, samples_local[j].features, feature_dim);
-					samples_local[j].dim = feature_dim;
-				}
+					int			lc = (int) rint(train_labels[jb]);
 
-				qsort(samples_local, train_valid, sizeof(KNNSample), compare_samples);
-
-				{
-					double		class_votes[2] = {0.0, 0.0};
-					int			k;
-
-					for (k = 0; k < k_value && k < train_valid; k++)
+					if (lc != 0 && lc != 1)
 					{
-						int			label = (int) samples_local[k].label;
-
-						if (label >= 0 && label < 2)
-							class_votes[label] += 1.0;
+						knn_spi_binary = false;
+						break;
 					}
-					/* Break ties by preferring class 1 if votes are equal */
-					prediction = (class_votes[1] >= class_votes[0]) ? 1.0 : 0.0;
 				}
 
-				pred_class = (int) rint(prediction);
-				if (pred_class < 0)
-					pred_class = 0;
-				if (pred_class > 1)
-					pred_class = 1;
+				for (i = 0; i < n_samples; i++)
+				{
+					const float *row = features + (i * feature_dim);
+					double		y_true = labels[i];
+					int			true_class;
+					double		prediction = 0.0;
+					int			pred_class;
 
-				nfree(samples_local);
+					KNNSample *samples_local = NULL;
 
-				if (true_class == 1 && pred_class == 1)
-					tp++;
-				else if (true_class == 0 && pred_class == 0)
-					tn++;
-				else if (true_class == 0 && pred_class == 1)
-					fp++;
-				else if (true_class == 1 && pred_class == 0)
-					fn++;
+					if (!isfinite(y_true))
+						continue;
+
+					true_class = (int) rint(y_true);
+					if (knn_spi_binary)
+					{
+						if (true_class < 0)
+							true_class = 0;
+						if (true_class > 1)
+							true_class = 1;
+					}
+
+					nalloc(samples_local, KNNSample, train_valid);
+					for (j = 0; j < train_valid; j++)
+					{
+						samples_local[j].features = train_features + (j * feature_dim);
+						samples_local[j].label = train_labels[j];
+						samples_local[j].distance = euclidean_distance(
+																	   row, samples_local[j].features, feature_dim);
+						samples_local[j].dim = feature_dim;
+					}
+
+					qsort(samples_local, train_valid, sizeof(KNNSample), compare_samples);
+
+					{
+						int			k_use = k_value;
+						double	   *k_labs = NULL;
+
+						if (k_use > train_valid)
+							k_use = train_valid;
+						nalloc(k_labs, double, k_use);
+						for (j = 0; j < k_use; j++)
+							k_labs[j] = samples_local[j].label;
+						prediction = (double) knn_majority_class_from_k_neighbor_labels(k_labs, k_use);
+						nfree(k_labs);
+					}
+
+					pred_class = (int) rint(prediction);
+					if (knn_spi_binary)
+					{
+						if (pred_class < 0)
+							pred_class = 0;
+						if (pred_class > 1)
+							pred_class = 1;
+					}
+
+					nfree(samples_local);
+
+					if (knn_spi_binary)
+					{
+						if (true_class == 1 && pred_class == 1)
+							tp++;
+						else if (true_class == 0 && pred_class == 0)
+							tn++;
+						else if (true_class == 0 && pred_class == 1)
+							fp++;
+						else if (true_class == 1 && pred_class == 0)
+							fn++;
+					}
+					else if (true_class == pred_class)
+						tp++;
+				}
 			}
 
 			if (train_features)
