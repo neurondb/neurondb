@@ -1,6 +1,12 @@
 -- -------------------------------------------------------------------------
--- NeuronDB LLM PL/Python Functions (3.1.0)
--- Requires: CREATE EXTENSION plpython3u; and Python httpx package.
+-- NeuronDB LLM PL/Python Functions (3.1.0) — OPTIONAL, NOT run by CREATE EXTENSION
+--
+-- Install after the core extension and Python language exist:
+--   CREATE EXTENSION plpython3u;
+--   \i /path/to/share/extension/neurondb_llm_functions.sql
+-- Or: psql -v ON_ERROR_STOP=1 -f "$(pg_config --sharedir)/extension/neurondb_llm_functions.sql"
+--
+-- Requires: Python package httpx (and any others referenced in functions below).
 -- Config: GUCs neurondb.llm_base_url, neurondb.llm_api_key, neurondb.llm_timeout
 --         or env LLM_SQL_BASE_URL, LLM_SQL_API_KEY, LLM_SQL_TIMEOUT
 -- -------------------------------------------------------------------------

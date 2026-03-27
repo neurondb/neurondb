@@ -82,11 +82,12 @@ relation_has_vector_and_fts_indexes(PlannerInfo *root, RelOptInfo *rel, Oid relo
 	Oid			hnsw_oid = get_am_oid("hnsw", true);
 	Oid			ivf_oid = get_am_oid("ivf", true);
 
-	(void) root;
+	if (!OidIsValid(relationOid))
+		return false;
 	if (!OidIsValid(hnsw_oid) && !OidIsValid(ivf_oid))
 		return false;
 
-	relation = table_open(relid, AccessShareLock);
+	relation = table_open(relationOid, AccessShareLock);
 	foreach(lc, relation->rd_indexlist)
 	{
 		Oid			idxoid = lfirst_oid(lc);

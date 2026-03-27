@@ -129,16 +129,29 @@ ndb_rocm_knn_top_k_kernel(const float *distances,
 	/* Compute prediction */
 	if (task_type == 0)
 	{
-		/* Classification: majority vote */
-		int class_votes[2] = {0, 0};
+		/* Classification: majority vote (multiclass); tie -> larger class label */
+		double		best_votes = -1.0;
+		int			best_label = 0;
+
 		for (i = 0; i < k; i++)
 		{
-			int label = (int)labels[top_k_indices[i]];
-			if (label >= 0 && label < 2)
-				class_votes[label]++;
+			int			label_a = (int) rint(labels[top_k_indices[i]]);
+			double		votes = 0.0;
+
+			for (j = 0; j < k; j++)
+			{
+				int			label_b = (int) rint(labels[top_k_indices[j]]);
+
+				if (label_a == label_b)
+					votes += 1.0;
+			}
+			if (votes > best_votes || (votes == best_votes && label_a > best_label))
+			{
+				best_votes = votes;
+				best_label = label_a;
+			}
 		}
-		/* Match CPU semantics: class 1 only if strictly greater, tie goes to class 0 */
-		*prediction_out = (class_votes[1] > class_votes[0]) ? 1.0 : 0.0;
+		*prediction_out = (double) best_label;
 	}
 	else
 	{

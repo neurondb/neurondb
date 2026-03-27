@@ -1,473 +1,132 @@
-# NeuronDB Ecosystem - Unified Docker Orchestration
+# Unified Docker Orchestration
 
-Complete guide for building and running NeuronDB, NeuronAgent, NeuronMCP, and NeuronDesktop together using Docker Compose.
+Build and run the NeuronDB PostgreSQL extension in Docker using the Compose file in this repository.
+
+---
 
 ## Overview
 
-This unified Docker orchestration system provides simple commands to build and run all four services (NeuronDB, NeuronAgent, NeuronMCP, and NeuronDesktop) with automatic networking and default connection settings. The system uses Docker Compose profiles to support CPU and GPU variants (CUDA, ROCm, Metal).
+The Compose file `docker/docker-compose.yml` defines NeuronDB services only (CPU and GPU variants). Use Docker Compose directly; there are no `make build` or `make run` targets for Docker.
 
-## Quick Start
+## Quick start
 
 ### Prerequisites
 
 - Docker 20.10+ and Docker Compose 2.0+
-- For GPU support: NVIDIA Docker runtime (CUDA) or ROCm drivers (ROCm)
+- For GPU: NVIDIA Container Toolkit (CUDA), ROCm, or Metal as appropriate
 
-### 1. Build All Services
+### 1. Build
+
+From the **repository root**:
 
 ```bash
 # Build CPU variant (default)
-make build
+docker compose -f docker/docker-compose.yml build
 
-# Or build specific GPU variant
-make build-cuda   # CUDA GPU
-make build-rocm   # ROCm GPU
-make build-metal  # Metal GPU (macOS/Apple Silicon)
+# Or build a GPU variant
+docker compose -f docker/docker-compose.yml --profile cuda build
+docker compose -f docker/docker-compose.yml --profile rocm build
+docker compose -f docker/docker-compose.yml --profile metal build
 ```
 
-### 2. Run All Services
+### 2. Run
 
 ```bash
-# Run CPU variant (default)
-make run
+# Run CPU (default)
+docker compose -f docker/docker-compose.yml up -d
 
-# Or run specific GPU variant
-make run-cuda     # CUDA GPU
-make run-rocm     # ROCm GPU
-make run-metal    # Metal GPU
+# Or run a GPU variant
+docker compose -f docker/docker-compose.yml --profile cuda up -d
+docker compose -f docker/docker-compose.yml --profile rocm up -d
+docker compose -f docker/docker-compose.yml --profile metal up -d
 ```
 
-### 3. Verify Services
+### 3. Verify
 
 ```bash
-# Check service status
-make status
-
-# Check service health
-make health
-
-# View logs
-make logs
+docker compose -f docker/docker-compose.yml ps
+docker compose -f docker/docker-compose.yml exec neurondb pg_isready -U neurondb -d neurondb
+docker compose -f docker/docker-compose.yml exec neurondb psql -U neurondb -d neurondb -c "SELECT neurondb.version();"
 ```
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│              Docker Network: neurondb-network                │
-├─────────────────────────────────────────────────────────────┤
-│                                                               │
-│  ┌──────────────┐      ┌──────────────┐      ┌────────────┐│
-│  │  NeuronDB    │◄─────┤  NeuronAgent │      │  NeuronMCP  ││
-│  │  (PostgreSQL)│      │  (REST API)  │      │  (MCP)      ││
-│  │  Port: 5433  │      │  Port: 8080  │      │  (stdio)    ││
-│  └──────────────┘      └──────────────┘      └────────────┘│
-│                                                               │
-│  All services connect via shared network using container     │
-│  names for automatic service discovery                        │
-│                                                               │
-└─────────────────────────────────────────────────────────────┘
-```
+The Compose file defines one or more NeuronDB PostgreSQL containers (depending on profile):
 
-### Service Communication
+- **neurondb** (default/cpu) — port 5433
+- **neurondb-cuda** (profile `cuda`) — port 5434
+- **neurondb-rocm** (profile `rocm`) — port 5435
+- **neurondb-metal** (profile `metal`) — port 5436
 
-- **NeuronAgent → NeuronDB**: Connects via service name `neurondb:5432` (internal Docker network)
-- **NeuronMCP → NeuronDB**: Connects via service name `neurondb:5432` (internal Docker network)
-- **NeuronDesktop → NeuronDB**: Connects via service name `neurondb:5432` (internal Docker network)
-- **External Access**: Use host ports (`localhost:5433` for PostgreSQL, `localhost:8080` for NeuronAgent, `localhost:8081` for NeuronDesktop API, `localhost:3000` for NeuronDesktop UI)
-
-**Important:** Inside Docker network, services use the service name (`neurondb`) not container name (`neurondb-cpu`). From your host machine, use `localhost` with the mapped ports.
+**External access:** Connect to PostgreSQL at `localhost:5433` (or the port for the variant you started).
 
 ## Configuration
 
-### Environment Variables
+### Environment variables
 
-Copy the example environment file and customize:
+Use a `.env` file in the repository root (e.g. copy from `.env.example`). Common variables:
 
-```bash
-cp .env.example .env
-```
+- `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` — database credentials (defaults: neurondb/neurondb/neurondb)
+- `POSTGRES_PORT` — host port for PostgreSQL (default 5433)
+- `NEURONDB_LLM_API_KEY` — optional, for embedding/LLM features
 
-Edit `.env` to customize settings:
-
-```env
-# NeuronDB Configuration
-POSTGRES_USER=neurondb
-POSTGRES_PASSWORD=neurondb
-POSTGRES_DB=neurondb
-POSTGRES_PORT=5433
-
-# NeuronAgent Configuration (auto-connects to NeuronDB)
-DB_HOST=neurondb            # Service name in Docker network (not container name)
-DB_PORT=5432                # Internal container port (not host port 5433)
-DB_NAME=neurondb
-DB_USER=neurondb
-DB_PASSWORD=neurondb
-SERVER_PORT=8080
-
-# NeuronMCP Configuration (auto-connects to NeuronDB)
-NEURONDB_HOST=neurondb-cpu  # Container name for automatic connection
-NEURONDB_PORT=5432          # Internal container port
-NEURONDB_DATABASE=neurondb
-NEURONDB_USER=neurondb
-NEURONDB_PASSWORD=neurondb
-```
-
-### GPU Variant Configuration
-
-When using GPU variants, update the connection hostnames in `.env`:
-
-**For CUDA:**
-```env
-DB_HOST=neurondb-cuda
-NEURONDB_HOST=neurondb-cuda
-```
-
-**For ROCm:**
-```env
-DB_HOST=neurondb-rocm
-NEURONDB_HOST=neurondb-rocm
-```
-
-**For Metal:**
-```env
-DB_HOST=neurondb-metal
-NEURONDB_HOST=neurondb-metal
-```
+For production, set a strong `POSTGRES_PASSWORD`; do not commit `.env` with real secrets.
 
 ## Usage
 
-### Build Commands
+### Management
 
 ```bash
-make build          # Build all services (CPU)
-make build-cpu      # Build CPU variant only
-make build-cuda     # Build CUDA GPU variant
-make build-rocm     # Build ROCm GPU variant
-make build-metal    # Build Metal GPU variant
+# Status
+docker compose -f docker/docker-compose.yml ps
+
+# Logs
+docker compose -f docker/docker-compose.yml logs neurondb
+docker compose -f docker/docker-compose.yml logs -f neurondb
+
+# Stop (keep volumes)
+docker compose -f docker/docker-compose.yml down
+
+# Stop and remove volumes
+docker compose -f docker/docker-compose.yml down -v
 ```
 
-### Run Commands
+### Running one variant
 
 ```bash
-make run            # Start all services (CPU)
-make run-cuda       # Start all services with CUDA GPU
-make run-rocm       # Start all services with ROCm GPU
-make run-metal      # Start all services with Metal GPU
+# Start only the CPU service
+docker compose -f docker/docker-compose.yml up -d neurondb
+
+# Or only a GPU service
+docker compose -f docker/docker-compose.yml --profile cuda up -d neurondb-cuda
 ```
 
-### Management Commands
+### Testing connection
 
 ```bash
-make stop           # Stop all running services
-make logs            # View logs from all services
-make logs-neurondb   # View NeuronDB logs only
-make logs-neuronagent # View NeuronAgent logs only
-make logs-neuronmcp  # View NeuronMCP logs only
-make ps              # Show running containers
-make status          # Show service status
-make health          # Check service health
+psql "postgresql://neurondb:neurondb@localhost:5433/neurondb" -c "SELECT neurondb.version();"
 ```
 
-### Cleanup Commands
+## GPU variants
 
-```bash
-make clean           # Stop and remove containers
-make clean-all       # Stop, remove containers, networks, and volumes
-```
+- **CUDA:** `--profile cuda`, NVIDIA GPU and nvidia-container-toolkit.
+- **ROCm:** `--profile rocm`, AMD GPU and ROCm drivers.
+- **Metal:** `--profile metal`, Apple Silicon, macOS 13+.
 
-## Service Endpoints
-
-After starting services:
-
-- **NeuronDB**: `localhost:5433` (PostgreSQL)
-- **NeuronAgent**: `http://localhost:8080` (REST API)
-- **NeuronMCP**: stdio protocol (for MCP clients)
-
-### Testing Connections
-
-**Test NeuronDB:**
-```bash
-psql "postgresql://neurondb:neurondb@localhost:5433/neurondb" \
-  -c "SELECT neurondb.version();"
-```
-
-**Test NeuronAgent:**
-```bash
-curl http://localhost:8080/health
-```
-
-**Test NeuronMCP:**
-```bash
-docker exec neurondb-mcp test -f /app/neurondb-mcp -a -x /app/neurondb-mcp
-```
-
-## GPU Variants
-
-### CUDA (NVIDIA)
-
-**Requirements:**
-- NVIDIA GPU with CUDA support
-- NVIDIA Docker runtime installed
-
-**Usage:**
-```bash
-make build-cuda
-make run-cuda
-```
-
-**Configuration:**
-Update `.env` with:
-```env
-DB_HOST=neurondb-cuda
-NEURONDB_HOST=neurondb-cuda
-```
-
-### ROCm (AMD)
-
-**Requirements:**
-- AMD GPU with ROCm support
-- ROCm drivers installed
-
-**Usage:**
-```bash
-make build-rocm
-make run-rocm
-```
-
-**Configuration:**
-Update `.env` with:
-```env
-DB_HOST=neurondb-rocm
-NEURONDB_HOST=neurondb-rocm
-```
-
-### Metal (Apple Silicon)
-
-**Requirements:**
-- macOS with Apple Silicon (M1/M2/M3)
-- Docker Desktop for Mac
-
-**Usage:**
-```bash
-make build-metal
-make run-metal
-```
-
-**Configuration:**
-Update `.env` with:
-```env
-DB_HOST=neurondb-metal
-NEURONDB_HOST=neurondb-metal
-```
+See [GPU feature matrix](../gpu/gpu-feature-matrix.md) and `docker/README.md` for details.
 
 ## Troubleshooting
 
-### Services Cannot Connect to NeuronDB
+- **Port in use:** Set `POSTGRES_PORT` in `.env` or stop the process using the port.
+- **GPU not detected:** Verify the Docker runtime (e.g. `docker run --rm --gpus all nvidia/cuda:12.4.1-base-ubuntu22.04 nvidia-smi` for CUDA).
+- **Build failures:** Ensure build context is correct; use `docker compose -f docker/docker-compose.yml build neurondb` to build only the main image.
 
-**Symptoms:**
-- Connection timeout errors
-- Authentication failures
+## Related documentation
 
-**Solutions:**
+- [Docker ecosystem](docker-ecosystem.md)
+- [NeuronDB Docker](../../docker/README.md)
+- [Container images](container-images.md)
 
-1. Verify NeuronDB is running:
-   ```bash
-   make status
-   docker ps | grep neurondb
-   ```
+---
 
-2. Check network connectivity:
-   ```bash
-   docker exec neuronagent ping neurondb-cpu
-   docker exec neurondb-mcp ping neurondb-cpu
-   ```
-
-3. Verify environment variables:
-   ```bash
-   docker exec neuronagent env | grep DB_
-   docker exec neurondb-mcp env | grep NEURONDB_
-   ```
-
-4. Check container names match:
-   - For CPU: `DB_HOST=neurondb-cpu`
-   - For CUDA: `DB_HOST=neurondb-cuda`
-   - For ROCm: `DB_HOST=neurondb-rocm`
-   - For Metal: `DB_HOST=neurondb-metal`
-
-### Port Already in Use
-
-**Symptoms:**
-- Port binding errors
-- Service fails to start
-
-**Solutions:**
-
-1. Change ports in `.env`:
-   ```env
-   POSTGRES_PORT=5434
-   SERVER_PORT=8081
-   ```
-
-2. Stop conflicting services:
-   ```bash
-   docker ps | grep -E "5433|8080"
-   docker stop <container-id>
-   ```
-
-### GPU Not Detected
-
-**Symptoms:**
-- GPU services fail to start
-- No GPU acceleration
-
-**Solutions:**
-
-1. **CUDA:**
-   ```bash
-   # Verify NVIDIA Docker runtime
-   docker run --rm --gpus all nvidia/cuda:12.4.1-base-ubuntu22.04 nvidia-smi
-   ```
-
-2. **ROCm:**
-   ```bash
-   # Verify ROCm devices
-   ls -la /dev/kfd /dev/dri
-   ```
-
-3. Check Docker Compose profiles:
-   ```bash
-   docker compose --profile cuda config | grep -i gpu
-   ```
-
-### Service Health Checks Fail
-
-**Symptoms:**
-- Services show as unhealthy
-- Health check timeouts
-
-**Solutions:**
-
-1. Check service logs:
-   ```bash
-   make logs-neurondb
-   make logs-neuronagent
-   make logs-neuronmcp
-   ```
-
-2. Increase health check timeout in `docker-compose.yml` if needed
-
-3. Verify database is ready:
-   ```bash
-   docker exec neurondb-cpu pg_isready -U neurondb
-   ```
-
-### Build Failures
-
-**Symptoms:**
-- Docker build errors
-- Missing dependencies
-
-**Solutions:**
-
-1. Check Docker build context:
-   ```bash
-   ls -la docker/neurondb/Dockerfile
-   ls -la docker/neuronagent/Dockerfile
-   ls -la docker/neuronmcp/Dockerfile
-   ```
-
-2. Clear Docker build cache:
-   ```bash
-   docker builder prune -a
-   ```
-
-3. Build individual services:
-   ```bash
-   docker compose build neurondb
-   docker compose build neuronagent
-   docker compose build neuronmcp
-   ```
-
-## Extended Usage
-
-### Using Docker Compose Directly
-
-You can also use `docker compose` commands directly:
-
-```bash
-# Build
-docker compose build
-
-# Run
-docker compose up -d
-
-# Run with GPU profile
-docker compose --profile cuda up -d
-
-# Stop
-docker compose down
-
-# View logs
-docker compose logs -f
-```
-
-### Custom Build Arguments
-
-Override build arguments:
-
-```bash
-docker compose build \
-  --build-arg PG_MAJOR=18 \
-  --build-arg CUDA_VERSION=12.4.1 \
-  neurondb-cuda
-```
-
-### Running Individual Services
-
-Start only specific services:
-
-```bash
-# Start only NeuronDB
-docker compose up -d neurondb
-
-# Start NeuronDB and NeuronAgent
-docker compose up -d neurondb neuronagent
-```
-
-### Network Inspection
-
-Inspect the shared network:
-
-```bash
-docker network inspect neurondb-network
-```
-
-## Best Practices
-
-1. **Use `.env` file**: Copy `.env.example` to `.env` and customize settings
-2. **Check health**: Use `make health` to verify all services are running
-3. **Monitor logs**: Use `make logs` to monitor service activity
-4. **GPU configuration**: Update `.env` with correct hostnames when using GPU variants
-5. **Resource limits**: Adjust CPU and memory limits in `docker-compose.yml` based on your system
-6. **Backup data**: NeuronDB data is stored in Docker volumes - back up volumes regularly
-
-## Related Documentation
-
-- [NeuronDB Docker Guide](../../docker/neurondb/README.md)
-- [NeuronAgent Docker Guide](../../docker/neuronagent/README.md)
-- [NeuronMCP Docker Guide](../../docker/neuronmcp/README.md)
-- [Ecosystem Docker Guide](../../docker/neurondb/ECOSYSTEM.md)
-- [Main README](../../README.md)
-
-## Support
-
-For issues and questions:
-- GitHub Issues: [Report Issues](https://github.com/neurondb/NeurondB/issues)
-- Documentation: [Full Documentation](https://neurondb.ai/docs)
-- Email: support@neurondb.ai
-
-
-
-
-
+[Deployment](README.md) · [Documentation](../readme.md)

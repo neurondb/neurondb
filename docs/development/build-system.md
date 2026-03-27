@@ -1,222 +1,91 @@
 # NeuronDB Build System
 
-**Complete build system documentation for NeuronDB ecosystem.**
-
-> **Version:** 1.0  
-> **Last Updated:** 2025-01-01
-
-## Table of Contents
-
-- [Makefile Structure](#makefile-structure)
-- [Build Targets](#build-targets)
-- [Platform-Specific Builds](#platform-specific-builds)
-- [GPU Backend Compilation](#gpu-backend-compilation)
-- [Dependency Management](#dependency-management)
-- [Testing Infrastructure](#testing-infrastructure)
+Build and test the NeuronDB PostgreSQL extension.
 
 ---
 
-## Makefile Structure
+## Makefile structure
 
-### Main Makefile
+**Location:** Repository root `Makefile` (includes `Makefile.core`). There is no top-level `NeuronDB/` directory.
 
-**Location:** `/Makefile`
+**Main targets:**
 
-**Targets:**
-- `all`: Build all components
-- `neurondb`: Build NeuronDB extension
-- `neuronagent`: Build NeuronAgent
-- `neuronmcp`: Build NeuronMCP
-- `neurondesktop`: Build NeuronDesktop
-- `test`: Run tests
-- `clean`: Clean build artifacts
-
----
-
-## Build Targets
-
-### NeuronDB Extension
-
-**Build:**
-```bash
-cd NeuronDB
-make
-```
-
-**Install:**
-```bash
-make install
-```
-
-**Test:**
-```bash
-make installcheck
-```
-
-### NeuronAgent
-
-**Build:**
-```bash
-cd NeuronAgent
-make build
-```
-
-**Run:**
-```bash
-make run
-```
-
-### NeuronMCP
-
-**Build:**
-```bash
-cd NeuronMCP
-make build
-```
-
-### NeuronDesktop
-
-**Build:**
-```bash
-cd NeuronDesktop
-npm install
-npm run build
-```
+| Target | Description |
+|--------|-------------|
+| `all` | Build the extension |
+| `install` | Install into PostgreSQL |
+| `clean` | Remove build artifacts |
+| `installcheck` | Run regression tests |
+| `installcheck-tap` | Run TAP tests |
+| `installcheck-gpu` | Run GPU tests (when built with GPU) |
 
 ---
 
-## Platform-Specific Builds
+## Building the extension
+
+From the repository root:
+
+```bash
+# Automated (recommended)
+./build.sh
+
+# Manual
+PG_CONFIG=/path/to/pg_config make
+sudo make install
+```
+
+Use `PG_CONFIG` from the PostgreSQL installation you target (e.g. `/usr/bin/pg_config` or Homebrew).
+
+---
+
+## Platform-specific builds
 
 ### macOS
 
-**Requirements:**
-- Xcode Command Line Tools
-- PostgreSQL development headers
-
-**Build:**
-```bash
-make PG_CONFIG=/usr/local/pgsql/bin/pg_config
-```
+- Xcode Command Line Tools, PostgreSQL development headers
+- `make PG_CONFIG=/path/to/pg_config`
 
 ### Linux
 
-**Requirements:**
-- gcc, make, cmake
-- PostgreSQL development headers
+- gcc or clang, make, PostgreSQL development headers
+- `make PG_CONFIG=/usr/pgsql-17/bin/pg_config` (or your path)
 
-**Build:**
-```bash
-make PG_CONFIG=/usr/pgsql-17/bin/pg_config
-```
+### GPU backends
 
----
+| Backend | Build |
+|---------|--------|
+| **CUDA** | CUDA Toolkit 12.2+; build with CUDA enabled (see `build.sh` / Makefile) |
+| **ROCm** | ROCm 5.7+; build with ROCm enabled |
+| **Metal** | Apple Silicon, macOS 13+; build with Metal enabled |
 
-## GPU Backend Compilation
-
-### CUDA
-
-**Requirements:**
-- CUDA Toolkit 12.2+
-- cuDNN
-
-**Build:**
-```bash
-make CUDA=1
-```
-
-### ROCm
-
-**Requirements:**
-- ROCm 5.7+
-
-**Build:**
-```bash
-make ROCm=1
-```
-
-### Metal
-
-**Requirements:**
-- Apple Silicon
-- macOS 13+
-
-**Build:**
-```bash
-make Metal=1
-```
+See [INSTALL.md](../../INSTALL.md) and [GPU docs](../gpu/gpu-feature-matrix.md).
 
 ---
 
-## Dependency Management
+## Dependencies
 
-### C Dependencies
-
-**PostgreSQL:**
-- Version: 16, 17, or 18
-- Headers: `postgres.h`, `fmgr.h`
-
-**ONNX Runtime:**
-- Optional dependency
-- Version: 1.17.0+
-
-### Go Dependencies
-
-**neuron-agent / neuron-mcp:** See those repositories for build and packaging.
-- Go modules
-- `go.mod` and `go.sum`
-
-### Node.js Dependencies
-
-**NeuronDesktop:**
-- npm/yarn
-- `package.json`
+- **PostgreSQL:** 16, 17, or 18 (headers and `pg_config`)
+- **ONNX Runtime:** Optional (for some embedding/LLM features)
+- **ML libs:** XGBoost, LightGBM, CatBoost optional; see [INSTALL.md](../../INSTALL.md)
 
 ---
 
-## Testing Infrastructure
+## Testing
 
-### SQL Tests
+**SQL regression tests:**
 
-**Location:** `NeuronDB/tests/sql/`
-
-**Run:**
 ```bash
 make installcheck
 ```
 
-### Go Tests
+**Location of tests:** `src/tests/sql/` (and TAP in `src/tests/`).
 
-**NeuronAgent:**
-```bash
-cd NeuronAgent
-go test ./...
-```
-
-**NeuronMCP:**
-```bash
-cd NeuronMCP
-go test ./...
-```
-
-### Frontend Tests
-
-**NeuronDesktop:**
-```bash
-cd NeuronDesktop
-npm test
-```
+**With Docker:** See [Testing with Docker](readme-docker.md).
 
 ---
 
-## Related Documentation
+## Related documentation
 
-- [Development Guide](development-guide.md)
-- [Contributing Guide](../../CONTRIBUTING.md)
-
----
-
-**Last Updated:** 2025-01-01  
-**Documentation Version:** 1.0.0
-
-
-
+- [Development guide](development-guide.md)
+- [INSTALL.md](../../INSTALL.md)
+- [Contributing](../../CONTRIBUTING.md)

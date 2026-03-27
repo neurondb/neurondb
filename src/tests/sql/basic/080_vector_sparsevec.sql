@@ -63,6 +63,10 @@ SELECT '{1:1,2:2}/3'::sparsevec <#> '{1:3,2:4}/3';
 SELECT sparsevec_cosine_distance('{1:1,2:2}/3'::sparsevec, '{1:2,2:4}/3');
 SELECT '{1:1,2:2}/3'::sparsevec <=> '{1:2,2:4}/3';
 
+-- Unified API must use sparsevec overloads (not implicit cast to vector — wrong / zero)
+SELECT neurondb.distance('{1:0}/3'::sparsevec, '{1:3,2:4}/3'::sparsevec, 'l2') > 0 AS unified_sparse_l2_positive;
+SELECT neurondb.similarity('{1:1,2:2}/3'::sparsevec, '{1:2,2:4}/3'::sparsevec, 'cosine');
+
 -- Test L1 distance (taxicab distance) - not implemented for sparsevec
 -- SELECT '{1:0}/3'::sparsevec <+> '{1:3,2:4}/3';
 SELECT 7.0 AS expected_l1_distance; -- Skipped: L1 distance not implemented

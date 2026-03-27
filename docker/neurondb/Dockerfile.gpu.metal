@@ -85,7 +85,7 @@ RUN set -eux; \
     mv /tmp/onnxruntime ${ONNX_PATH}; \
     rm -f /tmp/onnxruntime.tgz
 
-WORKDIR /build/Neurondb
+WORKDIR /build/neurondb
 
 COPY . .
 
@@ -93,8 +93,7 @@ COPY . .
 # Note: Metal framework is available on macOS host, but for Docker builds
 # we compile with Metal support flags. Actual Metal runtime requires macOS.
 # Generate configuration header first
-RUN cd NeuronDB && \
-    mkdir -p include && \
+RUN mkdir -p include && \
     cat > include/neurondb_config.h <<'EOF'
 /*-------------------------------------------------------------------------
  * neurondb_config.h - Auto-generated configuration header
@@ -122,8 +121,7 @@ RUN cd NeuronDB && \
 EOF
 
 # Build and install
-RUN cd NeuronDB && \
-    make clean && \
+RUN make clean && \
     make GPU_BACKENDS=metal ONNX_PATH=${ONNX_PATH} && \
     make install
 
@@ -158,12 +156,6 @@ COPY docker/neurondb/docker-entrypoint-initdb.d/ /docker-entrypoint-initdb.d/
 COPY docker/neurondb/docker-entrypoint-neurondb.sh /usr/local/bin/docker-entrypoint-neurondb.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint-neurondb.sh && \
     chown root:root /usr/local/bin/docker-entrypoint-neurondb.sh
-
-# Copy NeuronMCP SQL files for auto-setup
-COPY NeuronMCP/sql/ /docker-entrypoint-initdb.d/neurondb_mcp/
-
-# Copy NeuronAgent SQL files for auto-setup
-COPY NeuronAgent/sql/ /docker-entrypoint-initdb.d/neurondb_agent/
 
 VOLUME ["/var/lib/postgresql/data"]
 

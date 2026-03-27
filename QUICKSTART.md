@@ -49,22 +49,25 @@ From the repository root:
 
 ```bash
 # Default: CPU image on port 5433
-docker compose up -d
+docker compose -f docker/docker-compose.yml up -d
+
+# Or from the docker directory
+cd docker && docker compose up -d
 
 # Or build from source
-docker compose up -d --build
+docker compose -f docker/docker-compose.yml up -d --build
 ```
 
 Optional profiles (see [docker/README.md](docker/README.md)):
 
-- `docker compose --profile cuda up -d` — CUDA GPU
-- `docker compose --profile rocm up -d` — ROCm GPU
-- `docker compose --profile metal up -d` — Apple Metal (ARM)
+- `docker compose -f docker/docker-compose.yml --profile cuda up -d` — CUDA GPU
+- `docker compose -f docker/docker-compose.yml --profile rocm up -d` — ROCm GPU
+- `docker compose -f docker/docker-compose.yml --profile metal up -d` — Apple Metal (ARM)
 
 **Check status:**
 
 ```bash
-docker compose ps
+docker compose -f docker/docker-compose.yml ps
 ```
 
 You should see the `neurondb` (or `neurondb-cpu`) service healthy.
@@ -72,8 +75,8 @@ You should see the `neurondb` (or `neurondb-cpu`) service healthy.
 ## ✅ Step 2: Verify
 
 ```bash
-# Extension version
-docker compose exec neurondb psql -U neurondb -d neurondb -c "SELECT neurondb.version();"
+# Extension version (from repo root)
+docker compose -f docker/docker-compose.yml exec neurondb psql -U neurondb -d neurondb -c "SELECT neurondb.version();"
 
 # Or from host
 psql "postgresql://neurondb:neurondb@localhost:5433/neurondb" -c "SELECT neurondb.version();"
@@ -99,15 +102,15 @@ EOF
 
 ## 🔧 Troubleshooting
 
-- **Port in use:** set `POSTGRES_PORT` in `.env` or change the port in `docker-compose.yml`.
-- **Build failures:** ensure enough disk (e.g. 10GB+) and try `docker compose build --no-cache`.
-- **Logs:** `docker compose logs neurondb` or `docker compose logs -f neurondb`.
+- **Port in use:** set `POSTGRES_PORT` in `.env` or change the port in `docker/docker-compose.yml`.
+- **Build failures:** ensure enough disk (e.g. 10GB+) and try `docker compose -f docker/docker-compose.yml build --no-cache`.
+- **Logs:** `docker compose -f docker/docker-compose.yml logs neurondb` or `docker compose -f docker/docker-compose.yml logs -f neurondb`.
 
 ## 🗑️ Cleanup
 
 ```bash
-docker compose down
-docker compose down -v   # also remove volumes (data)
+docker compose -f docker/docker-compose.yml down
+docker compose -f docker/docker-compose.yml down -v   # also remove volumes (data)
 ```
 
 ## 📦 Quickstart with sample data
@@ -116,12 +119,12 @@ docker compose down -v   # also remove volumes (data)
 ./scripts/neurondb-quickstart-data.sh
 ```
 
-See [examples/quickstart-data/README.md](examples/quickstart-data/README.md).
+See [src/examples/quickstart-data/README.md](src/examples/quickstart-data/README.md).
 
 ## Next steps
 
 - [Full documentation](README.md)
-- [NeuronDB examples](NeuronDB/demo/)
+- [NeuronDB examples](src/examples/)
 - **Full stack:** [neuron-deploy](https://github.com/neurondb/neuron-deploy) or **neuron-agent**, **neuron-mcp**, **neuron-desktop** repos for Agent, MCP, and Web UI.
 
 ---

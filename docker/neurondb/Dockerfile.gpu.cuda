@@ -93,15 +93,14 @@ RUN if [ "${ENABLE_RAPIDS}" = "1" ]; then \
 # Note: RAPIDS paths are auto-detected at build time if ENABLE_RAPIDS=1
 # The build system will find them automatically via Python import paths
 
-WORKDIR /build/Neurondb
+WORKDIR /build/neurondb
 
 COPY . .
 
 # Build NeuronDB with CUDA (and optional RAPIDS) support
 # Architecture is automatically detected and handled by the build system
 # Generate configuration header first
-RUN cd NeuronDB && \
-    mkdir -p include && \
+RUN mkdir -p include && \
     cat > include/neurondb_config.h <<'EOF'
 /*-------------------------------------------------------------------------
  * neurondb_config.h - Auto-generated configuration header
@@ -130,8 +129,7 @@ RUN cd NeuronDB && \
 EOF
 
 # Build and install
-RUN cd NeuronDB && \
-    make clean && \
+RUN make clean && \
     make GPU_BACKENDS=cuda CUDA_PATH=${CUDA_PATH} ONNX_PATH=${ONNX_PATH} && \
     make install
 
@@ -174,13 +172,11 @@ RUN set -eux; \
     mkdir -p ${lib_path} && \
     cp -r ${lib_path}/libcudnn* ${lib_path}/ 2>/dev/null || true
 
-COPY docker/docker-entrypoint-initdb.d/ /docker-entrypoint-initdb.d/
+COPY docker/neurondb/docker-entrypoint-initdb.d/ /docker-entrypoint-initdb.d/
 
-# Copy NeuronMCP SQL files for auto-setup
-COPY NeuronMCP/sql/ /docker-entrypoint-initdb.d/neurondb_mcp/
-
-# Copy NeuronAgent migration files for auto-setup
-COPY NeuronAgent/migrations/ /docker-entrypoint-initdb.d/neurondb_agent/
+COPY docker/neurondb/docker-entrypoint-neurondb.sh /usr/local/bin/docker-entrypoint-neurondb.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint-neurondb.sh && \
+    chown root:root /usr/local/bin/docker-entrypoint-neurondb.sh
 
 LABEL com.nvidia.volumes.needed="nvidia_driver"
 

@@ -3938,11 +3938,9 @@ predict_random_forest(PG_FUNCTION_ARGS)
 		}
 	}
 
-	if (model->n_classes > 0)
-	{
-		vote_classes = model->n_classes;
-		nalloc(vote_histogram, double, vote_classes);
-	}
+	/* n_classes may be missing in legacy or partially serialized models; assume binary */
+	vote_classes = model->n_classes > 0 ? model->n_classes : 2;
+	nalloc(vote_histogram, double, vote_classes);
 
 	if (model->tree_count > 0 && model->trees != NULL)
 	{

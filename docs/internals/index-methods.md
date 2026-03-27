@@ -363,10 +363,10 @@ SELECT * FROM pg_stat_neurondb_indexes;
 
 | Document | Description |
 |----------|-------------|
-| **[SQL API Reference](../../NeuronDB/docs/sql-api.md)** | Complete SQL API |
-| **[Configuration Reference](../../NeuronDB/docs/configuration.md)** | Configuration options |
+| **[SQL API Reference](../sql-api.md)** | Complete SQL API |
+| **[Configuration Reference](../configuration.md)** | Configuration options |
 | **[Data Types Reference](../reference/data-types.md)** | Vector data types |
-| **[Vector Search Guide](../../NeuronDB/docs/vector-search/indexing.md)** | Indexing guide |
+| **[Vector Search Guide](../vector-search/indexing.md)** | Indexing guide |
 
 ---
 
@@ -375,7 +375,7 @@ SELECT * FROM pg_stat_neurondb_indexes;
 **Last Updated:** 2025-01-01  
 **Documentation Version:** 1.0.0
 
-[⬆ Back to Top](#neurondb-index-methods-complete-reference) · [📚 Internals Index](README.md) · [📚 Main Documentation](../../README.md)
+[Back to Top](#neurondb-index-methods-complete-reference) · [Internals Index](README.md) · [Main Documentation](../../README.md)
 
 </div>
 

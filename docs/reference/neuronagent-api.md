@@ -1,5 +1,7 @@
 # NeuronAgent API Reference
 
+This reference describes the NeuronAgent REST API as implemented by the [neuron-agent](https://github.com/neurondb/neuron-agent) server. For the canonical API and latest behavior, see the neuron-agent repository and its [API reference](https://github.com/neurondb/neuron-agent/blob/main/docs/api-reference.md).
+
 ## Overview
 
 NeuronAgent provides a comprehensive REST API for managing AI agents, sessions, messages, tools, and advanced features. All API endpoints are versioned under `/api/v1` and require API key authentication.
@@ -438,28 +440,28 @@ Registers a new custom tool.
 **Response:** `201 Created`
 
 #### Get Tool
-`GET /api/v1/tools/{name}`
+`GET /api/v1/tools/{id}`
 
 Retrieves tool details.
 
 **Response:** `200 OK`
 
 #### Update Tool
-`PUT /api/v1/tools/{name}`
+`PUT /api/v1/tools/{id}`
 
 Updates tool configuration.
 
 **Response:** `200 OK`
 
 #### Delete Tool
-`DELETE /api/v1/tools/{name}`
+`DELETE /api/v1/tools/{id}`
 
 Deletes a tool.
 
 **Response:** `204 No Content`
 
 #### Get Tool Analytics
-`GET /api/v1/tools/{name}/analytics`
+`GET /api/v1/tools/{id}/analytics`
 
 Retrieves usage analytics for a tool.
 
@@ -504,7 +506,7 @@ Deletes a memory chunk.
 **Response:** `204 No Content`
 
 #### Summarize Memory
-`POST /api/v1/memory/{id}/summarize`
+`POST /api/v1/agents/{id}/memory/summarize`
 
 Generates a summary of memory chunks.
 
@@ -580,84 +582,35 @@ Updates budget configuration.
 
 **Response:** `200 OK`
 
-### Webhooks
+### Webhooks, Workspaces, Async Tasks, Alert Preferences
 
-#### List Webhooks
-`GET /api/v1/webhooks`
-
-Lists all webhooks.
-
-**Response:** `200 OK`
-
-#### Create Webhook
-`POST /api/v1/webhooks`
-
-Creates a new webhook.
-
-**Request Body:**
-```json
-{
-  "url": "https://example.com/webhook",
-  "events": ["message.created", "session.updated"],
-  "secret": "webhook_secret"
-}
-```
-
-**Response:** `201 Created`
-
-#### Get Webhook
-`GET /api/v1/webhooks/{id}`
-
-Retrieves webhook details.
-
-**Response:** `200 OK`
-
-#### Update Webhook
-`PUT /api/v1/webhooks/{id}`
-
-Updates webhook configuration.
-
-**Response:** `200 OK`
-
-#### Delete Webhook
-`DELETE /api/v1/webhooks/{id}`
-
-Deletes a webhook.
-
-**Response:** `204 No Content`
-
-#### List Webhook Deliveries
-`GET /api/v1/webhooks/{id}/deliveries`
-
-Lists webhook delivery attempts.
-
-**Response:** `200 OK`
+These endpoints are **not currently exposed** by the NeuronAgent server (handlers exist in code but are not registered on the router). Do not rely on them. For the current API surface, see the [neuron-agent repository](https://github.com/neurondb/neuron-agent) and its API reference.
 
 ### Human-in-the-Loop
 
 #### List Approval Requests
-`GET /api/v1/approval-requests`
+`GET /api/v1/approvals`
 
 Lists pending approval requests.
 
 **Response:** `200 OK`
 
 #### Get Approval Request
-`GET /api/v1/approval-requests/{id}`
+`GET /api/v1/approvals/{id}`
 
 Retrieves approval request details.
 
 **Response:** `200 OK`
 
 #### Approve Request
-`POST /api/v1/approval-requests/{id}/approve`
+`POST /api/v1/approvals/{id}/approve`
 
 Approves a pending request.
 
 **Response:** `200 OK`
 
 #### Reject Request
-`POST /api/v1/approval-requests/{id}/reject`
+`POST /api/v1/approvals/{id}/reject`
 
 Rejects a pending request.
 
@@ -694,116 +647,31 @@ Retrieves feedback statistics.
 
 **Response:** `200 OK`
 
-### Collaboration Workspaces
-
-#### Create Workspace
-`POST /api/v1/workspaces`
-
-Creates a new collaboration workspace.
-
-**Request Body:**
-```json
-{
-  "name": "Project Workspace",
-  "description": "Shared workspace for collaboration",
-  "members": ["user1", "user2"]
-}
-```
-
-**Response:** `201 Created`
-
-#### Get Workspace
-`GET /api/v1/workspaces/{id}`
-
-Retrieves workspace details.
-
-**Response:** `200 OK`
-
-#### Update Workspace
-`PUT /api/v1/workspaces/{id}`
-
-Updates workspace configuration.
-
-**Response:** `200 OK`
-
-#### Delete Workspace
-`DELETE /api/v1/workspaces/{id}`
-
-Deletes a workspace.
-
-**Response:** `204 No Content`
-
-#### List Workspaces
-`GET /api/v1/workspaces`
-
-Lists all workspaces.
-
-**Response:** `200 OK`
-
-### Async Tasks
-
-#### List Async Tasks
-`GET /api/v1/async-tasks`
-
-Lists asynchronous tasks.
-
-**Response:** `200 OK`
-
-#### Get Async Task
-`GET /api/v1/async-tasks/{id}`
-
-Retrieves async task details.
-
-**Response:** `200 OK`
-
-#### Create Async Task
-`POST /api/v1/async-tasks`
-
-Creates a new async task.
-
-**Response:** `201 Created`
-
-### Alert Preferences
-
-#### Get Alert Preferences
-`GET /api/v1/alert-preferences`
-
-Retrieves alert preferences.
-
-**Response:** `200 OK`
-
-#### Update Alert Preferences
-`PUT /api/v1/alert-preferences`
-
-Updates alert preferences.
-
-**Response:** `200 OK`
-
 ### Batch Operations
 
 #### Batch Create Agents
-`POST /api/v1/agents/batch`
+`POST /api/v1/batch/agents`
 
 Creates multiple agents in a single request.
 
 **Response:** `201 Created`
 
 #### Batch Delete Agents
-`POST /api/v1/agents/batch/delete`
+`POST /api/v1/batch/agents/delete`
 
 Deletes multiple agents.
 
 **Response:** `200 OK`
 
 #### Batch Delete Messages
-`POST /api/v1/messages/batch/delete`
+`POST /api/v1/batch/messages/delete`
 
 Deletes multiple messages.
 
 **Response:** `200 OK`
 
 #### Batch Delete Tools
-`POST /api/v1/tools/batch/delete`
+`POST /api/v1/batch/tools/delete`
 
 Deletes multiple tools.
 

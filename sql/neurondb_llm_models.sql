@@ -2,7 +2,7 @@
 -- NeuronDB LLM Model Storage and Management Schema (3.1.0)
 -- Standard LLM model registry, providers, prompts, conversations,
 -- guardrails, training tracking, evaluation, and cost management.
--- Requires: CREATE EXTENSION plpython3u for PL/Python functions.
+-- Optional PL/Python helpers: install sql/neurondb_llm_functions.sql after CREATE EXTENSION plpython3u.
 -- -------------------------------------------------------------------------
 
 -- =========================================================================

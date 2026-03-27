@@ -82,7 +82,7 @@ This documentation is organized to support different reading modes:
 <details>
 <summary><strong>📋 What's available on the official site</strong></summary>
 
-- ✅ Complete API references (all 665+ SQL functions)
+- ✅ Complete API references (all ~650+ SQL functions)
 - ✅ Detailed tutorials and step-by-step guides
 - ✅ Best practices and production guides
 - ✅ Performance optimization strategies
@@ -145,7 +145,7 @@ graph TB
 
 | Component | Quick Links | Description |
 |-----------|-------------|-------------|
-| **NeuronDB** | [README](NeuronDB/README.md) · [INSTALL](NeuronDB/INSTALL.md) · [Docs](NeuronDB/docs/) | PostgreSQL extension with vector search, 52+ ML algorithms, GPU acceleration |
+| **NeuronDB** | [README](NeuronDB/README.md) · [INSTALL](NeuronDB/INSTALL.md) · [Docs](NeuronDB/docs/) | PostgreSQL extension with vector search, 25+ ML algorithm families, GPU acceleration |
 | **NeuronAgent** | [neuron-agent repo](https://github.com/neurondb/neuron-agent) README · API · Architecture | REST/WebSocket agent runtime (multi-agent, workflow, HITL, 18+ tools, memory, evaluation) |
 | **NeuronMCP** | [neuron-mcp repo](https://github.com/neurondb/neuron-mcp) README · Tools · Setup | MCP protocol server with 600+ tools, middleware, enterprise features |
 | **NeuronDesktop** | [neuron-desktop repo](https://github.com/neurondb/neuron-desktop) README · API · Deployment | Unified web interface dashboard |
@@ -291,7 +291,7 @@ graph TB
 
 | Document | Description |
 |----------|-------------|
-| [SQL API Reference](NeuronDB/docs/sql-api.md) | Complete SQL function reference (665+ functions) |
+| [SQL API Reference](NeuronDB/docs/sql-api.md) | Complete SQL function reference (~650+ functions) |
 | [Function Stability](NeuronDB/docs/function-stability.md) | API stability classifications |
 | [Deprecation Policy](NeuronDB/docs/deprecation-policy.md) | Deprecation and removal process |
 | [API Snapshots](NeuronDB/docs/api-snapshots/README.md) | Versioned API references |
@@ -492,8 +492,8 @@ graph TB
 
 | Category | Count | Details |
 |----------|-------|---------|
-| **SQL Functions** | 665+ | NeuronDB extension functions |
-| **ML Algorithms** | 52+ | Classification, regression, clustering, etc. |
+| **SQL Functions** | ~650+ | NeuronDB extension functions |
+| **ML Algorithm families** | 25+ | Classification, regression, clustering, etc. |
 | **MCP Tools** | 600+ | Model Context Protocol tools |
 | **Components** | 4 | NeuronDB, NeuronAgent, NeuronMCP, NeuronDesktop |
 | **PostgreSQL Versions** | 3 | 16, 17, 18 |

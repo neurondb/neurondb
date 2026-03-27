@@ -16,5 +16,7 @@
 **/*.pyc
 .cursor
 *.md
+# Extension Makefile.core installs README.md into PG doc dir; must be in build context.
+!README.md
 !NeuronDB/**/*.md
 !docker/**/*.md

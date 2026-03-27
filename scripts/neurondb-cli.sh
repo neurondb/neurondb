@@ -365,7 +365,7 @@ model_list() {
 
 # Quickstart command
 quickstart() {
-    local quickstart_script="${PROJECT_ROOT}/examples/quickstart/load_quickstart.sh"
+    local quickstart_script="${PROJECT_ROOT}/src/examples/quickstart/load_quickstart.sh"
     
     if [[ ! -f "$quickstart_script" ]]; then
         log_error "Quickstart script not found: $quickstart_script"

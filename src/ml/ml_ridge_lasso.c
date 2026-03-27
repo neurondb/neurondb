@@ -5863,10 +5863,61 @@ predict_elastic_net(PG_FUNCTION_ARGS)
 {
 	int32		model_id = PG_GETARG_INT32(0);
 	ArrayType  *features_array = PG_GETARG_ARRAYTYPE_P(1);
+	RidgeModel *model = NULL;
+	double		prediction;
+	float8	   *featptr;
+	int			n_feat;
+	int			i;
 
-	return DirectFunctionCall2(predict_ridge_regression_model_id,
-							   Int32GetDatum(model_id),
-							   PointerGetDatum(features_array));
+	if (PG_ARGISNULL(0) || PG_ARGISNULL(1))
+		ereport(ERROR,
+				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
+				 errmsg("elastic_net: model_id and features array are required")));
+
+	if (ARR_NDIM(features_array) != 1)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("elastic_net: features array must be 1-D")));
+
+	if (ARR_HASNULL(features_array))
+		ereport(ERROR,
+				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
+				 errmsg("elastic_net: features array must not contain NULLs")));
+
+	n_feat = ARR_DIMS(features_array)[0];
+	featptr = (float8 *) ARR_DATA_PTR(features_array);
+
+	/*
+	 * Elastic net models are stored with the same coefficient layout as ridge
+	 * in the catalog; do not route through predict_ridge_regression_model_id
+	 * (expects vector, not float8[]).
+	 */
+	if (!ridge_load_model_from_catalog(model_id, &model))
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("elastic_net: model %d not found or incompatible payload", model_id)));
+
+	if (model->n_features > 0 && n_feat != model->n_features)
+	{
+		if (model->coefficients != NULL)
+			nfree(model->coefficients);
+		nfree(model);
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("elastic_net: feature dimension mismatch (expected %d, got %d)",
+						model->n_features,
+						n_feat)));
+	}
+
+	prediction = model->intercept;
+	for (i = 0; i < model->n_features && i < n_feat; i++)
+		prediction += model->coefficients[i] * featptr[i];
+
+	if (model->coefficients != NULL)
+		nfree(model->coefficients);
+	nfree(model);
+
+	PG_RETURN_FLOAT8(prediction);
 }
 
 /*

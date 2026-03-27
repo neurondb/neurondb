@@ -293,7 +293,7 @@ Or adapt the recipe to use your own table.
 - **[Quickstart Data Pack](../../../examples/quickstart/)** - Sample data for trying recipes
 - **[Quickstart Guide](../quickstart.md)** - Complete quickstart guide
 - **[CLI Helpers](../../../scripts/neurondb-cli.sh)** - Command-line tools for common tasks
-- **[NeuronDB Documentation](../../../NeuronDB/docs/)** - Comprehensive documentation
+- **[Documentation](../../readme.md)** - Documentation map and quick links
 
 ## Contributing
 

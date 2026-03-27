@@ -27,7 +27,7 @@ set -euo pipefail
 # Script configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-QUICKSTART_DIR="${PROJECT_ROOT}/examples/quickstart-data"
+QUICKSTART_DIR="${PROJECT_ROOT}/src/examples/quickstart-data"
 DATA_FILE="${QUICKSTART_DIR}/sample_data/sample_data.sql"
 
 # Colors for output

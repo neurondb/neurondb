@@ -24,7 +24,9 @@ NeuronDB multi-repo layout:
   neuron-deploy   - Unified deploy (Docker, K8s, Terraform)
 
 To install the extension only (this repo):
-  cd $PROJECT_ROOT/NeuronDB && make install
+  cd $PROJECT_ROOT && ./build.sh
+  # Or: PG_CONFIG=/path/to/pg_config make && sudo make install
+  # See INSTALL.md for full steps.
 
 To run full stack via Docker, use neuron-deploy:
   cd /path/to/neuron-deploy && docker compose -f local/docker-compose.yml up -d

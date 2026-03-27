@@ -7,8 +7,8 @@ This document defines the invariants, contracts, and behavioral guarantees for a
 
 ### 1. Dense Vector (`Vector`)
 - **Type**: `vector` (PostgreSQL type)
-- **Header**: `[NeuronDB/include/neurondb.h](/home/pge/pge/neurondb/NeuronDB/include/neurondb.h)`
-- **Implementation**: `[NeuronDB/src/core/neurondb.c](/home/pge/pge/neurondb/NeuronDB/src/core/neurondb.c)`
+- **Header**: `src/include/neurondb.h`
+- **Implementation**: `src/core/neurondb.c`
 - **Structure**:
   ```c
   typedef struct Vector {
@@ -25,15 +25,15 @@ This document defines the invariants, contracts, and behavioral guarantees for a
 
 ### 2. Packed Vector (`VectorPacked`)
 - **Type**: `vectorp` (PostgreSQL type)
-- **Header**: `[NeuronDB/include/neurondb_types.h](/home/pge/pge/neurondb/NeuronDB/include/neurondb_types.h)`
-- **Implementation**: `[NeuronDB/src/vector/vector_types.c](/home/pge/pge/neurondb/NeuronDB/src/vector/vector_types.c)`
+- **Header**: `src/include/neurondb_types.h`
+- **Implementation**: `src/vector/vector_types.c`
 - **Features**: CRC32 fingerprint, version tag, endianness guard
 - **Max Dimensions**: Same as `Vector` (16000)
 
 ### 3. Sparse Vector (`VectorMap` / `sparsevec`)
 - **Type**: `sparse_vector` (PostgreSQL type)
-- **Header**: `[NeuronDB/include/neurondb_types.h](/home/pge/pge/neurondb/NeuronDB/include/neurondb_types.h)`
-- **Implementation**: `[NeuronDB/src/vector/vector_types.c](/home/pge/pge/neurondb/NeuronDB/src/vector/vector_types.c)`
+- **Header**: `src/include/neurondb_types.h`
+- **Implementation**: `src/vector/vector_types.c`
 - **Structure**: Stores only non-zero values with indices
 - **Max Dimensions**: 1,000,000 (sparsevec), 1000 non-zero entries
 - **Index Format**: 1-based in SQL I/O, 0-based internally

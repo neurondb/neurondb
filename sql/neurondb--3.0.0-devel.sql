@@ -11,7 +11,7 @@
 -- - OS Support: macOS, Rocky Linux, Ubuntu (all versions)
 -- ============================================================================
 
-\echo Use "CREATE EXTENSION neurondb" to load this extension. \quit
+-- Load with: CREATE EXTENSION neurondb;
 
 -- ============================================================================
 
@@ -7709,21 +7709,18 @@ BEGIN
 		WHEN 'kmeans' THEN
 			k := COALESCE((params->>'k')::integer, (params->>'num_clusters')::integer, 3);
 			max_iters := COALESCE((params->>'max_iters')::integer, 100);
-			RETURN cluster_kmeans(table_name, feature_col, k, max_iters);
+			RETURN train_kmeans_model_id(table_name, feature_col, k, max_iters);
+		WHEN 'dbscan' THEN
+			RETURN neurondb.train('default', 'dbscan', table_name, label_col, ARRAY[feature_col], params);
 		WHEN 'gmm' THEN
 			-- Delegate to C function with default project
 			RETURN neurondb.train('default', 'gmm', table_name, label_col, ARRAY[feature_col], params);
 		WHEN 'minibatch_kmeans' THEN
-			k := COALESCE((params->>'k')::integer, 3);
-			max_iters := COALESCE((params->>'max_iters')::integer, 100);
-			RETURN cluster_minibatch_kmeans(
-				table_name, feature_col, k,
-				COALESCE((params->>'batch_size')::integer, 100),
-				max_iters
-			);
+			RAISE EXCEPTION 'neurondb.train: minibatch_kmeans does not return a catalog model id (cluster_minibatch_kmeans returns integer[] assignments)'
+				USING HINT = 'Use: SELECT cluster_minibatch_kmeans(table_name, feature_col, k, batch_size, max_iters);';
 		WHEN 'hierarchical' THEN
-			k := COALESCE((params->>'k')::integer, 3);
-			RETURN cluster_hierarchical(table_name, feature_col, k, COALESCE(params->>'linkage', 'average'));
+			RAISE EXCEPTION 'neurondb.train: hierarchical does not return a catalog model id (cluster_hierarchical returns integer[] assignments)'
+				USING HINT = 'Use: SELECT cluster_hierarchical(table_name, feature_col, k, linkage);';
 		WHEN 'naive_bayes' THEN
 			-- Delegate to C function with default project
 			RETURN neurondb.train('default', 'naive_bayes', table_name, label_col, ARRAY[feature_col], params);
@@ -8821,6 +8818,49 @@ BEGIN
 END;
 $$;
 COMMENT ON FUNCTION neurondb.similarity IS 'Unified similarity function: similarity(vec1, vec2, metric) - higher values = more similar';
+
+CREATE OR REPLACE FUNCTION neurondb.distance(
+	vec1 sparsevec,
+	vec2 sparsevec,
+	metric text DEFAULT 'l2',
+	p_value float8 DEFAULT 3.0
+) RETURNS float8
+LANGUAGE plpgsql IMMUTABLE STRICT AS $$
+BEGIN
+	CASE lower(metric)
+		WHEN 'l2', 'euclidean' THEN
+			RETURN sparsevec_l2_distance(vec1, vec2)::float8;
+		WHEN 'cosine' THEN
+			RETURN sparsevec_cosine_distance(vec1, vec2)::float8;
+		WHEN 'inner_product', 'dot' THEN
+			RETURN sparsevec_inner_product(vec1, vec2)::float8;
+		ELSE
+			RAISE EXCEPTION 'Unknown distance metric for sparsevec: %. Supported: l2, cosine, inner_product', metric;
+	END CASE;
+END;
+$$;
+COMMENT ON FUNCTION neurondb.distance(sparsevec, sparsevec, text, float8) IS 'Unified distance for sparsevec (l2, cosine, inner_product)';
+
+CREATE OR REPLACE FUNCTION neurondb.similarity(
+	vec1 sparsevec,
+	vec2 sparsevec,
+	metric text DEFAULT 'cosine'
+) RETURNS float8
+LANGUAGE plpgsql IMMUTABLE STRICT AS $$
+BEGIN
+	CASE lower(metric)
+		WHEN 'cosine' THEN
+			RETURN 1.0::float8 - sparsevec_cosine_distance(vec1, vec2)::float8;
+		WHEN 'inner_product', 'dot' THEN
+			RETURN -sparsevec_inner_product(vec1, vec2)::float8;
+		WHEN 'l2', 'euclidean' THEN
+			RETURN 1.0::float8 / (1.0::float8 + sparsevec_l2_distance(vec1, vec2)::float8);
+		ELSE
+			RAISE EXCEPTION 'Unknown similarity metric for sparsevec: %', metric;
+	END CASE;
+END;
+$$;
+COMMENT ON FUNCTION neurondb.similarity(sparsevec, sparsevec, text) IS 'Unified similarity for sparsevec';
 
 CREATE OR REPLACE FUNCTION neurondb.search(
 	table_name text,
@@ -11043,8 +11083,10 @@ GRANT EXECUTE ON FUNCTION neurondb.tokenize(text, text, integer) TO PUBLIC;
 GRANT EXECUTE ON FUNCTION neurondb.tokenize(text, integer) TO PUBLIC;
 GRANT EXECUTE ON FUNCTION neurondb.detokenize(text, integer[]) TO PUBLIC;
 GRANT EXECUTE ON FUNCTION neurondb.detokenize(integer[]) TO PUBLIC;
-GRANT EXECUTE ON FUNCTION neurondb.distance TO PUBLIC;
-GRANT EXECUTE ON FUNCTION neurondb.similarity TO PUBLIC;
+GRANT EXECUTE ON FUNCTION neurondb.distance(vector, vector, text, float8) TO PUBLIC;
+GRANT EXECUTE ON FUNCTION neurondb.distance(sparsevec, sparsevec, text, float8) TO PUBLIC;
+GRANT EXECUTE ON FUNCTION neurondb.similarity(vector, vector, text) TO PUBLIC;
+GRANT EXECUTE ON FUNCTION neurondb.similarity(sparsevec, sparsevec, text) TO PUBLIC;
 GRANT EXECUTE ON FUNCTION neurondb.search TO PUBLIC;
 GRANT EXECUTE ON FUNCTION neurondb.create_index TO PUBLIC;
 GRANT EXECUTE ON FUNCTION neurondb.chunk TO PUBLIC;
@@ -11581,8 +11623,7 @@ CREATE TABLE IF NOT EXISTS neurondb.rag_pipelines (
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
--- Migration: Add columns if they don't exist (safe for fresh install since CREATE TABLE above already has them)
--- NOTE: Replaced DO block that queried information_schema (causes catalog corruption during CREATE EXTENSION)
+-- Migration for pre-existing neurondb.rag_pipelines (idempotent; no information_schema during CREATE EXTENSION)
 ALTER TABLE neurondb.rag_pipelines ADD COLUMN IF NOT EXISTS rerank_enabled BOOLEAN DEFAULT false;
 ALTER TABLE neurondb.rag_pipelines ADD COLUMN IF NOT EXISTS rerank_top_k INTEGER DEFAULT 10;
 ALTER TABLE neurondb.rag_pipelines ADD COLUMN IF NOT EXISTS rerank_initial_k INTEGER DEFAULT 50;

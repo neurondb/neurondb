@@ -112,41 +112,22 @@ curl http://localhost:8080/health
 
 ### Step 3: Start NeuronMCP
 
-Navigate to **neuron-mcp** repo:
+The **neuron-mcp** repo does not include a `docker-compose.yml`. Build and run the image from the neuron-mcp repository root:
 
 ```bash
-cd "${NEURON_MCP_REPO:-../neuron-mcp}/docker"
-# or: cd /path/to/neuron-mcp/docker
+cd "${NEURON_MCP_REPO:-../neuron-mcp}"
+docker build -f docker/Dockerfile -t neurondb-mcp:latest .
+docker run -d --name neuronmcp \
+  --network neurondb-network \
+  -e NEURONDB_HOST=neurondb-cpu \
+  -e NEURONDB_PORT=5432 \
+  -e NEURONDB_DATABASE=neurondb \
+  -e NEURONDB_USER=neurondb \
+  -e NEURONDB_PASSWORD=neurondb \
+  neurondb-mcp:latest
 ```
 
-Copy environment file:
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env` file:
-
-```env
-NEURONDB_HOST=localhost
-NEURONDB_PORT=5433
-NEURONDB_DATABASE=neurondb
-NEURONDB_USER=neurondb
-NEURONDB_PASSWORD=neurondb
-```
-
-Build and start:
-
-```bash
-docker compose build
-docker compose up -d neurondb-mcp
-```
-
-Verify container:
-
-```bash
-docker compose ps neurondb-mcp
-```
+For stdio-based MCP clients (e.g. Claude Desktop), run the binary directly or use the image with `docker run -i --rm ...`. See the [neuron-mcp README](https://github.com/neurondb/neuron-mcp) for details.
 
 ## Network Configuration
 
@@ -354,21 +335,13 @@ docker network connect neurondb-network neuronagent
 ### Start NeuronMCP
 
 ```bash
-cd "${NEURON_MCP_REPO:-../neuron-mcp}/docker"
-
-cat > .env << EOF
-NEURONDB_HOST=neurondb-cpu
-NEURONDB_PORT=5432
-NEURONDB_DATABASE=neurondb
-NEURONDB_USER=neurondb
-NEURONDB_PASSWORD=neurondb
-NEURONDB_LOG_LEVEL=info
-NEURONDB_LOG_FORMAT=text
-EOF
-
-docker compose build
-docker compose up -d neurondb-mcp
-docker network connect neurondb-network neurondb-mcp
+cd "${NEURON_MCP_REPO:-../neuron-mcp}"
+docker build -f docker/Dockerfile -t neurondb-mcp:latest .
+docker run -d --name neuronmcp --network neurondb-network \
+  -e NEURONDB_HOST=neurondb-cpu -e NEURONDB_PORT=5432 \
+  -e NEURONDB_DATABASE=neurondb -e NEURONDB_USER=neurondb -e NEURONDB_PASSWORD=neurondb \
+  neurondb-mcp:latest
+# Or for stdio clients: run the binary from neuron-mcp repo; see neuron-mcp README.
 ```
 
 ### Verify All Services
@@ -392,8 +365,8 @@ curl -H "Authorization: Bearer <api-key>" \
 Check NeuronMCP:
 
 ```bash
-docker compose -f "${NEURON_MCP_REPO:-../neuron-mcp}/docker/docker-compose.yml" ps neurondb-mcp
-docker compose -f "${NEURON_MCP_REPO:-../neuron-mcp}/docker/docker-compose.yml" logs neurondb-mcp
+docker ps | grep neuronmcp
+# Or: docker logs neuronmcp
 ```
 
 ## Configuration Reference
@@ -453,8 +426,8 @@ cd NeuronDB/docker && docker compose up -d neurondb
 # Start NeuronAgent
 cd "${NEURON_AGENT_REPO:-../neuron-agent}/docker" && docker compose up -d agent-server
 
-# Start NeuronMCP
-cd "${NEURON_MCP_REPO:-../neuron-mcp}/docker" && docker compose up -d neurondb-mcp
+# Start NeuronMCP (no compose in repo: build image and run)
+cd "${NEURON_MCP_REPO:-../neuron-mcp}" && docker build -f docker/Dockerfile -t neurondb-mcp:latest . && docker run -d --name neuronmcp --network neurondb-network -e NEURONDB_HOST=neurondb-cpu -e NEURONDB_PORT=5432 -e NEURONDB_DATABASE=neurondb -e NEURONDB_USER=neurondb -e NEURONDB_PASSWORD=neurondb neurondb-mcp:latest
 ```
 
 ### Stop All Services
@@ -463,7 +436,7 @@ Stop services independently:
 
 ```bash
 # Stop NeuronMCP
-cd "${NEURON_MCP_REPO:-../neuron-mcp}/docker" && docker compose down
+docker stop neuronmcp
 
 # Stop NeuronAgent
 cd "${NEURON_AGENT_REPO:-../neuron-agent}/docker" && docker compose down
@@ -484,7 +457,7 @@ cd NeuronDB/docker && docker compose restart neurondb
 cd "${NEURON_AGENT_REPO:-../neuron-agent}/docker" && docker compose restart agent-server
 
 # Restart NeuronMCP
-cd "${NEURON_MCP_REPO:-../neuron-mcp}/docker" && docker compose restart neurondb-mcp
+docker restart neuronmcp
 ```
 
 ### View Logs
@@ -499,7 +472,7 @@ docker compose -f NeuronDB/docker/docker-compose.yml logs -f neurondb
 docker compose -f "${NEURON_AGENT_REPO:-../neuron-agent}/docker/docker-compose.yml" logs -f agent-server
 
 # NeuronMCP logs
-docker compose -f "${NEURON_MCP_REPO:-../neuron-mcp}/docker/docker-compose.yml" logs -f neurondb-mcp
+docker logs -f neuronmcp
 ```
 
 ### Check Health
@@ -514,7 +487,7 @@ docker inspect neurondb-cpu | jq '.[0].State.Health'
 curl http://localhost:8080/health
 
 # NeuronMCP status
-docker compose -f "${NEURON_MCP_REPO:-../neuron-mcp}/docker/docker-compose.yml" logs neurondb-mcp | tail -20
+docker logs neuronmcp | tail -20
 ```
 
 ## Troubleshooting
@@ -563,7 +536,8 @@ sudo ufw status
 docker compose -f "${NEURON_AGENT_REPO:-../neuron-agent}/docker/docker-compose.yml" config | grep DB_
 
 # NeuronMCP
-docker compose -f "${NEURON_MCP_REPO:-../neuron-mcp}/docker/docker-compose.yml" config | grep NEURONDB_
+# NeuronMCP: inspect env passed to container when you ran docker run
+docker inspect neuronmcp | grep -A 20 Env
 ```
 
 ### Port Already in Use

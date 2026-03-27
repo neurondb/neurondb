@@ -760,10 +760,10 @@ typedef struct {
 
 | Document | Description |
 |----------|-------------|
-| **[SQL API Reference](../../NeuronDB/docs/sql-api.md)** | Complete SQL API |
-| **[Configuration Reference](../../NeuronDB/docs/configuration.md)** | Configuration options |
+| **[SQL API Reference](../sql-api.md)** | Complete SQL API |
+| **[Configuration Reference](../configuration.md)** | Configuration options |
 | **[Index Methods](../internals/index-methods.md)** | Index implementation |
-| **[Vector Search Documentation](../../NeuronDB/docs/vector-search/)** | Vector search guide |
+| **[Vector Search Documentation](../vector-search/)** | Vector search guide |
 
 ---
 
@@ -772,7 +772,7 @@ typedef struct {
 **Last Updated:** 2025-01-01  
 **Documentation Version:** 1.0.0
 
-[⬆ Back to Top](#neurondb-data-types-complete-reference) · [📚 Reference Index](README.md) · [📚 Main Documentation](../../README.md)
+[Back to Top](#neurondb-data-types-complete-reference) · [Reference Index](README.md) · [Main Documentation](../../README.md)
 
 </div>
 

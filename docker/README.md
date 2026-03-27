@@ -6,25 +6,27 @@ This directory contains all Docker-related files for the NeuronDB ecosystem, org
 
 ```
 docker/
-├── docker.sh              # Main management script
-├── docker-compose.yml     # Unified compose file for all services
+├── docker.sh              # Management script (if present)
+├── docker-compose.yml     # NeuronDB extension services only (cpu + cuda/rocm/metal profiles)
 ├── .dockerignore          # Global docker ignore rules
-├── neurondb/             # NeuronDB database service files
-├── neuronagent/          # NeuronAgent service files
-├── neuronmcp/            # NeuronMCP service files
-└── neurondesktop/        # NeuronDesktop service files
-```
+├── neurondb/              # NeuronDB database service Dockerfiles and entrypoint
 
 ## Quick Start
 
-> **⚠️ Important:** The canonical `docker-compose.yml` file is at the repository root.
-> 
-> For new users, simply run from the repository root:
+> **Important:** The canonical compose file is **`docker/docker-compose.yml`** in this repository (there is no `docker-compose.yml` at the repository root).
+>
+> **From the repository root:**
 > ```bash
+> docker compose -f docker/docker-compose.yml up -d
+> ```
+>
+> **Or from this directory:**
+> ```bash
+> cd docker
 > docker compose up -d
 > ```
-> 
-> This `docker/` directory contains component-specific Docker files and the `docker.sh` management script.
+>
+> This `docker/` directory contains the compose file and the `docker.sh` management script.
 
 ### Using docker.sh (Recommended)
 
@@ -58,39 +60,39 @@ The `docker.sh` script provides a clean interface for managing all services:
 
 ### Direct Docker Compose (Advanced)
 
-**Recommended:** Use the root `docker-compose.yml` (canonical):
+**From repository root** (use the compose file in this directory):
 ```bash
-# From project root (recommended)
+docker compose -f docker/docker-compose.yml up -d
+```
+
+**If you're in `docker/`:**
+```bash
+cd docker
 docker compose up -d
 ```
 
-**If you're currently in `docker/`** and want to run the canonical compose without changing directories:
+**GPU profiles** (from repository root):
 ```bash
-# From docker/
-docker compose -f ../docker-compose.yml up -d
-```
-
-**Legacy/Reference:** `docker/docker-compose.yml` exists for historical reasons, but it may lag behind the canonical root file.
-Prefer the root compose above to avoid configuration drift.
-
 # CUDA GPU profile
-docker-compose -f docker/docker-compose.yml --profile cuda up -d
+docker compose -f docker/docker-compose.yml --profile cuda up -d
 
 # ROCm GPU profile
-docker-compose -f docker/docker-compose.yml --profile rocm up -d
+docker compose -f docker/docker-compose.yml --profile rocm up -d
 
 # Metal GPU profile (macOS)
-docker-compose -f docker/docker-compose.yml --profile metal up -d
+docker compose -f docker/docker-compose.yml --profile metal up -d
 ```
 
 ## Available Services
 
+The **docker-compose.yml** in this repository defines only the **NeuronDB** (PostgreSQL extension) service and its GPU variants (`neurondb`, `neurondb-cuda`, `neurondb-rocm`, `neurondb-metal`). For NeuronAgent, NeuronMCP, or NeuronDesktop, use the neuron-deploy repository or run each component from its own repository.
+
 | Service | Description | Ports |
 |---------|-------------|-------|
-| `neurondb` | PostgreSQL with NeuronDB extension | 5433 (cpu), 5434 (cuda), 5435 (rocm), 5436 (metal) |
-| `neuronagent` | AI agent service | 8080 |
-| `neuronmcp` | Model Context Protocol server | stdio |
-| `neurondesktop` | Web-based management UI | 3000 (frontend), 8081 (api) |
+| `neurondb` | PostgreSQL with NeuronDB extension (default/cpu profile) | 5433 |
+| `neurondb-cuda` | Same with CUDA GPU (profile: cuda) | 5434 |
+| `neurondb-rocm` | Same with ROCm GPU (profile: rocm) | 5435 |
+| `neurondb-metal` | Same with Metal GPU (profile: metal) | 5436 |
 
 ## Available Profiles
 
@@ -199,26 +201,19 @@ The script includes comprehensive validation:
 ### Stop Services
 
 ```bash
-# Stop individual service
-docker stop neurondb-cpu
-
-# Stop all services
-docker compose -f ../docker-compose.yml down
+# From repository root
+docker compose -f docker/docker-compose.yml down
 
 # Stop and remove volumes
-docker compose -f ../docker-compose.yml down -v
+docker compose -f docker/docker-compose.yml down -v
 ```
 
 ### View Logs
 
 ```bash
-# View logs for a service
-docker logs neurondb-cpu
-docker logs -f neuronagent  # Follow logs
-
-# View compose logs
-docker compose -f ../docker-compose.yml logs neurondb
-```
+# From repository root
+docker compose -f docker/docker-compose.yml logs neurondb
+docker compose -f docker/docker-compose.yml logs -f neurondb  # Follow
 
 ### Health Checks
 

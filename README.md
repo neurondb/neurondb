@@ -2,9 +2,8 @@
 
 <div align="center">
 
-**Vector search, machine learning, and hybrid search directly in PostgreSQL**
+**PostgreSQL extension for vector similarity search (HNSW, IVFFlat), kNN, embeddings, machine learning, and hybrid full-text + vector search in SQL**
 
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://github.com/neurondb/NeurondB)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16%2C17%2C18-blue.svg)](https://www.postgresql.org/)
 [![Version](https://img.shields.io/badge/version-3.0.0--devel-blue.svg)](https://github.com/neurondb/neurondb)
 [![License](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
@@ -14,7 +13,19 @@
 
 ---
 
-## 📑 Table of Contents
+## Run the system in 5 minutes
+
+From the repository root:
+
+```bash
+docker compose -f docker/docker-compose.yml up -d neurondb
+docker compose -f docker/docker-compose.yml ps   # wait until healthy
+docker compose -f docker/docker-compose.yml exec neurondb psql -U neurondb -d neurondb -c "CREATE EXTENSION IF NOT EXISTS neurondb; SELECT neurondb.version();"
+```
+
+Then run your first vector search: [Simple Start](docs/getting-started/simple-start.md) or [Quick Start](docs/getting-started/quickstart.md).
+
+## Table of Contents
 
 <details>
 <summary><strong>Expand full table of contents</strong></summary>
@@ -51,22 +62,26 @@
 
 ## Overview
 
-NeuronDB extends PostgreSQL with vector search, ML model inference, hybrid retrieval, and RAG pipeline support.
+**Vectors, embeddings, and ML—inside PostgreSQL.** NeuronDB keeps similarity search and models on **your live rows**, not in a separate database you have to sync and babysit.
+
+**HNSW · IVFFlat · kNN · hybrid full-text + vector · RAG pieces · train & predict in SQL**—all first-class in the engine.
+
+**One extension:** same Postgres **backups, HA, and security**. Start with **`CREATE EXTENSION neurondb;`**, then index and query from SQL.
 
 ### Key Capabilities
 
 <details>
-<summary><strong>📊 Feature Summary</strong></summary>
+<summary><strong>Feature summary</strong></summary>
 
-| Category | Features | Count |
-|:---------|:---------|:-----|
-| **Vector Types** | `vector`, `vectorp`, `vecmap`, `vgraph`, `rtext`, `sparse_vector` | 6 types |
-| **Index Types** | HNSW, IVF, PQ, OPQ, hybrid, multi-vector | 6+ types |
-| **Distance Metrics** | L2, Cosine, Inner Product, Hamming, Jaccard, etc. | 7+ metrics |
-| **ML Algorithms** | Random Forest, XGBoost, LightGBM, K-Means, PCA, etc. | 52+ algorithms |
-| **SQL Functions** | Vector ops, ML inference, embeddings, RAG, etc. | 665+ functions |
-| **GPU Backends** | CUDA, ROCm, Metal | 3 backends |
-| **Background Workers** | neuranq, neuranmon, neurandefrag, neuranllm | 4 workers |
+| Category | Details |
+|:---------|:--------|
+| **Vector types** | `vector`, `vectorp`, `vecmap`, `vgraph`, `rtext`, `halfvec`, `binaryvec`, `sparsevec` (8 types) |
+| **Index access methods** | HNSW and IVF only. PQ and OPQ are quantization (codebook training), not separate index types. Hybrid and multi-vector search are query-level functions. |
+| **Distance metrics** | L2, cosine, inner product, L1, Hamming, Jaccard, and others |
+| **ML** | 25+ algorithm families (train/predict/evaluate): linear regression, XGBoost, LightGBM, CatBoost, K-Means, etc. |
+| **SQL** | ~650+ functions and operators (vector, ML, embeddings, RAG, indexing). See [FEATURES.md](FEATURES.md) and [SQL API](docs/sql-api.md). |
+| **GPU** | CUDA, ROCm, Metal (distance and search; index build is CPU only). See [GPU feature matrix](docs/gpu/gpu-feature-matrix.md). |
+| **Background workers** | neuranq, neuranmon, neurandefrag, neuranllm |
 
 </details>
 
@@ -110,10 +125,10 @@ $$QPS = \frac{1}{T_{query}} = \frac{1}{O(\log N + ef_{search} \cdot k)}$$
 - **[Quick Start](docs/getting-started/quickstart.md)** - Get up and running quickly
 
 ### Vector Search & Indexing
-- **[Vector Types](docs/vector-search/vector-types.md)** - `vector`, `vectorp`, `vecmap`, `vgraph`, `rtext`, `sparse_vector` types
-- **[Indexing](docs/vector-search/indexing.md)** - HNSW and IVF indexing
-- **[Distance Metrics](docs/vector-search/distance-metrics.md)** - L2, Cosine, Inner Product, and more
-- **[Quantization](docs/vector-search/quantization.md)** - PQ and OPQ compression
+- **[Vector Types](docs/vector-search/vector-types.md)** — `vector`, `vectorp`, `vecmap`, `vgraph`, `rtext`, `halfvec`, `binaryvec`, `sparsevec`
+- **[Indexing](docs/vector-search/indexing.md)** — HNSW and IVF indexing
+- **[Distance Metrics](docs/vector-search/distance-metrics.md)** — L2, cosine, inner product, and more
+- **[Quantization](docs/vector-search/quantization.md)** — PQ and OPQ compression
 
 ### ML Algorithms & Analytics
 - **[Random Forest](docs/ml-algorithms/random-forest.md)** - Classification and regression
@@ -172,35 +187,11 @@ $$QPS = \frac{1}{T_{query}} = \frac{1}{O(\log N + ef_{search} \cdot k)}$$
 
 ### Configuration & Operations
 - **[Configuration](docs/configuration.md)** - Essential configuration options
-- **[Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions
+- **[Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions (getting started and operations)
 
 ## Official Documentation
 
-**For comprehensive documentation, detailed tutorials, complete API references, best practices, and production guides, visit:**
-
-🌐 **[https://www.neurondb.ai/docs](https://www.neurondb.ai/docs)**
-
-The official documentation site provides:
-- **Complete API Reference**: All 665+ SQL functions with examples
-- **Detailed Tutorials**: Step-by-step guides for all features
-- **Performance Guides**: Optimization strategies and benchmarks
-- **Production Best Practices**: Deployment, scaling, and monitoring
-- **Troubleshooting**: Common issues and solutions
-- **Latest Updates**: Release notes and what's new
-
-### Quick Links to Official Documentation
-
-| Topic | Link |
-|-------|------|
-| Getting Started | [Quick Start Guide](https://www.neurondb.ai/docs/getting-started) |
-| Vector Search | [Vector Search Documentation](https://www.neurondb.ai/docs/vector-search) |
-| ML Algorithms | [ML Algorithms Guide](https://www.neurondb.ai/docs/ml-algorithms) |
-| RAG Pipeline | [RAG Documentation](https://www.neurondb.ai/docs/rag) |
-| GPU Acceleration | [GPU Support Guide](https://www.neurondb.ai/docs/gpu) |
-| Hybrid Search | [Hybrid Search Guide](https://www.neurondb.ai/docs/hybrid-search) |
-| Performance | [Performance Optimization](https://www.neurondb.ai/docs/performance) |
-| Security | [Security Features](https://www.neurondb.ai/docs/security) |
-| API Reference | [Complete API Reference](https://www.neurondb.ai/docs/api) |
+**[https://www.neurondb.ai/docs](https://www.neurondb.ai/docs)** — API reference (~650+ SQL functions), tutorials, deployment, and troubleshooting.
 
 ## Architecture
 
@@ -211,21 +202,21 @@ NeuronDB follows PostgreSQL's architectural patterns and extends the database wi
 ```mermaid
 graph TB
     subgraph SQL["SQL Interface Layer"]
-        FUNC[665+ SQL Functions]
-        TYPES[Vector Types<br/>vector, vectorp, vecmap, vgraph, rtext, sparse_vector]
-        OPS[Distance Operators<br/><=>, <->, <#>]
+        FUNC["~650+ SQL Functions"]
+        TYPES["Vector Types: vector, vectorp, vecmap, vgraph, rtext, halfvec, binaryvec, sparsevec"]
+        OPS["Distance Operators: <->, <=>, <#>"]
     end
     
     subgraph VECTOR["Vector Operations"]
-        INDEX[HNSW/IVF Indexes]
-        DIST[Distance Metrics<br/>L2, Cosine, Inner Product]
-        QUANT[Quantization<br/>PQ, OPQ, int8, fp16]
+        INDEX["HNSW/IVF Indexes"]
+        DIST["Distance Metrics: L2, Cosine, Inner Product"]
+        QUANT["Quantization: PQ, OPQ, int8, fp16"]
     end
     
     subgraph ML["Machine Learning"]
-        ALGO[52+ ML Algorithms<br/>RF, XGBoost, LightGBM, etc.]
-        INFER[Model Inference<br/>ONNX Runtime]
-        EMBED[Embedding Generation<br/>Text, Image, Multimodal]
+        ALGO["25+ ML algorithm families: RF, XGBoost, LightGBM, etc."]
+        INFER["Model Inference: ONNX Runtime"]
+        EMBED["Embedding Generation: Text, Image, Multimodal"]
     end
     
     subgraph SEARCH["Search & Retrieval"]
@@ -266,14 +257,6 @@ graph TB
     VECTOR --> PG
     ML --> PG
     SEARCH --> PG
-    
-    style SQL fill:#e3f2fd
-    style VECTOR fill:#fff3e0
-    style ML fill:#f3e5f5
-    style SEARCH fill:#e8f5e9
-    style WORKERS fill:#fce4ec
-    style GPU fill:#fff9c4
-    style PG fill:#e0f2f1
 ```
 
 ### Vector Query Flow
@@ -319,10 +302,6 @@ graph TD
     
     L2 -->|Entry Point| L1
     L1 -->|Entry Point| L0
-    
-    style L2 fill:#ffebee
-    style L1 fill:#fff3e0
-    style L0 fill:#e8f5e9
 ```
 
 > [!NOTE]
@@ -331,7 +310,7 @@ graph TD
 ## Compatibility
 
 <details>
-<summary><strong>📋 Compatibility Matrix</strong></summary>
+<summary><strong>Compatibility matrix</strong></summary>
 
 | PostgreSQL | Status | Platforms | Architectures |
 |:----------|:-------|:----------|:--------------|
@@ -347,7 +326,7 @@ graph TD
 ## Support & Community
 
 <details>
-<summary><strong>📞 Get Help</strong></summary>
+<summary><strong>Get help</strong></summary>
 
 | Resource | Link | Description |
 |:---------|:-----|:------------|
@@ -361,10 +340,10 @@ graph TD
 
 ## Contributing
 
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for:
+We welcome contributions. See [CONTRIBUTING.md](CONTRIBUTING.md) for:
 
 <details>
-<summary><strong>📝 Contribution Guidelines</strong></summary>
+<summary><strong>Contribution guidelines</strong></summary>
 
 - ✅ **Code style guidelines** - Follow PostgreSQL coding standards
 - ✅ **Development workflow** - Fork, branch, test, submit PR
@@ -379,7 +358,7 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for:
 NeuronDB is released under a proprietary license. See [LICENSE](LICENSE) for details.
 
 <details>
-<summary><strong>📄 License Summary</strong></summary>
+<summary><strong>License summary</strong></summary>
 
 | Usage Type | Permitted | Notes |
 |:-----------|:----------|:------|

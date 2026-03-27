@@ -187,9 +187,9 @@ kubectl get pvc -n neurondb
 ### Step 1: Stop Services
 
 ```bash
-# Scale down services to prevent writes
-kubectl scale deployment neurondb-neuronagent --replicas=0 -n neurondb
-kubectl scale deployment neurondb-neuronmcp --replicas=0 -n neurondb
+# Scale down any application deployments that write to the database
+# (e.g. application pods that use NeuronDB). Skip if only PostgreSQL/NeuronDB is deployed.
+kubectl scale deployment <your-app> --replicas=0 -n neurondb
 ```
 
 ### Step 2: Restore Database
@@ -220,18 +220,18 @@ kubectl logs -f job/neurondb-restore-<hash> -n neurondb
 # CNPG: use primary pod
 POD=$(kubectl get pod -n neurondb -l cnpg.io/instanceRole=primary -o jsonpath='{.items[0].metadata.name}')
 kubectl exec -n neurondb "$POD" -c postgres -- \
-  psql -U neurondb -d neurondb -c "SELECT COUNT(*) FROM neurondb_agent.schema_migrations;"
+  psql -U neurondb -d neurondb -c "SELECT neurondb.version();"
 
 # Legacy StatefulSet:
 # kubectl exec -it statefulset/neurondb-neurondb -n neurondb -- \
-#   psql -U neurondb -d neurondb -c "SELECT COUNT(*) FROM neurondb_agent.schema_migrations;"
+#   psql -U neurondb -d neurondb -c "SELECT neurondb.version();"
 ```
 
 ### Step 5: Restart Services
 
 ```bash
-kubectl scale deployment neurondb-neuronagent --replicas=2 -n neurondb
-kubectl scale deployment neurondb-neuronmcp --replicas=1 -n neurondb
+# Scale back up any application deployments that were scaled down in Step 1
+kubectl scale deployment <your-app> --replicas=2 -n neurondb
 ```
 
 ## Point-in-Time Recovery

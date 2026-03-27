@@ -13,8 +13,8 @@ services:
   # CPU variant (default, no profile needed)
   neurondb:
     build:
-      context: ..
-      dockerfile: docker/Dockerfile
+      context: ../..
+      dockerfile: docker/neurondb/Dockerfile
       args:
         PG_MAJOR: ${PG_MAJOR:-17}
         ONNX_VERSION: ${ONNX_VERSION:-1.17.0}
@@ -58,8 +58,8 @@ services:
   neurondb-cuda:
     profiles: ["cuda", "gpu"]
     build:
-      context: ..
-      dockerfile: docker/Dockerfile.gpu.cuda
+      context: ../..
+      dockerfile: docker/neurondb/Dockerfile.gpu.cuda
       args:
         PG_MAJOR: ${PG_MAJOR:-17}
         CUDA_VERSION: ${CUDA_VERSION:-12.4.1}
@@ -112,8 +112,8 @@ services:
   neurondb-rocm:
     profiles: ["rocm", "gpu"]
     build:
-      context: ..
-      dockerfile: docker/Dockerfile.gpu.rocm
+      context: ../..
+      dockerfile: docker/neurondb/Dockerfile.gpu.rocm
       args:
         PG_MAJOR: ${PG_MAJOR:-17}
         ROCM_VERSION: ${ROCM_VERSION:-5.7}
@@ -162,8 +162,8 @@ services:
   neurondb-metal:
     profiles: ["metal", "gpu"]
     build:
-      context: ..
-      dockerfile: docker/Dockerfile.gpu.metal
+      context: ../..
+      dockerfile: docker/neurondb/Dockerfile.gpu.metal
       args:
         PG_MAJOR: ${PG_MAJOR:-17}
         ONNX_VERSION: ${ONNX_VERSION:-1.17.0}

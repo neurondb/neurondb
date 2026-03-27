@@ -147,6 +147,8 @@ NeuronAgent/cli/neuronagent-cli
 
 # Go coverage files
 *.out
+# PgXS regression expected output (pg_regress uses .out)
+!expected/*.out
 coverage.txt
 coverage.html
 coverage.xml

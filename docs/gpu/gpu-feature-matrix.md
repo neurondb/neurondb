@@ -290,5 +290,5 @@ SET neurondb.compute_mode = false;  -- Fallback to CPU
 - [ROCm Support](rocm-support.md) - ROCm setup and configuration
 - [Metal Support](metal-support.md) - Metal setup and configuration
 - [Benchmark Results](../benchmarks/benchmark_results.md) - Performance numbers
-- [Configuration Guide](../NeuronDB/docs/configuration.md) - All GPU settings
+- [Configuration Guide](../configuration.md) - All GPU settings
 

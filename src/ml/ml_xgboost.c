@@ -25,6 +25,7 @@
 #include "utils/memutils.h"
 #include "lib/stringinfo.h"
 
+#include "neurondb.h"
 #include "neurondb_spi.h"
 #include "neurondb_safe_memory.h"
 #include "neurondb_macros.h"
@@ -64,6 +65,8 @@ load_training_data(const char *table,
 	int *out_ncols)
 {
 	ArrayType  *feat_arr = NULL;
+	bool		feat_is_array = false;
+	bool		feat_is_vector = false;
 	bool		isnull;
 	Datum		feat_datum;
 	float	   *features = NULL;
@@ -79,18 +82,18 @@ load_training_data(const char *table,
 	StringInfoData query;
 	TupleDesc	tupdesc;
 
-	initStringInfo(&query);
-
-	/* Construct query to select feature and label columns */
-	appendStringInfo(
-		&query, "SELECT %s, %s FROM %s", feature_col, label_col, table);
 	oldcontext = CurrentMemoryContext;
 
 	NDB_SPI_SESSION_BEGIN(spi_session, oldcontext);
 
 	ndb_spi_stringinfo_init(spi_session, &query);
-	appendStringInfo(
-		&query, "SELECT %s, %s FROM %s", feature_col, label_col, table);
+	appendStringInfo(&query,
+					 "SELECT %s, %s FROM %s WHERE %s IS NOT NULL AND %s IS NOT NULL",
+					 quote_identifier(feature_col),
+					 quote_identifier(label_col),
+					 quote_identifier(table),
+					 quote_identifier(feature_col),
+					 quote_identifier(label_col));
 
 	ret = ndb_spi_execute(spi_session, query.data, true, 0);
 
@@ -132,9 +135,23 @@ load_training_data(const char *table,
 	{
 		feat_arr = DatumGetArrayTypeP(feat_datum);
 		ncols = ArrayGetNItems(ARR_NDIM(feat_arr), ARR_DIMS(feat_arr));
-	} else
+		feat_is_array = true;
+	}
+	else if (TupleDescAttr(tupdesc, 0)->atttypid == FLOAT8OID
+			 || TupleDescAttr(tupdesc, 0)->atttypid == FLOAT4OID)
 	{
 		ncols = 1;
+	}
+	else
+	{
+		Vector	   *v = DatumGetVector(feat_datum);
+
+		if (v == NULL || v->dim <= 0)
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					 errmsg("neurondb: xgboost training requires float arrays, float scalars, or neurondb vector column")));
+		ncols = v->dim;
+		feat_is_vector = true;
 	}
 
 	nalloc(features, float, nrows * ncols);
@@ -168,7 +185,7 @@ load_training_data(const char *table,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 					errmsg("neurondb: null feature vector in row %d", i)));
 
-		if (feat_arr)
+		if (feat_is_array)
 		{
 			curr_arr = DatumGetArrayTypeP(featval);
 
@@ -180,17 +197,38 @@ load_training_data(const char *table,
 					ereport(ERROR,
 						(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 							errmsg("neurondb: unexpected dimension of feature array")));
-				fdat = (float8 *)ARR_DATA_PTR(curr_arr);
-				for (j = 0; j < ncols; j++)
-					features[i * ncols + j] =
-						(float)fdat[j];
+				if (TupleDescAttr(tupdesc, 0)->atttypid == FLOAT4ARRAYOID)
+				{
+					float4	   *f4 = (float4 *) ARR_DATA_PTR(curr_arr);
+
+					for (j = 0; j < ncols; j++)
+						features[i * ncols + j] = (float) f4[j];
+				}
+				else
+				{
+					fdat = (float8 *) ARR_DATA_PTR(curr_arr);
+					for (j = 0; j < ncols; j++)
+						features[i * ncols + j] = (float) fdat[j];
+				}
 			} else
 			{
 				ereport(ERROR,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 						errmsg("neurondb: feature arrays must be 1D")));
 			}
-		} else
+		}
+		else if (feat_is_vector)
+		{
+			Vector	   *vec = DatumGetVector(featval);
+
+			if (vec == NULL || vec->dim != ncols)
+				ereport(ERROR,
+						(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+						 errmsg("neurondb: inconsistent vector dimension in row %d", i)));
+			for (j = 0; j < ncols; j++)
+				features[i * ncols + j] = vec->data[j];
+		}
+		else
 		{
 			if (TupleDescAttr(tupdesc, 0)->atttypid == FLOAT8OID)
 				features[i * ncols] =
@@ -217,6 +255,10 @@ load_training_data(const char *table,
 
 		if (TupleDescAttr(tupdesc, 1)->atttypid == INT4OID)
 			labels[i] = (float)DatumGetInt32(labelval);
+		else if (TupleDescAttr(tupdesc, 1)->atttypid == INT2OID)
+			labels[i] = (float)DatumGetInt16(labelval);
+		else if (TupleDescAttr(tupdesc, 1)->atttypid == INT8OID)
+			labels[i] = (float)DatumGetInt64(labelval);
 		else if (TupleDescAttr(tupdesc, 1)->atttypid == FLOAT4OID)
 			labels[i] = (float)DatumGetFloat4(labelval);
 		else if (TupleDescAttr(tupdesc, 1)->atttypid == FLOAT8OID)
@@ -429,6 +471,12 @@ train_xgboost_classifier(PG_FUNCTION_ARGS)
 			max_label = labels[i];
 	}
 	num_class = (int)max_label + 1;
+
+	if (num_class < 2)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("neurondb: XGBoost classifier needs at least two distinct class labels (e.g. 0 and 1)"),
+				 errdetail("Inferred num_class is %d from training labels", num_class)));
 
 	snprintf(num_class_str, sizeof(num_class_str), "%d", num_class);
 	snprintf(eta_str, sizeof(eta_str), "%f", learning_rate);
