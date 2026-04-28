@@ -46,7 +46,7 @@ BEGIN
     v_pg_major := v_pg_version_num / 10000;
     
     -- Log version info
-    RAISE NOTICE 'NeurondB v3.0.0-devel: Supports PostgreSQL 16-18';
+    RAISE NOTICE 'NeurondB v3.1.0: Supports PostgreSQL 16-18';
     RAISE NOTICE 'NeurondB: Current PostgreSQL version: %.%', 
                  v_pg_major, (v_pg_version_num - v_pg_major * 10000) / 100;
     

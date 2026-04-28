@@ -1,6 +1,8 @@
 name: NeuronDB - Packages
 
 on:
+  push:
+    tags: ['v*']
   workflow_dispatch:
     inputs:
       version:
@@ -46,12 +48,12 @@ jobs:
 
       - name: Build NeuronDB DEB
         run: |
-          cd packaging/deb/neurondb
+          cd src/packaging/deb/neurondb
           VERSION=${{ steps.version.outputs.version }} ./build.sh
 
       - name: Generate checksums
         run: |
-          cd packaging/deb
+          cd src/packaging/deb
           find . -name "*.deb" -exec sha256sum {} \; > SHA256SUMS
           cat SHA256SUMS
 
@@ -60,8 +62,8 @@ jobs:
         with:
           name: neurondb-deb-packages
           path: |
-            packaging/deb/*/*.deb
-            packaging/deb/SHA256SUMS
+            src/packaging/deb/*/*.deb
+            src/packaging/deb/SHA256SUMS
           retention-days: 30
 
       - name: Create GitHub Release
@@ -69,8 +71,8 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
-            packaging/deb/*/*.deb
-            packaging/deb/SHA256SUMS
+            src/packaging/deb/*/*.deb
+            src/packaging/deb/SHA256SUMS
           body: |
             NeuronDB Release ${{ steps.version.outputs.version }}
 
@@ -115,7 +117,7 @@ jobs:
       - name: Build RPM packages
         run: |
           echo "RPM build placeholder - implement when RPM spec files are complete"
-          # cd packaging/rpm/neurondb
+          # cd src/packaging/rpm/neurondb
           # VERSION=${{ steps.version.outputs.version }} ./build.sh
 
       - name: Update GitHub Release
@@ -123,7 +125,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
-            packaging/rpm/*/*.rpm
+            src/packaging/rpm/*/*.rpm
           draft: false
           prerelease: false
         env:

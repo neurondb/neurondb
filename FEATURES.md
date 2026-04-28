@@ -271,7 +271,7 @@ See [GPU feature matrix](docs/gpu/gpu-feature-matrix.md) for full detail.
 
 ## 15. Counts (reference)
 
-- **SQL objects:** The extension SQL defines on the order of **650+** functions and operators (exact number depends on the versioned SQL file, e.g. `neurondb--3.0.0-devel.sql` or `neurondb--2.1.0.sql`). See `docs/sql-api.md` and the SQL sources for the authoritative list.
+- **SQL objects:** The extension SQL defines on the order of **650+** functions and operators (exact number depends on the versioned SQL file, e.g. `neurondb--3.1.0.sql` or `neurondb--2.1.0.sql`). See `docs/sql-api.md` and the SQL sources for the authoritative list.
 - **Vector types:** 8 main types (`vector`, `vectorp`, `vecmap`, `vgraph`, `rtext`, `halfvec`, `binaryvec`, `sparsevec`).
 - **Index access methods:** 2 (HNSW, IVF).
 - **ML:** 25+ algorithm families with train/predict/evaluate (e.g. linear regression = one family; XGBoost classifier and regressor = two).

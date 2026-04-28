@@ -17,7 +17,8 @@ VERSION=${VERSION#v}
 ARCH=${ARCH:-amd64}
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+# src/packaging/deb/neurondb -> four levels up to repository root
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
 BUILD_DIR=$(mktemp -d)
 trap "rm -rf $BUILD_DIR" EXIT
 
@@ -34,8 +35,8 @@ mkdir -p "$PKG_DIR/usr/lib/postgresql"
 mkdir -p "$PKG_DIR/usr/share/postgresql"
 mkdir -p "$PKG_DIR/usr/share/doc/neurondb"
 
-# Build NeuronDB extension
-cd "$REPO_ROOT/NeuronDB"
+# Build NeuronDB extension (Makefile lives at repository root)
+cd "$REPO_ROOT"
 ONNX_RUNTIME_PATH="${ONNX_RUNTIME_PATH:-/usr/local/onnxruntime}" GPU_BACKENDS=none ./build.sh
 make DESTDIR="$PKG_DIR" install
 
@@ -79,10 +80,10 @@ Copyright: 2024 NeuronDB
 License: Proprietary
 EOF
 
-# Build DEB package
+# Build DEB package (artifact next to this script)
 DEB_FILE="neurondb_${VERSION}_${ARCH}.deb"
-fakeroot dpkg-deb --build "$PKG_DIR" "$REPO_ROOT/packaging/deb/neurondb/$DEB_FILE"
+fakeroot dpkg-deb --build "$PKG_DIR" "$SCRIPT_DIR/$DEB_FILE"
 
 echo "Package built: $DEB_FILE"
-ls -lh "$REPO_ROOT/packaging/deb/neurondb/$DEB_FILE"
+ls -lh "$SCRIPT_DIR/$DEB_FILE"
 

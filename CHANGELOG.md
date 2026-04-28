@@ -7,13 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- Initial release preparation
-- GitHub Container Registry (GHCR) image publishing
-- DEB and RPM package builds
-- Comprehensive documentation
+## [3.1.0] - 2026-04-28
 
-## [3.0.0-devel] - Development
+### Added
+- LLM model registry schema and upgrade path from 3.0.0-devel via `neurondb--3.0.0-devel--3.1.0.sql`
+- Consolidated install script `neurondb--3.1.0.sql` (core SQL plus LLM schema)
+
+### Changed
+- `default_version` set to **3.1.0** in `neurondb.control`
+- Helm chart, Docker image defaults, and documentation versions aligned to **3.1.0**
+
+## [3.0.0-devel] - Development (historical)
 
 ### Changed
 - Version updated to 3.0.0-devel for main branch development
@@ -57,4 +61,3 @@ Each release includes:
 - **Security**: Security fixes
 
 See [RELEASE.md](RELEASE.md) for release process documentation.
-

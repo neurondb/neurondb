@@ -590,7 +590,7 @@ neurondb-extension-sql: sql/neurondb--3.1.0.sql sql/neurondb--3.0.0-devel--3.1.0
 # (install separately after CREATE EXTENSION plpython3u — see file header).
 sql/neurondb--3.1.0.sql: sql/neurondb--3.0.0-devel.sql sql/neurondb_llm_models.sql
 	@echo "Generating sql/neurondb--3.1.0.sql"
-	@cat sql/neurondb--3.0.0-devel.sql sql/neurondb_llm_models.sql > $@
+	@cat sql/neurondb--3.0.0-devel.sql sql/neurondb_llm_models.sql | sed "s/NeurondB v3.0.0-devel/NeurondB v3.1.0/g" > $@
 
 sql/neurondb--3.0.0-devel--3.1.0.sql: sql/neurondb_llm_models.sql
 	@echo "Generating sql/neurondb--3.0.0-devel--3.1.0.sql"
@@ -647,12 +647,12 @@ installcheck-gpu:
 # TAP tests
 PROVE = prove
 PROVE_FLAGS = --verbose
-TAP_TESTS = $(wildcard t/*.t)
+TAP_TESTS = $(wildcard src/t/*.t)
 
 .PHONY: installcheck-tap
 installcheck-tap:
 	@if [ -z "$(TAP_TESTS)" ]; then \
-		echo "No TAP tests found in t/"; \
+		echo "No TAP tests found in src/t/"; \
 		exit 1; \
 	fi
 	@echo "Running TAP tests..."
