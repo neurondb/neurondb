@@ -21,7 +21,7 @@ set -euo pipefail
 SCRIPT_NAME=$(basename "$0")
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$SCRIPT_DIR"
-VERSION="3.1.0"
+VERSION="4.0.0-devel"
 VERBOSE=false
 DOCKER_MODE=false
 

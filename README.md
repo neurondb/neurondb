@@ -5,7 +5,7 @@
 **PostgreSQL extension for vector similarity search (HNSW, IVFFlat), kNN, embeddings, machine learning, and hybrid full-text + vector search in SQL**
 
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16%2C17%2C18-blue.svg)](https://www.postgresql.org/)
-[![Version](https://img.shields.io/badge/version-3.1.0-blue.svg)](https://github.com/neurondb/neurondb)
+[![Version](https://img.shields.io/badge/version-4.0.0--devel-blue.svg)](https://github.com/neurondb/neurondb)
 [![License](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
 [![Documentation](https://img.shields.io/badge/docs-neurondb.ai-brightgreen.svg)](https://www.neurondb.ai/docs)
 

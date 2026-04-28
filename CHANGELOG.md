@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.0-devel] - 2026-04-28
+
+### Changed
+- Main branch uses `default_version` **4.0.0-devel** in `neurondb.control`
+- Added `neurondb--4.0.0-devel.sql` (generated from 3.1.0 body) and upgrade path `neurondb--3.1.0--4.0.0-devel.sql`
+- Helm chart, Docker image defaults, and documentation versions aligned to **4.0.0-devel**
+
 ## [3.1.0] - 2026-04-28
 
 ### Added

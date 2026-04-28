@@ -11,7 +11,7 @@ Parameters:
 
 | Parameter | Value | Meaning |
 |-----------|--------|--------|
-| `default_version` | `3.1.0` | Version installed by `CREATE EXTENSION neurondb` when no version is specified |
+| `default_version` | `4.0.0-devel` | Version installed by `CREATE EXTENSION neurondb` when no version is specified |
 | `comment` | NeuronDB description | Shown in `pg_extension` and `\dx` |
 | `module_pathname` | `$libdir/neurondb` | Shared library name (`.so` or `.dylib`) |
 | `relocatable` | `true` | Extension objects can be moved with `ALTER EXTENSION ... SET SCHEMA` |
@@ -34,10 +34,12 @@ NeuronDB/
 │   ├── neurondb--2.1.0.sql
 │   ├── neurondb--3.0.0-devel.sql
 │   ├── neurondb--3.1.0.sql
+│   ├── neurondb--4.0.0-devel.sql
 │   ├── neurondb--1.0--2.0.sql
 │   ├── neurondb--2.0--2.1.0.sql
 │   ├── neurondb--2.1.0--3.0.0-devel.sql
 │   ├── neurondb--3.0.0-devel--3.1.0.sql
+│   ├── neurondb--3.1.0--4.0.0-devel.sql
 │   └── ...
 ├── src/   (C sources → neurondb.so / neurondb.dylib)
 └── ...
@@ -101,7 +103,7 @@ SELECT * FROM pg_extension_update_paths('neurondb');
 ALTER EXTENSION neurondb UPDATE;
 
 -- Or to a specific version (if you have that script)
-ALTER EXTENSION neurondb UPDATE TO '3.1.0';
+ALTER EXTENSION neurondb UPDATE TO '4.0.0-devel';
 ```
 
 Update scripts follow the naming convention `neurondb--oldver--newver.sql`. PostgreSQL applies the shortest path of update scripts between the installed version and the target version.

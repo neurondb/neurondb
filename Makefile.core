@@ -15,7 +15,7 @@
 
 MODULE_big = neurondb
 EXTENSION = neurondb
-DATA = sql/neurondb--1.0.sql sql/neurondb--2.0.sql sql/neurondb--2.1.0.sql sql/neurondb--3.0.0-devel.sql sql/neurondb--1.0--2.0.sql sql/neurondb--2.0--2.1.0.sql sql/neurondb--2.1.0--3.0.0-devel.sql sql/neurondb_llm_models.sql sql/neurondb_llm_functions.sql sql/neurondb--3.0.0-devel--3.1.0.sql sql/neurondb--3.1.0.sql
+DATA = sql/neurondb--1.0.sql sql/neurondb--2.0.sql sql/neurondb--2.1.0.sql sql/neurondb--3.0.0-devel.sql sql/neurondb--1.0--2.0.sql sql/neurondb--2.0--2.1.0.sql sql/neurondb--2.1.0--3.0.0-devel.sql sql/neurondb_llm_models.sql sql/neurondb_llm_functions.sql sql/neurondb--3.0.0-devel--3.1.0.sql sql/neurondb--3.1.0.sql sql/neurondb--3.1.0--4.0.0-devel.sql sql/neurondb--4.0.0-devel.sql
 DOCS = README.md
 
 PG_CPPFLAGS += -I$(srcdir)/src/include
@@ -584,7 +584,7 @@ endif
 
 # Combined SQL for 3.1.0: PostgreSQL runs extension scripts without psql, so \\ir is invalid.
 .PHONY: neurondb-extension-sql
-neurondb-extension-sql: sql/neurondb--3.1.0.sql sql/neurondb--3.0.0-devel--3.1.0.sql
+neurondb-extension-sql: sql/neurondb--3.1.0.sql sql/neurondb--3.0.0-devel--3.1.0.sql sql/neurondb--4.0.0-devel.sql
 
 # Default 3.1.0 script: core + LLM *schema* only. PL/Python helpers live in sql/neurondb_llm_functions.sql
 # (install separately after CREATE EXTENSION plpython3u — see file header).
@@ -595,6 +595,11 @@ sql/neurondb--3.1.0.sql: sql/neurondb--3.0.0-devel.sql sql/neurondb_llm_models.s
 sql/neurondb--3.0.0-devel--3.1.0.sql: sql/neurondb_llm_models.sql
 	@echo "Generating sql/neurondb--3.0.0-devel--3.1.0.sql"
 	@{ printf '%s\n' '-- Upgrade NeuronDB from 3.0.0-devel to 3.1.0 (LLM model registry schema; optional PL/Python: sql/neurondb_llm_functions.sql)'; cat sql/neurondb_llm_models.sql; } > $@
+
+# 4.0.0-devel install script: same body as 3.1.0 with updated NOTICE lines (no DDL delta yet).
+sql/neurondb--4.0.0-devel.sql: sql/neurondb--3.1.0.sql
+	@echo "Generating sql/neurondb--4.0.0-devel.sql"
+	@sed 's/NeurondB v3.1.0/NeurondB v4.0.0-devel/g' $< > $@
 
 # Ensure SQL exists before building
 # Platform-specific prerequisites and targets

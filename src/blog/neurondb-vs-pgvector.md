@@ -14,7 +14,7 @@ Scope and sources
 pgvector source tree: /Users/pgedge/pge/pgvector
 pgvector SQL declares: PG_MODULE_MAGIC version 0.8.1
 NeuronDB source tree: NeuronDB in this workspace
-NeuronDB SQL declares: NeurondB v3.1.0
+NeuronDB SQL declares: NeurondB v4.0.0-devel
 Every limit and default below comes from these source trees.
 
 What stays the same across both projects
@@ -289,4 +289,4 @@ NeuronDB vector type and limits: NeuronDB/include/neurondb.h and NeuronDB/src/co
 NeuronDB sparsevec limits: NeuronDB/src/vector/vector_types.c
 NeuronDB HNSW defaults: NeuronDB/src/index/hnsw_am.c and NeuronDB/src/util/neurondb_guc.c
 NeuronDB IVF defaults: NeuronDB/src/index/ivf_am.c and NeuronDB/src/util/neurondb_guc.c
-NeuronDB extension SQL: NeuronDB/sql/neurondb--3.1.0.sql
+NeuronDB extension SQL: NeuronDB/sql/neurondb--4.0.0-devel.sql
