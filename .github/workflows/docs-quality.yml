@@ -1,0 +1,97 @@
+name: Docs and install scripts quality
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'README.md'
+      - 'docs/**'
+      - 'scripts/install-docker.sh'
+      - 'scripts/docker-release.sh'
+      - 'docker/neurondb/Dockerfile'
+      - '.github/workflows/docs-quality.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'README.md'
+      - 'docs/**'
+      - 'scripts/install-docker.sh'
+      - 'scripts/docker-release.sh'
+      - 'docker/neurondb/Dockerfile'
+      - '.github/workflows/docs-quality.yml'
+
+jobs:
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Run shellcheck
+        run: shellcheck scripts/install-docker.sh scripts/docker-release.sh
+
+  docker-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build date
+        run: echo "BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build image (linux/amd64)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/neurondb/Dockerfile
+          load: true
+          platforms: linux/amd64
+          tags: neurondb:docs-ci
+          build-args: |
+            PG_MAJOR=17
+            ONNX_VERSION=1.17.0
+            VERSION=ci
+            BUILD_DATE=${{ env.BUILD_DATE }}
+            VCS_REF=${{ github.sha }}
+      - name: Smoke test
+        run: |
+          docker rm -f neurondb-docs-ci 2>/dev/null || true
+          docker run -d --name neurondb-docs-ci -p 55434:5432 \
+            -e POSTGRES_USER=neurondb \
+            -e POSTGRES_PASSWORD=neurondb \
+            -e POSTGRES_DB=neurondb \
+            neurondb:docs-ci
+          for _ in $(seq 1 90); do
+            if docker exec neurondb-docs-ci pg_isready -U neurondb -d neurondb 2>/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          docker exec -e PGPASSWORD=neurondb neurondb-docs-ci \
+            psql -v ON_ERROR_STOP=1 -U neurondb -d neurondb \
+            -c "CREATE EXTENSION IF NOT EXISTS neurondb;" \
+            -c "SELECT neurondb.version();"
+          docker rm -f neurondb-docs-ci
+
+  markdown-links:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Link check (lychee)
+        uses: lycheeverse/lychee-action@v1.9.0
+        with:
+          args: >-
+            --verbose
+            --no-progress
+            --accept 200,204,206,403,429
+            --exclude-mail
+            --exclude localhost
+            README.md
+            docs/README.md
+            docs/docker.md
+            docs/install.md
+            docs/development.md
+            docs/gpu.md
+            docs/release-docker.md
+            docs/project-overview.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -5,7 +5,7 @@ version: '3.8'
 
 services:
   neurondb:
-    image: ${NEURONDB_IMAGE:-ghcr.io/neurondb/neurondb-postgres:2.0.0-pg17-cpu}
+    image: ${NEURONDB_IMAGE:-ghcr.io/neurondb/neurondb-cuda:latest}
     container_name: neurondb-prod
     restart: unless-stopped
     environment:

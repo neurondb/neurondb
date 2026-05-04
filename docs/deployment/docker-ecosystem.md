@@ -8,7 +8,7 @@ Run and verify the NeuronDB PostgreSQL extension in Docker using the Compose fil
 
 | Topic | Description |
 |-------|-------------|
-| **Starting** | Start NeuronDB (CPU or GPU) with Docker Compose |
+| **Starting** | Start NeuronDB with Docker Compose (this repo **builds** CPU/GPU; **pulled** official image is [neurondb-cuda](container-images.md)) |
 | **Verification** | Confirm the extension is loaded and working |
 | **Troubleshooting** | Common issues and fixes |
 

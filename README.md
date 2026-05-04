@@ -1,391 +1,48 @@
-# NeuronDB - AI Database Extension for PostgreSQL
+# NeuronDB
 
-<div align="center">
+**PostgreSQL with NeuronDB built in:** vector search, embeddings, hybrid retrieval, and ML primitives in SQL—running in one database you already operate.
 
-**PostgreSQL extension for vector similarity search (HNSW, IVFFlat), kNN, embeddings, machine learning, and hybrid full-text + vector search in SQL**
+![Terminal demo: install with Docker, connect with psql, run NeuronDB smoke SQL](docs/assets/neurondb-demo.gif)
 
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16%2C17%2C18-blue.svg)](https://www.postgresql.org/)
-[![Version](https://img.shields.io/badge/version-3.1.0-blue.svg)](https://github.com/neurondb/neurondb)
-[![License](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
-[![Documentation](https://img.shields.io/badge/docs-neurondb.ai-brightgreen.svg)](https://www.neurondb.ai/docs)
+[![Release](https://img.shields.io/github/v/release/neurondb/neurondb?label=release)](https://github.com/neurondb/neurondb/releases)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16%20|%2017%20|%2018-blue)](https://www.postgresql.org/)
+[![Docs](https://img.shields.io/badge/docs-neurondb.ai-green)](https://www.neurondb.ai/docs)
+[![License](https://img.shields.io/badge/License-Proprietary-lightgrey)](LICENSE)
 
-</div>
-
----
-
-## Run the system in 5 minutes
-
-From the repository root:
+## Try NeuronDB in one command
 
 ```bash
-docker compose -f docker/docker-compose.yml up -d neurondb
-docker compose -f docker/docker-compose.yml ps   # wait until healthy
-docker compose -f docker/docker-compose.yml exec neurondb psql -U neurondb -d neurondb -c "CREATE EXTENSION IF NOT EXISTS neurondb; SELECT neurondb.version();"
+curl -fsSL https://raw.githubusercontent.com/neurondb/neurondb/main/scripts/install-docker.sh | bash
 ```
 
-Then run your first vector search: [Simple Start](docs/getting-started/simple-start.md) or [Quick Start](docs/getting-started/quickstart.md).
+Connect:
 
-## Table of Contents
-
-<details>
-<summary><strong>Expand full table of contents</strong></summary>
-
-- [Overview](#overview)
-  - [Key Capabilities](#key-capabilities)
-  - [Performance Metrics](#performance-metrics)
-- [Documentation](#documentation)
-  - [Getting Started](#getting-started)
-  - [Vector Search & Indexing](#vector-search--indexing)
-  - [ML Algorithms & Analytics](#ml-algorithms--analytics)
-  - [ML & Embeddings](#ml--embeddings)
-  - [Hybrid Search & Retrieval](#hybrid-search--retrieval)
-  - [Reranking](#reranking)
-  - [RAG Pipeline](#rag-pipeline)
-  - [Background Workers](#background-workers)
-  - [GPU Acceleration](#gpu-acceleration)
-  - [Performance & Security](#performance--security)
-  - [Configuration & Operations](#configuration--operations)
-- [Official Documentation](#official-documentation)
-- [Architecture](#architecture)
-  - [System Architecture](#system-architecture)
-  - [Vector Query Flow](#vector-query-flow)
-  - [HNSW Index Structure](#hnsw-index-structure)
-- [Compatibility](#compatibility)
-- [Support & Community](#support--community)
-- [Contributing](#contributing)
-- [License](#license)
-- [Authors](#authors)
-
-</details>
-
----
-
-## Overview
-
-**Vectors, embeddings, and ML—inside PostgreSQL.** NeuronDB keeps similarity search and models on **your live rows**, not in a separate database you have to sync and babysit.
-
-**HNSW · IVFFlat · kNN · hybrid full-text + vector · RAG pieces · train & predict in SQL**—all first-class in the engine.
-
-**One extension:** same Postgres **backups, HA, and security**. Start with **`CREATE EXTENSION neurondb;`**, then index and query from SQL.
-
-### Key Capabilities
-
-<details>
-<summary><strong>Feature summary</strong></summary>
-
-| Category | Details |
-|:---------|:--------|
-| **Vector types** | `vector`, `vectorp`, `vecmap`, `vgraph`, `rtext`, `halfvec`, `binaryvec`, `sparsevec` (8 types) |
-| **Index access methods** | HNSW and IVF only. PQ and OPQ are quantization (codebook training), not separate index types. Hybrid and multi-vector search are query-level functions. |
-| **Distance metrics** | L2, cosine, inner product, L1, Hamming, Jaccard, and others |
-| **ML** | 25+ algorithm families (train/predict/evaluate): linear regression, XGBoost, LightGBM, CatBoost, K-Means, etc. |
-| **SQL** | ~650+ functions and operators (vector, ML, embeddings, RAG, indexing). See [FEATURES.md](FEATURES.md) and [SQL API](docs/sql-api.md). |
-| **GPU** | CUDA, ROCm, Metal (distance and search; index build is CPU only). See [GPU feature matrix](docs/gpu/gpu-feature-matrix.md). |
-| **Background workers** | neuranq, neuranmon, neurandefrag, neuranllm |
-
-</details>
-
-### Performance Metrics
-
-NeuronDB provides significant performance improvements over standard PostgreSQL extensions:
-
-**Index Build Performance:**
-
-The index build time for HNSW follows the relationship:
-
-$$T_{build} = O(N \cdot \log N \cdot m \cdot ef_{construction})$$
-
-Where:
-- $N$ = number of vectors
-- $m$ = number of connections per node (typically 16-32)
-- $ef_{construction}$ = size of candidate list during construction (typically 64-200)
-
-**Query Performance:**
-
-Query latency for HNSW search:
-
-$$T_{query} = O(\log N + ef_{search} \cdot k)$$
-
-Where:
-- $ef_{search}$ = size of candidate list during search (typically 40-200)
-- $k$ = number of results requested
-
-**Throughput Calculation:**
-
-$$QPS = \frac{1}{T_{query}} = \frac{1}{O(\log N + ef_{search} \cdot k)}$$
-
-> [!TIP]
-> For optimal performance, tune `ef_search` based on your recall requirements. Higher values improve recall but increase latency.
-
-## Documentation
-
-### Getting Started
-- **[Installation](docs/getting-started/installation.md)** - Install NeuronDB extension
-- **[Extension packaging](EXTENSION.md)** - Control file, file layout, CREATE/UPDATE/DROP EXTENSION, dump/restore
-- **[Quick Start](docs/getting-started/quickstart.md)** - Get up and running quickly
-
-### Vector Search & Indexing
-- **[Vector Types](docs/vector-search/vector-types.md)** — `vector`, `vectorp`, `vecmap`, `vgraph`, `rtext`, `halfvec`, `binaryvec`, `sparsevec`
-- **[Indexing](docs/vector-search/indexing.md)** — HNSW and IVF indexing
-- **[Distance Metrics](docs/vector-search/distance-metrics.md)** — L2, cosine, inner product, and more
-- **[Quantization](docs/vector-search/quantization.md)** — PQ and OPQ compression
-
-### ML Algorithms & Analytics
-- **[Random Forest](docs/ml-algorithms/random-forest.md)** - Classification and regression
-- **[Gradient Boosting](docs/ml-algorithms/gradient-boosting.md)** - XGBoost, LightGBM, CatBoost
-- **[Clustering](docs/ml-algorithms/clustering.md)** - K-Means, DBSCAN, GMM, Hierarchical
-- **[Dimensionality Reduction](docs/ml-algorithms/dimensionality-reduction.md)** - PCA and PCA Whitening
-- **[Classification](docs/ml-algorithms/classification.md)** - SVM, Logistic Regression, Naive Bayes, Decision Trees
-- **[Regression](docs/ml-algorithms/regression.md)** - Linear, Ridge, Lasso, Deep Learning
-- **[Outlier Detection](docs/ml-algorithms/outlier-detection.md)** - Z-score, Modified Z-score, IQR
-- **[Quality Metrics](docs/ml-algorithms/quality-metrics.md)** - Recall@K, Precision@K, F1@K, MRR
-- **[Drift Detection](docs/ml-algorithms/drift-detection.md)** - Centroid drift, Distribution divergence
-- **[Topic Discovery](docs/ml-algorithms/topic-discovery.md)** - Topic modeling and analysis
-- **[Time Series](docs/ml-algorithms/time-series.md)** - Forecasting and analysis
-- **[Recommendation Systems](docs/ml-algorithms/recommendation-systems.md)** - Collaborative filtering
-
-### ML & Embeddings
-- **[Embedding Generation](docs/ml-embeddings/embedding-generation.md)** - Text, image, multimodal embeddings
-- **[Model Inference](docs/ml-embeddings/model-inference.md)** - ONNX runtime, batch processing
-- **[Model Management](docs/ml-embeddings/model-management.md)** - Load, export, version models
-- **[AutoML](docs/ml-embeddings/automl.md)** - Automated hyperparameter tuning
-- **[Feature Store](docs/ml-embeddings/feature-store.md)** - Feature management and versioning
-
-### Hybrid Search & Retrieval
-- **[Hybrid Search](docs/hybrid-search/overview.md)** - Combine vector and full-text search
-- **[Multi-Vector](docs/hybrid-search/multi-vector.md)** - Multiple embeddings per document
-- **[Faceted Search](docs/hybrid-search/faceted-search.md)** - Category-aware retrieval
-- **[Temporal Search](docs/hybrid-search/temporal-search.md)** - Time-decay relevance scoring
-
-### Reranking
-- **[Cross-Encoder](docs/reranking/cross-encoder.md)** - Neural reranking models
-- **[LLM Reranking](docs/reranking/llm-reranking.md)** - GPT/Claude-powered scoring
-- **[ColBERT](docs/reranking/colbert.md)** - Late interaction models
-- **[Ensemble](docs/reranking/ensemble.md)** - Combine multiple strategies
-
-### RAG Pipeline
-- **[Complete RAG Support](docs/rag/overview.md)** - End-to-end RAG
-- **[LLM Integration](docs/rag/llm-integration.md)** - Hugging Face and OpenAI
-- **[Document Processing](docs/rag/document-processing.md)** - Text processing and NLP
-
-### Background Workers
-- **[neuranq](docs/background-workers/neuranq.md)** - Async job queue executor
-- **[neuranmon](docs/background-workers/neuranmon.md)** - Live query auto-tuner
-- **[neurandefrag](docs/background-workers/neurandefrag.md)** - Index maintenance
-- **[neuranllm](docs/background-workers/neuranllm.md)** - LLM job processor
-
-### GPU Acceleration
-- **[CUDA Support](docs/gpu/cuda-support.md)** - NVIDIA GPU acceleration
-- **[ROCm Support](docs/gpu/rocm-support.md)** - AMD GPU acceleration
-- **[Metal Support](docs/gpu/metal-support.md)** - Apple Silicon GPU acceleration
-- **[Auto-Detection](docs/gpu/auto-detection.md)** - Automatic GPU detection
-
-### Performance & Security
-- **[SIMD Optimization](docs/performance/simd-optimization.md)** - AVX2/AVX512, NEON optimization
-- **[Security](docs/security/overview.md)** - Encryption, privacy, RLS
-- **[Monitoring](docs/performance/monitoring.md)** - Monitoring views and Prometheus
-
-### Configuration & Operations
-- **[Configuration](docs/configuration.md)** - Essential configuration options
-- **[Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions (getting started and operations)
-
-## Official Documentation
-
-**[https://www.neurondb.ai/docs](https://www.neurondb.ai/docs)** — API reference (~650+ SQL functions), tutorials, deployment, and troubleshooting.
-
-## Architecture
-
-NeuronDB follows PostgreSQL's architectural patterns and extends the database with AI capabilities.
-
-### System Architecture
-
-```mermaid
-graph TB
-    subgraph SQL["SQL Interface Layer"]
-        FUNC["~650+ SQL Functions"]
-        TYPES["Vector Types: vector, vectorp, vecmap, vgraph, rtext, halfvec, binaryvec, sparsevec"]
-        OPS["Distance Operators: <->, <=>, <#>"]
-    end
-    
-    subgraph VECTOR["Vector Operations"]
-        INDEX["HNSW/IVF Indexes"]
-        DIST["Distance Metrics: L2, Cosine, Inner Product"]
-        QUANT["Quantization: PQ, OPQ, int8, fp16"]
-    end
-    
-    subgraph ML["Machine Learning"]
-        ALGO["25+ ML algorithm families: RF, XGBoost, LightGBM, etc."]
-        INFER["Model Inference: ONNX Runtime"]
-        EMBED["Embedding Generation: Text, Image, Multimodal"]
-    end
-    
-    subgraph SEARCH["Search & Retrieval"]
-        HYBRID[Hybrid Search<br/>Vector + Full-text]
-        RERANK[Reranking<br/>Cross-encoder, LLM, ColBERT]
-        RAG[RAG Pipeline<br/>Document Processing]
-    end
-    
-    subgraph WORKERS["Background Workers"]
-        NEURANQ[neuranq<br/>Job Queue]
-        NEURANMON[neuranmon<br/>Query Tuner]
-        NEURANDEFRAG[neurandefrag<br/>Index Maintenance]
-        NEURANLLM[neuranllm<br/>LLM Processor]
-    end
-    
-    subgraph GPU["GPU Acceleration"]
-        CUDA[CUDA<br/>NVIDIA]
-        ROCM[ROCm<br/>AMD]
-        METAL[Metal<br/>Apple Silicon]
-    end
-    
-    subgraph PG["PostgreSQL Core"]
-        STORAGE[Storage Engine]
-        WAL[Write-Ahead Log]
-        SPI[Server Programming Interface]
-        SHMEM[Shared Memory]
-    end
-    
-    SQL --> VECTOR
-    SQL --> ML
-    SQL --> SEARCH
-    VECTOR --> INDEX
-    ML --> INFER
-    SEARCH --> RAG
-    WORKERS --> PG
-    GPU --> VECTOR
-    GPU --> ML
-    VECTOR --> PG
-    ML --> PG
-    SEARCH --> PG
+```bash
+psql "postgresql://neurondb:neurondb@localhost:5433/neurondb"
 ```
 
-### Vector Query Flow
+Smoke test in `psql`:
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant PG as PostgreSQL
-    participant ND as NeuronDB Extension
-    participant Index as HNSW/IVF Index
-    participant GPU as GPU Backend
-    
-    Client->>PG: SELECT ... ORDER BY embedding <=> query
-    PG->>ND: Parse vector query
-    ND->>ND: Optimize query plan
-    
-    alt Index Available
-        ND->>Index: Search index (ef_search)
-        Index->>ND: Return candidate vectors
-        ND->>GPU: Compute distances (SIMD/GPU)
-        GPU-->>ND: Distance scores
-        ND->>ND: Sort and filter (LIMIT)
-    else Sequential Scan
-        ND->>PG: Scan table
-        ND->>GPU: Compute all distances
-        GPU-->>ND: Distance scores
-        ND->>ND: Sort and filter
-    end
-    
-    ND-->>PG: Return results
-    PG-->>Client: Query results
+```sql
+CREATE EXTENSION IF NOT EXISTS neurondb;
+SELECT neurondb.version();
 ```
 
-### HNSW Index Structure
+You get PostgreSQL on **localhost:5433**, database and user **neurondb**, a persistent Docker volume, and the install script checks the extension before it finishes. For GPU-backed images, ports, Compose, and resets, see [docs/docker.md](docs/docker.md).
 
-```mermaid
-graph TD
-    subgraph HNSW["HNSW (Hierarchical Navigable Small World)"]
-        L2[Layer 2<br/>Few nodes, long edges]
-        L1[Layer 1<br/>More nodes, medium edges]
-        L0[Layer 0<br/>All nodes, short edges]
-    end
-    
-    L2 -->|Entry Point| L1
-    L1 -->|Entry Point| L0
-```
+## Learn more
 
-> [!NOTE]
-> HNSW creates a multi-layer graph where higher layers have fewer nodes and longer edges, enabling fast approximate nearest neighbor search. The search starts at the top layer and navigates down to find the closest neighbors.
+| Topic | Document |
+|--------|-----------|
+| Install (Docker, packages, source) | [docs/install.md](docs/install.md) |
+| Docker details (images, GPU, volumes, Compose) | [docs/docker.md](docs/docker.md) |
+| SQL functions and types | [docs/sql-api.md](docs/sql-api.md) |
+| Development and contributing | [docs/development.md](docs/development.md) |
+| Troubleshooting | [docs/troubleshooting.md](docs/troubleshooting.md) |
+| Full documentation index | [docs/README.md](docs/README.md) |
 
-## Compatibility
-
-<details>
-<summary><strong>Compatibility matrix</strong></summary>
-
-| PostgreSQL | Status | Platforms | Architectures |
-|:----------|:-------|:----------|:--------------|
-| 16.x | ✅ Supported | Ubuntu 20.04/22.04, Debian 11/12, Rocky Linux 8/9, macOS 13+ | linux/amd64, linux/arm64, darwin/arm64 |
-| 17.x | ✅ Supported | Ubuntu 20.04/22.04, Debian 11/12, Rocky Linux 8/9, macOS 13+ | linux/amd64, linux/arm64, darwin/arm64 |
-| 18.x | ✅ Supported | Ubuntu 20.04/22.04, Debian 11/12, Rocky Linux 8/9, macOS 13+ | linux/amd64, linux/arm64, darwin/arm64 |
-
-</details>
-
-> [!NOTE]
-> NeuronDB supports PostgreSQL 16, 17, and 18. The extension validates the PostgreSQL version at creation time. GPU acceleration requires platform-specific drivers (CUDA 12.2+, ROCm 5.7+, or macOS 13+ for Metal).
-
-## Support & Community
-
-<details>
-<summary><strong>Get help</strong></summary>
-
-| Resource | Link | Description |
-|:---------|:-----|:------------|
-| **GitHub Issues** | [Report Issues](https://github.com/neurondb/NeurondB/issues) | Bug reports and feature requests |
-| **GitHub Discussions** | [Join Discussion](https://github.com/neurondb/NeurondB/discussions) | Community Q&A and discussions |
-| **Email Support** | support@neurondb.ai | Direct email support |
-| **Security Issues** | security@neurondb.ai | Report security vulnerabilities |
-| **Documentation** | [neurondb.ai/docs](https://www.neurondb.ai/docs) | Complete documentation |
-
-</details>
-
-## Contributing
-
-We welcome contributions. See [CONTRIBUTING.md](CONTRIBUTING.md) for:
-
-<details>
-<summary><strong>Contribution guidelines</strong></summary>
-
-- ✅ **Code style guidelines** - Follow PostgreSQL coding standards
-- ✅ **Development workflow** - Fork, branch, test, submit PR
-- ✅ **Testing requirements** - All changes must include tests
-- ✅ **Pull request process** - Review and approval workflow
-- ✅ **Documentation** - Update docs for new features
-
-</details>
+Official site: **[neurondb.ai/docs](https://www.neurondb.ai/docs)**
 
 ## License
 
-NeuronDB is released under a proprietary license. See [LICENSE](LICENSE) for details.
-
-<details>
-<summary><strong>License summary</strong></summary>
-
-| Usage Type | Permitted | Notes |
-|:-----------|:----------|:------|
-| **Personal Use** | ✅ Yes | Binary code only |
-| **Commercial Use** | ❌ No | Contact for licensing |
-| **Source Modifications** | ❌ No | No derivatives allowed |
-| **Redistribution** | ❌ No | Contact for distribution rights |
-
-**For commercial licensing**, contact support@neurondb.ai
-
-</details>
-
-## Authors
-
-**neurondb, Inc.**  
-Email: support@neurondb.ai  
-Website: https://neurondb.ai/docs
-
----
-
-<div align="center">
-
-**[Documentation](docs/)** • 
-**[Full Documentation](https://neurondb.ai/docs)** • 
-**[GitHub](https://github.com/neurondb/NeurondB)** • 
-**[Support](mailto:support@neurondb.ai)**
-
-[⬆ Back to Top](#neurondb---ai-database-extension-for-postgresql)
-
-</div>
+See [LICENSE](LICENSE). **Commercial use** requires a separate agreement; contact support@neurondb.ai.

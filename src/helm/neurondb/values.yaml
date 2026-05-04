@@ -2,6 +2,7 @@
 # This is a YAML-formatted file.
 
 global:
+  # Prepended only for monitoring images (Prometheus/Grafana); leave empty for docker.io defaults.
   imageRegistry: ""
   imagePullSecrets: []
 
@@ -9,8 +10,10 @@ global:
 neurondb:
   enabled: true
   image:
-    repository: ghcr.io/neurondb/neurondb-postgres
-    tag: "2.0.0-pg17-cpu"
+    # Canonical path matches Docker Hub: neurondb/neurondb-cuda (org / image name).
+    registry: ghcr.io
+    repository: neurondb/neurondb-cuda
+    tag: "latest"  # Pin to pg17-3.x.y / pg18-3.x.y or semver in production; CUDA requires GPU nodes
     pullPolicy: IfNotPresent
 
   # Path to Titans LLM training scripts (used by titans_llm algorithm)
@@ -48,7 +51,7 @@ neurondb:
   # CloudNativePG Cluster configuration (replaces StatefulSet)
   cnpg:
     instances: 1
-    imageName: ""  # Override: empty = use neurondb.image.repository:tag
+    imageName: ""  # Override full image ref; empty = include "neurondb.image.reference" (registry/repository/tag)
     postgresql:
       parameters:
         shared_buffers: "256MB"

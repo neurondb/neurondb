@@ -11,9 +11,8 @@ NeuronDB Docker images are provided in four variants:
 - **ROCm** (`Dockerfile.gpu.rocm`) – AMD ROCm GPU support
 - **Metal** (`Dockerfile.gpu.metal`) – Apple Silicon Metal GPU support
 
-All variants support:
-- **PostgreSQL**: 16, 17, 18 (configurable via `PG_MAJOR` build arg)
-- **Architectures**: amd64, arm64 (automatic detection)
+All variants support **`PG_MAJOR` 16, 17, or 18**. **Published** images on Docker Hub / GHCR are **CUDA** (`Dockerfile.gpu.cuda`) — **linux/amd64** (same NeuronDB release, e.g. 3.1.0). CPU (`Dockerfile`) is for local builds unless you publish it separately.
+- **Architectures**: CUDA registry builds are **amd64**; local CPU builds may use amd64/arm64.
 - **ONNX Runtime**: Configurable version (default: 1.17.0)
 
 ## Quick Start
@@ -235,7 +234,7 @@ postgresql://neurondb:neurondb@localhost:5436/neurondb
 
 | Argument | Default | Description |
 |----------|---------|-------------|
-| `PG_MAJOR` | `17` | PostgreSQL major version: `16`, `17`, or `18` |
+| `PG_MAJOR` | `17` | PostgreSQL major version: **`16`**, **`17`**, or **`18`** for official release images |
 | `ONNX_VERSION` | `1.17.0` | ONNX Runtime version to embed |
 | `VERSION` | `latest` | Application version (used in labels) |
 | `BUILD_DATE` | - | Build date (ISO 8601 format) |
@@ -303,13 +302,13 @@ docker buildx build --platform linux/amd64,linux/arm64 \
 
 ## PostgreSQL Version Selection
 
-All Dockerfiles support PostgreSQL 16, 17, and 18. Specify the version via build arg:
+Published CUDA images are built for **PostgreSQL 16, 17, and 18**. Specify the major via build arg:
 
 ```bash
-# PostgreSQL 16 (from repository root)
+# PostgreSQL 16
 docker build -f docker/neurondb/Dockerfile --build-arg PG_MAJOR=16 -t neurondb:16-cpu .
 
-# PostgreSQL 17 (default)
+# PostgreSQL 17 (common default)
 docker build -f docker/neurondb/Dockerfile --build-arg PG_MAJOR=17 -t neurondb:17-cpu .
 
 # PostgreSQL 18
@@ -474,7 +473,7 @@ docker system prune -a
 docker buildx inspect --bootstrap
 ```
 
-**PostgreSQL version not found**: Verify the PG_MAJOR version is supported (16, 17, or 18).
+**PostgreSQL version not found**: Verify `PG_MAJOR` is **16**, **17**, or **18** for official Docker images.
 
 ### Connection Issues
 

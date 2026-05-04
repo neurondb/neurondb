@@ -182,7 +182,10 @@ LABEL com.nvidia.volumes.needed="nvidia_driver"
 
 VOLUME ["/var/lib/postgresql/data"]
 
-HEALTHCHECK --interval=30s --timeout=5s --retries=5 CMD pg_isready -U "${POSTGRES_USER:-postgres}"
+# Match CPU image: preload neurondb + custom entrypoint (extension smoke tests / clients)
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint-neurondb.sh"]
+CMD ["postgres", "-c", "shared_preload_libraries=neurondb"]
 
-# Default entrypoint inherited from postgres image
+HEALTHCHECK --interval=10s --timeout=5s --start-period=40s --retries=10 \
+  CMD ["sh", "-c", "pg_isready -U $${POSTGRES_USER:-postgres} -d $${POSTGRES_DB:-postgres} || exit 1"]
 

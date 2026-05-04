@@ -1,0 +1,165 @@
+name: Publish Docker images (Docker Hub + GHCR)
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      push_ghcr:
+        description: 'Also push to ghcr.io/neurondb/neurondb-cuda'
+        type: boolean
+        default: true
+
+env:
+  # Official images are CUDA GPU only; separate repo from any legacy CPU image.
+  HUB_IMAGE: neurondb/neurondb-cuda
+  GHCR_IMAGE: ghcr.io/neurondb/neurondb-cuda
+  ONNX_VERSION: '1.17.0'
+  CUDA_VERSION: '12.4.1'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # CUDA images: PostgreSQL 16, 17, 18; NeuronDB version from git tag (e.g. 3.1.0). :latest = PG 17 line only.
+        pg_major: ['16', '17', '18']
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build date
+        id: bd
+        run: echo "date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Parse version
+        id: ver
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            V="${GITHUB_REF#refs/tags/v}"
+          else
+            V="$(git rev-parse --short HEAD)"
+          fi
+          echo "version=${V}" >> "$GITHUB_OUTPUT"
+          echo "Version: ${V}"
+
+      - name: Docker metadata (OCI labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ env.HUB_IMAGE }}
+          labels: |
+            org.opencontainers.image.title=NeuronDB (CUDA)
+            org.opencontainers.image.description=PostgreSQL + NeuronDB with CUDA / ONNX GPU — NVIDIA Container Toolkit required at runtime
+            org.opencontainers.image.vendor=neurondb
+            org.opencontainers.image.licenses=LicenseRef-Proprietary
+            org.opencontainers.image.source=https://github.com/neurondb/neurondb
+            org.opencontainers.image.documentation=https://www.neurondb.ai/docs
+
+      - name: Build amd64 image for smoke test
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/neurondb/Dockerfile.gpu.cuda
+          load: true
+          platforms: linux/amd64
+          tags: neurondb:ci-smoke-cuda-${{ matrix.pg_major }}
+          build-args: |
+            PG_MAJOR=${{ matrix.pg_major }}
+            CUDA_VERSION=${{ env.CUDA_VERSION }}
+            ONNX_VERSION=${{ env.ONNX_VERSION }}
+            VERSION=${{ steps.ver.outputs.version }}
+            BUILD_DATE=${{ steps.bd.outputs.date }}
+            VCS_REF=${{ github.sha }}
+
+      - name: Smoke test (extension + version)
+        run: |
+          NAME=neurondb-ci-smoke-cuda-${{ matrix.pg_major }}
+          PORT=$(( 55433 + ${{ matrix.pg_major }} ))
+          docker rm -f "$NAME" 2>/dev/null || true
+          docker run -d --name "$NAME" -p "${PORT}:5432" \
+            -e POSTGRES_USER=neurondb \
+            -e POSTGRES_PASSWORD=neurondb \
+            -e POSTGRES_DB=neurondb \
+            "neurondb:ci-smoke-cuda-${{ matrix.pg_major }}"
+          for _ in $(seq 1 90); do
+            if docker exec "$NAME" pg_isready -U neurondb -d neurondb 2>/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          docker exec -e PGPASSWORD=neurondb "$NAME" \
+            psql -v ON_ERROR_STOP=1 -U neurondb -d neurondb \
+            -c "CREATE EXTENSION IF NOT EXISTS neurondb;" \
+            -c "SELECT neurondb.version();"
+          docker rm -f "$NAME"
+
+      - name: Compute registry tag lists
+        id: tags
+        run: |
+          set -e
+          V="${{ steps.ver.outputs.version }}"
+          PG="${{ matrix.pg_major }}"
+          H="${{ env.HUB_IMAGE }}"
+          G="${{ env.GHCR_IMAGE }}"
+          GHCR_TAGS=1
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.push_ghcr }}" != "true" ]; then
+            GHCR_TAGS=0
+          fi
+          {
+            echo "all<<TAGS_EOF"
+            echo "${H}:pg${PG}"
+            echo "${H}:pg${PG}-${V}"
+            if [ "$PG" = "17" ]; then
+              echo "${H}:latest"
+              echo "${H}:${V}"
+            fi
+            if [ "$GHCR_TAGS" = "1" ]; then
+              echo "${G}:pg${PG}"
+              echo "${G}:pg${PG}-${V}"
+              if [ "$PG" = "17" ]; then
+                echo "${G}:latest"
+                echo "${G}:${V}"
+              fi
+            fi
+            echo "TAGS_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Log in to GHCR
+        if: github.event_name != 'workflow_dispatch' || inputs.push_ghcr
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push multi-arch (Docker Hub [+ GHCR])
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/neurondb/Dockerfile.gpu.cuda
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.tags.outputs.all }}
+          build-args: |
+            PG_MAJOR=${{ matrix.pg_major }}
+            CUDA_VERSION=${{ env.CUDA_VERSION }}
+            ONNX_VERSION=${{ env.ONNX_VERSION }}
+            VERSION=${{ steps.ver.outputs.version }}
+            BUILD_DATE=${{ steps.bd.outputs.date }}
+            VCS_REF=${{ github.sha }}
+          labels: ${{ steps.meta.outputs.labels }}

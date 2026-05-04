@@ -1,109 +1,117 @@
-# Container Images
+# Container images
 
-NeuronDB publishes official container images to GitHub Container Registry (GHCR).
+NeuronDB ships **two** complementary image lines:
 
-## Image Names and Tags
+| Image | Role | Typical use |
+|-------|------|-------------|
+| **`neurondb/neurondb`** | CPU PostgreSQL + NeuronDB (Bookworm-based build) | Quickstart, laptops, CI — default for [`scripts/install-docker.sh`](../../scripts/install-docker.sh) |
+| **`neurondb/neurondb-cuda`** | CUDA + ONNX + NeuronDB (**linux/amd64**) | GPU inference on NVIDIA hosts |
 
-### NeuronDB (PostgreSQL Extension)
+**CUDA** images are published to **Docker Hub** and **GHCR** on release tags (`v*`). Same NeuronDB version as the git tag (e.g. **`v3.1.0`** → **`3.1.0`** image tags).
 
-Base images with NeuronDB extension pre-installed:
+## Naming convention (CUDA)
 
-- `ghcr.io/neurondb/neurondb-postgres:{version}-pg{16|17|18}-{cpu|cuda|rocm|metal}`
+Use the same **namespace / image name** everywhere; only the **registry hostname** changes:
 
-**Examples:**
-- `ghcr.io/neurondb/neurondb-postgres:v1.0.0-pg17-cpu`
-- `ghcr.io/neurondb/neurondb-postgres:v1.0.0-pg17-cuda`
-- `ghcr.io/neurondb/neurondb-postgres:v1.0.0-pg16-rocm`
-- `ghcr.io/neurondb/neurondb-postgres:v1.0.0-pg18-metal`
+| Part | Value | Notes |
+|------|--------|--------|
+| Organization | `neurondb` | Docker Hub org / GHCR owner |
+| Image name | `neurondb-cuda` | CUDA PostgreSQL + NeuronDB (not `neurondb-postgres`) |
+| Full path (no tag) | `neurondb/neurondb-cuda` | Matches `docker pull neurondb/neurondb-cuda` |
 
-**Tag format:**
-- `{version}` - Release version (e.g., `v1.0.0`, `v1.1.0`)
-- `{pg_version}` - PostgreSQL major version (16, 17, 18)
-- `{backend}` - GPU backend (cpu, cuda, rocm, metal)
+Resolved references:
 
-**Latest tags:**
-- `ghcr.io/neurondb/neurondb-postgres:latest-pg17-cpu` (points to latest stable release)
+| Registry host | Full image (example tag) |
+|---------------|-------------------------|
+| Docker Hub (CUDA) | `docker.io/neurondb/neurondb-cuda:latest` |
+| GHCR (CUDA) | `ghcr.io/neurondb/neurondb-cuda:latest` |
 
-## Using Published Images
+**Helm** splits this into `registry` + `repository` + `tag` (see [values.yaml](../../src/helm/neurondb/values.yaml)): `registry: ghcr.io`, `repository: neurondb/neurondb-cuda`.
 
-### Pull and Use in docker-compose.yml
+### CPU image (`neurondb/neurondb`)
 
-Update `docker-compose.yml` to use published images:
+- **Docker Hub:** `neurondb/neurondb:latest` (and other tags as published).
+- **Build locally:** [`docker/neurondb/Dockerfile`](../../docker/neurondb/Dockerfile) — same Dockerfile used for Hub CPU builds when published.
+
+Legacy **`neurondb-postgres`** or older names may appear in historical docs; prefer **`neurondb/neurondb`** (CPU) or **`neurondb/neurondb-cuda`** (GPU) for new deployments.
+
+## Tags (CUDA examples)
+
+PostgreSQL majors **16**, **17**, and **18** each get **`pg<major>`** and **`pg<major>-<NeuronDB version>`** tags. **`latest`** and the bare semver tag (for example **`3.1.0`**) refer to the **PostgreSQL 17** line only.
+
+| Tag | Meaning |
+|-----|---------|
+| `latest` | PG **17** + latest NeuronDB release from CI |
+| `pg16`, `pg17`, `pg18` | Rolling tag for that Postgres major |
+| `pg16-3.1.0`, `pg17-3.1.0`, … | Pinned Postgres major + NeuronDB version |
+| `3.1.0` | PG **17** + NeuronDB **3.1.0** only (use **`pg16-3.1.0`** / **`pg18-3.1.0`** for other majors) |
+
+**Platform:** published CUDA images are **`linux/amd64`** only.
+
+### Pull (CUDA)
+
+```bash
+docker pull neurondb/neurondb-cuda:latest
+docker pull ghcr.io/neurondb/neurondb-cuda:latest
+```
+
+### Pull (CPU quickstart)
+
+```bash
+docker pull neurondb/neurondb:latest
+```
+
+Run CUDA with GPU passthrough:
+
+```bash
+docker run --gpus all -p 5433:5432 \
+  -e POSTGRES_PASSWORD=neurondb \
+  neurondb/neurondb-cuda:latest
+```
+
+Or use **[`scripts/install-docker.sh`](../../scripts/install-docker.sh)** (defaults to **`neurondb/neurondb:latest`**; pass **`--image neurondb/neurondb-cuda:latest`** for CUDA).
+
+### docker-compose
+
+Point `image:` at `neurondb/neurondb` or `neurondb/neurondb-cuda` plus your tag. For CUDA, configure GPU access per Docker’s Compose + GPU docs for your Compose version.
 
 ```yaml
 services:
   neurondb:
-    image: ghcr.io/neurondb/neurondb-postgres:v1.0.0-pg17-cpu
-    # ... other configuration (see docker/docker-compose.yml)
+    image: neurondb/neurondb-cuda:latest
 ```
 
-### Pull Manually
+## Workflow dispatch builds (GHCR)
+
+The optional workflow **`.github/workflows/neurondb-docker.yml`** can push additional tags (for example `...-pg17-cuda` / `...-pg18-cuda` with a version or `nightly` prefix) when run manually—see that workflow for the exact naming.
+
+## Authentication
+
+Public pulls usually need no login. For private packages or higher rate limits:
 
 ```bash
-# Pull specific version
-docker pull ghcr.io/neurondb/neurondb-postgres:v1.0.0-pg17-cpu
-
-# Pull latest
-docker pull ghcr.io/neurondb/neurondb-postgres:latest-pg17-cpu
+echo "$GITHUB_TOKEN" | docker login ghcr.io -u USERNAME --password-stdin
 ```
 
-### Authentication
+## Digests
 
-GHCR images are public for releases. To pull:
-
-1. **No authentication required** for public releases
-2. **For private/nightly images**: Authenticate with GitHub:
-
-```bash
-echo $GITHUB_TOKEN | docker login ghcr.io -u USERNAME --password-stdin
-```
-
-## Image Digests
-
-For production deployments, use image digests for reproducibility:
+Pin by digest in production:
 
 ```yaml
-services:
-  neurondb:
-    image: ghcr.io/neurondb/neurondb-postgres:v1.0.0-pg17-cpu@sha256:abc123...
+image: neurondb/neurondb-cuda:3.1.0@sha256:...
 ```
 
-Find digests in:
-- GitHub Releases (release notes)
-- GHCR package pages: `https://github.com/neurondb/neurondb/pkgs/container/neurondb-postgres`
-- `docker inspect ghcr.io/neurondb/neurondb-postgres:v1.0.0-pg17-cpu | jq '.[0].RepoDigests'`
+Inspect: `docker inspect neurondb/neurondb-cuda:3.1.0 | jq '.[0].RepoDigests'`
 
-## Nightly Builds
+## Build locally
 
-Nightly builds are available for the `main` branch:
+- CUDA image: [`docker/neurondb/Dockerfile.gpu.cuda`](../../docker/neurondb/Dockerfile.gpu.cuda)
+- CPU image: [`docker/neurondb/Dockerfile`](../../docker/neurondb/Dockerfile)
 
-- `ghcr.io/neurondb/neurondb-postgres:nightly-pg17-cpu`
+See [`docker/neurondb/README.md`](../../docker/neurondb/README.md) and [docker.md](../docker.md).
 
-> [!WARNING]
-> Nightly builds are for testing only and may be unstable.
+## Related
 
-## Multi-Architecture Support
-
-Images are built for:
-- `linux/amd64` (default)
-- `linux/arm64` (when available)
-
-Use platform-specific tags or let Docker auto-select:
-
-```bash
-docker pull --platform linux/arm64 ghcr.io/neurondb/neurondb-postgres:v1.0.0-pg17-cpu
-```
-
-## Building Locally
-
-If you need to build images locally, see:
-- [`docker/README.md`](../docker/README.md)
-- [`Docs/deployment/package.md`](package.md)
-
-## Related Documentation
-
-- [Docker Deployment Guide](docker.md)
-- [Quick Start Guide](../../QUICKSTART.md)
-- [Release Notes](../../CHANGELOG.md)
-
-
+- [Docker deployment](docker.md)
+- [Maintainer release](../release-docker.md)
+- [Root README](../../README.md)

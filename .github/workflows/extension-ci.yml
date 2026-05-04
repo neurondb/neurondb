@@ -1,0 +1,41 @@
+# Build the PostgreSQL extension and run PgXS regression smoke on PR/push.
+name: Extension CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  extension:
+    name: Build and installcheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PostgreSQL 17 (server + dev headers)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl ca-certificates
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          sudo sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          sudo apt-get update
+          sudo apt-get install -y postgresql-17 postgresql-server-dev-17 build-essential make libssl-dev libcurl4-openssl-dev
+
+      - name: Start local PostgreSQL cluster
+        run: |
+          sudo pg_ctlcluster 17 main start
+          pg_isready -h /var/run/postgresql -p 5432 || true
+
+      - name: Build and install extension
+        run: |
+          make -j"$(nproc)"
+          sudo make install
+
+      - name: Regression smoke (installcheck)
+        run: sudo -u postgres make installcheck
+        env:
+          PG_CONFIG: /usr/bin/pg_config

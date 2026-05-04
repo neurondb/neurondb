@@ -13,6 +13,8 @@ docker/
 
 ## Quick Start
 
+> **Official images (Docker Hub / GHCR):** **`neurondb/neurondb-cuda`** — CUDA + PostgreSQL 16/17/18. Hub overview: **[README.DockerHub.md](README.DockerHub.md)** for **`neurondb/neurondb-cuda`**; **[README.DockerHub.neurondb.md](README.DockerHub.neurondb.md)** for **`neurondb/neurondb`** (see [`scripts/dockerhub-update-repo.sh`](../scripts/dockerhub-update-repo.sh)). Prefer [install-docker.sh](../scripts/install-docker.sh) or [docs/docker.md](../docs/docker.md). The Compose file below **builds** from this repo (including CPU for dev), not the same as **pulling** the published CUDA image.
+>
 > **Important:** The canonical compose file is **`docker/docker-compose.yml`** in this repository (there is no `docker-compose.yml` at the repository root).
 >
 > **From the repository root:**

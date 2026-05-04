@@ -33,7 +33,7 @@ NeuronDB follows [Semantic Versioning 2.0.0](https://semver.org/):
 ## Tags and images
 
 - **Git tags:** `v<version>` (e.g. `v1.0.0`)
-- **Docker:** `ghcr.io/neurondb/neurondb-postgres:<version>-pg17-cpu` (and other variants)
+- **Docker (default release):** `neurondb/neurondb-cuda` and `ghcr.io/neurondb/neurondb-cuda` with tags per Postgres major **`pg16`**, **`pg17`**, **`pg18`**, **`pg16-<ver>`** … **`pg18-<ver>`**, plus **`latest`** and bare **`<ver>`** for the **PostgreSQL 17** line only (see [container images](../deployment/container-images.md))
 
 ## Package versions
 

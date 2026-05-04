@@ -12,4 +12,6 @@ export PG_CONFIG
 # Defer to preserved project build logic
 include Makefile.core
 
+demo-gif:
+	@./scripts/create-demo-gif.sh
 

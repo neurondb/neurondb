@@ -9,7 +9,9 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: neurondb/neurondb-postgres
+  IMAGE_NAME: neurondb/neurondb-cuda
+  CUDA_VERSION: '12.4.1'
+  ONNX_VERSION: '1.17.0'
 
 jobs:
   build-and-push:
@@ -23,12 +25,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - pg_version: "17"
-            backend: "cpu"
-            tag_suffix: "pg17-cpu"
           - pg_version: "16"
-            backend: "cpu"
-            tag_suffix: "pg16-cpu"
+            tag_suffix: "pg16-cuda"
+          - pg_version: "17"
+            tag_suffix: "pg17-cuda"
+          - pg_version: "18"
+            tag_suffix: "pg18-cuda"
 
     steps:
       - uses: actions/checkout@v4
@@ -57,18 +59,20 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Version: $VERSION"
 
-      - name: Build and push Docker image
+      - name: Build and push Docker image (CUDA)
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: docker/neurondb/Dockerfile
+          file: docker/neurondb/Dockerfile.gpu.cuda
+          platforms: linux/amd64
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}-${{ matrix.tag_suffix }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-${{ matrix.tag_suffix }}
           build-args: |
-            PG_VERSION=${{ matrix.pg_version }}
-            GPU_BACKEND=${{ matrix.backend }}
+            PG_MAJOR=${{ matrix.pg_version }}
+            CUDA_VERSION=${{ env.CUDA_VERSION }}
+            ONNX_VERSION=${{ env.ONNX_VERSION }}
             VERSION=${{ steps.meta.outputs.version }}
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
             VCS_REF=${{ github.sha }}

@@ -126,7 +126,7 @@ LABEL org.opencontainers.image.title="NeuronDB" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.vendor="neurondb" \
       org.opencontainers.image.licenses="Proprietary" \
-      org.opencontainers.image.source="https://github.com/neurondb/NeurondB" \
+      org.opencontainers.image.source="https://github.com/neurondb/neurondb" \
       org.opencontainers.image.documentation="https://neurondb.ai/docs" \
       maintainer="neurondb <admin@neurondb.com>" \
       neurondb.postgresql.version="${PG_MAJOR}" \
@@ -172,8 +172,12 @@ RUN mkdir -p /app/examples
 # Volume declaration removed - let base postgres image handle it
 # docker-compose.yml mounts the volume at the correct path for each PG version
 
-HEALTHCHECK --interval=30s --timeout=5s --retries=5 CMD pg_isready -U "${POSTGRES_USER:-postgres}"
+# Same startup path as docker-compose (extension ensured by wrapper).
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint-neurondb.sh"]
+# Force preload at process start (initdb scripts may not apply before first client connections)
+CMD ["postgres", "-c", "shared_preload_libraries=neurondb"]
 
-# Use standard postgres entrypoint - init scripts handle extension creation
-# The test script will also ensure extension exists if needed
+# Use exec-form + sh (not CMD-SHELL) for older daemons that reject CMD-SHELL in HEALTHCHECK
+HEALTHCHECK --interval=10s --timeout=5s --start-period=40s --retries=10 \
+  CMD ["sh", "-c", "pg_isready -U $${POSTGRES_USER:-postgres} -d $${POSTGRES_DB:-postgres} || exit 1"]
 

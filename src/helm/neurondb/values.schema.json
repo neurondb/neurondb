@@ -25,7 +25,8 @@
         "image": {
           "type": "object",
           "properties": {
-            "repository": {"type": "string"},
+            "registry": {"type": "string", "description": "Registry hostname: ghcr.io or docker.io", "default": "ghcr.io"},
+            "repository": {"type": "string", "description": "Namespace/image: neurondb/neurondb-cuda"},
             "tag": {"type": "string"},
             "pullPolicy": {"type": "string", "enum": ["Always", "IfNotPresent", "Never"], "default": "IfNotPresent"}
           },

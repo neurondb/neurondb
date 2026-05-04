@@ -40,8 +40,11 @@ Extension version is defined in `neurondb.control`. SQL upgrades use migration f
 
 ### Docker image
 
-Published to GitHub Container Registry:
-- `ghcr.io/neurondb/neurondb-postgres:<version>-pg{16|17|18}-{cpu|cuda|rocm|metal}`
+Published to **Docker Hub** and **GHCR** (see [`.github/workflows/docker-publish.yml`](../../.github/workflows/docker-publish.yml)):
+
+- `neurondb/neurondb-cuda` and `ghcr.io/neurondb/neurondb-cuda` — CUDA, PostgreSQL **16 / 17 / 18**, `linux/amd64`
+
+Optional / manual workflow (see `neurondb-docker.yml`) may add extra tag styles; the **default** tag set is documented in [Container images](../deployment/container-images.md).
 
 ### SBOM
 

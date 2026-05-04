@@ -2,7 +2,7 @@
 # These are production-ready defaults with security and performance optimizations
 
 global:
-  imageRegistry: "ghcr.io/neurondb"
+  imageRegistry: ""
   imagePullSecrets: []
   storageClass: "fast-ssd"
 
@@ -10,8 +10,9 @@ neurondb:
   replicaCount: 3
   
   image:
-    repository: neurondb-postgres
-    tag: "latest"
+    registry: ghcr.io
+    repository: neurondb/neurondb-cuda
+    tag: "latest"  # Pin by digest or explicit tag in real production
     pullPolicy: IfNotPresent
   
   postgresql:

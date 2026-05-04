@@ -67,7 +67,7 @@ Each release includes:
 
 ### Container Images (GHCR)
 
-- `ghcr.io/neurondb/neurondb-postgres:vX.Y.Z-pg{16|17|18}-{cpu|cuda|rocm|metal}`
+- `ghcr.io/neurondb/neurondb-cuda` (and `neurondb/neurondb-cuda` on Docker Hub) — tags `latest`, `pg17`, `pg18`, `pg17-vX.Y.Z`, `pg18-vX.Y.Z`, `vX.Y.Z` (PG 17 line for bare semver); see [docs/deployment/container-images.md](docs/deployment/container-images.md)
 - `ghcr.io/neurondb/neuronagent:vX.Y.Z`
 - `ghcr.io/neurondb/neurondb-mcp:vX.Y.Z`
 - `ghcr.io/neurondb/neurondesktop-api:vX.Y.Z`

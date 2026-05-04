@@ -259,12 +259,12 @@ This document provides explicit compatibility information for NeuronDB component
 
 | Component | Base Image | PostgreSQL Versions | Architectures |
 |-----------|------------|---------------------|---------------|
-| NeuronDB CPU | `postgres:{16,17,18}-bookworm` | 16, 17, 18 | amd64, arm64 |
-| NeuronDB CUDA | `nvidia/cuda:12.4.1-base-ubuntu22.04` + `postgres:{16,17,18}` | 16, 17, 18 | amd64 |
-| NeuronDB ROCm | `rocm/dev-ubuntu-22.04:5.7` + `postgres:{16,17,18}` | 16, 17, 18 | amd64 |
-| NeuronDB Metal | `postgres:{16,17,18}-bookworm` | 16, 17, 18 | arm64 (Apple Silicon) |
+| NeuronDB **CUDA** (published default) | `Dockerfile.gpu.cuda`: `nvidia/cuda:*-devel` builder + `postgres:{16,17,18}-bookworm` runtime | **16, 17, 18** | **amd64** (registry) |
+| NeuronDB CPU (local / optional) | `postgres:{16,17,18}-bookworm` | **16, 17, 18** | amd64, arm64 |
+| NeuronDB ROCm (Dockerfile only) | `rocm/dev-ubuntu-22.04:5.7` + PostgreSQL dev packages | **16, 17, 18** | amd64 |
+| NeuronDB Metal | `postgres:{16,17,18}-bookworm` | **16, 17, 18** | arm64 (Apple Silicon) |
 
-**Note:** Docker images are parameterized with `PG_MAJOR` build arg. Default is PostgreSQL 17.
+**Note:** **Docker Hub / GHCR** ship **`neurondb/neurondb-cuda`** for **PostgreSQL 16, 17, and 18**. NeuronDB release comes from the git tag (e.g. **3.1.0**). **`latest`** and the bare **`<version>`** tag track **PostgreSQL 17** + that release; use **`pg16`/`pg16-<ver>`** or **`pg18`/`pg18-<ver>`** for other majors.
 
 ### Container Runtime Requirements
 

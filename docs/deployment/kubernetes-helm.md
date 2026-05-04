@@ -313,8 +313,9 @@ When using CNPG (default, in-cluster PostgreSQL):
 neurondb:
   enabled: true
   image:
-    repository: ghcr.io/neurondb/neurondb-postgres
-    tag: "2.0.0-pg17-cpu"
+    registry: ghcr.io
+    repository: neurondb/neurondb-cuda
+    tag: "latest"  # or e.g. "3.1.0" / "pg18-3.1.0" — match your release; requires GPU nodes for CUDA
   postgresql:
     database: "neurondb"
     username: "neurondb"
@@ -367,7 +368,7 @@ monitoring:
 helm upgrade neurondb ./helm/neurondb \
   --namespace neurondb \
   --values my-values.yaml \
-  --set neurondb.image.tag="2.0.0-pg17-cpu"
+  --set neurondb.image.tag="3.1.0"  # or pg18-3.1.0 / latest — see container-images.md
 ```
 
 ### Rolling Back

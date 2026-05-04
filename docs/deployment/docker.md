@@ -11,7 +11,7 @@ Docker provides a consistent way to run PostgreSQL with the NeuronDB extension. 
 **Benefits:**
 - No manual PostgreSQL install or extension build on the host
 - Isolated environment
-- CPU and GPU variants (CUDA, ROCm, Metal)
+- **Pulled** images: official **CUDA** (`neurondb/neurondb-cuda`); this repo’s Compose can also **build** CPU and other GPU variants from source
 
 ## Prerequisites
 
@@ -23,7 +23,7 @@ Docker provides a consistent way to run PostgreSQL with the NeuronDB extension. 
 | ROCm | 5.7+ | For AMD GPU |
 | macOS | 13+ | For Metal (Apple Silicon) |
 
-GPU variants are optional; CPU-only runs on any system with Docker.
+**Registry default:** CUDA only (NVIDIA). The Compose file can still build a **CPU** image locally without a GPU.
 
 ## Quick start
 

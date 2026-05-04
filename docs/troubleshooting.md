@@ -14,6 +14,6 @@ Troubleshooting documentation is split by audience:
 
 <div align="center">
 
-[Back to top](#troubleshooting) · [Documentation index](readme.md)
+[Back to top](#troubleshooting) · [Documentation index](README.md)
 
 </div>

@@ -11,7 +11,7 @@ metadata:
     {{- include "neurondb.neurondb.labels" . | nindent 4 }}
 spec:
   instances: {{ .Values.neurondb.cnpg.instances | default 1 }}
-  imageName: {{ .Values.neurondb.cnpg.imageName | default (printf "%s:%s" .Values.neurondb.image.repository .Values.neurondb.image.tag) | quote }}
+  imageName: {{ .Values.neurondb.cnpg.imageName | default (include "neurondb.image.reference" .) | quote }}
   {{- with .Values.global.imagePullSecrets }}
   imagePullSecrets:
     {{- toYaml . | nindent 4 }}

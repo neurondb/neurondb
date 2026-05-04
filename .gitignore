@@ -105,6 +105,7 @@ pgsrc*.bak
 .env
 .env.local
 .env.*.local
+.env.sh
 *.env
 
 # Configuration files with secrets

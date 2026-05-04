@@ -8,6 +8,8 @@ Build and run the NeuronDB PostgreSQL extension in Docker using the Compose file
 
 The Compose file `docker/docker-compose.yml` defines NeuronDB services only (CPU and GPU variants). Use Docker Compose directly; there are no `make build` or `make run` targets for Docker.
 
+**Published registry images** (pull, do not build): **`neurondb/neurondb-cuda`** / **`ghcr.io/neurondb/neurondb-cuda`** — see [Container images](container-images.md). This page describes **building from the repo** for development.
+
 ## Quick start
 
 ### Prerequisites

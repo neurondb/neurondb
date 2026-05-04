@@ -346,3 +346,25 @@ Get PostgreSQL password secret key (CNPG uses "password" in basic-auth secret).
 {{- end }}
 {{- end }}
 
+{{/*
+Fully qualified NeuronDB PostgreSQL container image (CUDA).
+
+Naming:
+  registry    — hostname only (ghcr.io, docker.io). Not the GHCR namespace.
+  repository  — namespace/image matching Docker conventions: neurondb/neurondb-cuda
+              (Docker Hub pull: docker pull neurondb/neurondb-cuda)
+  tag         — release tag or latest / pg17-3.x.y etc.
+
+Keeps neurondb.image independent of global.imageRegistry (used for Prometheus/Grafana paths).
+*/}}
+{{- define "neurondb.image.reference" -}}
+{{- $repo := .Values.neurondb.image.repository | trim }}
+{{- $tag := trim (default "latest" .Values.neurondb.image.tag) }}
+{{- if or (hasPrefix "ghcr.io/" $repo) (hasPrefix "docker.io/" $repo) }}
+{{- printf "%s:%s" $repo $tag }}
+{{- else }}
+{{- $reg := trim (default "ghcr.io" .Values.neurondb.image.registry) }}
+{{- printf "%s/%s:%s" $reg (required "neurondb.image.repository must be set (use neurondb/neurondb-cuda)" $repo) $tag }}
+{{- end }}
+{{- end }}
+
